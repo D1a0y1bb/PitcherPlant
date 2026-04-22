@@ -1,0 +1,11 @@
+numpy
+scikit-learn
+python-docx
+tqdm
+PyMuPDF
+Pillow
+ImageHash
+opencv-python
+
+# OCR preview support in image evidence
+pytesseract
