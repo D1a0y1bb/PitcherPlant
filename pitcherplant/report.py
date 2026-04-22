@@ -1,8 +1,6 @@
 import html
-import json
 import logging
 import os
-import urllib.request
 from collections import defaultdict
 from datetime import datetime
 from typing import Dict, List
@@ -15,66 +13,6 @@ def _esc(value: object) -> str:
     if value is None:
         return ""
     return html.escape(str(value))
-
-
-def ollama_generate(prompt: str, model: str, host: str) -> str:
-    try:
-        req = urllib.request.Request(
-            url=f"{host.rstrip('/')}/api/generate",
-            data=json.dumps({"model": model, "prompt": prompt, "stream": False}).encode("utf-8"),
-            headers={"Content-Type": "application/json"},
-        )
-        with urllib.request.urlopen(req, timeout=10) as resp:
-            data = json.loads(resp.read().decode("utf-8"))
-            return data.get("response", "")
-    except Exception:
-        return ""
-
-
-def build_ai_summary(
-    text_res: List[Dict],
-    code_res: List[Dict],
-    img_res: List[Dict],
-    model: str,
-    host: str,
-) -> str:
-    lines = []
-    if text_res:
-        ttop = text_res[:5]
-        prompt = "\n".join(
-            [
-                f"文本相似: {it['file_a']} vs {it['file_b']} 分数 {it['score']} 证据 {it['evidence']}"
-                for it in ttop
-            ]
-        )
-        resp = ollama_generate(
-            "请用中文总结以上文本对的疑似抄袭点，列出可能的复述/洗稿证据。\n" + prompt,
-            model,
-            host,
-        )
-        if resp:
-            lines.append("[文本审计]\n" + resp)
-    if code_res:
-        ctop = code_res[:5]
-        prompt = "\n".join([f"代码相似: {it['file_a']} vs {it['file_b']} 分数 {it['score']}" for it in ctop])
-        resp = ollama_generate(
-            "请用中文总结以上代码对的结构性相似与可能复制粘贴的证据。\n" + prompt,
-            model,
-            host,
-        )
-        if resp:
-            lines.append("[代码审计]\n" + resp)
-    if img_res:
-        itop = img_res[:3]
-        prompt = "\n".join([f"图片雷同: {it['files'][0]} vs {it['files'][1]} 数量 {it['count']}" for it in itop])
-        resp = ollama_generate(
-            "请用中文总结以上图片复用的风险与可能的同源性。\n" + prompt,
-            model,
-            host,
-        )
-        if resp:
-            lines.append("[图片审计]\n" + resp)
-    return "\n\n".join(lines) if lines else ""
 
 
 class ReportBuilder:
@@ -236,7 +174,6 @@ class ReportBuilder:
         code_res: List[Dict],
         img_res: List[Dict],
         meta_res: List[Dict],
-        ai_summary: str | None = None,
         dedup_res: List[Dict] | None = None,
         fingerprint_db: List[Dict] | None = None,
         cross_res: List[Dict] | None = None,
@@ -433,7 +370,6 @@ class ReportBuilder:
                     <div id="btn_tab_dedup" class="tab-item" onclick="showTab('tab_dedup')">重复文件</div>
                     <div id="btn_tab_fingerprint" class="tab-item" onclick="showTab('tab_fingerprint')">文件指纹</div>
                     <div id="btn_tab_cross" class="tab-item" onclick="showTab('tab_cross')">跨批次复用</div>
-                    {"<div id=\"btn_tab_ai\" class=\"tab-item\" onclick=\"showTab('tab_ai')\">AI建议</div>" if ai_summary else ""}
                 </div>
 
                 <div id="tab_overview" class="section tab-section" style="display:block">
@@ -563,7 +499,6 @@ class ReportBuilder:
                     </table>
                 </div>
 
-                {"<div id=\"tab_ai\" class=\"section tab-section\" style=\"display:none\"><h2>AI 审核建议</h2><div class=\"snippet\">" + _esc(ai_summary) + "</div></div>" if ai_summary else ""}
             </div>
         </body>
         </html>

@@ -54,9 +54,6 @@ def run_menu() -> int:
     print("[6] 切换 OpenCV 预处理 开/关")
     print("[7] 开始审计")
     print("[8] 彩蛋展示")
-    print("[9] 切换 Ollama AI审计 开/关")
-    print("[10] 设置 Ollama 模型")
-    print("[11] 设置 Ollama 主机地址")
 
     directory = None
     text_thresh = 0.75
@@ -64,9 +61,6 @@ def run_menu() -> int:
     output_dir = None
     name_template = None
     cv_preprocess = True
-    ollama_enable = False
-    ollama_model = "llama3"
-    ollama_host = "http://localhost:11434"
     dedup_thresh = 0.85
 
     while True:
@@ -103,21 +97,11 @@ def run_menu() -> int:
                 output_dir,
                 name_template,
                 cv_preprocess,
-                ollama_enable,
-                ollama_model,
-                ollama_host,
                 dedup_thresh,
             )
             return 0
         elif choice == "8":
             easter_show()
-        elif choice == "9":
-            ollama_enable = not ollama_enable
-            print(f"Ollama AI审计: {ollama_enable}")
-        elif choice == "10":
-            ollama_model = input("请输入模型名(如 llama3): ").strip() or "llama3"
-        elif choice == "11":
-            ollama_host = input("请输入Ollama主机(默认 http://localhost:11434): ").strip() or "http://localhost:11434"
         else:
             print("无效选项")
 
@@ -150,9 +134,6 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--no-cv", action="store_true", help="禁用 OpenCV 预处理")
     parser.add_argument("--config", type=str, default=None, help="从 JSON 配置文件加载参数")
     parser.add_argument("--egg", action="store_true", help="显示 ASCII 彩蛋节目")
-    parser.add_argument("--ollama", action="store_true", help="启用 Ollama 本地AI审计")
-    parser.add_argument("--ollama-model", type=str, default="llama3", help="Ollama模型名")
-    parser.add_argument("--ollama-host", type=str, default="http://localhost:11434", help="Ollama服务地址")
     parser.add_argument("--dedup-thresh", type=float, default=0.85, help="重复文件去重相似度阈值 (0.0-1.0)")
     parser.add_argument("--db-path", type=str, default=None, help="指纹库sqlite路径，默认 ./PitcherPlant.sqlite")
     parser.add_argument("--whitelist", type=str, default=None, help="白名单文件路径，按行配置 author:xxx/filename:xxx/simhash:xxx")
@@ -195,9 +176,6 @@ def main(argv=None) -> int:
     output_dir = args.output or cfg.get("output")
     name_template = args.name or cfg.get("name")
     cv_preprocess = False if args.no_cv else cfg.get("cv_preprocess", True)
-    ollama_enable = args.ollama or bool(cfg.get("ollama", False))
-    ollama_model = args.ollama_model or cfg.get("ollama_model", "llama3")
-    ollama_host = args.ollama_host or cfg.get("ollama_host", "http://localhost:11434")
     dedup_thresh = args.dedup_thresh if args.dedup_thresh is not None else cfg.get("dedup_thresh", 0.85)
     simhash_thresh = args.simhash_thresh if args.simhash_thresh is not None else cfg.get("simhash_thresh", 4)
     whitelist_mode = args.whitelist_mode or cfg.get("whitelist_mode", "mark")
@@ -210,9 +188,6 @@ def main(argv=None) -> int:
         output_dir,
         name_template,
         cv_preprocess,
-        ollama_enable,
-        ollama_model,
-        ollama_host,
         dedup_thresh,
         args.db_path or cfg.get("db_path"),
         args.whitelist or cfg.get("whitelist"),

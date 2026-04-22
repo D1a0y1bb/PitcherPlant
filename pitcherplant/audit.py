@@ -27,7 +27,7 @@ except ImportError as exc:
 
 
 from .parser import DocumentParser
-from .report import ReportBuilder, build_ai_summary
+from .report import ReportBuilder
 
 
 logger = logging.getLogger(__name__)
@@ -533,7 +533,6 @@ class AuditEngine:
         code_res,
         img_res,
         meta_res,
-        ai_summary: str | None = None,
         dedup_res: List[Dict] | None = None,
         fingerprint_db: List[Dict] | None = None,
         cross_res: List[Dict] | None = None,
@@ -547,7 +546,7 @@ class AuditEngine:
             img_threshold=self.img_threshold,
             dedup_threshold=self.dedup_threshold,
         )
-        return builder.generate(text_res, code_res, img_res, meta_res, ai_summary, dedup_res, fingerprint_db, cross_res)
+        return builder.generate(text_res, code_res, img_res, meta_res, dedup_res, fingerprint_db, cross_res)
 
 
 def run_audit(
@@ -557,9 +556,6 @@ def run_audit(
     output_dir,
     name_template,
     cv_preprocess,
-    ollama_enable=False,
-    ollama_model="llama3",
-    ollama_host="http://localhost:11434",
     dedup_thresh=0.85,
     db_path: str | None = None,
     whitelist_path: str | None = None,
@@ -640,15 +636,11 @@ def run_audit(
     fingerprint_db = auditor.build_fingerprint_db()
     auditor.persist_fingerprints(fingerprint_db)
     cross_results = auditor.cross_scan_audit(fingerprint_db)
-    ai_summary = ""
-    if ollama_enable:
-        ai_summary = build_ai_summary(text_results, code_results, img_results, ollama_model, ollama_host)
     path = auditor.generate_report(
         text_results,
         code_results,
         img_results,
         meta_results,
-        ai_summary if ai_summary else None,
         dedup_results,
         fingerprint_db,
         cross_results,
