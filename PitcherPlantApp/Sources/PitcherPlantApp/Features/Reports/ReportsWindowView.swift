@@ -2,6 +2,12 @@ import SwiftUI
 
 struct ReportsWindowView: View {
     @Environment(AppState.self) private var appState
+    @State private var reportQuery = ""
+    @State private var reportFilter: ReportLibraryFilter = .all
+
+    private var filteredReports: [AuditReport] {
+        appState.reports.filter { $0.matchesLibrarySearch(reportQuery, filter: reportFilter) }
+    }
 
     var body: some View {
         @Bindable var state = appState
@@ -11,26 +17,44 @@ struct ReportsWindowView: View {
                 get: { appState.selectedReportID },
                 set: { appState.selectReport($0) }
             )) {
-                ForEach(appState.reports) { report in
-                    VStack(alignment: .leading, spacing: 4) {
-                        HStack {
-                            Text(report.title)
-                                .fontWeight(.medium)
-                            if report.isLegacy {
-                                Text("Legacy")
-                                    .font(.caption2.weight(.semibold))
-                                    .padding(.horizontal, 6)
-                                    .padding(.vertical, 2)
-                                    .background(Color.orange.opacity(0.15))
-                                    .clipShape(Capsule())
+                if filteredReports.isEmpty {
+                    ContentUnavailableView("无匹配报告", systemImage: "doc.text.magnifyingglass", description: Text("调整筛选条件后会显示符合条件的报告。"))
+                        .listRowSeparator(.hidden)
+                } else {
+                    ForEach(filteredReports) { report in
+                        VStack(alignment: .leading, spacing: 4) {
+                            HStack {
+                                Text(report.title)
+                                    .fontWeight(.medium)
+                                if report.isLegacy {
+                                    Text("Legacy")
+                                        .font(.caption2.weight(.semibold))
+                                        .padding(.horizontal, 6)
+                                        .padding(.vertical, 2)
+                                        .background(Color.orange.opacity(0.15))
+                                        .clipShape(Capsule())
+                                }
                             }
+                            Text(report.createdAt.formatted(date: .abbreviated, time: .shortened))
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
                         }
-                        Text(report.createdAt.formatted(date: .abbreviated, time: .shortened))
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
+                        .tag(report.id)
                     }
-                    .tag(report.id)
                 }
+            }
+            .searchable(text: $reportQuery, placement: .sidebar, prompt: "搜索报告")
+            .safeAreaInset(edge: .top) {
+                Picker("报告筛选", selection: $reportFilter) {
+                    ForEach(ReportLibraryFilter.allCases) { filter in
+                        Text(filter.title).tag(filter)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .padding(.horizontal, 12)
+                .padding(.top, 8)
+                .padding(.bottom, 4)
+                .background(.bar)
             }
             .navigationSplitViewColumnWidth(min: 220, ideal: 260, max: 320)
         } content: {
@@ -58,6 +82,18 @@ struct ReportsWindowView: View {
             ReportDetailView()
         }
         .navigationSplitViewStyle(.balanced)
+        .onAppear {
+            syncVisibleReportSelection()
+        }
+        .onChange(of: reportQuery) { _, _ in
+            syncVisibleReportSelection()
+        }
+        .onChange(of: reportFilter) { _, _ in
+            syncVisibleReportSelection()
+        }
+        .onChange(of: appState.reports.map(\.id)) { _, _ in
+            syncVisibleReportSelection()
+        }
         .toolbar {
             ToolbarItemGroup(placement: .primaryAction) {
                 Button {
@@ -92,10 +128,25 @@ struct ReportsWindowView: View {
             }
         }
     }
+
+    private func syncVisibleReportSelection() {
+        let visibleIDs = Set(filteredReports.map(\.id))
+        guard visibleIDs.isEmpty == false else {
+            appState.selectReport(nil)
+            return
+        }
+        if let selectedID = appState.selectedReportID, visibleIDs.contains(selectedID) {
+            return
+        }
+        appState.selectReport(filteredReports.first?.id)
+    }
 }
 
 private struct ReportDetailView: View {
     @Environment(AppState.self) private var appState
+    @State private var evidenceQuery = ""
+    @State private var evidenceFilter: ReportEvidenceFilter = .all
+    @State private var evidenceSortOrder: ReportEvidenceSortOrder = .default
 
     var body: some View {
         if let report = appState.selectedReport {
@@ -122,7 +173,12 @@ private struct ReportDetailView: View {
                     }
 
                     if let section = appState.selectedReportSectionModel {
-                        ReportSectionView(section: section)
+                        ReportSectionView(
+                            section: section,
+                            evidenceQuery: $evidenceQuery,
+                            evidenceFilter: $evidenceFilter,
+                            evidenceSortOrder: $evidenceSortOrder
+                        )
                     }
                 }
                 .padding(24)
@@ -136,6 +192,24 @@ private struct ReportDetailView: View {
 private struct ReportSectionView: View {
     @Environment(AppState.self) private var appState
     let section: ReportSection
+    @Binding var evidenceQuery: String
+    @Binding var evidenceFilter: ReportEvidenceFilter
+    @Binding var evidenceSortOrder: ReportEvidenceSortOrder
+
+    private var filteredSection: ReportSection {
+        section.filteredCopy(query: evidenceQuery, evidenceFilter: evidenceFilter, sortOrder: evidenceSortOrder)
+    }
+
+    private var filteredRows: [ReportTableRow] {
+        filteredSection.table?.rows ?? []
+    }
+
+    private var resolvedSelectedRow: ReportTableRow? {
+        if let selectedID = appState.selectedReportRowID {
+            return filteredRows.first(where: { $0.id == selectedID }) ?? filteredRows.first
+        }
+        return filteredRows.first
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -143,6 +217,16 @@ private struct ReportSectionView: View {
                 .font(.title3.weight(.semibold))
             Text(section.summary)
                 .foregroundStyle(.secondary)
+
+            if section.table != nil {
+                ReportSectionToolbar(
+                    evidenceQuery: $evidenceQuery,
+                    evidenceFilter: $evidenceFilter,
+                    evidenceSortOrder: $evidenceSortOrder,
+                    visibleRowCount: filteredRows.count,
+                    totalRowCount: section.table?.rows.count ?? 0
+                )
+            }
 
             if !section.callouts.isEmpty {
                 ForEach(section.callouts, id: \.self) { item in
@@ -154,9 +238,14 @@ private struct ReportSectionView: View {
                 }
             }
 
-            if section.kind == .overview, let table = section.table {
+            if filteredRows.isEmpty, section.table != nil {
+                ContentUnavailableView("无匹配证据", systemImage: "line.3.horizontal.decrease.circle", description: Text("当前章节没有符合搜索和筛选条件的记录。"))
+                    .frame(maxWidth: .infinity, minHeight: 180)
+                    .background(Color(nsColor: .controlBackgroundColor))
+                    .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+            } else if section.kind == .overview, let table = filteredSection.table {
                 OverviewAssociationView(table: table)
-            } else if let table = section.table {
+            } else if let table = filteredSection.table {
                 VStack(alignment: .leading, spacing: 16) {
                     ScrollView(.horizontal) {
                         Grid(alignment: .leading, horizontalSpacing: 14, verticalSpacing: 8) {
@@ -191,7 +280,7 @@ private struct ReportSectionView: View {
                         }
                     }
 
-                    if let selectedRow = appState.selectedReportRow {
+                    if let selectedRow = resolvedSelectedRow {
                         VStack(alignment: .leading, spacing: 12) {
                             HStack {
                                 Text(selectedRow.detailTitle)
@@ -222,6 +311,75 @@ private struct ReportSectionView: View {
                 .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
             }
         }
+        .onAppear {
+            syncVisibleSelection()
+        }
+        .onChange(of: filteredRows.map(\.id)) { _, _ in
+            syncVisibleSelection()
+        }
+        .onChange(of: appState.selectedReportSection) { _, _ in
+            syncVisibleSelection()
+        }
+    }
+
+    private func syncVisibleSelection() {
+        guard filteredRows.isEmpty == false else {
+            appState.selectedReportRowID = nil
+            return
+        }
+        if let selectedID = appState.selectedReportRowID,
+           filteredRows.contains(where: { $0.id == selectedID }) {
+            return
+        }
+        appState.selectedReportRowID = filteredRows.first?.id
+    }
+}
+
+private struct ReportSectionToolbar: View {
+    @Binding var evidenceQuery: String
+    @Binding var evidenceFilter: ReportEvidenceFilter
+    @Binding var evidenceSortOrder: ReportEvidenceSortOrder
+    let visibleRowCount: Int
+    let totalRowCount: Int
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 12) {
+                TextField("搜索当前章节证据", text: $evidenceQuery)
+                    .textFieldStyle(.roundedBorder)
+
+                Menu {
+                    Picker("排序", selection: $evidenceSortOrder) {
+                        ForEach(ReportEvidenceSortOrder.allCases) { option in
+                            Text(option.title).tag(option)
+                        }
+                    }
+                } label: {
+                    Label(evidenceSortOrder.title, systemImage: "arrow.up.arrow.down.circle")
+                }
+                .menuStyle(.borderlessButton)
+                .fixedSize()
+            }
+
+            HStack(spacing: 12) {
+                Picker("证据筛选", selection: $evidenceFilter) {
+                    ForEach(ReportEvidenceFilter.allCases) { option in
+                        Text(option.title).tag(option)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .frame(maxWidth: 280)
+
+                Spacer()
+
+                Text("\(visibleRowCount) / \(totalRowCount) 条")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .padding(14)
+        .background(Color(nsColor: .controlBackgroundColor))
+        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
     }
 }
 
