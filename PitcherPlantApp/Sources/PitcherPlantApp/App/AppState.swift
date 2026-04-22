@@ -113,6 +113,11 @@ final class AppState {
         syncReportSelection()
     }
 
+    func selectLatestReport() {
+        selectedReportID = latestReport?.id
+        syncReportSelection()
+    }
+
     func selectReportSection(_ kind: ReportSectionKind?) {
         selectedReportSection = kind
         selectedReportRowID = selectedReportSectionModel?.table?.rows.first?.id
@@ -127,6 +132,13 @@ final class AppState {
             return
         }
         NSWorkspace.shared.activateFileViewerSelecting([report.sourceURL])
+    }
+
+    func openLatestReportSource() {
+        guard let report = latestReport else {
+            return
+        }
+        NSWorkspace.shared.open(report.sourceURL)
     }
 
     func openSelectedReportSource() {

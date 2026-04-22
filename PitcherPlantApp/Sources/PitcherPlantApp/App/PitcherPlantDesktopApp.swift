@@ -15,19 +15,15 @@ struct PitcherPlantDesktopApp: App {
         }
         .defaultSize(width: 1220, height: 780)
         .commands {
-            CommandGroup(after: .newItem) {
-                Button("打开报告中心") {
+            PitcherPlantCommands(
+                appState: appState,
+                openMainWindow: {
+                    openWindow(id: AppWindow.main.rawValue)
+                },
+                openReportsWindow: {
                     openWindow(id: AppWindow.reports.rawValue)
                 }
-                .keyboardShortcut("r", modifiers: [.command, .shift])
-
-                Button("重新加载数据") {
-                    Task {
-                        await appState.reload()
-                    }
-                }
-                .keyboardShortcut("l", modifiers: [.command, .shift])
-            }
+            )
         }
 
         Window("报告中心", id: AppWindow.reports.rawValue) {

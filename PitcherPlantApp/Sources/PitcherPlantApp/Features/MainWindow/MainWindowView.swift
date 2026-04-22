@@ -80,6 +80,7 @@ private struct MainSidebarView: View {
 
 private struct WorkspaceDashboardView: View {
     @Environment(AppState.self) private var appState
+    @Environment(\.openWindow) private var openWindow
 
     var body: some View {
         ScrollView {
@@ -117,6 +118,21 @@ private struct WorkspaceDashboardView: View {
                             Text(report.scanDirectoryPath)
                                 .foregroundStyle(.secondary)
                                 .textSelection(.enabled)
+                            HStack(spacing: 10) {
+                                Button {
+                                    appState.selectLatestReport()
+                                    openWindow(id: AppWindow.reports.rawValue)
+                                } label: {
+                                    Label("打开最近报告", systemImage: "doc.text.magnifyingglass")
+                                }
+                                .keyboardShortcut("r", modifiers: [.command, .option])
+
+                                Button {
+                                    appState.openLatestReportInFinder()
+                                } label: {
+                                    Label("在 Finder 显示", systemImage: "folder")
+                                }
+                            }
                             HStack {
                                 ForEach(report.metrics, id: \.title) { metric in
                                     MetricCard(metric: metric)
