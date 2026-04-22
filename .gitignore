@@ -14,7 +14,10 @@ venv/
 .trae/
 
 reports/
+!PitcherPlantApp/Sources/PitcherPlantApp/Features/Reports/
+!PitcherPlantApp/Sources/PitcherPlantApp/Features/Reports/**
 PitcherPlant.sqlite
 report.html
 *_PitcherPlant_*.html
 .pitcherplant-web-state.json
+.pitcherplant-macos/
