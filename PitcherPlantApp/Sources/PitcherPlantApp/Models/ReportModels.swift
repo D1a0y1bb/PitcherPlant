@@ -19,6 +19,13 @@ struct ReportBadge: Codable, Hashable, Sendable {
     }
 }
 
+struct ReportAttachment: Codable, Hashable, Sendable {
+    let title: String
+    let subtitle: String
+    let body: String
+    let imageBase64: String?
+}
+
 enum ReportSectionKind: String, Codable, CaseIterable, Identifiable, Sendable {
     case overview
     case text
@@ -64,19 +71,22 @@ struct ReportTableRow: Codable, Identifiable, Hashable, Sendable {
     var detailTitle: String
     var detailBody: String
     var badges: [ReportBadge]
+    var attachments: [ReportAttachment]
 
     init(
         id: UUID = UUID(),
         columns: [String],
         detailTitle: String,
         detailBody: String,
-        badges: [ReportBadge] = []
+        badges: [ReportBadge] = [],
+        attachments: [ReportAttachment] = []
     ) {
         self.id = id
         self.columns = columns
         self.detailTitle = detailTitle
         self.detailBody = detailBody
         self.badges = badges
+        self.attachments = attachments
     }
 }
 

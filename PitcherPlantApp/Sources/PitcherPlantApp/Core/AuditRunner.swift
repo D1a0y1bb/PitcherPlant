@@ -91,6 +91,7 @@ struct ParsedImage: Hashable, Sendable {
     let averageHash: String
     let differenceHash: String
     let ocrPreview: String
+    let thumbnailBase64: String
 }
 
 struct SuspiciousPair: Hashable, Sendable {
@@ -98,6 +99,21 @@ struct SuspiciousPair: Hashable, Sendable {
     let fileB: String
     let score: Double
     let evidence: String
+    let attachments: [ReportAttachment]
+
+    init(
+        fileA: String,
+        fileB: String,
+        score: Double,
+        evidence: String,
+        attachments: [ReportAttachment] = []
+    ) {
+        self.fileA = fileA
+        self.fileB = fileB
+        self.score = score
+        self.evidence = evidence
+        self.attachments = attachments
+    }
 }
 
 struct MetadataCollision: Hashable, Sendable {
@@ -168,7 +184,8 @@ struct ReportAssembler {
                             columns: [$0.fileA, $0.fileB, String(format: "%.2f%%", $0.score * 100), $0.evidence],
                             detailTitle: "\($0.fileA) ↔ \($0.fileB)",
                             detailBody: "文本相似度：\(String(format: "%.2f%%", $0.score * 100))\n\n证据：\($0.evidence)",
-                            badges: [severityBadge(for: $0.score)]
+                            badges: [severityBadge(for: $0.score)],
+                            attachments: $0.attachments
                         )
                     }
                 )
@@ -184,7 +201,8 @@ struct ReportAssembler {
                             columns: [$0.fileA, $0.fileB, String(format: "%.2f%%", $0.score * 100), $0.evidence],
                             detailTitle: "\($0.fileA) ↔ \($0.fileB)",
                             detailBody: "代码结构相似度：\(String(format: "%.2f%%", $0.score * 100))\n\n关键证据：\($0.evidence)",
-                            badges: [severityBadge(for: $0.score), ReportBadge(title: "代码", tone: .accent)]
+                            badges: [severityBadge(for: $0.score), ReportBadge(title: "代码", tone: .accent)],
+                            attachments: $0.attachments
                         )
                     }
                 )
@@ -200,7 +218,8 @@ struct ReportAssembler {
                             columns: [$0.fileA, $0.fileB, String(format: "%.2f%%", $0.score * 100), $0.evidence],
                             detailTitle: "\($0.fileA) ↔ \($0.fileB)",
                             detailBody: "图片相似度：\(String(format: "%.2f%%", $0.score * 100))\n\n证据：\($0.evidence)",
-                            badges: [severityBadge(for: $0.score), ReportBadge(title: "图片", tone: .warning)]
+                            badges: [severityBadge(for: $0.score), ReportBadge(title: "图片", tone: .warning)],
+                            attachments: $0.attachments
                         )
                     }
                 )
@@ -232,7 +251,8 @@ struct ReportAssembler {
                             columns: [$0.fileA, $0.fileB, String(format: "%.2f%%", $0.score * 100), $0.evidence],
                             detailTitle: "\($0.fileA) ↔ \($0.fileB)",
                             detailBody: "重复检测相似度：\(String(format: "%.2f%%", $0.score * 100))\n\n证据：\($0.evidence)",
-                            badges: [severityBadge(for: $0.score), ReportBadge(title: "重复", tone: .warning)]
+                            badges: [severityBadge(for: $0.score), ReportBadge(title: "重复", tone: .warning)],
+                            attachments: $0.attachments
                         )
                     }
                 )
@@ -432,7 +452,8 @@ struct DocumentIngestionService {
                 source: entry.path,
                 averageHash: ImageHashing.averageHash(for: data),
                 differenceHash: ImageHashing.differenceHash(for: data),
-                ocrPreview: configuration.useVisionOCR ? ImageOCRService.previewText(from: data) : ""
+                ocrPreview: configuration.useVisionOCR ? ImageOCRService.previewText(from: data) : "",
+                thumbnailBase64: ImageHashing.thumbnailBase64(for: data)
             ))
         }
 
@@ -469,7 +490,8 @@ struct DocumentIngestionService {
                     source: "pdf-page-\(index + 1)",
                     averageHash: ImageHashing.averageHash(for: data),
                     differenceHash: ImageHashing.differenceHash(for: data),
-                    ocrPreview: configuration.useVisionOCR ? ImageOCRService.previewText(from: data) : ""
+                    ocrPreview: configuration.useVisionOCR ? ImageOCRService.previewText(from: data) : "",
+                    thumbnailBase64: ImageHashing.thumbnailBase64(for: data)
                 )
             )
         }
@@ -543,18 +565,41 @@ struct ImageReuseAnalyzer {
 
                 var bestDistance = Int.max
                 var evidence = ""
+                var attachments: [ReportAttachment] = []
                 for lhs in leftImages {
                     for rhs in rightImages {
                         let distance = HashDistance.hamming(lhs.averageHash, rhs.averageHash) + HashDistance.hamming(lhs.differenceHash, rhs.differenceHash)
                         if distance < bestDistance {
                             bestDistance = distance
                             evidence = [lhs.source, rhs.source, lhs.ocrPreview, rhs.ocrPreview].filter { !$0.isEmpty }.joined(separator: " | ")
+                            attachments = [
+                                ReportAttachment(
+                                    title: documents[left].filename,
+                                    subtitle: lhs.source,
+                                    body: lhs.ocrPreview.isEmpty ? "未提取到 OCR 预览" : lhs.ocrPreview,
+                                    imageBase64: lhs.thumbnailBase64.isEmpty ? nil : lhs.thumbnailBase64
+                                ),
+                                ReportAttachment(
+                                    title: documents[right].filename,
+                                    subtitle: rhs.source,
+                                    body: rhs.ocrPreview.isEmpty ? "未提取到 OCR 预览" : rhs.ocrPreview,
+                                    imageBase64: rhs.thumbnailBase64.isEmpty ? nil : rhs.thumbnailBase64
+                                ),
+                            ]
                         }
                     }
                 }
                 if bestDistance <= threshold * 2 {
                     let normalized = 1.0 - (Double(bestDistance) / Double(max(threshold * 2, 1)))
-                    pairs.append(SuspiciousPair(fileA: documents[left].filename, fileB: documents[right].filename, score: max(0.0, normalized), evidence: evidence))
+                    pairs.append(
+                        SuspiciousPair(
+                            fileA: documents[left].filename,
+                            fileB: documents[right].filename,
+                            score: max(0.0, normalized),
+                            evidence: evidence,
+                            attachments: attachments
+                        )
+                    )
                 }
             }
         }
@@ -688,6 +733,14 @@ private enum ImageHashing {
         return binaryStringToHex(bits)
     }
 
+    static func thumbnailBase64(for data: Data) -> String {
+        guard let image = NSImage(data: data),
+              let resized = resizedJPEGData(from: image, maxSide: 280) else {
+            return ""
+        }
+        return resized.base64EncodedString()
+    }
+
     private static func grayscalePixels(cgImage: CGImage, width: Int, height: Int) -> [CGFloat] {
         let colorSpace = CGColorSpaceCreateDeviceGray()
         var raw = Array(repeating: UInt8(0), count: width * height)
@@ -710,6 +763,20 @@ private enum ImageHashing {
     private static func binaryStringToHex(_ bits: String) -> String {
         let value = UInt64(bits, radix: 2) ?? 0
         return String(format: "%016llx", value)
+    }
+
+    private static func resizedJPEGData(from image: NSImage, maxSide: CGFloat) -> Data? {
+        let sourceSize = image.size
+        guard sourceSize.width > 0, sourceSize.height > 0 else {
+            return nil
+        }
+        let ratio = min(maxSide / sourceSize.width, maxSide / sourceSize.height, 1)
+        let targetSize = CGSize(width: sourceSize.width * ratio, height: sourceSize.height * ratio)
+        let result = NSImage(size: targetSize)
+        result.lockFocus()
+        image.draw(in: CGRect(origin: .zero, size: targetSize))
+        result.unlockFocus()
+        return result.jpegData(compressionQuality: 0.78)
     }
 }
 

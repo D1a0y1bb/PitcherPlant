@@ -206,6 +206,10 @@ private struct ReportSectionView: View {
                             Text(selectedRow.detailBody)
                                 .foregroundStyle(.secondary)
                                 .textSelection(.enabled)
+
+                            if !selectedRow.attachments.isEmpty {
+                                ImageEvidenceDetailView(attachments: selectedRow.attachments)
+                            }
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(16)
@@ -218,6 +222,53 @@ private struct ReportSectionView: View {
                 .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
             }
         }
+    }
+}
+
+private struct ImageEvidenceDetailView: View {
+    let attachments: [ReportAttachment]
+
+    private let columns = [
+        GridItem(.flexible(minimum: 220), spacing: 14),
+        GridItem(.flexible(minimum: 220), spacing: 14),
+    ]
+
+    var body: some View {
+        LazyVGrid(columns: columns, alignment: .leading, spacing: 14) {
+            ForEach(Array(attachments.enumerated()), id: \.offset) { _, attachment in
+                VStack(alignment: .leading, spacing: 10) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(attachment.title)
+                            .font(.subheadline.weight(.semibold))
+                        Text(attachment.subtitle)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+
+                    if let image = attachment.imageBase64.flatMap(decodedImage) {
+                        Image(nsImage: image)
+                            .resizable()
+                            .aspectRatio(contentMode: .fit)
+                            .frame(maxWidth: .infinity, minHeight: 160, maxHeight: 240)
+                            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                    }
+
+                    Text(attachment.body)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .textSelection(.enabled)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(14)
+                .background(Color(nsColor: .controlBackgroundColor))
+                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+            }
+        }
+    }
+
+    private func decodedImage(_ value: String) -> NSImage? {
+        guard let data = Data(base64Encoded: value) else { return nil }
+        return NSImage(data: data)
     }
 }
 
