@@ -126,6 +126,15 @@ struct ReportAssembler {
         fingerprints: [FingerprintRecord],
         crossBatch: [CrossBatchMatch]
     ) -> AuditReport {
+        let overviewRows = buildOverviewRows(
+            textPairs: textPairs,
+            codePairs: codePairs,
+            imagePairs: imagePairs,
+            metadataCollisions: metadataCollisions,
+            dedupPairs: dedupPairs,
+            crossBatch: crossBatch
+        )
+
         let metrics = [
             ReportMetric(title: "文本/代码高危相似", value: "\(textPairs.count + codePairs.count)", systemImage: "exclamationmark.triangle.fill"),
             ReportMetric(title: "图片雷同组合", value: "\(imagePairs.count)", systemImage: "photo.fill.on.rectangle.fill"),
@@ -142,7 +151,11 @@ struct ReportAssembler {
                     "代码结构相似：\(codePairs.count) 对",
                     "图片雷同组合：\(imagePairs.count) 组",
                     "跨批次复用：\(crossBatch.count) 条"
-                ]
+                ],
+                table: ReportTable(
+                    headers: ["对象 A", "对象 B", "关联次数", "关联类型"],
+                    rows: overviewRows
+                )
             ),
             ReportSection(
                 kind: .text,
@@ -275,6 +288,78 @@ struct ReportAssembler {
             return ReportBadge(title: "关注", tone: .warning)
         }
         return ReportBadge(title: "一般", tone: .neutral)
+    }
+
+    private func buildOverviewRows(
+        textPairs: [SuspiciousPair],
+        codePairs: [SuspiciousPair],
+        imagePairs: [SuspiciousPair],
+        metadataCollisions: [MetadataCollision],
+        dedupPairs: [SuspiciousPair],
+        crossBatch: [CrossBatchMatch]
+    ) -> [ReportTableRow] {
+        struct Association {
+            var count = 0
+            var reasons: [String: Int] = [:]
+        }
+
+        func pairKey(_ left: String, _ right: String) -> String {
+            [left, right].sorted().joined(separator: "|||")
+        }
+
+        var map: [String: Association] = [:]
+
+        func add(_ left: String, _ right: String, reason: String) {
+            let key = pairKey(left, right)
+            var assoc = map[key, default: Association()]
+            assoc.count += 1
+            assoc.reasons[reason, default: 0] += 1
+            map[key] = assoc
+        }
+
+        for item in textPairs where item.score >= 0.85 {
+            add(item.fileA, item.fileB, reason: "文本")
+        }
+        for item in codePairs where item.score >= 0.75 {
+            add(item.fileA, item.fileB, reason: "代码")
+        }
+        for item in imagePairs where item.score >= 0.60 {
+            add(item.fileA, item.fileB, reason: "图片")
+        }
+        for item in dedupPairs where item.score >= 0.90 {
+            add(item.fileA, item.fileB, reason: "重复")
+        }
+        for item in crossBatch where item.distance <= 2 {
+            add(item.currentFile, item.previousFile, reason: "跨批次")
+        }
+        for item in metadataCollisions {
+            guard item.files.count > 1 else { continue }
+            for left in item.files.indices {
+                for right in item.files.indices where right > left {
+                    add(item.files[left], item.files[right], reason: "元数据")
+                }
+            }
+        }
+
+        return map
+            .map { key, value in
+                let pair = key.components(separatedBy: "|||")
+                let reasons = value.reasons.keys.sorted().joined(separator: " / ")
+                return ReportTableRow(
+                    columns: [pair.first ?? "", pair.dropFirst().first ?? "", "\(value.count)", reasons],
+                    detailTitle: "\(pair.first ?? "") ↔ \(pair.dropFirst().first ?? "")",
+                    detailBody: "关联次数：\(value.count)\n关联类型：\(reasons)",
+                    badges: [
+                        ReportBadge(title: value.count >= 3 ? "强关联" : "关联", tone: value.count >= 3 ? .danger : .warning),
+                        ReportBadge(title: reasons, tone: .accent),
+                    ]
+                )
+            }
+            .sorted {
+                let lhs = Int($0.columns[2]) ?? 0
+                let rhs = Int($1.columns[2]) ?? 0
+                return lhs > rhs
+            }
     }
 }
 

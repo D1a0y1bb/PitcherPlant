@@ -154,7 +154,9 @@ private struct ReportSectionView: View {
                 }
             }
 
-            if let table = section.table {
+            if section.kind == .overview, let table = section.table {
+                OverviewAssociationView(table: table)
+            } else if let table = section.table {
                 VStack(alignment: .leading, spacing: 16) {
                     ScrollView(.horizontal) {
                         Grid(alignment: .leading, horizontalSpacing: 14, verticalSpacing: 8) {
@@ -216,6 +218,96 @@ private struct ReportSectionView: View {
                 .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
             }
         }
+    }
+}
+
+private struct OverviewAssociationView: View {
+    @Environment(AppState.self) private var appState
+    let table: ReportTable
+
+    private var maxWeight: Double {
+        Double(table.rows.compactMap { Int($0.columns[safe: 2] ?? "") }.max() ?? 1)
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("严重作弊关联")
+                .font(.headline)
+
+            VStack(alignment: .leading, spacing: 12) {
+                ForEach(table.rows.prefix(12)) { row in
+                    Button {
+                        appState.selectedReportRowID = row.id
+                    } label: {
+                        VStack(alignment: .leading, spacing: 8) {
+                            HStack {
+                                Text(row.detailTitle)
+                                    .foregroundStyle(.primary)
+                                    .fontWeight(.medium)
+                                Spacer()
+                                HStack(spacing: 8) {
+                                    ForEach(row.badges, id: \.title) { badge in
+                                        ReportBadgeView(badge: badge)
+                                    }
+                                }
+                            }
+
+                            GeometryReader { proxy in
+                                let ratio = CGFloat((Double(row.columns[safe: 2].flatMap(Int.init) ?? 0)) / maxWeight)
+                                ZStack(alignment: .leading) {
+                                    RoundedRectangle(cornerRadius: 6, style: .continuous)
+                                        .fill(Color(nsColor: .separatorColor).opacity(0.12))
+                                        .frame(height: 10)
+                                    RoundedRectangle(cornerRadius: 6, style: .continuous)
+                                        .fill(PitcherPlantTheme.accent)
+                                        .frame(width: max(28, proxy.size.width * ratio), height: 10)
+                                }
+                            }
+                            .frame(height: 10)
+
+                            Text(row.columns[safe: 3] ?? "")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                        }
+                        .padding(14)
+                        .background(
+                            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                .fill(appState.selectedReportRowID == row.id ? PitcherPlantTheme.accentSoft : Color(nsColor: .controlBackgroundColor))
+                        )
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+
+            if let selectedRow = appState.selectedReportRow {
+                VStack(alignment: .leading, spacing: 12) {
+                    HStack {
+                        Text(selectedRow.detailTitle)
+                            .font(.headline)
+                        Spacer()
+                        HStack(spacing: 8) {
+                            ForEach(selectedRow.badges, id: \.title) { badge in
+                                ReportBadgeView(badge: badge)
+                            }
+                        }
+                    }
+                    Text(selectedRow.detailBody)
+                        .foregroundStyle(.secondary)
+                        .textSelection(.enabled)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(16)
+                .background(Color(nsColor: .controlBackgroundColor))
+                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+            }
+        }
+    }
+}
+
+private extension Collection {
+    subscript(safe index: Index) -> Element? {
+        indices.contains(index) ? self[index] : nil
     }
 }
 
