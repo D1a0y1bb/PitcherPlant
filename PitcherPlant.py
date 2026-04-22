@@ -1,4 +1,4 @@
-from pitcherplant.cli import main
+from pitcherplant.web import main
 
 
 if __name__ == "__main__":

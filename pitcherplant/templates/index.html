@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>PitcherPlant 控制台</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='app.css') }}">
+</head>
+<body>
+    <div class="shell">
+        <header class="topbar">
+            <div>
+                <p class="eyebrow">PitcherPlant</p>
+                <h1>本地审计控制台</h1>
+            </div>
+            <div class="topbar-meta">
+                <span class="meta-label">浏览器入口</span>
+                <span id="health-pill" class="status-pill idle">待机</span>
+            </div>
+        </header>
+
+        <main class="workspace">
+            <section class="pane pane-config">
+                <div class="section-head">
+                    <h2>审计配置</h2>
+                    <p>选择本地目录，调整阈值，然后启动扫描。</p>
+                </div>
+
+                <form id="audit-form" class="form-grid">
+                    <div class="form-section">
+                        <h3>路径</h3>
+
+                        <label class="field">
+                            <span>审计目录</span>
+                            <div class="input-row">
+                                <input id="directory" name="directory" type="text" placeholder="/path/to/date">
+                                <button type="button" class="tool-button" data-pick-target="directory">选择</button>
+                            </div>
+                        </label>
+
+                        <div class="preset-block">
+                            <div class="preset-title">常用扫描目录</div>
+                            <div id="scan-presets" class="chip-row"></div>
+                        </div>
+
+                        <label class="field">
+                            <span>报告目录</span>
+                            <div class="input-row">
+                                <input id="output_dir" name="output_dir" type="text" placeholder="/path/to/reports/full">
+                                <button type="button" class="tool-button" data-pick-target="output_dir">选择</button>
+                            </div>
+                        </label>
+
+                        <div class="preset-block">
+                            <div class="preset-title">常用报告目录</div>
+                            <div id="report-presets" class="chip-row"></div>
+                        </div>
+
+                        <label class="field">
+                            <span>报告文件名模板</span>
+                            <input id="name_template" name="name_template" type="text" placeholder="{dir}_PitcherPlant_{date}.html">
+                        </label>
+                    </div>
+
+                    <div class="form-section">
+                        <h3>阈值</h3>
+
+                        <div class="number-grid">
+                            <label class="field">
+                                <span>文本阈值</span>
+                                <input id="text_thresh" name="text_thresh" type="number" min="0" max="1" step="0.01">
+                            </label>
+
+                            <label class="field">
+                                <span>图片阈值</span>
+                                <input id="img_thresh" name="img_thresh" type="number" min="0" max="10" step="1">
+                            </label>
+
+                            <label class="field">
+                                <span>重复文件阈值</span>
+                                <input id="dedup_thresh" name="dedup_thresh" type="number" min="0" max="1" step="0.01">
+                            </label>
+
+                            <label class="field">
+                                <span>SimHash 容忍位差</span>
+                                <input id="simhash_thresh" name="simhash_thresh" type="number" min="0" max="64" step="1">
+                            </label>
+                        </div>
+
+                        <label class="switch-field">
+                            <input id="use_cv" name="use_cv" type="checkbox">
+                            <span>启用 OpenCV 预处理</span>
+                        </label>
+                    </div>
+
+                    <div class="form-section">
+                        <h3>持久化</h3>
+
+                        <label class="field">
+                            <span>指纹库路径</span>
+                            <input id="db_path" name="db_path" type="text" placeholder="/path/to/PitcherPlant.sqlite">
+                        </label>
+
+                        <label class="field">
+                            <span>白名单文件</span>
+                            <input id="whitelist_path" name="whitelist_path" type="text" placeholder="/path/to/whitelist.txt">
+                        </label>
+
+                        <label class="field">
+                            <span>白名单命中处理</span>
+                            <select id="whitelist_mode" name="whitelist_mode">
+                                <option value="mark">标记</option>
+                                <option value="hide">隐藏</option>
+                            </select>
+                        </label>
+                    </div>
+
+                    <div class="action-row">
+                        <button id="submit-button" type="submit" class="primary-button">启动审计</button>
+                        <span id="form-hint" class="form-hint">当前工作目录读取为项目根目录。</span>
+                    </div>
+                </form>
+            </section>
+
+            <section class="pane pane-run">
+                <div class="section-head">
+                    <h2>执行状态</h2>
+                    <p>任务启动后会在这里显示阶段进度和报告入口。</p>
+                </div>
+
+                <div class="run-status">
+                    <div class="run-summary">
+                        <div>
+                            <div class="summary-label">当前状态</div>
+                            <div id="job-status-text" class="summary-value">待机</div>
+                        </div>
+                        <div>
+                            <div class="summary-label">最新阶段</div>
+                            <div id="job-message" class="summary-value summary-value-small">等待任务</div>
+                        </div>
+                    </div>
+                    <div class="progress-track" aria-hidden="true">
+                        <div id="progress-bar" class="progress-bar"></div>
+                    </div>
+                    <div class="progress-meta">
+                        <span id="progress-text">0%</span>
+                        <span id="job-time"></span>
+                    </div>
+                </div>
+
+                <div class="result-panel">
+                    <div class="result-head">
+                        <h3>报告</h3>
+                        <a id="report-link" class="report-link disabled" href="#" target="_blank" rel="noopener noreferrer">打开报告</a>
+                    </div>
+                    <p id="report-path" class="report-path">任务完成后会显示报告路径。</p>
+                </div>
+
+                <div class="timeline-panel">
+                    <h3>执行时间线</h3>
+                    <ol id="timeline" class="timeline"></ol>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <script src="{{ url_for('static', filename='app.js') }}"></script>
+</body>
+</html>

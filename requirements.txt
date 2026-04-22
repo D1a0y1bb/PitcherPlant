@@ -6,6 +6,7 @@ PyMuPDF
 Pillow
 ImageHash
 opencv-python
+Flask
 
 # OCR preview support in image evidence
 pytesseract

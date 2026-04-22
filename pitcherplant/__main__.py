@@ -1,4 +1,4 @@
-from .cli import main
+from .web import main
 
 
 raise SystemExit(main())
