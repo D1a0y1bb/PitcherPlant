@@ -461,6 +461,8 @@ class AuditEngine:
 
         suspicious_pairs_count = defaultdict(int)
         pair_examples = defaultdict(list)
+        pair_gallery = defaultdict(list)
+        pair_gallery_seen = defaultdict(set)
         n = len(all_images)
 
         for i in tqdm(range(n), desc="Image Compare"):
@@ -477,6 +479,22 @@ class AuditEngine:
                 diff = int(d1) + int(d2) + int(d3)
                 if diff <= self.img_threshold * 3:
                     suspicious_pairs_count[pair_key] += 1
+
+                    for img in (img1, img2):
+                        thumb_b64 = img.get("thumb_b64")
+                        if not thumb_b64 or thumb_b64 in pair_gallery_seen[pair_key]:
+                            continue
+                        pair_gallery_seen[pair_key].add(thumb_b64)
+                        origin = img.get("origin") or {}
+                        label = " ".join(
+                            [
+                                str(part)
+                                for part in (origin.get("type"), origin.get("page"), origin.get("name"))
+                                if part
+                            ]
+                        )
+                        pair_gallery[pair_key].append({"thumb": thumb_b64, "label": label})
+
                     if len(pair_examples[pair_key]) < 5:
                         pair_examples[pair_key].append(
                             {
@@ -494,7 +512,14 @@ class AuditEngine:
         for (file_a, file_b), count in suspicious_pairs_count.items():
             if count >= 1:
                 pair_key = tuple(sorted((file_a, file_b)))
-                results.append({"files": [file_a, file_b], "count": count, "examples": pair_examples[pair_key]})
+                results.append(
+                    {
+                        "files": [file_a, file_b],
+                        "count": count,
+                        "examples": pair_examples[pair_key],
+                        "gallery": pair_gallery[pair_key],
+                    }
+                )
         return sorted(results, key=lambda x: x["count"], reverse=True)
 
     def analyze_metadata(self) -> List[Dict]:

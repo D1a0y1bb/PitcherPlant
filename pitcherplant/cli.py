@@ -1,7 +1,6 @@
 import argparse
 import json
 import os
-import time
 
 
 def banner() -> None:
@@ -15,25 +14,6 @@ def banner() -> None:
    PitcherPlant • Writeup 自动化审计
 """
     )
-
-
-def easter_show() -> None:
-    frames = [
-        "✦        ",
-        " ✦       ",
-        "  ✦      ",
-        "   ✦     ",
-        "    ✦    ",
-        "     ✦   ",
-        "      ✦  ",
-        "       ✦ ",
-        "        ✦",
-    ]
-    for _ in range(2):
-        for frame in frames:
-            print(f"\r{frame} PitcherPlant · Smart Audit ✦", end="", flush=True)
-            time.sleep(0.05)
-    print()
 
 
 def _load_run_audit():
@@ -53,7 +33,6 @@ def run_menu() -> int:
     print("[5] 设置报告文件名模板")
     print("[6] 切换 OpenCV 预处理 开/关")
     print("[7] 开始审计")
-    print("[8] 彩蛋展示")
 
     directory = None
     text_thresh = 0.75
@@ -100,8 +79,6 @@ def run_menu() -> int:
                 dedup_thresh,
             )
             return 0
-        elif choice == "8":
-            easter_show()
         else:
             print("无效选项")
 
@@ -133,7 +110,6 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--name", type=str, default=None, help="报告文件名模板，支持 {dir} 与 {date}")
     parser.add_argument("--no-cv", action="store_true", help="禁用 OpenCV 预处理")
     parser.add_argument("--config", type=str, default=None, help="从 JSON 配置文件加载参数")
-    parser.add_argument("--egg", action="store_true", help="显示 ASCII 彩蛋节目")
     parser.add_argument("--dedup-thresh", type=float, default=0.85, help="重复文件去重相似度阈值 (0.0-1.0)")
     parser.add_argument("--db-path", type=str, default=None, help="指纹库sqlite路径，默认 ./PitcherPlant.sqlite")
     parser.add_argument("--whitelist", type=str, default=None, help="白名单文件路径，按行配置 author:xxx/filename:xxx/simhash:xxx")
@@ -155,11 +131,6 @@ def _load_config(path: str | None) -> dict:
 def main(argv=None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
-
-    if args.egg:
-        banner()
-        easter_show()
-        return 0
 
     cfg = _load_config(args.config)
 
