@@ -15,6 +15,7 @@
             </div>
             <div class="topbar-meta">
                 <span class="meta-label">浏览器入口</span>
+                <a id="latest-report-shortcut" class="topbar-link disabled" href="#" target="_blank" rel="noopener noreferrer">最近报告</a>
                 <span id="health-pill" class="status-pill idle">待机</span>
             </div>
         </header>
@@ -150,10 +151,26 @@
 
                 <div class="result-panel">
                     <div class="result-head">
-                        <h3>报告</h3>
+                        <h3>当前任务报告</h3>
                         <a id="report-link" class="report-link disabled" href="#" target="_blank" rel="noopener noreferrer">打开报告</a>
                     </div>
                     <p id="report-path" class="report-path">任务完成后会显示报告路径。</p>
+                </div>
+
+                <div class="result-panel">
+                    <div class="result-head">
+                        <h3>最近报告</h3>
+                        <a id="recent-report-link" class="report-link disabled" href="#" target="_blank" rel="noopener noreferrer">一键打开</a>
+                    </div>
+                    <p id="recent-report-path" class="report-path">历史成功任务会在这里显示最近一份报告。</p>
+                </div>
+
+                <div class="timeline-panel">
+                    <div class="result-head">
+                        <h3>历史任务</h3>
+                        <span id="history-meta" class="form-hint">保留最近 20 条任务</span>
+                    </div>
+                    <ol id="history-list" class="history-list"></ol>
                 </div>
 
                 <div class="timeline-panel">

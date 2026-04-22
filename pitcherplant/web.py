@@ -1,4 +1,5 @@
 import argparse
+import json
 import os
 import socket
 import threading
@@ -30,6 +31,7 @@ except Exception:
 
 _JOBS: Dict[str, Dict[str, Any]] = {}
 _JOBS_LOCK = threading.Lock()
+_LAST_CONFIG: Dict[str, Any] = {}
 
 
 def _now() -> str:
@@ -38,6 +40,10 @@ def _now() -> str:
 
 def _cwd() -> str:
     return os.path.abspath(os.getcwd())
+
+
+def _state_path() -> str:
+    return os.path.join(_cwd(), ".pitcherplant-web-state.json")
 
 
 def _normalize_path(value: str | None) -> str | None:
@@ -64,7 +70,7 @@ def _build_defaults() -> Dict[str, Any]:
     cwd = _cwd()
     default_scan_dir = os.path.join(cwd, "date")
     default_output_dir = os.path.join(cwd, "reports", "full")
-    return {
+    defaults = {
         "cwd": cwd,
         "directory": default_scan_dir if os.path.isdir(default_scan_dir) else cwd,
         "output_dir": default_output_dir,
@@ -80,6 +86,84 @@ def _build_defaults() -> Dict[str, Any]:
         "scan_presets": _list_subdirs(default_scan_dir),
         "report_presets": _list_subdirs(os.path.join(cwd, "reports")),
     }
+    defaults.update({key: value for key, value in _LAST_CONFIG.items() if value is not None})
+    return defaults
+
+
+def _job_sort_key(job: Dict[str, Any]) -> tuple[str, str]:
+    return job.get("created_at", ""), job.get("id", "")
+
+
+def _list_jobs_unlocked(limit: int = 20) -> list[Dict[str, Any]]:
+    jobs = sorted(_JOBS.values(), key=_job_sort_key, reverse=True)
+    return jobs[:limit]
+
+
+def _latest_success_job_unlocked() -> Dict[str, Any] | None:
+    for job in _list_jobs_unlocked(limit=100):
+        report_path = job.get("report_path")
+        if job.get("status") == "succeeded" and report_path and os.path.isfile(report_path):
+            return job
+    return None
+
+
+def _save_state_unlocked() -> None:
+    payload = {
+        "jobs": _list_jobs_unlocked(limit=50),
+        "last_config": _LAST_CONFIG,
+    }
+    path = _state_path()
+    tmp_path = f"{path}.tmp"
+    try:
+        with open(tmp_path, "w", encoding="utf-8") as handle:
+            json.dump(payload, handle, ensure_ascii=False, indent=2)
+        os.replace(tmp_path, path)
+    except Exception:
+        try:
+            if os.path.exists(tmp_path):
+                os.remove(tmp_path)
+        except Exception:
+            pass
+
+
+def _load_state() -> None:
+    global _LAST_CONFIG
+
+    path = _state_path()
+    if not os.path.isfile(path):
+        return
+
+    try:
+        with open(path, "r", encoding="utf-8") as handle:
+            payload = json.load(handle)
+    except Exception:
+        return
+
+    jobs = payload.get("jobs") or []
+    last_config = payload.get("last_config") or {}
+
+    with _JOBS_LOCK:
+        _JOBS.clear()
+        for raw_job in jobs:
+            if not isinstance(raw_job, dict) or not raw_job.get("id"):
+                continue
+            job = dict(raw_job)
+            if job.get("status") in {"queued", "running"}:
+                job["status"] = "failed"
+                job["error"] = "上次 Web 会话在执行中断开。"
+                job["progress"] = job.get("progress") or 0
+                job["updated_at"] = _now()
+                events = job.setdefault("events", [])
+                events.append(
+                    {
+                        "message": "上次 Web 会话在执行中断开。",
+                        "progress": job["progress"],
+                        "timestamp": job["updated_at"],
+                    }
+                )
+                del events[:-20]
+            _JOBS[job["id"]] = job
+        _LAST_CONFIG = dict(last_config)
 
 
 def _push_event(job: Dict[str, Any], message: str, progress: int | None = None) -> None:
@@ -101,6 +185,8 @@ def _push_event(job: Dict[str, Any], message: str, progress: int | None = None) 
 
 
 def _serialize_job(job: Dict[str, Any]) -> Dict[str, Any]:
+    report_path = job.get("report_path")
+    report_exists = bool(report_path and os.path.isfile(report_path))
     payload = {
         "id": job["id"],
         "status": job["status"],
@@ -108,14 +194,15 @@ def _serialize_job(job: Dict[str, Any]) -> Dict[str, Any]:
         "message": job["message"],
         "directory": job["directory"],
         "output_dir": job["output_dir"],
-        "report_path": job.get("report_path"),
+        "report_path": report_path,
+        "report_exists": report_exists,
         "error": job.get("error"),
         "created_at": job["created_at"],
         "updated_at": job["updated_at"],
         "events": job.get("events", []),
         "config": job.get("config", {}),
     }
-    if job.get("report_path"):
+    if report_exists:
         payload["report_url"] = url_for("serve_report", job_id=job["id"])
     else:
         payload["report_url"] = None
@@ -139,6 +226,8 @@ def _pick_directory(initial_dir: str | None = None) -> str:
 
 
 def _build_job(payload: Dict[str, Any]) -> Dict[str, Any]:
+    global _LAST_CONFIG
+
     defaults = _build_defaults()
 
     directory = _normalize_path(payload.get("directory")) or defaults["directory"]
@@ -184,6 +273,20 @@ def _build_job(payload: Dict[str, Any]) -> Dict[str, Any]:
     if job["config"]["whitelist_mode"] not in {"hide", "mark"}:
         raise ValueError("白名单模式只支持 hide 或 mark。")
 
+    _LAST_CONFIG = {
+        "directory": directory,
+        "output_dir": output_dir,
+        "name_template": name_template,
+        "text_thresh": job["config"]["text_thresh"],
+        "img_thresh": job["config"]["img_thresh"],
+        "dedup_thresh": job["config"]["dedup_thresh"],
+        "db_path": job["config"]["db_path"],
+        "whitelist_path": job["config"]["whitelist_path"] or "",
+        "simhash_thresh": job["config"]["simhash_thresh"],
+        "whitelist_mode": job["config"]["whitelist_mode"],
+        "use_cv": job["config"]["use_cv"],
+    }
+
     _push_event(job, "任务已创建", 0)
     return job
 
@@ -203,6 +306,7 @@ def _run_job(job_id: str) -> None:
             if not current:
                 return
             _push_event(current, message, progress)
+            _save_state_unlocked()
 
     try:
         report_path = run_audit(
@@ -226,6 +330,7 @@ def _run_job(job_id: str) -> None:
                 current["status"] = "failed"
                 current["error"] = str(exc)
                 _push_event(current, f"任务失败: {exc}", current["progress"])
+                _save_state_unlocked()
         return
 
     with _JOBS_LOCK:
@@ -234,6 +339,7 @@ def _run_job(job_id: str) -> None:
             current["status"] = "succeeded"
             current["report_path"] = report_path
             _push_event(current, "报告生成完成", 100)
+            _save_state_unlocked()
 
 
 def _choose_port(host: str, preferred_port: int) -> int:
@@ -248,6 +354,7 @@ def _choose_port(host: str, preferred_port: int) -> int:
 
 
 def create_app() -> Flask:
+    _load_state()
     app = Flask(__name__, template_folder="templates", static_folder="static")
 
     @app.get("/")
@@ -260,7 +367,19 @@ def create_app() -> Flask:
 
     @app.get("/api/defaults")
     def defaults():
-        return jsonify(_build_defaults())
+        with _JOBS_LOCK:
+            latest_job = _latest_success_job_unlocked()
+            payload = _build_defaults()
+            payload["latest_report"] = _serialize_job(latest_job) if latest_job else None
+            return jsonify(payload)
+
+    @app.get("/api/recent-report")
+    def recent_report():
+        with _JOBS_LOCK:
+            latest_job = _latest_success_job_unlocked()
+            if not latest_job:
+                return jsonify({"error": "暂无可用报告"}), 404
+            return jsonify(_serialize_job(latest_job))
 
     @app.post("/api/pick-directory")
     def pick_directory():
@@ -282,6 +401,7 @@ def create_app() -> Flask:
 
         with _JOBS_LOCK:
             _JOBS[job["id"]] = job
+            _save_state_unlocked()
 
         worker = threading.Thread(target=_run_job, args=(job["id"],), daemon=True)
         worker.start()
@@ -293,8 +413,8 @@ def create_app() -> Flask:
     @app.get("/api/jobs")
     def list_jobs():
         with _JOBS_LOCK:
-            jobs = list(reversed(sorted(_JOBS.values(), key=lambda item: item["created_at"])))
-            return jsonify([_serialize_job(job) for job in jobs[:10]])
+            jobs = _list_jobs_unlocked(limit=20)
+            return jsonify([_serialize_job(job) for job in jobs])
 
     @app.get("/api/jobs/<job_id>")
     def get_job(job_id: str):
@@ -338,4 +458,3 @@ def main(argv: list[str] | None = None) -> int:
 
     app.run(host=args.host, port=port, debug=False, threaded=True, use_reloader=False)
     return 0
-

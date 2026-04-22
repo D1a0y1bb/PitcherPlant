@@ -17,3 +17,4 @@ reports/
 PitcherPlant.sqlite
 report.html
 *_PitcherPlant_*.html
+.pitcherplant-web-state.json
