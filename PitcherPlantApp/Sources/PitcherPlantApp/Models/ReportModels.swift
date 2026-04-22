@@ -6,6 +6,19 @@ struct ReportMetric: Codable, Hashable, Sendable {
     let systemImage: String
 }
 
+struct ReportBadge: Codable, Hashable, Sendable {
+    let title: String
+    let tone: Tone
+
+    enum Tone: String, Codable, Hashable, Sendable {
+        case neutral
+        case accent
+        case warning
+        case danger
+        case success
+    }
+}
+
 enum ReportSectionKind: String, Codable, CaseIterable, Identifiable, Sendable {
     case overview
     case text
@@ -45,9 +58,31 @@ enum ReportSectionKind: String, Codable, CaseIterable, Identifiable, Sendable {
     }
 }
 
+struct ReportTableRow: Codable, Identifiable, Hashable, Sendable {
+    let id: UUID
+    var columns: [String]
+    var detailTitle: String
+    var detailBody: String
+    var badges: [ReportBadge]
+
+    init(
+        id: UUID = UUID(),
+        columns: [String],
+        detailTitle: String,
+        detailBody: String,
+        badges: [ReportBadge] = []
+    ) {
+        self.id = id
+        self.columns = columns
+        self.detailTitle = detailTitle
+        self.detailBody = detailBody
+        self.badges = badges
+    }
+}
+
 struct ReportTable: Codable, Hashable, Sendable {
     var headers: [String]
-    var rows: [[String]]
+    var rows: [ReportTableRow]
 }
 
 struct ReportSection: Codable, Identifiable, Hashable, Sendable {

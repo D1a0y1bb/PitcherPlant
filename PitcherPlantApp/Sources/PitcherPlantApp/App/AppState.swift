@@ -17,6 +17,7 @@ final class AppState {
     var selectedJobID: UUID?
     var selectedReportID: UUID?
     var selectedReportSection: ReportSectionKind?
+    var selectedReportRowID: UUID?
 
     var jobs: [AuditJob] = []
     var reports: [AuditReport] = []
@@ -72,6 +73,7 @@ final class AppState {
             if let report = selectedReport, selectedReportSection == nil {
                 selectedReportSection = report.sections.first?.kind
             }
+            syncReportSelection()
         } catch {
             print("PitcherPlant reload error: \(error)")
         }
@@ -85,9 +87,35 @@ final class AppState {
         reports.first(where: { $0.id == selectedReportID })
     }
 
+    var selectedReportSectionModel: ReportSection? {
+        guard let report = selectedReport else { return nil }
+        if let selectedReportSection {
+            return report.sections.first(where: { $0.kind == selectedReportSection }) ?? report.sections.first
+        }
+        return report.sections.first
+    }
+
+    var selectedReportRow: ReportTableRow? {
+        guard let rows = selectedReportSectionModel?.table?.rows else { return nil }
+        if let selectedReportRowID {
+            return rows.first(where: { $0.id == selectedReportRowID }) ?? rows.first
+        }
+        return rows.first
+    }
+
     func updateDraft(_ transform: (inout AuditConfiguration) -> Void) {
         transform(&draftConfiguration)
         AppPreferences.saveDraftConfiguration(draftConfiguration, for: workspaceRoot)
+    }
+
+    func selectReport(_ reportID: UUID?) {
+        selectedReportID = reportID
+        syncReportSelection()
+    }
+
+    func selectReportSection(_ kind: ReportSectionKind?) {
+        selectedReportSection = kind
+        selectedReportRowID = selectedReportSectionModel?.table?.rows.first?.id
     }
 
     func openReportsWindow() {
@@ -214,5 +242,23 @@ final class AppState {
             await reload()
         }
         isRunningAudit = false
+    }
+
+    private func syncReportSelection() {
+        guard let report = selectedReport ?? reports.first else {
+            selectedReportSection = nil
+            selectedReportRowID = nil
+            return
+        }
+        if selectedReportSection == nil || report.sections.contains(where: { $0.kind == selectedReportSection }) == false {
+            selectedReportSection = report.sections.first?.kind
+        }
+        if let section = selectedReportSectionModel, let rows = section.table?.rows, !rows.isEmpty {
+            if selectedReportRowID == nil || rows.contains(where: { $0.id == selectedReportRowID }) == false {
+                selectedReportRowID = rows.first?.id
+            }
+        } else {
+            selectedReportRowID = nil
+        }
     }
 }

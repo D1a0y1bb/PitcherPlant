@@ -48,7 +48,7 @@ enum ReportExporter {
         if let table = section.table {
             let header = table.headers.map { "<th>\(escaped($0))</th>" }.joined()
             let rows = table.rows.map { row in
-                "<tr>\(row.map { "<td>\(escaped($0))</td>" }.joined())</tr>"
+                "<tr>\(row.columns.map { "<td>\(escaped($0))</td>" }.joined())</tr>"
             }.joined()
             tableHTML = "<table><thead><tr>\(header)</tr></thead><tbody>\(rows)</tbody></table>"
         } else {
@@ -86,7 +86,7 @@ enum ReportTextFormatter {
             if let table = section.table {
                 lines.append(table.headers.joined(separator: " | "))
                 for row in table.rows {
-                    lines.append(row.joined(separator: " | "))
+                    lines.append(row.columns.joined(separator: " | "))
                 }
             }
             lines.append("")

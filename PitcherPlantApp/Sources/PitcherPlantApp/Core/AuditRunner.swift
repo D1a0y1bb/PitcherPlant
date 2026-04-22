@@ -3,6 +3,7 @@ import CoreGraphics
 import Foundation
 import NaturalLanguage
 import PDFKit
+import Quartz
 import Vision
 import ZIPFoundation
 
@@ -149,7 +150,14 @@ struct ReportAssembler {
                 summary: "基于原生 TF-IDF + cosine 的文本相似度分析。",
                 table: ReportTable(
                     headers: ["文件 A", "文件 B", "相似度", "证据"],
-                    rows: textPairs.map { [$0.fileA, $0.fileB, String(format: "%.2f%%", $0.score * 100), $0.evidence] }
+                    rows: textPairs.map {
+                        ReportTableRow(
+                            columns: [$0.fileA, $0.fileB, String(format: "%.2f%%", $0.score * 100), $0.evidence],
+                            detailTitle: "\($0.fileA) ↔ \($0.fileB)",
+                            detailBody: "文本相似度：\(String(format: "%.2f%%", $0.score * 100))\n\n证据：\($0.evidence)",
+                            badges: [severityBadge(for: $0.score)]
+                        )
+                    }
                 )
             ),
             ReportSection(
@@ -158,16 +166,30 @@ struct ReportAssembler {
                 summary: "提取 fenced code 与启发式代码片段，按 token shingles 和结构 token 做比对。",
                 table: ReportTable(
                     headers: ["文件 A", "文件 B", "相似度", "证据"],
-                    rows: codePairs.map { [$0.fileA, $0.fileB, String(format: "%.2f%%", $0.score * 100), $0.evidence] }
+                    rows: codePairs.map {
+                        ReportTableRow(
+                            columns: [$0.fileA, $0.fileB, String(format: "%.2f%%", $0.score * 100), $0.evidence],
+                            detailTitle: "\($0.fileA) ↔ \($0.fileB)",
+                            detailBody: "代码结构相似度：\(String(format: "%.2f%%", $0.score * 100))\n\n关键证据：\($0.evidence)",
+                            badges: [severityBadge(for: $0.score), ReportBadge(title: "代码", tone: .accent)]
+                        )
+                    }
                 )
             ),
             ReportSection(
                 kind: .image,
                 title: "图片证据详列",
-                summary: "当前版本先支持 DOCX 嵌入媒体图片的原生 hash 与 OCR 预览。",
+                summary: "当前版本支持 DOCX 嵌入媒体与 PDF 页面级图片证据的原生 hash 与 OCR 预览。",
                 table: ReportTable(
                     headers: ["文件 A", "文件 B", "相似度", "证据"],
-                    rows: imagePairs.map { [$0.fileA, $0.fileB, String(format: "%.2f%%", $0.score * 100), $0.evidence] }
+                    rows: imagePairs.map {
+                        ReportTableRow(
+                            columns: [$0.fileA, $0.fileB, String(format: "%.2f%%", $0.score * 100), $0.evidence],
+                            detailTitle: "\($0.fileA) ↔ \($0.fileB)",
+                            detailBody: "图片相似度：\(String(format: "%.2f%%", $0.score * 100))\n\n证据：\($0.evidence)",
+                            badges: [severityBadge(for: $0.score), ReportBadge(title: "图片", tone: .warning)]
+                        )
+                    }
                 )
             ),
             ReportSection(
@@ -176,7 +198,14 @@ struct ReportAssembler {
                 summary: "按作者等元数据字段聚合可能存在的交叉来源。",
                 table: ReportTable(
                     headers: ["作者", "涉及文件数", "文件列表"],
-                    rows: metadataCollisions.map { [$0.author, "\($0.files.count)", $0.files.joined(separator: " | ")] }
+                    rows: metadataCollisions.map {
+                        ReportTableRow(
+                            columns: [$0.author, "\($0.files.count)", $0.files.joined(separator: " | ")],
+                            detailTitle: $0.author,
+                            detailBody: "涉及文件：\n\($0.files.joined(separator: "\n"))",
+                            badges: [ReportBadge(title: "元数据", tone: .neutral)]
+                        )
+                    }
                 )
             ),
             ReportSection(
@@ -185,7 +214,14 @@ struct ReportAssembler {
                 summary: "按更严格阈值列出疑似重复或高度改写的文件对。",
                 table: ReportTable(
                     headers: ["文件 A", "文件 B", "相似度", "证据"],
-                    rows: dedupPairs.map { [$0.fileA, $0.fileB, String(format: "%.2f%%", $0.score * 100), $0.evidence] }
+                    rows: dedupPairs.map {
+                        ReportTableRow(
+                            columns: [$0.fileA, $0.fileB, String(format: "%.2f%%", $0.score * 100), $0.evidence],
+                            detailTitle: "\($0.fileA) ↔ \($0.fileB)",
+                            detailBody: "重复检测相似度：\(String(format: "%.2f%%", $0.score * 100))\n\n证据：\($0.evidence)",
+                            badges: [severityBadge(for: $0.score), ReportBadge(title: "重复", tone: .warning)]
+                        )
+                    }
                 )
             ),
             ReportSection(
@@ -194,7 +230,14 @@ struct ReportAssembler {
                 summary: "当前批次生成的原生指纹记录。",
                 table: ReportTable(
                     headers: ["文件名", "作者", "扩展名", "SimHash"],
-                    rows: fingerprints.map { [$0.filename, $0.author, $0.ext, $0.simhash] }
+                    rows: fingerprints.map {
+                        ReportTableRow(
+                            columns: [$0.filename, $0.author, $0.ext, $0.simhash],
+                            detailTitle: $0.filename,
+                            detailBody: "作者：\($0.author)\n扩展名：\($0.ext)\n字符数：\($0.size)\nSimHash：\($0.simhash)",
+                            badges: [ReportBadge(title: $0.ext.uppercased(), tone: .accent)]
+                        )
+                    }
                 )
             ),
             ReportSection(
@@ -203,7 +246,14 @@ struct ReportAssembler {
                 summary: "当前批次与历史指纹库的近似匹配结果。",
                 table: ReportTable(
                     headers: ["当前文件", "历史文件", "批次", "位差", "状态"],
-                    rows: crossBatch.map { [$0.currentFile, $0.previousFile, $0.previousScan, "\($0.distance)", $0.status] }
+                    rows: crossBatch.map {
+                        ReportTableRow(
+                            columns: [$0.currentFile, $0.previousFile, $0.previousScan, "\($0.distance)", $0.status],
+                            detailTitle: "\($0.currentFile) ↔ \($0.previousFile)",
+                            detailBody: "历史批次：\($0.previousScan)\nSimHash 位差：\($0.distance)\n状态：\($0.status)",
+                            badges: [ReportBadge(title: $0.status, tone: $0.status == "疑似复用" ? .danger : .success)]
+                        )
+                    }
                 )
             ),
         ]
@@ -215,6 +265,16 @@ struct ReportAssembler {
             metrics: metrics,
             sections: sections
         )
+    }
+
+    private func severityBadge(for score: Double) -> ReportBadge {
+        if score >= 0.90 {
+            return ReportBadge(title: "高危", tone: .danger)
+        }
+        if score >= 0.75 {
+            return ReportBadge(title: "关注", tone: .warning)
+        }
+        return ReportBadge(title: "一般", tone: .neutral)
     }
 }
 
@@ -247,7 +307,8 @@ struct DocumentIngestionService {
             guard let document = PDFDocument(url: url) else { return nil }
             let content = document.string ?? ""
             let author = (document.documentAttributes?[PDFDocumentAttribute.authorAttribute] as? String) ?? ""
-            return buildDocument(url: url, ext: ext, content: content, author: author, images: [])
+            let images = parsePDFImages(document: document)
+            return buildDocument(url: url, ext: ext, content: content, author: author, images: images)
         case "docx":
             return try parseDocx(at: url)
         default:
@@ -305,6 +366,29 @@ struct DocumentIngestionService {
             author: author,
             images: images
         )
+    }
+
+    private func parsePDFImages(document: PDFDocument) -> [ParsedImage] {
+        var images: [ParsedImage] = []
+        for index in 0..<document.pageCount {
+            guard let page = document.page(at: index) else {
+                continue
+            }
+            let bounds = page.bounds(for: .mediaBox)
+            let thumbnail = page.thumbnail(of: CGSize(width: min(bounds.width, 360), height: min(bounds.height, 360)), for: .mediaBox)
+            guard let data = thumbnail.jpegData(compressionQuality: 0.75) else {
+                continue
+            }
+            images.append(
+                ParsedImage(
+                    source: "pdf-page-\(index + 1)",
+                    averageHash: ImageHashing.averageHash(for: data),
+                    differenceHash: ImageHashing.differenceHash(for: data),
+                    ocrPreview: configuration.useVisionOCR ? ImageOCRService.previewText(from: data) : ""
+                )
+            )
+        }
+        return images
     }
 }
 
@@ -559,6 +643,16 @@ private enum ImageOCRService {
         } catch {
             return ""
         }
+    }
+}
+
+private extension NSImage {
+    func jpegData(compressionQuality: CGFloat) -> Data? {
+        guard let tiffData = tiffRepresentation,
+              let bitmap = NSBitmapImageRep(data: tiffData) else {
+            return nil
+        }
+        return bitmap.representation(using: .jpeg, properties: [.compressionFactor: compressionQuality])
     }
 }
 

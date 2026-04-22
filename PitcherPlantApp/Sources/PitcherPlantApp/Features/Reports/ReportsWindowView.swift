@@ -7,7 +7,10 @@ struct ReportsWindowView: View {
         @Bindable var state = appState
 
         NavigationSplitView {
-            List(selection: $state.selectedReportID) {
+            List(selection: Binding(
+                get: { appState.selectedReportID },
+                set: { appState.selectReport($0) }
+            )) {
                 ForEach(appState.reports) { report in
                     VStack(alignment: .leading, spacing: 4) {
                         HStack {
@@ -34,7 +37,7 @@ struct ReportsWindowView: View {
             if let report = appState.selectedReport {
                 List(selection: Binding(
                     get: { appState.selectedReportSection },
-                    set: { appState.selectedReportSection = $0 }
+                    set: { appState.selectReportSection($0) }
                 )) {
                     Section(report.title) {
                         ForEach(report.sections) { section in
@@ -45,7 +48,7 @@ struct ReportsWindowView: View {
                 }
                 .onAppear {
                     if appState.selectedReportSection == nil {
-                        appState.selectedReportSection = report.sections.first?.kind
+                        appState.selectReportSection(report.sections.first?.kind)
                     }
                 }
             } else {
@@ -118,7 +121,7 @@ private struct ReportDetailView: View {
                         }
                     }
 
-                    if let section = report.sections.first(where: { $0.kind == appState.selectedReportSection }) ?? report.sections.first {
+                    if let section = appState.selectedReportSectionModel {
                         ReportSectionView(section: section)
                     }
                 }
@@ -131,6 +134,7 @@ private struct ReportDetailView: View {
 }
 
 private struct ReportSectionView: View {
+    @Environment(AppState.self) private var appState
     let section: ReportSection
 
     var body: some View {
@@ -151,32 +155,100 @@ private struct ReportSectionView: View {
             }
 
             if let table = section.table {
-                ScrollView(.horizontal) {
-                    Grid(alignment: .leading, horizontalSpacing: 14, verticalSpacing: 8) {
-                        GridRow {
-                            ForEach(table.headers, id: \.self) { header in
-                                Text(header)
-                                    .font(.caption.weight(.semibold))
-                                    .foregroundStyle(.secondary)
-                            }
-                        }
-                        Divider()
-                        ForEach(Array(table.rows.enumerated()), id: \.offset) { _, row in
+                VStack(alignment: .leading, spacing: 16) {
+                    ScrollView(.horizontal) {
+                        Grid(alignment: .leading, horizontalSpacing: 14, verticalSpacing: 8) {
                             GridRow {
-                                ForEach(row, id: \.self) { cell in
-                                    Text(cell)
-                                        .textSelection(.enabled)
-                                        .frame(maxWidth: 320, alignment: .leading)
+                                ForEach(table.headers, id: \.self) { header in
+                                    Text(header)
+                                        .font(.caption.weight(.semibold))
+                                        .foregroundStyle(.secondary)
                                 }
                             }
                             Divider()
+                            ForEach(table.rows) { row in
+                                GridRow {
+                                    ForEach(Array(row.columns.enumerated()), id: \.offset) { _, cell in
+                                        Text(cell)
+                                            .lineLimit(2)
+                                            .textSelection(.enabled)
+                                            .frame(maxWidth: 320, alignment: .leading)
+                                    }
+                                }
+                                .padding(.vertical, 6)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                        .fill(appState.selectedReportRowID == row.id ? PitcherPlantTheme.accentSoft : Color.clear)
+                                )
+                                .contentShape(Rectangle())
+                                .onTapGesture {
+                                    appState.selectedReportRowID = row.id
+                                }
+                                Divider()
+                            }
                         }
+                    }
+
+                    if let selectedRow = appState.selectedReportRow {
+                        VStack(alignment: .leading, spacing: 12) {
+                            HStack {
+                                Text(selectedRow.detailTitle)
+                                    .font(.headline)
+                                Spacer()
+                                HStack(spacing: 8) {
+                                    ForEach(selectedRow.badges, id: \.title) { badge in
+                                        ReportBadgeView(badge: badge)
+                                    }
+                                }
+                            }
+                            Text(selectedRow.detailBody)
+                                .foregroundStyle(.secondary)
+                                .textSelection(.enabled)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(16)
+                        .background(Color(nsColor: .windowBackgroundColor))
+                        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
                     }
                 }
                 .padding(16)
                 .background(Color(nsColor: .controlBackgroundColor))
                 .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
             }
+        }
+    }
+}
+
+private struct ReportBadgeView: View {
+    let badge: ReportBadge
+
+    var body: some View {
+        Text(badge.title)
+            .font(.caption.weight(.semibold))
+            .padding(.horizontal, 10)
+            .padding(.vertical, 5)
+            .background(background)
+            .foregroundStyle(foreground)
+            .clipShape(Capsule())
+    }
+
+    private var background: Color {
+        switch badge.tone {
+        case .neutral: return Color(nsColor: .separatorColor).opacity(0.18)
+        case .accent: return PitcherPlantTheme.accentSoft
+        case .warning: return Color.orange.opacity(0.16)
+        case .danger: return Color.red.opacity(0.16)
+        case .success: return Color.green.opacity(0.16)
+        }
+    }
+
+    private var foreground: Color {
+        switch badge.tone {
+        case .neutral: return .secondary
+        case .accent: return PitcherPlantTheme.accent
+        case .warning: return .orange
+        case .danger: return .red
+        case .success: return .green
         }
     }
 }
