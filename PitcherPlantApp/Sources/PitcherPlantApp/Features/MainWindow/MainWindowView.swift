@@ -166,6 +166,7 @@ private struct WorkspaceDashboardView: View {
 
 private struct NewAuditView: View {
     @Environment(AppState.self) private var appState
+    @State private var presetName = ""
 
     var body: some View {
         Form {
@@ -231,6 +232,49 @@ private struct NewAuditView: View {
                 )) {
                     ForEach(AuditConfiguration.WhitelistMode.allCases, id: \.self) { mode in
                         Text(mode.displayTitle).tag(mode)
+                    }
+                }
+            }
+
+            Section("参数预设") {
+                HStack(spacing: 12) {
+                    TextField("预设名称", text: $presetName)
+                    Button("保存当前") {
+                        let name = presetName
+                        presetName = ""
+                        appState.saveCurrentConfigurationPreset(named: name)
+                    }
+                    .disabled(presetName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                }
+
+                if appState.configurationPresets.isEmpty {
+                    Text("保存一套常用参数后，这里会显示可直接套用和运行的预设。")
+                        .foregroundStyle(.secondary)
+                } else {
+                    ForEach(appState.configurationPresets) { preset in
+                        HStack(spacing: 12) {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(preset.name)
+                                    .fontWeight(.medium)
+                                Text("\(URL(fileURLWithPath: preset.configuration.directoryPath).lastPathComponent) · 文本 \(preset.configuration.textThreshold.formatted(.number.precision(.fractionLength(2)))) · 图片 \(preset.configuration.imageThreshold)")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                            Spacer()
+                            Button("套用") {
+                                appState.applyPreset(preset)
+                            }
+                            Button("运行") {
+                                Task { await appState.startAudit(using: preset) }
+                            }
+                            .disabled(appState.isRunningAudit)
+                            Button(role: .destructive) {
+                                appState.deletePreset(preset)
+                            } label: {
+                                Image(systemName: "trash")
+                            }
+                            .buttonStyle(.borderless)
+                        }
                     }
                 }
             }
@@ -347,6 +391,23 @@ private struct JobInspectorView: View {
                                 .font(.title3.weight(.semibold))
                             Spacer()
                             StatusBadge(status: job.status)
+                        }
+                        HStack(spacing: 10) {
+                            Button {
+                                appState.restoreDraft(from: job)
+                            } label: {
+                                Label("恢复参数", systemImage: "arrow.counterclockwise")
+                            }
+
+                            if job.reportID != nil {
+                                Button {
+                                    if let reportID = job.reportID {
+                                        appState.selectedReportID = reportID
+                                    }
+                                } label: {
+                                    Label("定位报告", systemImage: "doc.text.magnifyingglass")
+                                }
+                            }
                         }
                         VStack(alignment: .leading, spacing: 8) {
                             Text(job.latestMessage)

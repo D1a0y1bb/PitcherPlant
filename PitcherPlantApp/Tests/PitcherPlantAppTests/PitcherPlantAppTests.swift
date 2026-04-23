@@ -11,6 +11,28 @@ func configurationDefaultsBuildPaths() {
 }
 
 @Test
+func presetStorageRoundTripsByWorkspaceRoot() throws {
+    let suiteName = "pitcherplant.tests.\(UUID().uuidString)"
+    guard let defaults = UserDefaults(suiteName: suiteName) else {
+        Issue.record("无法创建测试专用 UserDefaults")
+        return
+    }
+    let root = URL(fileURLWithPath: "/tmp/pitcherplant-presets")
+    let configuration = AuditConfiguration.defaults(for: root)
+
+    let saved = AppPreferences.savePreset(named: "常用目录", configuration: configuration, for: root, defaults: defaults)
+    #expect(saved.count == 1)
+    #expect(saved.first?.name == "常用目录")
+
+    let loaded = AppPreferences.loadPresets(for: root, defaults: defaults)
+    #expect(loaded.count == 1)
+    #expect(loaded.first?.configuration == configuration)
+
+    let remaining = AppPreferences.deletePreset(id: try #require(loaded.first?.id), for: root, defaults: defaults)
+    #expect(remaining.isEmpty)
+}
+
+@Test
 func reportLibrarySearchMatchesLegacyAndSectionEvidence() {
     let section = ReportSection(
         kind: .code,

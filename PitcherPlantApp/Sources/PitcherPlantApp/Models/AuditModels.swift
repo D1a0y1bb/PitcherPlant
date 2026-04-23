@@ -131,6 +131,28 @@ struct AuditConfiguration: Codable, Hashable, Sendable {
     }
 }
 
+struct AuditConfigurationPreset: Codable, Identifiable, Hashable, Sendable {
+    let id: UUID
+    var name: String
+    var configuration: AuditConfiguration
+    let createdAt: Date
+    var updatedAt: Date
+
+    init(
+        id: UUID = UUID(),
+        name: String,
+        configuration: AuditConfiguration,
+        createdAt: Date = .now,
+        updatedAt: Date = .now
+    ) {
+        self.id = id
+        self.name = name
+        self.configuration = configuration
+        self.createdAt = createdAt
+        self.updatedAt = updatedAt
+    }
+}
+
 struct AuditJobEvent: Codable, Identifiable, Hashable, Sendable {
     let id: UUID
     let timestamp: Date

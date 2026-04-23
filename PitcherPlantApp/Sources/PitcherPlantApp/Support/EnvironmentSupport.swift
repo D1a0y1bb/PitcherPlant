@@ -58,8 +58,7 @@ struct ProjectLocator {
 enum AppPreferences {
     private static let prefix = "pitcherplant.macos"
 
-    static func loadDraftConfiguration(for root: URL) -> AuditConfiguration {
-        let defaults = UserDefaults.standard
+    static func loadDraftConfiguration(for root: URL, defaults: UserDefaults = .standard) -> AuditConfiguration {
         let key = "\(prefix).draft.\(root.path)"
         guard let data = defaults.data(forKey: key),
               let config = try? JSONDecoder().decode(AuditConfiguration.self, from: data) else {
@@ -68,10 +67,63 @@ enum AppPreferences {
         return config
     }
 
-    static func saveDraftConfiguration(_ configuration: AuditConfiguration, for root: URL) {
-        let defaults = UserDefaults.standard
+    static func saveDraftConfiguration(_ configuration: AuditConfiguration, for root: URL, defaults: UserDefaults = .standard) {
         let key = "\(prefix).draft.\(root.path)"
         let data = try? JSONEncoder().encode(configuration)
         defaults.set(data, forKey: key)
+    }
+
+    static func loadPresets(for root: URL, defaults: UserDefaults = .standard) -> [AuditConfigurationPreset] {
+        let key = "\(prefix).presets.\(root.path)"
+        guard let data = defaults.data(forKey: key),
+              let presets = try? JSONDecoder().decode([AuditConfigurationPreset].self, from: data) else {
+            return []
+        }
+        return presets.sorted(by: { $0.updatedAt > $1.updatedAt })
+    }
+
+    @discardableResult
+    static func savePreset(
+        named name: String,
+        configuration: AuditConfiguration,
+        for root: URL,
+        defaults: UserDefaults = .standard
+    ) -> [AuditConfigurationPreset] {
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else {
+            return loadPresets(for: root, defaults: defaults)
+        }
+
+        var presets = loadPresets(for: root, defaults: defaults)
+        if let index = presets.firstIndex(where: { $0.name == trimmed }) {
+            presets[index].configuration = configuration
+            presets[index].updatedAt = .now
+        } else {
+            presets.append(AuditConfigurationPreset(name: trimmed, configuration: configuration))
+        }
+        return storePresets(presets, for: root, defaults: defaults)
+    }
+
+    @discardableResult
+    static func deletePreset(
+        id: UUID,
+        for root: URL,
+        defaults: UserDefaults = .standard
+    ) -> [AuditConfigurationPreset] {
+        let presets = loadPresets(for: root, defaults: defaults).filter { $0.id != id }
+        return storePresets(presets, for: root, defaults: defaults)
+    }
+
+    @discardableResult
+    private static func storePresets(
+        _ presets: [AuditConfigurationPreset],
+        for root: URL,
+        defaults: UserDefaults
+    ) -> [AuditConfigurationPreset] {
+        let sorted = presets.sorted(by: { $0.updatedAt > $1.updatedAt })
+        let key = "\(prefix).presets.\(root.path)"
+        let data = try? JSONEncoder().encode(sorted)
+        defaults.set(data, forKey: key)
+        return sorted
     }
 }

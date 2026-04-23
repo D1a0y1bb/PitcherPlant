@@ -23,6 +23,7 @@ final class AppState {
     var reports: [AuditReport] = []
     var fingerprints: [FingerprintRecord] = []
     var whitelistRules: [WhitelistRule] = []
+    var configurationPresets: [AuditConfigurationPreset] = []
 
     var draftConfiguration: AuditConfiguration
     var latestReport: AuditReport?
@@ -62,6 +63,7 @@ final class AppState {
             reports = try await database.loadReports()
             fingerprints = try await database.loadFingerprintRecords()
             whitelistRules = try await database.loadWhitelistRules()
+            configurationPresets = AppPreferences.loadPresets(for: workspaceRoot)
             latestReport = reports.sorted(by: { $0.createdAt > $1.createdAt }).first
 
             if selectedJobID == nil {
@@ -106,6 +108,35 @@ final class AppState {
     func updateDraft(_ transform: (inout AuditConfiguration) -> Void) {
         transform(&draftConfiguration)
         AppPreferences.saveDraftConfiguration(draftConfiguration, for: workspaceRoot)
+    }
+
+    func saveCurrentConfigurationPreset(named name: String) {
+        configurationPresets = AppPreferences.savePreset(
+            named: name,
+            configuration: draftConfiguration,
+            for: workspaceRoot
+        )
+    }
+
+    func applyPreset(_ preset: AuditConfigurationPreset) {
+        draftConfiguration = preset.configuration
+        AppPreferences.saveDraftConfiguration(draftConfiguration, for: workspaceRoot)
+    }
+
+    func deletePreset(_ preset: AuditConfigurationPreset) {
+        configurationPresets = AppPreferences.deletePreset(id: preset.id, for: workspaceRoot)
+    }
+
+    func restoreDraft(from job: AuditJob) {
+        draftConfiguration = job.configuration
+        selectedMainSidebar = .newAudit
+        selectedJobID = job.id
+        AppPreferences.saveDraftConfiguration(draftConfiguration, for: workspaceRoot)
+    }
+
+    func startAudit(using preset: AuditConfigurationPreset) async {
+        applyPreset(preset)
+        await startAudit()
     }
 
     func selectReport(_ reportID: UUID?) {
