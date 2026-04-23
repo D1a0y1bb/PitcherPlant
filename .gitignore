@@ -12,6 +12,9 @@ venv/
 .agents/
 .codex/
 .trae/
+!PitcherPlantApp/.codex/
+!PitcherPlantApp/.codex/environments/
+!PitcherPlantApp/.codex/environments/environment.toml
 
 reports/
 !PitcherPlantApp/Sources/PitcherPlantApp/Features/Reports/

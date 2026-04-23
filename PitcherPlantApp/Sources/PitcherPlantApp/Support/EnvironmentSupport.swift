@@ -3,14 +3,55 @@ import Foundation
 struct ProjectLocator {
     func workspaceRoot() -> URL {
         let fileManager = FileManager.default
-        var candidate = URL(fileURLWithPath: fileManager.currentDirectoryPath)
-        for _ in 0..<8 {
-            if fileManager.fileExists(atPath: candidate.appendingPathComponent("PitcherPlant.py").path) {
+        let environment = ProcessInfo.processInfo.environment
+
+        if let explicitRoot = environment["PITCHERPLANT_WORKSPACE_ROOT"], explicitRoot.isEmpty == false {
+            let url = URL(fileURLWithPath: explicitRoot)
+            if isWorkspaceRoot(url, fileManager: fileManager) {
+                return url
+            }
+        }
+
+        let startingPoints = [
+            URL(fileURLWithPath: fileManager.currentDirectoryPath),
+            Bundle.main.bundleURL,
+            Bundle.main.bundleURL.deletingLastPathComponent(),
+            Bundle.main.executableURL?.deletingLastPathComponent(),
+        ].compactMap { $0 }
+
+        for start in startingPoints {
+            if let root = searchUpward(from: start, fileManager: fileManager) {
+                return root
+            }
+        }
+
+        return URL(fileURLWithPath: fileManager.currentDirectoryPath)
+    }
+
+    private func searchUpward(from start: URL, fileManager: FileManager) -> URL? {
+        var candidate = start.standardizedFileURL
+        for _ in 0..<16 {
+            if isWorkspaceRoot(candidate, fileManager: fileManager) {
                 return candidate
             }
-            candidate.deleteLastPathComponent()
+            let parent = candidate.deletingLastPathComponent()
+            if parent == candidate {
+                break
+            }
+            candidate = parent
         }
-        return URL(fileURLWithPath: fileManager.currentDirectoryPath)
+        return nil
+    }
+
+    private func isWorkspaceRoot(_ url: URL, fileManager: FileManager) -> Bool {
+        if fileManager.fileExists(atPath: url.appendingPathComponent("PitcherPlant.py").path) {
+            return true
+        }
+        if fileManager.fileExists(atPath: url.appendingPathComponent("PitcherPlantApp/Package.swift").path) {
+            return true
+        }
+        return fileManager.fileExists(atPath: url.appendingPathComponent("Package.swift").path)
+            && fileManager.fileExists(atPath: url.appendingPathComponent("Sources/PitcherPlantApp").path)
     }
 }
 
