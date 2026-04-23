@@ -33,6 +33,43 @@ func presetStorageRoundTripsByWorkspaceRoot() throws {
 }
 
 @Test
+func databaseStorePersistsStructuredJobEventsAndReportSections() async throws {
+    let root = FileManager.default.temporaryDirectory
+        .appendingPathComponent("pitcherplant-db-\(UUID().uuidString)", isDirectory: true)
+    try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+
+    let store = try DatabaseStore(rootDirectory: root)
+    try await store.prepare()
+
+    var job = AuditJob(configuration: AuditConfiguration.defaults(for: root))
+    job = job.advanced(stage: .initialize, message: "初始化")
+    job = job.advanced(stage: .parsed, message: "解析文档完成")
+    try await store.upsertJob(job)
+
+    let report = AuditReport(
+        jobID: job.id,
+        title: "结构化报告",
+        sourcePath: root.appendingPathComponent("report.html").path,
+        scanDirectoryPath: root.path,
+        metrics: [ReportMetric(title: "章节", value: "2", systemImage: "doc.text")],
+        sections: [
+            ReportSection(kind: .overview, title: "总览", summary: "结构化总览"),
+            ReportSection(kind: .code, title: "代码", summary: "结构化代码")
+        ]
+    )
+    try await store.saveReport(report)
+
+    let loadedJobs = try await store.loadJobs()
+    let loadedReports = try await store.loadReports()
+
+    #expect(loadedJobs.first?.events.count == job.events.count)
+    #expect(loadedJobs.first?.events.last?.message == "解析文档完成")
+    #expect(loadedReports.first?.sections.map(\.title) == ["总览", "代码"])
+    #expect(try await store.debugTableRowCount(named: "audit_job_events") == job.events.count)
+    #expect(try await store.debugTableRowCount(named: "report_sections") == 2)
+}
+
+@Test
 func reportLibrarySearchMatchesLegacyAndSectionEvidence() {
     let section = ReportSection(
         kind: .code,
