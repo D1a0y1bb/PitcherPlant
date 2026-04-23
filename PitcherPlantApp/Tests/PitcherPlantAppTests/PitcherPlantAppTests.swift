@@ -87,3 +87,26 @@ func sectionFilteringRespectsQueryFilterAndSortOrder() {
     let titled = section.filteredCopy(query: "", evidenceFilter: .all, sortOrder: .title)
     #expect(titled.table?.rows.map(\.detailTitle) == ["A 组", "B 组"])
 }
+
+@Test
+func pdfIngestionExtractsEmbeddedImagesBeforePageFallback() throws {
+    let fileManager = FileManager.default
+    var root = ProjectLocator().workspaceRoot()
+    for _ in 0..<6 {
+        if fileManager.fileExists(atPath: root.appendingPathComponent("date").path) {
+            break
+        }
+        root.deleteLastPathComponent()
+    }
+    let fixtureDirectory = root.appendingPathComponent("date/date6/145-flag{LNU_cyber}")
+
+    var configuration = AuditConfiguration.defaults(for: root)
+    configuration.directoryPath = fixtureDirectory.path
+    configuration.useVisionOCR = false
+
+    let documents = try DocumentIngestionService(configuration: configuration).ingestDocuments(in: fixtureDirectory)
+    let pdfDocument = try #require(documents.first(where: { $0.ext == "pdf" }))
+
+    #expect(pdfDocument.images.isEmpty == false)
+    #expect(pdfDocument.images.contains(where: { $0.source.contains(":X") }))
+}

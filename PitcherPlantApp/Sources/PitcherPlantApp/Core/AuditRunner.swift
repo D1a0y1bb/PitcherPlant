@@ -210,7 +210,7 @@ struct ReportAssembler {
             ReportSection(
                 kind: .image,
                 title: "图片证据详列",
-                summary: "当前版本支持 DOCX 嵌入媒体与 PDF 页面级图片证据的原生 hash 与 OCR 预览。",
+                summary: "当前版本支持 DOCX 嵌入媒体与 PDF 内嵌图片提取，页级缩略图只在无法解析图片流时兜底。",
                 table: ReportTable(
                     headers: ["文件 A", "文件 B", "相似度", "证据"],
                     rows: imagePairs.map {
@@ -412,7 +412,7 @@ struct DocumentIngestionService {
             guard let document = PDFDocument(url: url) else { return nil }
             let content = document.string ?? ""
             let author = (document.documentAttributes?[PDFDocumentAttribute.authorAttribute] as? String) ?? ""
-            let images = parsePDFImages(document: document)
+            let images = parsePDFImages(document: document, sourceURL: url)
             return buildDocument(url: url, ext: ext, content: content, author: author, images: images)
         case "docx":
             return try parseDocx(at: url)
@@ -474,7 +474,12 @@ struct DocumentIngestionService {
         )
     }
 
-    private func parsePDFImages(document: PDFDocument) -> [ParsedImage] {
+    private func parsePDFImages(document: PDFDocument, sourceURL: URL) -> [ParsedImage] {
+        let extracted = PDFEmbeddedImageExtractor(configuration: configuration).extract(from: sourceURL)
+        if extracted.isEmpty == false {
+            return extracted
+        }
+
         var images: [ParsedImage] = []
         for index in 0..<document.pageCount {
             guard let page = document.page(at: index) else {
@@ -497,6 +502,294 @@ struct DocumentIngestionService {
         }
         return images
     }
+}
+
+private final class PDFEmbeddedImageExtractor {
+    private let configuration: AuditConfiguration
+    private var images: [ParsedImage] = []
+    private var seenSignatures = Set<String>()
+
+    init(configuration: AuditConfiguration) {
+        self.configuration = configuration
+    }
+
+    func extract(from url: URL) -> [ParsedImage] {
+        guard let document = CGPDFDocument(url as CFURL) else {
+            return []
+        }
+
+        images = []
+        seenSignatures = []
+
+        for pageIndex in 1...document.numberOfPages {
+            guard let page = document.page(at: pageIndex), let dictionary = page.dictionary else {
+                continue
+            }
+            traverseResources(
+                dictionary,
+                pageIndex: pageIndex,
+                prefix: "pdf-page-\(pageIndex)",
+                depth: 0
+            )
+        }
+
+        return images
+    }
+
+    private func traverseResources(_ dictionary: CGPDFDictionaryRef, pageIndex: Int, prefix: String, depth: Int) {
+        guard depth <= 4 else {
+            return
+        }
+
+        var resources: CGPDFDictionaryRef?
+        guard CGPDFDictionaryGetDictionary(dictionary, "Resources", &resources), let resources else {
+            return
+        }
+
+        var xObjects: CGPDFDictionaryRef?
+        guard CGPDFDictionaryGetDictionary(resources, "XObject", &xObjects), let xObjects else {
+            return
+        }
+
+        let context = PDFXObjectTraversalContext(extractor: self, pageIndex: pageIndex, prefix: prefix, depth: depth)
+        let info = Unmanaged.passRetained(context).toOpaque()
+        CGPDFDictionaryApplyFunction(xObjects, pdfXObjectApplier, info)
+        Unmanaged<PDFXObjectTraversalContext>.fromOpaque(info).release()
+    }
+
+    fileprivate func handleXObject(name: String, object: CGPDFObjectRef, context: PDFXObjectTraversalContext) {
+        var stream: CGPDFStreamRef?
+        guard CGPDFObjectGetValue(object, .stream, &stream), let stream, let dictionary = CGPDFStreamGetDictionary(stream) else {
+            return
+        }
+
+        guard let subtype = pdfName(in: dictionary, key: "Subtype") else {
+            return
+        }
+
+        let source = "\(context.prefix):\(name)"
+        switch subtype {
+        case "Image":
+            guard let data = makeImageData(from: stream) else {
+                return
+            }
+            let averageHash = ImageHashing.averageHash(for: data)
+            let differenceHash = ImageHashing.differenceHash(for: data)
+            let signature = "\(averageHash):\(differenceHash)"
+            guard seenSignatures.insert(signature).inserted else {
+                return
+            }
+            images.append(
+                ParsedImage(
+                    source: source,
+                    averageHash: averageHash,
+                    differenceHash: differenceHash,
+                    ocrPreview: configuration.useVisionOCR ? ImageOCRService.previewText(from: data) : "",
+                    thumbnailBase64: ImageHashing.thumbnailBase64(for: data)
+                )
+            )
+        case "Form":
+            traverseResources(dictionary, pageIndex: context.pageIndex, prefix: source, depth: context.depth + 1)
+        default:
+            return
+        }
+    }
+
+    private func makeImageData(from stream: CGPDFStreamRef) -> Data? {
+        var format = CGPDFDataFormat.raw
+        guard let copied = CGPDFStreamCopyData(stream, &format) else {
+            return nil
+        }
+
+        let data = copied as Data
+        switch format {
+        case .jpegEncoded, .JPEG2000:
+            return data
+        case .raw:
+            return makeRasterImageData(from: data, dictionary: CGPDFStreamGetDictionary(stream))
+        @unknown default:
+            return nil
+        }
+    }
+
+    private func makeRasterImageData(from data: Data, dictionary: CGPDFDictionaryRef?) -> Data? {
+        guard let dictionary else {
+            return nil
+        }
+
+        var width: CGPDFInteger = 0
+        var height: CGPDFInteger = 0
+        var bitsPerComponent: CGPDFInteger = 0
+        guard CGPDFDictionaryGetInteger(dictionary, "Width", &width),
+              CGPDFDictionaryGetInteger(dictionary, "Height", &height),
+              CGPDFDictionaryGetInteger(dictionary, "BitsPerComponent", &bitsPerComponent) else {
+            return nil
+        }
+
+        guard let descriptor = colorDescriptor(for: dictionary),
+              width > 0,
+              height > 0,
+              bitsPerComponent == 8,
+              data.isEmpty == false else {
+            return nil
+        }
+
+        let rowCount = Int(height)
+        guard rowCount > 0, data.count % rowCount == 0 else {
+            return nil
+        }
+
+        let bytesPerRow = data.count / rowCount
+        let expectedMinimum = Int(width) * descriptor.components
+        guard bytesPerRow >= expectedMinimum else {
+            return nil
+        }
+
+        guard let provider = CGDataProvider(data: data as CFData),
+              let image = CGImage(
+                width: Int(width),
+                height: Int(height),
+                bitsPerComponent: Int(bitsPerComponent),
+                bitsPerPixel: Int(bitsPerComponent) * descriptor.components,
+                bytesPerRow: bytesPerRow,
+                space: descriptor.colorSpace,
+                bitmapInfo: descriptor.bitmapInfo,
+                provider: provider,
+                decode: nil,
+                shouldInterpolate: true,
+                intent: .defaultIntent
+              ) else {
+            return nil
+        }
+
+        return ImageHashing.encodedImageData(for: image)
+    }
+
+    private func colorDescriptor(for dictionary: CGPDFDictionaryRef) -> PDFImageColorDescriptor? {
+        var colorSpaceObject: CGPDFObjectRef?
+        guard CGPDFDictionaryGetObject(dictionary, "ColorSpace", &colorSpaceObject), let colorSpaceObject else {
+            return nil
+        }
+
+        var namedSpace: UnsafePointer<CChar>?
+        if CGPDFObjectGetValue(colorSpaceObject, .name, &namedSpace), let namedSpace {
+            return descriptor(for: String(cString: namedSpace))
+        }
+
+        var array: CGPDFArrayRef?
+        guard CGPDFObjectGetValue(colorSpaceObject, .array, &array), let array else {
+            return nil
+        }
+
+        var firstObject: CGPDFObjectRef?
+        guard CGPDFArrayGetObject(array, 0, &firstObject), let firstObject else {
+            return nil
+        }
+
+        var colorSpaceName: UnsafePointer<CChar>?
+        guard CGPDFObjectGetValue(firstObject, .name, &colorSpaceName), let colorSpaceName else {
+            return nil
+        }
+
+        let name = String(cString: colorSpaceName)
+        if name == "ICCBased" {
+            var profileObject: CGPDFObjectRef?
+            if CGPDFArrayGetObject(array, 1, &profileObject),
+               let profileObject,
+               let profileStream = pdfStream(from: profileObject),
+               let profileDictionary = CGPDFStreamGetDictionary(profileStream) {
+                if let alternate = pdfName(in: profileDictionary, key: "Alternate"),
+                   let alternateDescriptor = descriptor(for: alternate) {
+                    return alternateDescriptor
+                }
+
+                var components: CGPDFInteger = 0
+                if CGPDFDictionaryGetInteger(profileDictionary, "N", &components) {
+                    switch components {
+                    case 1:
+                        return descriptor(for: "DeviceGray")
+                    case 3:
+                        return descriptor(for: "DeviceRGB")
+                    case 4:
+                        return descriptor(for: "DeviceCMYK")
+                    default:
+                        break
+                    }
+                }
+            }
+        }
+
+        return descriptor(for: name)
+    }
+
+    private func descriptor(for name: String) -> PDFImageColorDescriptor? {
+        switch name {
+        case "DeviceGray":
+            return PDFImageColorDescriptor(
+                colorSpace: CGColorSpaceCreateDeviceGray(),
+                components: 1,
+                bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.none.rawValue)
+            )
+        case "DeviceRGB":
+            return PDFImageColorDescriptor(
+                colorSpace: CGColorSpaceCreateDeviceRGB(),
+                components: 3,
+                bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.none.rawValue)
+            )
+        case "DeviceCMYK":
+            return PDFImageColorDescriptor(
+                colorSpace: CGColorSpaceCreateDeviceCMYK(),
+                components: 4,
+                bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.none.rawValue)
+            )
+        default:
+            return nil
+        }
+    }
+}
+
+private final class PDFXObjectTraversalContext {
+    let extractor: PDFEmbeddedImageExtractor
+    let pageIndex: Int
+    let prefix: String
+    let depth: Int
+
+    init(extractor: PDFEmbeddedImageExtractor, pageIndex: Int, prefix: String, depth: Int) {
+        self.extractor = extractor
+        self.pageIndex = pageIndex
+        self.prefix = prefix
+        self.depth = depth
+    }
+}
+
+private struct PDFImageColorDescriptor {
+    let colorSpace: CGColorSpace
+    let components: Int
+    let bitmapInfo: CGBitmapInfo
+}
+
+private let pdfXObjectApplier: CGPDFDictionaryApplierFunction = { key, object, info in
+    guard let info else {
+        return
+    }
+    let context = Unmanaged<PDFXObjectTraversalContext>.fromOpaque(info).takeUnretainedValue()
+    context.extractor.handleXObject(name: String(cString: key), object: object, context: context)
+}
+
+private func pdfName(in dictionary: CGPDFDictionaryRef, key: String) -> String? {
+    var pointer: UnsafePointer<CChar>?
+    guard CGPDFDictionaryGetName(dictionary, key, &pointer), let pointer else {
+        return nil
+    }
+    return String(cString: pointer)
+}
+
+private func pdfStream(from object: CGPDFObjectRef) -> CGPDFStreamRef? {
+    var stream: CGPDFStreamRef?
+    guard CGPDFObjectGetValue(object, .stream, &stream) else {
+        return nil
+    }
+    return stream
 }
 
 struct TextSimilarityAnalyzer {
@@ -739,6 +1032,11 @@ private enum ImageHashing {
             return ""
         }
         return resized.base64EncodedString()
+    }
+
+    static func encodedImageData(for cgImage: CGImage) -> Data? {
+        let bitmap = NSBitmapImageRep(cgImage: cgImage)
+        return bitmap.representation(using: .png, properties: [:])
     }
 
     private static func grayscalePixels(cgImage: CGImage, width: Int, height: Int) -> [CGFloat] {
