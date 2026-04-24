@@ -1,12 +1,17 @@
 import SwiftUI
 
+@MainActor
+private enum PitcherPlantRuntime {
+    static let appState = AppState()
+}
+
 @main
 struct PitcherPlantDesktopApp: App {
-    @State private var appState = AppState()
+    private let appState = PitcherPlantRuntime.appState
     @Environment(\.openWindow) private var openWindow
 
     var body: some Scene {
-        Window("PitcherPlant", id: AppWindow.main.rawValue) {
+        WindowGroup("PitcherPlant") {
             MainWindowView()
                 .environment(appState)
                 .task {
@@ -14,11 +19,12 @@ struct PitcherPlantDesktopApp: App {
                 }
         }
         .defaultSize(width: 1220, height: 780)
+        .defaultLaunchBehavior(.presented)
         .commands {
             PitcherPlantCommands(
                 appState: appState,
                 openMainWindow: {
-                    openWindow(id: AppWindow.main.rawValue)
+                    NSApp.activate(ignoringOtherApps: true)
                 },
                 openReportsWindow: {
                     openWindow(id: AppWindow.reports.rawValue)

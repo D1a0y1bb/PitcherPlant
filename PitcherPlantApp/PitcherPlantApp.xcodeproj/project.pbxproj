@@ -25,6 +25,7 @@
 		DE268C489FBA6E36A3939F2D /* AuditModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 892ED664C219F3B9AD3C6D6D /* AuditModels.swift */; };
 		E5E7CD8F82E84E1FA32492B7 /* MainWindowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4BF556CB79EA2D6CC23D09D3 /* MainWindowView.swift */; };
 		F0176621EE42DE8D28B7D2B6 /* ZIPFoundation in Frameworks */ = {isa = PBXBuildFile; productRef = 90FE11504ED417A4E3BBAA83 /* ZIPFoundation */; };
+		F0B691414CEE4B6A29F91BF1 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = E02E2A9EBDD61AF8EB8A15FF /* Assets.xcassets */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -53,6 +54,7 @@
 		AEA2F52160967FD69B95CE2E /* MigrationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MigrationService.swift; sourceTree = "<group>"; };
 		B243A89073978EF52F2CE854 /* PitcherPlantAppTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = PitcherPlantAppTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		D8B20F825AD69CF5EE6BF033 /* PitcherPlantDesktopApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PitcherPlantDesktopApp.swift; sourceTree = "<group>"; };
+		E02E2A9EBDD61AF8EB8A15FF /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		E18F48FACAE380029052976A /* ReportModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReportModels.swift; sourceTree = "<group>"; };
 		EB7D836E4BAE584D68A8771F /* EnvironmentSupport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EnvironmentSupport.swift; sourceTree = "<group>"; };
 		FDB265F6090B7FE8324A83B2 /* AuditRunner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuditRunner.swift; sourceTree = "<group>"; };
@@ -74,6 +76,7 @@
 		0C319633D0B201FF2CEDE929 = {
 			isa = PBXGroup;
 			children = (
+				9119E2D8ED5123D4C02094EF /* Resources */,
 				B059A651201FBB74088F3760 /* Sources */,
 				465C2521851D4BECE7BB0207 /* Tests */,
 				93F0CB0CFBDD74AF321AE8A3 /* Products */,
@@ -137,6 +140,14 @@
 				98275B26624A808BFC90CE04 /* Settings */,
 			);
 			path = Features;
+			sourceTree = "<group>";
+		};
+		9119E2D8ED5123D4C02094EF /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				E02E2A9EBDD61AF8EB8A15FF /* Assets.xcassets */,
+			);
+			path = Resources;
 			sourceTree = "<group>";
 		};
 		93F0CB0CFBDD74AF321AE8A3 /* Products */ = {
@@ -215,6 +226,7 @@
 			buildConfigurationList = AC1F34028E3E390EBEE515EC /* Build configuration list for PBXNativeTarget "PitcherPlantApp" */;
 			buildPhases = (
 				7952386BA98B3F72406649FC /* Sources */,
+				FA525773A1AA82BF3880A79D /* Resources */,
 				8886ADC7AEC857AD4FAF3771 /* Frameworks */,
 			);
 			buildRules = (
@@ -289,6 +301,17 @@
 		};
 /* End PBXProject section */
 
+/* Begin PBXResourcesBuildPhase section */
+		FA525773A1AA82BF3880A79D /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				F0B691414CEE4B6A29F91BF1 /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
 /* Begin PBXSourcesBuildPhase section */
 		72CC3AF8C078F1D4B23AF287 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
@@ -337,11 +360,11 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				COMBINE_HIDPI_IMAGES = YES;
+				ENABLE_DEBUG_DYLIB = NO;
 				ENABLE_HARDENED_RUNTIME = NO;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = PitcherPlant;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.developer-tools";
-				INFOPLIST_KEY_NSPrincipalClass = NSApplication;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
@@ -426,11 +449,11 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				COMBINE_HIDPI_IMAGES = YES;
+				ENABLE_DEBUG_DYLIB = NO;
 				ENABLE_HARDENED_RUNTIME = NO;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = PitcherPlant;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.developer-tools";
-				INFOPLIST_KEY_NSPrincipalClass = NSApplication;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
