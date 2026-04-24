@@ -30,9 +30,10 @@ struct ProjectLocator {
 
     private func searchUpward(from start: URL, fileManager: FileManager) -> URL? {
         var candidate = start.standardizedFileURL
+        var resolvedRoot: URL?
         for _ in 0..<16 {
             if isWorkspaceRoot(candidate, fileManager: fileManager) {
-                return candidate
+                resolvedRoot = candidate
             }
             let parent = candidate.deletingLastPathComponent()
             if parent == candidate {
@@ -40,13 +41,10 @@ struct ProjectLocator {
             }
             candidate = parent
         }
-        return nil
+        return resolvedRoot
     }
 
     private func isWorkspaceRoot(_ url: URL, fileManager: FileManager) -> Bool {
-        if fileManager.fileExists(atPath: url.appendingPathComponent("PitcherPlant.py").path) {
-            return true
-        }
         if fileManager.fileExists(atPath: url.appendingPathComponent("PitcherPlantApp/Package.swift").path) {
             return true
         }

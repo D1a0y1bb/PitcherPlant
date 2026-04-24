@@ -24,19 +24,39 @@ final class AppState {
     var fingerprints: [FingerprintRecord] = []
     var whitelistRules: [WhitelistRule] = []
     var configurationPresets: [AuditConfigurationPreset] = []
+    var exportRecords: [ExportRecord] = []
 
     var draftConfiguration: AuditConfiguration
     var latestReport: AuditReport?
     var lastMigrationSummary: MigrationSummary?
+    var initializationMessage: String?
     var isRunningAudit = false
 
     init() {
         let locator = ProjectLocator()
         self.workspaceRoot = locator.workspaceRoot()
-        self.database = try! DatabaseStore(rootDirectory: workspaceRoot)
+        let databaseResult = Self.makeDatabase(rootDirectory: workspaceRoot)
+        self.database = databaseResult.database
+        self.initializationMessage = databaseResult.message
         self.migrationService = MigrationService(workspaceRoot: workspaceRoot)
         self.auditRunner = AuditRunner()
         self.draftConfiguration = AppPreferences.loadDraftConfiguration(for: workspaceRoot)
+    }
+
+    private static func makeDatabase(rootDirectory: URL) -> (database: DatabaseStore, message: String?) {
+        do {
+            return (try DatabaseStore(rootDirectory: rootDirectory), nil)
+        } catch {
+            let fallbackRoot = FileManager.default.temporaryDirectory
+                .appendingPathComponent("PitcherPlant", isDirectory: true)
+                .appendingPathComponent("AppStateFallback", isDirectory: true)
+            do {
+                let database = try DatabaseStore(rootDirectory: fallbackRoot)
+                return (database, "数据库已切换到临时可写目录：\(error.localizedDescription)")
+            } catch {
+                preconditionFailure("PitcherPlant database initialization failed: \(error)")
+            }
+        }
     }
 
     func bootstrapIfNeeded() async {
@@ -64,6 +84,7 @@ final class AppState {
             fingerprints = try await database.loadFingerprintRecords()
             whitelistRules = try await database.loadWhitelistRules()
             configurationPresets = AppPreferences.loadPresets(for: workspaceRoot)
+            exportRecords = try await database.loadExportRecords(limit: 20)
             latestReport = reports.sorted(by: { $0.createdAt > $1.createdAt }).first
 
             if selectedJobID == nil {
@@ -224,6 +245,17 @@ final class AppState {
         if panel.runModal() == .OK, let url = panel.url {
             do {
                 try ReportExporter.exportHTML(report: report, to: url)
+                Task {
+                    try? await database.recordExport(
+                        ExportRecord(
+                            reportID: report.id,
+                            reportTitle: report.title,
+                            format: .html,
+                            destinationPath: url.path
+                        )
+                    )
+                    await reload()
+                }
             } catch {
                 print("PitcherPlant export html error: \(error)")
             }
@@ -240,6 +272,17 @@ final class AppState {
         if panel.runModal() == .OK, let url = panel.url {
             do {
                 try ReportExporter.exportPDF(report: report, to: url)
+                Task {
+                    try? await database.recordExport(
+                        ExportRecord(
+                            reportID: report.id,
+                            reportTitle: report.title,
+                            format: .pdf,
+                            destinationPath: url.path
+                        )
+                    )
+                    await reload()
+                }
             } catch {
                 print("PitcherPlant export pdf error: \(error)")
             }

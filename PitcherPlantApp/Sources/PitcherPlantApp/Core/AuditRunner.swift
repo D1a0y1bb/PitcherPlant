@@ -83,15 +83,55 @@ struct ParsedDocument: Hashable, Sendable {
     let cleanText: String
     let codeBlocks: [String]
     let author: String
+    let lastModifiedBy: String
     let images: [ParsedImage]
+
+    init(
+        url: URL,
+        filename: String,
+        ext: String,
+        content: String,
+        cleanText: String,
+        codeBlocks: [String],
+        author: String,
+        lastModifiedBy: String = "",
+        images: [ParsedImage]
+    ) {
+        self.url = url
+        self.filename = filename
+        self.ext = ext
+        self.content = content
+        self.cleanText = cleanText
+        self.codeBlocks = codeBlocks
+        self.author = author
+        self.lastModifiedBy = lastModifiedBy
+        self.images = images
+    }
 }
 
 struct ParsedImage: Hashable, Sendable {
     let source: String
+    let perceptualHash: String
     let averageHash: String
     let differenceHash: String
     let ocrPreview: String
     let thumbnailBase64: String
+
+    init(
+        source: String,
+        perceptualHash: String = "",
+        averageHash: String,
+        differenceHash: String,
+        ocrPreview: String,
+        thumbnailBase64: String
+    ) {
+        self.source = source
+        self.perceptualHash = perceptualHash.isEmpty ? averageHash : perceptualHash
+        self.averageHash = averageHash
+        self.differenceHash = differenceHash
+        self.ocrPreview = ocrPreview
+        self.thumbnailBase64 = thumbnailBase64
+    }
 }
 
 struct SuspiciousPair: Hashable, Sendable {
@@ -99,6 +139,7 @@ struct SuspiciousPair: Hashable, Sendable {
     let fileB: String
     let score: Double
     let evidence: String
+    let detailLines: [String]
     let attachments: [ReportAttachment]
 
     init(
@@ -106,12 +147,14 @@ struct SuspiciousPair: Hashable, Sendable {
         fileB: String,
         score: Double,
         evidence: String,
+        detailLines: [String] = [],
         attachments: [ReportAttachment] = []
     ) {
         self.fileA = fileA
         self.fileB = fileB
         self.score = score
         self.evidence = evidence
+        self.detailLines = detailLines
         self.attachments = attachments
     }
 }
@@ -183,7 +226,7 @@ struct ReportAssembler {
                         ReportTableRow(
                             columns: [$0.fileA, $0.fileB, String(format: "%.2f%%", $0.score * 100), $0.evidence],
                             detailTitle: "\($0.fileA) ↔ \($0.fileB)",
-                            detailBody: "文本相似度：\(String(format: "%.2f%%", $0.score * 100))\n\n证据：\($0.evidence)",
+                            detailBody: detailBody(for: $0, label: "文本相似度"),
                             badges: [severityBadge(for: $0.score)],
                             attachments: $0.attachments
                         )
@@ -200,7 +243,7 @@ struct ReportAssembler {
                         ReportTableRow(
                             columns: [$0.fileA, $0.fileB, String(format: "%.2f%%", $0.score * 100), $0.evidence],
                             detailTitle: "\($0.fileA) ↔ \($0.fileB)",
-                            detailBody: "代码结构相似度：\(String(format: "%.2f%%", $0.score * 100))\n\n关键证据：\($0.evidence)",
+                            detailBody: detailBody(for: $0, label: "代码结构相似度"),
                             badges: [severityBadge(for: $0.score), ReportBadge(title: "代码", tone: .accent)],
                             attachments: $0.attachments
                         )
@@ -217,7 +260,7 @@ struct ReportAssembler {
                         ReportTableRow(
                             columns: [$0.fileA, $0.fileB, String(format: "%.2f%%", $0.score * 100), $0.evidence],
                             detailTitle: "\($0.fileA) ↔ \($0.fileB)",
-                            detailBody: "图片相似度：\(String(format: "%.2f%%", $0.score * 100))\n\n证据：\($0.evidence)",
+                            detailBody: detailBody(for: $0, label: "图片相似度"),
                             badges: [severityBadge(for: $0.score), ReportBadge(title: "图片", tone: .warning)],
                             attachments: $0.attachments
                         )
@@ -250,7 +293,7 @@ struct ReportAssembler {
                         ReportTableRow(
                             columns: [$0.fileA, $0.fileB, String(format: "%.2f%%", $0.score * 100), $0.evidence],
                             detailTitle: "\($0.fileA) ↔ \($0.fileB)",
-                            detailBody: "重复检测相似度：\(String(format: "%.2f%%", $0.score * 100))\n\n证据：\($0.evidence)",
+                            detailBody: detailBody(for: $0, label: "重复检测相似度"),
                             badges: [severityBadge(for: $0.score), ReportBadge(title: "重复", tone: .warning)],
                             attachments: $0.attachments
                         )
@@ -308,6 +351,15 @@ struct ReportAssembler {
             return ReportBadge(title: "关注", tone: .warning)
         }
         return ReportBadge(title: "一般", tone: .neutral)
+    }
+
+    private func detailBody(for pair: SuspiciousPair, label: String) -> String {
+        var parts = ["\(label)：\(String(format: "%.2f%%", pair.score * 100))"]
+        if !pair.detailLines.isEmpty {
+            parts.append(pair.detailLines.joined(separator: "\n"))
+        }
+        parts.append("证据：\(pair.evidence)")
+        return parts.joined(separator: "\n\n")
     }
 
     private func buildOverviewRows(
@@ -391,6 +443,9 @@ struct DocumentIngestionService {
         var documents: [ParsedDocument] = []
 
         while let url = enumerator?.nextObject() as? URL {
+            guard url.lastPathComponent.hasPrefix("~$") == false else {
+                continue
+            }
             guard ["pdf", "docx", "md", "txt"].contains(url.pathExtension.lowercased()) else {
                 continue
             }
@@ -406,7 +461,7 @@ struct DocumentIngestionService {
         let ext = url.pathExtension.lowercased()
         switch ext {
         case "md", "txt":
-            let content = try String(contentsOf: url, encoding: .utf8)
+            let content = try Self.readLossyText(at: url)
             return buildDocument(url: url, ext: ext, content: content, author: "", images: [])
         case "pdf":
             guard let document = PDFDocument(url: url) else { return nil }
@@ -425,6 +480,7 @@ struct DocumentIngestionService {
         let archive = try Archive(url: url, accessMode: .read)
         var content = ""
         var author = ""
+        var lastModifiedBy = ""
         var images: [ParsedImage] = []
 
         if let entry = archive["word/document.xml"] {
@@ -441,6 +497,7 @@ struct DocumentIngestionService {
                 data.append(part)
             }
             author = XMLTextExtractor.metadataValue(named: "dc:creator", in: data)
+            lastModifiedBy = XMLTextExtractor.metadataValue(named: "cp:lastModifiedBy", in: data)
         }
 
         for entry in archive where entry.path.hasPrefix("word/media/") {
@@ -450,6 +507,7 @@ struct DocumentIngestionService {
             }
             images.append(ParsedImage(
                 source: entry.path,
+                perceptualHash: ImageHashing.perceptualHash(for: data),
                 averageHash: ImageHashing.averageHash(for: data),
                 differenceHash: ImageHashing.differenceHash(for: data),
                 ocrPreview: configuration.useVisionOCR ? ImageOCRService.previewText(from: data) : "",
@@ -457,10 +515,10 @@ struct DocumentIngestionService {
             ))
         }
 
-        return buildDocument(url: url, ext: "docx", content: content, author: author, images: images)
+        return buildDocument(url: url, ext: "docx", content: content, author: author, lastModifiedBy: lastModifiedBy, images: images)
     }
 
-    private func buildDocument(url: URL, ext: String, content: String, author: String, images: [ParsedImage]) -> ParsedDocument {
+    private func buildDocument(url: URL, ext: String, content: String, author: String, lastModifiedBy: String = "", images: [ParsedImage]) -> ParsedDocument {
         let normalized = content.replacingOccurrences(of: #"\s+"#, with: " ", options: .regularExpression).trimmingCharacters(in: .whitespacesAndNewlines)
         return ParsedDocument(
             url: url,
@@ -470,8 +528,20 @@ struct DocumentIngestionService {
             cleanText: TextNormalizer.clean(normalized),
             codeBlocks: CodeBlockExtractor.extract(from: content),
             author: author,
+            lastModifiedBy: lastModifiedBy,
             images: images
         )
+    }
+
+    private static func readLossyText(at url: URL) throws -> String {
+        if let content = try? String(contentsOf: url, encoding: .utf8) {
+            return content
+        }
+        let data = try Data(contentsOf: url)
+        if let content = String(data: data, encoding: .isoLatin1) {
+            return content
+        }
+        return String(decoding: data, as: UTF8.self)
     }
 
     private func parsePDFImages(document: PDFDocument, sourceURL: URL) -> [ParsedImage] {
@@ -493,6 +563,7 @@ struct DocumentIngestionService {
             images.append(
                 ParsedImage(
                     source: "pdf-page-\(index + 1)",
+                    perceptualHash: ImageHashing.perceptualHash(for: data),
                     averageHash: ImageHashing.averageHash(for: data),
                     differenceHash: ImageHashing.differenceHash(for: data),
                     ocrPreview: configuration.useVisionOCR ? ImageOCRService.previewText(from: data) : "",
@@ -575,13 +646,15 @@ private final class PDFEmbeddedImageExtractor {
             }
             let averageHash = ImageHashing.averageHash(for: data)
             let differenceHash = ImageHashing.differenceHash(for: data)
-            let signature = "\(averageHash):\(differenceHash)"
+            let perceptualHash = ImageHashing.perceptualHash(for: data)
+            let signature = "\(perceptualHash):\(averageHash):\(differenceHash)"
             guard seenSignatures.insert(signature).inserted else {
                 return
             }
             images.append(
                 ParsedImage(
                     source: source,
+                    perceptualHash: perceptualHash,
                     averageHash: averageHash,
                     differenceHash: differenceHash,
                     ocrPreview: configuration.useVisionOCR ? ImageOCRService.previewText(from: data) : "",
@@ -795,15 +868,31 @@ private func pdfStream(from object: CGPDFObjectRef) -> CGPDFStreamRef? {
 struct TextSimilarityAnalyzer {
     func analyze(documents: [ParsedDocument], threshold: Double) -> [SuspiciousPair] {
         guard documents.count > 1 else { return [] }
-        let vectorizer = TFIDFVectorizer(documents: documents.map(\.cleanText))
+        let vectorizer = TFIDFVectorizer(documents: documents.map(\.cleanText), wordNGramRange: 1...5, charNGramRange: 3...7, wordWeight: 0.6, charWeight: 0.4)
         var pairs: [SuspiciousPair] = []
 
         for left in documents.indices {
             for right in documents.indices where right > left {
                 let score = vectorizer.combinedCosineSimilarity(left: left, right: right)
                 if score >= threshold {
-                    let evidence = String(documents[left].cleanText.prefix(90))
-                    pairs.append(SuspiciousPair(fileA: documents[left].filename, fileB: documents[right].filename, score: score, evidence: evidence))
+                    let evidence = TextEvidenceBuilder.build(left: documents[left].content, right: documents[right].content)
+                    pairs.append(
+                        SuspiciousPair(
+                            fileA: documents[left].filename,
+                            fileB: documents[right].filename,
+                            score: score,
+                            evidence: evidence.summary,
+                            detailLines: [
+                                "文本相似度：\(String(format: "%.2f%%", score * 100))",
+                                "最长公共片段：\(evidence.longestCommonLength)",
+                                "AI 洗稿标记：\(score >= threshold && evidence.longestCommonLength < 20 ? "是" : "否")"
+                            ],
+                            attachments: [
+                                ReportAttachment(title: documents[left].filename, subtitle: "上下文 A", body: evidence.leftContext, imageBase64: nil),
+                                ReportAttachment(title: documents[right].filename, subtitle: "上下文 B", body: evidence.rightContext, imageBase64: nil)
+                            ]
+                        )
+                    )
                 }
             }
         }
@@ -813,7 +902,30 @@ struct TextSimilarityAnalyzer {
 
 struct DedupAnalyzer {
     func analyze(documents: [ParsedDocument], threshold: Double) -> [SuspiciousPair] {
-        TextSimilarityAnalyzer().analyze(documents: documents, threshold: threshold)
+        guard documents.count > 1 else { return [] }
+        let vectorizer = TFIDFVectorizer(documents: documents.map(\.cleanText), wordNGramRange: 1...3, charNGramRange: 3...5, wordWeight: 0.5, charWeight: 0.5)
+        var pairs: [SuspiciousPair] = []
+        for left in documents.indices {
+            for right in documents.indices where right > left {
+                let score = vectorizer.combinedCosineSimilarity(left: left, right: right)
+                guard score >= threshold else { continue }
+                let evidence = TextEvidenceBuilder.build(left: documents[left].content, right: documents[right].content)
+                pairs.append(
+                    SuspiciousPair(
+                        fileA: documents[left].filename,
+                        fileB: documents[right].filename,
+                        score: score,
+                        evidence: evidence.summary,
+                        detailLines: ["重复检测相似度：\(String(format: "%.2f%%", score * 100))", "最长公共片段：\(evidence.longestCommonLength)"],
+                        attachments: [
+                            ReportAttachment(title: documents[left].filename, subtitle: "重复上下文 A", body: evidence.leftContext, imageBase64: nil),
+                            ReportAttachment(title: documents[right].filename, subtitle: "重复上下文 B", body: evidence.rightContext, imageBase64: nil)
+                        ]
+                    )
+                )
+            }
+        }
+        return pairs.sorted(by: { $0.score > $1.score })
     }
 }
 
@@ -823,27 +935,103 @@ struct CodeSimilarityAnalyzer {
         var results: [SuspiciousPair] = []
         for left in documents.indices {
             for right in documents.indices where right > left {
-                let lhs = documents[left].codeBlocks.joined(separator: "\n")
-                let rhs = documents[right].codeBlocks.joined(separator: "\n")
-                guard !lhs.isEmpty, !rhs.isEmpty else { continue }
-                let score = JaccardSimilarity.score(
-                    left: CodeBlockExtractor.normalize(lhs),
-                    right: CodeBlockExtractor.normalize(rhs),
-                    shingleSize: 8
-                )
-                if score >= 0.60 {
+                let lhsBlocks = CodeBlockExtractor.candidates(from: documents[left].codeBlocks)
+                let rhsBlocks = CodeBlockExtractor.candidates(from: documents[right].codeBlocks)
+                guard !lhsBlocks.isEmpty, !rhsBlocks.isEmpty else { continue }
+
+                guard let bestMatch = bestMatch(left: lhsBlocks, right: rhsBlocks) else {
+                    continue
+                }
+
+                if bestMatch.score >= 0.60 {
+                    let detailLines = [
+                        "词元相似度：\(String(format: "%.2f%%", bestMatch.lexicalScore * 100))",
+                        "结构相似度：\(String(format: "%.2f%%", bestMatch.structuralScore * 100))",
+                        "共享标记数：\(bestMatch.sharedTokenCount)",
+                        "共享覆盖率：\(String(format: "%.2f%%", bestMatch.sharedTokenRatio * 100))",
+                        "命中片段：\(bestMatch.left.label) ↔ \(bestMatch.right.label)"
+                    ]
                     results.append(
                         SuspiciousPair(
                             fileA: documents[left].filename,
                             fileB: documents[right].filename,
-                            score: score,
-                            evidence: String(lhs.prefix(120))
+                            score: bestMatch.score,
+                            evidence: bestMatch.summary,
+                            detailLines: detailLines,
+                            attachments: [
+                                ReportAttachment(
+                                    title: documents[left].filename,
+                                    subtitle: bestMatch.left.label,
+                                    body: bestMatch.left.preview,
+                                    imageBase64: nil
+                                ),
+                                ReportAttachment(
+                                    title: documents[right].filename,
+                                    subtitle: bestMatch.right.label,
+                                    body: bestMatch.right.preview,
+                                    imageBase64: nil
+                                ),
+                                ReportAttachment(
+                                    title: "评分细节",
+                                    subtitle: "词元 / 结构 / 共享标记",
+                                    body: detailLines.joined(separator: "\n"),
+                                    imageBase64: nil
+                                ),
+                            ]
                         )
                     )
                 }
             }
         }
         return results.sorted(by: { $0.score > $1.score })
+    }
+
+    private func bestMatch(left: [CodeBlockCandidate], right: [CodeBlockCandidate]) -> CodeMatch? {
+        var best: CodeMatch?
+
+        for lhs in left {
+            for rhs in right {
+                let lexicalScore = JaccardSimilarity.score(
+                    left: lhs.lexicalSignature,
+                    right: rhs.lexicalSignature,
+                    shingleSize: 5
+                )
+                let structuralScore = JaccardSimilarity.score(
+                    left: lhs.structuralSignature,
+                    right: rhs.structuralSignature,
+                    shingleSize: 4
+                )
+                let lhsTokenSet = Set(lhs.lexicalTokens)
+                let rhsTokenSet = Set(rhs.lexicalTokens)
+                let sharedTokenCount = lhsTokenSet.intersection(rhsTokenSet).count
+                let sharedTokenRatio = Double(sharedTokenCount) / Double(max(lhsTokenSet.union(rhsTokenSet).count, 1))
+                let combinedScore = min(1.0, (0.40 * lexicalScore) + (0.40 * structuralScore) + (0.20 * sharedTokenRatio))
+                let summary = [
+                    "片段 \(lhs.label) ↔ \(rhs.label)",
+                    "共享标记 \(sharedTokenCount)",
+                    lhs.preview
+                ].joined(separator: " | ")
+                let candidate = CodeMatch(
+                    score: combinedScore,
+                    lexicalScore: lexicalScore,
+                    structuralScore: structuralScore,
+                    sharedTokenCount: sharedTokenCount,
+                    sharedTokenRatio: sharedTokenRatio,
+                    summary: summary,
+                    left: lhs,
+                    right: rhs
+                )
+                if let currentBest = best {
+                    if candidate.score > currentBest.score {
+                        best = candidate
+                    }
+                } else {
+                    best = candidate
+                }
+            }
+        }
+
+        return best
     }
 }
 
@@ -856,40 +1044,50 @@ struct ImageReuseAnalyzer {
                 let rightImages = documents[right].images
                 guard !leftImages.isEmpty, !rightImages.isEmpty else { continue }
 
-                var bestDistance = Int.max
-                var evidence = ""
-                var attachments: [ReportAttachment] = []
+                var examples: [(distance: Int, lhs: ParsedImage, rhs: ParsedImage)] = []
                 for lhs in leftImages {
                     for rhs in rightImages {
-                        let distance = HashDistance.hamming(lhs.averageHash, rhs.averageHash) + HashDistance.hamming(lhs.differenceHash, rhs.differenceHash)
-                        if distance < bestDistance {
-                            bestDistance = distance
-                            evidence = [lhs.source, rhs.source, lhs.ocrPreview, rhs.ocrPreview].filter { !$0.isEmpty }.joined(separator: " | ")
-                            attachments = [
-                                ReportAttachment(
-                                    title: documents[left].filename,
-                                    subtitle: lhs.source,
-                                    body: lhs.ocrPreview.isEmpty ? "未提取到 OCR 预览" : lhs.ocrPreview,
-                                    imageBase64: lhs.thumbnailBase64.isEmpty ? nil : lhs.thumbnailBase64
-                                ),
-                                ReportAttachment(
-                                    title: documents[right].filename,
-                                    subtitle: rhs.source,
-                                    body: rhs.ocrPreview.isEmpty ? "未提取到 OCR 预览" : rhs.ocrPreview,
-                                    imageBase64: rhs.thumbnailBase64.isEmpty ? nil : rhs.thumbnailBase64
-                                ),
-                            ]
+                        let distance = HashDistance.hamming(lhs.perceptualHash, rhs.perceptualHash)
+                            + HashDistance.hamming(lhs.averageHash, rhs.averageHash)
+                            + HashDistance.hamming(lhs.differenceHash, rhs.differenceHash)
+                        if distance <= threshold * 3 {
+                            examples.append((distance, lhs, rhs))
                         }
                     }
                 }
-                if bestDistance <= threshold * 2 {
-                    let normalized = 1.0 - (Double(bestDistance) / Double(max(threshold * 2, 1)))
+                if examples.isEmpty == false {
+                    let sortedExamples = examples.sorted(by: { $0.distance < $1.distance })
+                    let first = sortedExamples[0]
+                    let bestDistance = first.distance
+                    let normalized = 1.0 - (Double(bestDistance) / Double(max(threshold * 3, 1)))
+                    var attachments: [ReportAttachment] = []
+                    for (index, example) in sortedExamples.prefix(5).enumerated() {
+                        attachments.append(ReportAttachment(
+                            title: "\(documents[left].filename) 示例 \(index + 1)",
+                            subtitle: example.lhs.source,
+                            body: example.lhs.ocrPreview.isEmpty ? "未提取到 OCR 预览" : example.lhs.ocrPreview,
+                            imageBase64: example.lhs.thumbnailBase64.isEmpty ? nil : example.lhs.thumbnailBase64
+                        ))
+                        attachments.append(ReportAttachment(
+                            title: "\(documents[right].filename) 示例 \(index + 1)",
+                            subtitle: example.rhs.source,
+                            body: example.rhs.ocrPreview.isEmpty ? "未提取到 OCR 预览" : example.rhs.ocrPreview,
+                            imageBase64: example.rhs.thumbnailBase64.isEmpty ? nil : example.rhs.thumbnailBase64
+                        ))
+                    }
                     pairs.append(
                         SuspiciousPair(
                             fileA: documents[left].filename,
                             fileB: documents[right].filename,
                             score: max(0.0, normalized),
-                            evidence: evidence,
+                            evidence: ["命中图片数：\(examples.count)", first.lhs.source, first.rhs.source, first.lhs.ocrPreview, first.rhs.ocrPreview].filter { !$0.isEmpty }.joined(separator: " | "),
+                            detailLines: [
+                                "命中图片数：\(examples.count)",
+                                "pHash 位差：\(HashDistance.hamming(first.lhs.perceptualHash, first.rhs.perceptualHash))",
+                                "aHash 位差：\(HashDistance.hamming(first.lhs.averageHash, first.rhs.averageHash))",
+                                "dHash 位差：\(HashDistance.hamming(first.lhs.differenceHash, first.rhs.differenceHash))",
+                                "最佳总位差：\(bestDistance)"
+                            ],
                             attachments: attachments
                         )
                     )
@@ -902,9 +1100,17 @@ struct ImageReuseAnalyzer {
 
 struct MetadataCollisionAnalyzer {
     func analyze(documents: [ParsedDocument]) -> [MetadataCollision] {
-        Dictionary(grouping: documents.filter { !$0.author.isEmpty }, by: \.author)
+        Dictionary(grouping: documents.compactMap { document -> (String, String)? in
+            let candidates = [document.author, document.lastModifiedBy]
+                .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+                .filter { !$0.isEmpty }
+            guard let author = candidates.first else { return nil }
+            let ignored = ["administrator", "admin", "user", "microsoft office user"]
+            guard ignored.contains(author.lowercased()) == false else { return nil }
+            return (author, document.filename)
+        }, by: { $0.0 })
             .filter { $0.value.count > 1 }
-            .map { MetadataCollision(author: $0.key, files: $0.value.map(\.filename).sorted()) }
+            .map { MetadataCollision(author: $0.key, files: $0.value.map(\.1).sorted()) }
             .sorted(by: { $0.files.count > $1.files.count })
     }
 }
@@ -993,6 +1199,37 @@ private enum XMLTextExtractor {
 }
 
 private enum ImageHashing {
+    static func perceptualHash(for data: Data) -> String {
+        guard let image = NSImage(data: data), let cgImage = image.cgImage(forProposedRect: nil, context: nil, hints: nil) else {
+            return String(repeating: "0", count: 16)
+        }
+        let size = 32
+        let lowSize = 8
+        let pixels = grayscalePixels(cgImage: cgImage, width: size, height: size)
+        guard pixels.count == size * size else {
+            return String(repeating: "0", count: 16)
+        }
+        var coefficients = Array(repeating: CGFloat(0), count: lowSize * lowSize)
+        for u in 0..<lowSize {
+            for v in 0..<lowSize {
+                var sum = CGFloat(0)
+                for x in 0..<size {
+                    for y in 0..<size {
+                        let pixel = pixels[y * size + x]
+                        let cosX = cos(((2 * CGFloat(x) + 1) * CGFloat(u) * .pi) / CGFloat(2 * size))
+                        let cosY = cos(((2 * CGFloat(y) + 1) * CGFloat(v) * .pi) / CGFloat(2 * size))
+                        sum += pixel * cosX * cosY
+                    }
+                }
+                coefficients[u * lowSize + v] = sum
+            }
+        }
+        let acCoefficients = Array(coefficients.dropFirst())
+        let median = acCoefficients.sorted()[acCoefficients.count / 2]
+        let bits = coefficients.map { $0 >= median ? "1" : "0" }.joined()
+        return binaryStringToHex(bits)
+    }
+
     static func averageHash(for data: Data) -> String {
         guard let image = NSImage(data: data), let cgImage = image.cgImage(forProposedRect: nil, context: nil, hints: nil) else {
             return String(repeating: "0", count: 16)
@@ -1134,8 +1371,174 @@ private enum CodeBlockExtractor {
         return blocks.filter { $0.count > 20 }
     }
 
-    static func normalize(_ text: String) -> String {
-        text.lowercased().replacingOccurrences(of: #"\s+"#, with: "", options: .regularExpression)
+    static func candidates(from blocks: [String]) -> [CodeBlockCandidate] {
+        blocks.enumerated().map { index, block in
+            let lexicalTokens = block
+                .lowercased()
+                .components(separatedBy: CharacterSet.alphanumerics.inverted)
+                .filter { $0.count >= 2 }
+            return CodeBlockCandidate(
+                label: "片段 \(index + 1)",
+                rawText: block,
+                lexicalSignature: lexicalSignature(for: block),
+                lexicalTokens: lexicalTokens,
+                structuralSignature: structureSignature(for: block),
+                preview: block
+                    .components(separatedBy: .newlines)
+                    .prefix(10)
+                    .joined(separator: "\n")
+            )
+        }
+    }
+
+    private static func lexicalSignature(for text: String) -> String {
+        normalizedCodeTokens(
+            from: text,
+            includePunctuation: false
+        ).joined(separator: " ")
+    }
+
+    private static func structureSignature(for text: String) -> String {
+        normalizedCodeTokens(
+            from: text,
+            includePunctuation: true
+        ).joined(separator: " ")
+    }
+
+    private static func normalizedCodeTokens(from text: String, includePunctuation: Bool) -> [String] {
+        let normalized = text
+            .lowercased()
+            .replacingOccurrences(of: #"//[^\n\r]*"#, with: "", options: .regularExpression)
+            .replacingOccurrences(of: #"/\*[\s\S]*?\*/"#, with: "", options: .regularExpression)
+            .replacingOccurrences(of: #""[^"]*"|'[^']*'"#, with: " str ", options: .regularExpression)
+            .replacingOccurrences(of: #"\b\d+\b"#, with: " num ", options: .regularExpression)
+
+        let pattern = includePunctuation
+            ? #"[a-z_][a-z0-9_]*|\{|\}|\(|\)|\[|\]|;|,|\.|=|:|\+|\-|\*|/|<|>"#
+            : #"[a-z_][a-z0-9_]*"#
+        let regex = try? NSRegularExpression(pattern: pattern)
+        let range = NSRange(normalized.startIndex..<normalized.endIndex, in: normalized)
+        return regex?.matches(in: normalized, range: range).compactMap { match -> String? in
+            guard let tokenRange = Range(match.range, in: normalized) else {
+                return nil
+            }
+            let token = String(normalized[tokenRange])
+            if codeKeywords.contains(token) {
+                return token
+            }
+            if includePunctuation, punctuationTokens.contains(token) {
+                return token
+            }
+            if token == "str" || token == "num" {
+                return token
+            }
+            return "id"
+        } ?? []
+    }
+
+    private static let codeKeywords: Set<String> = [
+        "if", "else", "for", "while", "switch", "case", "class", "def", "func", "return",
+        "import", "from", "try", "catch", "except", "let", "var", "const", "public",
+        "private", "static", "struct", "enum", "async", "await", "with", "using"
+    ]
+
+    private static let punctuationTokens: Set<String> = [
+        "{", "}", "(", ")", "[", "]", ";", ",", ".", "=", ":", "+", "-", "*", "/", "<", ">"
+    ]
+}
+
+private struct CodeBlockCandidate: Hashable, Sendable {
+    let label: String
+    let rawText: String
+    let lexicalSignature: String
+    let lexicalTokens: [String]
+    let structuralSignature: String
+    let preview: String
+}
+
+private struct CodeMatch: Hashable, Sendable {
+    let score: Double
+    let lexicalScore: Double
+    let structuralScore: Double
+    let sharedTokenCount: Int
+    let sharedTokenRatio: Double
+    let summary: String
+    let left: CodeBlockCandidate
+    let right: CodeBlockCandidate
+}
+
+private struct TextEvidence: Hashable, Sendable {
+    let summary: String
+    let leftContext: String
+    let rightContext: String
+    let longestCommonLength: Int
+}
+
+private enum TextEvidenceBuilder {
+    static func build(left: String, right: String) -> TextEvidence {
+        let match = longestCommonSubstring(left: left, right: right)
+        if match.length > 20 {
+            let summary = String(left[match.leftRange]).replacingOccurrences(of: #"\s+"#, with: " ", options: .regularExpression)
+            return TextEvidence(
+                summary: String(summary.prefix(160)) + (summary.count > 160 ? "..." : ""),
+                leftContext: context(in: left, range: match.leftRange),
+                rightContext: context(in: right, range: match.rightRange),
+                longestCommonLength: match.length
+            )
+        }
+        let leftTerms = Set(terms(in: left))
+        let rightTerms = Set(terms(in: right))
+        let commonTerms = leftTerms
+            .intersection(rightTerms)
+            .sorted { $0.count > $1.count }
+            .prefix(10)
+            .joined(separator: " ")
+        let summary = commonTerms.isEmpty ? "全文语义高度相似，未发现显著连续长句（可能是洗稿）" : commonTerms
+        return TextEvidence(summary: summary, leftContext: "", rightContext: "", longestCommonLength: match.length)
+    }
+
+    private static func context(in text: String, range: Range<String.Index>) -> String {
+        let start = text.index(range.lowerBound, offsetBy: -min(120, text.distance(from: text.startIndex, to: range.lowerBound)), limitedBy: text.startIndex) ?? text.startIndex
+        let trailing = text.distance(from: range.upperBound, to: text.endIndex)
+        let end = text.index(range.upperBound, offsetBy: min(120, trailing), limitedBy: text.endIndex) ?? text.endIndex
+        return String(text[start..<end]).replacingOccurrences(of: #"\s+"#, with: " ", options: .regularExpression)
+    }
+
+    private static func terms(in text: String) -> [String] {
+        text.lowercased().split { character in
+            !character.isLetter && !character.isNumber
+        }.map(String.init)
+    }
+
+    private static func longestCommonSubstring(left: String, right: String) -> (leftRange: Range<String.Index>, rightRange: Range<String.Index>, length: Int) {
+        let leftChars = Array(left)
+        let rightChars = Array(right)
+        guard !leftChars.isEmpty, !rightChars.isEmpty else {
+            return (left.startIndex..<left.startIndex, right.startIndex..<right.startIndex, 0)
+        }
+        var previous = Array(repeating: 0, count: rightChars.count + 1)
+        var bestLength = 0
+        var bestLeftEnd = 0
+        var bestRightEnd = 0
+        for leftIndex in 1...leftChars.count {
+            var current = Array(repeating: 0, count: rightChars.count + 1)
+            for rightIndex in 1...rightChars.count {
+                if leftChars[leftIndex - 1] == rightChars[rightIndex - 1] {
+                    current[rightIndex] = previous[rightIndex - 1] + 1
+                    if current[rightIndex] > bestLength {
+                        bestLength = current[rightIndex]
+                        bestLeftEnd = leftIndex
+                        bestRightEnd = rightIndex
+                    }
+                }
+            }
+            previous = current
+        }
+        let leftStart = left.index(left.startIndex, offsetBy: bestLeftEnd - bestLength)
+        let leftEnd = left.index(left.startIndex, offsetBy: bestLeftEnd)
+        let rightStart = right.index(right.startIndex, offsetBy: bestRightEnd - bestLength)
+        let rightEnd = right.index(right.startIndex, offsetBy: bestRightEnd)
+        return (leftStart..<leftEnd, rightStart..<rightEnd, bestLength)
     }
 }
 
@@ -1143,6 +1546,9 @@ private enum TextNormalizer {
     static func clean(_ text: String) -> String {
         text
             .replacingOccurrences(of: #"(flag|ctf|cyber|key)\{.*?\}"#, with: "", options: .regularExpression)
+            .replacingOccurrences(of: #"[a-fA-F0-9]{32,}"#, with: "", options: .regularExpression)
+            .replacingOccurrences(of: #"[a-zA-Z0-9+/]{50,}={0,2}"#, with: "", options: .regularExpression)
+            .replacingOccurrences(of: #"```[\s\S]*?```"#, with: "", options: .regularExpression)
             .replacingOccurrences(of: #"[^\w\s\u4e00-\u9fa5]"#, with: " ", options: .regularExpression)
             .replacingOccurrences(of: #"\s+"#, with: " ", options: .regularExpression)
             .lowercased()
@@ -1153,16 +1559,20 @@ private enum TextNormalizer {
 private struct TFIDFVectorizer {
     let wordVectors: [[String: Double]]
     let charVectors: [[String: Double]]
+    let wordWeight: Double
+    let charWeight: Double
 
-    init(documents: [String]) {
-        self.wordVectors = TFIDFVectorizer.buildVectors(for: documents, ngramRange: 1...1, tokenizeWords: true)
-        self.charVectors = TFIDFVectorizer.buildVectors(for: documents, ngramRange: 3...5, tokenizeWords: false)
+    init(documents: [String], wordNGramRange: ClosedRange<Int> = 1...1, charNGramRange: ClosedRange<Int> = 3...5, wordWeight: Double = 0.6, charWeight: Double = 0.4) {
+        self.wordVectors = TFIDFVectorizer.buildVectors(for: documents, ngramRange: wordNGramRange, tokenizeWords: true)
+        self.charVectors = TFIDFVectorizer.buildVectors(for: documents, ngramRange: charNGramRange, tokenizeWords: false)
+        self.wordWeight = wordWeight
+        self.charWeight = charWeight
     }
 
     func combinedCosineSimilarity(left: Int, right: Int) -> Double {
         let word = cosine(lhs: wordVectors[left], rhs: wordVectors[right])
         let char = cosine(lhs: charVectors[left], rhs: charVectors[right])
-        return (0.6 * word) + (0.4 * char)
+        return (wordWeight * word) + (charWeight * char)
     }
 
     private func cosine(lhs: [String: Double], rhs: [String: Double]) -> Double {
@@ -1176,7 +1586,7 @@ private struct TFIDFVectorizer {
 
     private static func buildVectors(for documents: [String], ngramRange: ClosedRange<Int>, tokenizeWords: Bool) -> [[String: Double]] {
         let tokenized = documents.map { doc in
-            tokenizeWords ? tokenizeWordsIn(doc) : charNGrams(in: doc, range: ngramRange)
+            tokenizeWords ? wordNGrams(in: doc, range: ngramRange) : charNGrams(in: doc, range: ngramRange)
         }
         let docCount = Double(max(documents.count, 1))
         var documentFrequency: [String: Double] = [:]
@@ -1212,6 +1622,19 @@ private struct TFIDFVectorizer {
             return true
         }
         return result
+    }
+
+    private static func wordNGrams(in text: String, range: ClosedRange<Int>) -> [String] {
+        let words = tokenizeWordsIn(text)
+        guard words.count >= range.lowerBound else { return [] }
+        var grams: [String] = []
+        for n in range {
+            guard words.count >= n else { continue }
+            for index in 0...(words.count - n) {
+                grams.append(words[index..<(index + n)].joined(separator: " "))
+            }
+        }
+        return grams
     }
 
     private static func charNGrams(in text: String, range: ClosedRange<Int>) -> [String] {

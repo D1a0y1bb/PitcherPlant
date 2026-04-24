@@ -19,6 +19,10 @@ enum ReportExporter {
             th, td { border: 1px solid #dde3e8; padding: 10px; text-align: left; vertical-align: top; font-size: 13px; }
             th { background: #f7f9fb; }
             .callout { margin: 6px 0; color: #46525f; }
+            .detail { margin-top: 8px; padding: 10px; border-radius: 8px; background: #f8fafc; white-space: pre-wrap; }
+            .badge { display: inline-block; margin: 0 4px 4px 0; padding: 2px 8px; border-radius: 999px; background: #e8eef5; color: #334155; font-size: 12px; }
+            .attachment { margin-top: 8px; padding: 10px; border: 1px solid #e2e8f0; border-radius: 8px; }
+            .attachment img { max-width: 220px; display: block; margin-top: 8px; border: 1px solid #e2e8f0; }
           </style>
         </head>
         <body>
@@ -48,9 +52,16 @@ enum ReportExporter {
         if let table = section.table {
             let header = table.headers.map { "<th>\(escaped($0))</th>" }.joined()
             let rows = table.rows.map { row in
-                "<tr>\(row.columns.map { "<td>\(escaped($0))</td>" }.joined())</tr>"
+                let badges = row.badges.map { "<span class=\"badge\">\(escaped($0.title))</span>" }.joined()
+                let details = "<div class=\"detail\"><strong>\(escaped(row.detailTitle))</strong><br>\(escaped(row.detailBody))</div>"
+                let attachments = row.attachments.map { attachment in
+                    let image = attachment.imageBase64.map { "<img src=\"data:image/jpeg;base64,\($0)\" alt=\"\(escaped(attachment.title))\" />" } ?? ""
+                    return "<div class=\"attachment\"><strong>\(escaped(attachment.title))</strong><div>\(escaped(attachment.subtitle))</div><div>\(escaped(attachment.body))</div>\(image)</div>"
+                }.joined()
+                let evidenceCell = "<td>\(badges)\(details)\(attachments)</td>"
+                return "<tr>\(row.columns.map { "<td>\(escaped($0))</td>" }.joined())\(evidenceCell)</tr>"
             }.joined()
-            tableHTML = "<table><thead><tr>\(header)</tr></thead><tbody>\(rows)</tbody></table>"
+            tableHTML = "<table><thead><tr>\(header)<th>详情</th></tr></thead><tbody>\(rows)</tbody></table>"
         } else {
             tableHTML = ""
         }
@@ -87,6 +98,12 @@ enum ReportTextFormatter {
                 lines.append(table.headers.joined(separator: " | "))
                 for row in table.rows {
                     lines.append(row.columns.joined(separator: " | "))
+                    lines.append(row.detailTitle)
+                    lines.append(row.detailBody)
+                    for attachment in row.attachments {
+                        lines.append("附件: \(attachment.title) / \(attachment.subtitle)")
+                        lines.append(attachment.body)
+                    }
                 }
             }
             lines.append("")

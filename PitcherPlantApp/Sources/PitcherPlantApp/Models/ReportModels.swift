@@ -189,6 +189,40 @@ struct FingerprintRecord: Codable, Identifiable, Hashable, Sendable {
     }
 }
 
+struct ExportRecord: Codable, Identifiable, Hashable, Sendable {
+    enum Format: String, Codable, CaseIterable, Sendable {
+        case html
+        case pdf
+
+        var displayTitle: String {
+            rawValue.uppercased()
+        }
+    }
+
+    let id: UUID
+    let reportID: UUID
+    let reportTitle: String
+    let format: Format
+    let destinationPath: String
+    let createdAt: Date
+
+    init(
+        id: UUID = UUID(),
+        reportID: UUID,
+        reportTitle: String,
+        format: Format,
+        destinationPath: String,
+        createdAt: Date = .now
+    ) {
+        self.id = id
+        self.reportID = reportID
+        self.reportTitle = reportTitle
+        self.format = format
+        self.destinationPath = destinationPath
+        self.createdAt = createdAt
+    }
+}
+
 struct WhitelistRule: Codable, Identifiable, Hashable, Sendable {
     enum RuleType: String, Codable, CaseIterable, Sendable {
         case author

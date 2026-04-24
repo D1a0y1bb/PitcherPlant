@@ -6,10 +6,38 @@ actor DatabaseStore {
     private let dbURL: URL
 
     init(rootDirectory: URL) throws {
-        let supportURL = rootDirectory.appendingPathComponent(".pitcherplant-macos", isDirectory: true)
+        let supportURL = try Self.resolveSupportDirectory(rootDirectory: rootDirectory)
         try FileManager.default.createDirectory(at: supportURL, withIntermediateDirectories: true)
         self.dbURL = supportURL.appendingPathComponent("PitcherPlantMac.sqlite")
         self.dbQueue = try DatabaseQueue(path: dbURL.path)
+    }
+
+    private static func resolveSupportDirectory(rootDirectory: URL) throws -> URL {
+        let preferred = rootDirectory.appendingPathComponent(".pitcherplant-macos", isDirectory: true)
+        if isWritableDirectoryCandidate(preferred) {
+            return preferred
+        }
+        let applicationSupport = try FileManager.default.url(
+            for: .applicationSupportDirectory,
+            in: .userDomainMask,
+            appropriateFor: nil,
+            create: true
+        )
+        return applicationSupport
+            .appendingPathComponent("PitcherPlant", isDirectory: true)
+            .appendingPathComponent(".pitcherplant-macos", isDirectory: true)
+    }
+
+    private static func isWritableDirectoryCandidate(_ url: URL) -> Bool {
+        do {
+            try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
+            let probe = url.appendingPathComponent(".write-probe-\(UUID().uuidString)")
+            try Data().write(to: probe)
+            try? FileManager.default.removeItem(at: probe)
+            return true
+        } catch {
+            return false
+        }
     }
 
     func prepare() async throws {
@@ -20,11 +48,21 @@ actor DatabaseStore {
                 table.column("id", .text).primaryKey()
                 table.column("payload", .text).notNull()
                 table.column("updated_at", .datetime).notNull()
+                table.column("directory_path", .text).notNull().indexed()
+                table.column("status", .text).notNull().indexed()
+                table.column("stage", .text).notNull()
+                table.column("progress", .integer).notNull()
+                table.column("report_id", .text)
             }
             try db.create(table: "audit_reports", ifNotExists: true) { table in
                 table.column("id", .text).primaryKey()
                 table.column("payload", .text).notNull()
                 table.column("created_at", .datetime).notNull()
+                table.column("title", .text).notNull().indexed()
+                table.column("source_path", .text).notNull().indexed()
+                table.column("scan_directory_path", .text).notNull().indexed()
+                table.column("job_id", .text)
+                table.column("is_legacy", .boolean).notNull().defaults(to: false)
             }
             try db.create(table: "audit_job_events", ifNotExists: true) { table in
                 table.column("id", .text).primaryKey()
@@ -54,6 +92,14 @@ actor DatabaseStore {
             try db.create(table: "app_migrations", ifNotExists: true) { table in
                 table.column("name", .text).primaryKey()
                 table.column("created_at", .datetime).notNull()
+            }
+            try db.create(table: "export_records", ifNotExists: true) { table in
+                table.column("id", .text).primaryKey()
+                table.column("report_id", .text).notNull().indexed()
+                table.column("report_title", .text).notNull().indexed()
+                table.column("format", .text).notNull().indexed()
+                table.column("destination_path", .text).notNull()
+                table.column("created_at", .datetime).notNull().indexed()
             }
         }
 
@@ -119,6 +165,79 @@ actor DatabaseStore {
             }
         }
 
+        migrator.registerMigration("add-indexed-columns-and-export-records-v1") { db in
+            try ensureColumn("directory_path", in: "audit_jobs", type: .text, db: db)
+            try ensureColumn("status", in: "audit_jobs", type: .text, db: db)
+            try ensureColumn("stage", in: "audit_jobs", type: .text, db: db)
+            try ensureColumn("progress", in: "audit_jobs", type: .integer, db: db)
+            try ensureColumn("report_id", in: "audit_jobs", type: .text, db: db)
+
+            try ensureColumn("title", in: "audit_reports", type: .text, db: db)
+            try ensureColumn("source_path", in: "audit_reports", type: .text, db: db)
+            try ensureColumn("scan_directory_path", in: "audit_reports", type: .text, db: db)
+            try ensureColumn("job_id", in: "audit_reports", type: .text, db: db)
+            try ensureColumn("is_legacy", in: "audit_reports", type: .boolean, db: db)
+
+            try db.execute(sql: "CREATE INDEX IF NOT EXISTS audit_jobs_directory_path_idx ON audit_jobs(directory_path)")
+            try db.execute(sql: "CREATE INDEX IF NOT EXISTS audit_jobs_status_idx ON audit_jobs(status)")
+            try db.execute(sql: "CREATE INDEX IF NOT EXISTS audit_reports_title_idx ON audit_reports(title)")
+            try db.execute(sql: "CREATE INDEX IF NOT EXISTS audit_reports_source_path_idx ON audit_reports(source_path)")
+            try db.execute(sql: "CREATE INDEX IF NOT EXISTS audit_reports_scan_dir_idx ON audit_reports(scan_directory_path)")
+
+            try db.create(table: "export_records", ifNotExists: true) { table in
+                table.column("id", .text).primaryKey()
+                table.column("report_id", .text).notNull().indexed()
+                table.column("report_title", .text).notNull().indexed()
+                table.column("format", .text).notNull().indexed()
+                table.column("destination_path", .text).notNull()
+                table.column("created_at", .datetime).notNull().indexed()
+            }
+
+            let jobRows = try Row.fetchAll(db, sql: "SELECT id, payload FROM audit_jobs")
+            for row in jobRows {
+                let jobID: String = row["id"]
+                let payload: String = row["payload"]
+                let job = try JSONDecoder.pitcherPlant.decodeString(AuditJob.self, from: payload)
+                try db.execute(
+                    sql: """
+                    UPDATE audit_jobs
+                    SET directory_path = ?, status = ?, stage = ?, progress = ?, report_id = ?
+                    WHERE id = ?
+                    """,
+                    arguments: [
+                        job.configuration.directoryPath,
+                        job.status.rawValue,
+                        job.stage.rawValue,
+                        job.progress,
+                        job.reportID?.uuidString,
+                        jobID
+                    ]
+                )
+            }
+
+            let reportRows = try Row.fetchAll(db, sql: "SELECT id, payload FROM audit_reports")
+            for row in reportRows {
+                let reportID: String = row["id"]
+                let payload: String = row["payload"]
+                let report = try JSONDecoder.pitcherPlant.decodeString(AuditReport.self, from: payload)
+                try db.execute(
+                    sql: """
+                    UPDATE audit_reports
+                    SET title = ?, source_path = ?, scan_directory_path = ?, job_id = ?, is_legacy = ?
+                    WHERE id = ?
+                    """,
+                    arguments: [
+                        report.title,
+                        report.sourcePath,
+                        report.scanDirectoryPath,
+                        report.jobID?.uuidString,
+                        report.isLegacy,
+                        reportID
+                    ]
+                )
+            }
+        }
+
         try migrator.migrate(dbQueue)
     }
 
@@ -127,11 +246,27 @@ actor DatabaseStore {
         try dbQueue.write { db in
             try db.execute(
                 sql: """
-                INSERT INTO audit_jobs (id, payload, updated_at)
-                VALUES (?, ?, ?)
-                ON CONFLICT(id) DO UPDATE SET payload = excluded.payload, updated_at = excluded.updated_at
+                INSERT INTO audit_jobs (id, payload, updated_at, directory_path, status, stage, progress, report_id)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(id) DO UPDATE SET
+                    payload = excluded.payload,
+                    updated_at = excluded.updated_at,
+                    directory_path = excluded.directory_path,
+                    status = excluded.status,
+                    stage = excluded.stage,
+                    progress = excluded.progress,
+                    report_id = excluded.report_id
                 """,
-                arguments: [job.id.uuidString, payload, job.updatedAt]
+                arguments: [
+                    job.id.uuidString,
+                    payload,
+                    job.updatedAt,
+                    job.configuration.directoryPath,
+                    job.status.rawValue,
+                    job.stage.rawValue,
+                    job.progress,
+                    job.reportID?.uuidString,
+                ]
             )
             try db.execute(sql: "DELETE FROM audit_job_events WHERE job_id = ?", arguments: [job.id.uuidString])
             for event in job.events {
@@ -166,11 +301,27 @@ actor DatabaseStore {
         try dbQueue.write { db in
             try db.execute(
                 sql: """
-                INSERT INTO audit_reports (id, payload, created_at)
-                VALUES (?, ?, ?)
-                ON CONFLICT(id) DO UPDATE SET payload = excluded.payload, created_at = excluded.created_at
+                INSERT INTO audit_reports (id, payload, created_at, title, source_path, scan_directory_path, job_id, is_legacy)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(id) DO UPDATE SET
+                    payload = excluded.payload,
+                    created_at = excluded.created_at,
+                    title = excluded.title,
+                    source_path = excluded.source_path,
+                    scan_directory_path = excluded.scan_directory_path,
+                    job_id = excluded.job_id,
+                    is_legacy = excluded.is_legacy
                 """,
-                arguments: [report.id.uuidString, payload, report.createdAt]
+                arguments: [
+                    report.id.uuidString,
+                    payload,
+                    report.createdAt,
+                    report.title,
+                    report.sourcePath,
+                    report.scanDirectoryPath,
+                    report.jobID?.uuidString,
+                    report.isLegacy,
+                ]
             )
             try db.execute(sql: "DELETE FROM report_sections WHERE report_id = ?", arguments: [report.id.uuidString])
             for (index, section) in report.sections.enumerated() {
@@ -196,10 +347,7 @@ actor DatabaseStore {
 
     func reportExists(forSourcePath sourcePath: String) throws -> Bool {
         try dbQueue.read { db in
-            let rows = try Row.fetchAll(db, sql: "SELECT payload FROM audit_reports")
-            return try rows.compactMap { row in
-                try JSONDecoder.pitcherPlant.decode(AuditReport.self, from: row["payload"])
-            }.contains(where: { $0.sourcePath == sourcePath })
+            try Row.fetchOne(db, sql: "SELECT id FROM audit_reports WHERE source_path = ?", arguments: [sourcePath]) != nil
         }
     }
 
@@ -309,6 +457,75 @@ actor DatabaseStore {
         }
     }
 
+    func recordExport(_ record: ExportRecord) throws {
+        try dbQueue.write { db in
+            try db.execute(
+                sql: """
+                INSERT INTO export_records (id, report_id, report_title, format, destination_path, created_at)
+                VALUES (?, ?, ?, ?, ?, ?)
+                ON CONFLICT(id) DO UPDATE SET
+                    report_id = excluded.report_id,
+                    report_title = excluded.report_title,
+                    format = excluded.format,
+                    destination_path = excluded.destination_path,
+                    created_at = excluded.created_at
+                """,
+                arguments: [
+                    record.id.uuidString,
+                    record.reportID.uuidString,
+                    record.reportTitle,
+                    record.format.rawValue,
+                    record.destinationPath,
+                    record.createdAt
+                ]
+            )
+        }
+    }
+
+    func loadExportRecords(limit: Int? = nil) throws -> [ExportRecord] {
+        try dbQueue.read { db in
+            let sql: String
+            let arguments: StatementArguments
+            if let limit {
+                sql = """
+                SELECT id, report_id, report_title, format, destination_path, created_at
+                FROM export_records
+                ORDER BY created_at DESC
+                LIMIT ?
+                """
+                arguments = [limit]
+            } else {
+                sql = """
+                SELECT id, report_id, report_title, format, destination_path, created_at
+                FROM export_records
+                ORDER BY created_at DESC
+                """
+                arguments = []
+            }
+
+            let rows = try Row.fetchAll(db, sql: sql, arguments: arguments)
+            return rows.compactMap { row in
+                guard let id = UUID(uuidString: row["id"]),
+                      let reportID = UUID(uuidString: row["report_id"]),
+                      let formatRaw: String = row["format"],
+                      let format = ExportRecord.Format(rawValue: formatRaw) else {
+                    return nil
+                }
+                let reportTitle: String = row["report_title"]
+                let destinationPath: String = row["destination_path"]
+                let createdAt: Date = row["created_at"]
+                return ExportRecord(
+                    id: id,
+                    reportID: reportID,
+                    reportTitle: reportTitle,
+                    format: format,
+                    destinationPath: destinationPath,
+                    createdAt: createdAt
+                )
+            }
+        }
+    }
+
     func debugTableRowCount(named table: String) throws -> Int {
         try dbQueue.read { db in
             try Int.fetchOne(db, sql: "SELECT COUNT(*) FROM \(table.quotedDatabaseIdentifier)") ?? 0
@@ -341,6 +558,16 @@ actor DatabaseStore {
             grouped[reportID, default: []].append(section)
         }
         return grouped
+    }
+}
+
+private func ensureColumn(_ name: String, in table: String, type: Database.ColumnType, db: Database) throws {
+    let existing = try db.columns(in: table)
+    guard existing.contains(where: { $0.name == name }) == false else {
+        return
+    }
+    try db.alter(table: table) { t in
+        t.add(column: name, type)
     }
 }
 
