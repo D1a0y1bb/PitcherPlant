@@ -2,21 +2,20 @@ import SwiftUI
 
 struct PitcherPlantCommands: Commands {
     let appState: AppState
-    let openMainWindow: () -> Void
-    let openReportsWindow: () -> Void
+    let showMainWindow: () -> Void
 
     var body: some Commands {
         CommandMenu("任务") {
             Button("显示工作台") {
-                openMainWindow()
+                appState.showWorkspace()
+                showMainWindow()
             }
             .keyboardShortcut("1", modifiers: [.command])
 
             Button("开始审计") {
                 Task {
-                    if await appState.startAudit() != nil {
-                        openReportsWindow()
-                    }
+                    await appState.startAudit()
+                    showMainWindow()
                 }
             }
             .keyboardShortcut(.return, modifiers: [.command])
@@ -30,13 +29,14 @@ struct PitcherPlantCommands: Commands {
 
         CommandMenu("报告") {
             Button("打开报告中心") {
-                openReportsWindow()
+                appState.showReportsCenter()
+                showMainWindow()
             }
             .keyboardShortcut("r", modifiers: [.command, .shift])
 
             Button("打开最近报告") {
-                appState.selectLatestReport()
-                openReportsWindow()
+                appState.showReportsCenter(selectLatest: true)
+                showMainWindow()
             }
             .keyboardShortcut("r", modifiers: [.command, .option])
             .disabled(appState.latestReport == nil)

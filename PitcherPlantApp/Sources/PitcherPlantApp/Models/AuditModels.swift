@@ -2,13 +2,13 @@ import Foundation
 
 enum AppWindow: String {
     case main
-    case reports
 }
 
 enum MainSidebarItem: String, CaseIterable, Identifiable {
     case workspace
     case newAudit
     case history
+    case reports
     case fingerprints
     case whitelist
     case settings
@@ -20,6 +20,7 @@ enum MainSidebarItem: String, CaseIterable, Identifiable {
         case .workspace: return "工作台"
         case .newAudit: return "新建审计"
         case .history: return "历史任务"
+        case .reports: return "报告中心"
         case .fingerprints: return "指纹库"
         case .whitelist: return "白名单"
         case .settings: return "设置"
@@ -31,6 +32,7 @@ enum MainSidebarItem: String, CaseIterable, Identifiable {
         case .workspace: return "square.grid.2x2.fill"
         case .newAudit: return "play.circle.fill"
         case .history: return "clock.arrow.circlepath"
+        case .reports: return "doc.text.magnifyingglass"
         case .fingerprints: return "server.rack"
         case .whitelist: return "checklist"
         case .settings: return "gearshape.fill"

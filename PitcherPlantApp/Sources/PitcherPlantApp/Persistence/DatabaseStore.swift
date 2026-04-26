@@ -296,6 +296,48 @@ actor DatabaseStore {
         }
     }
 
+    @discardableResult
+    func markInterruptedJobs(message: String = "上次审计运行被中断，请重新开始审计。") throws -> Int {
+        try dbQueue.write { db in
+            let rows = try Row.fetchAll(db, sql: "SELECT id, payload FROM audit_jobs WHERE status = ?", arguments: [AuditJobStatus.running.rawValue])
+            for row in rows {
+                let jobID: String = row["id"]
+                let payload: String = row["payload"]
+                var job = try JSONDecoder.pitcherPlant.decodeString(AuditJob.self, from: payload)
+                job = job.failed(message)
+                let updatedPayload = try JSONEncoder.pitcherPlant.encodeToString(job)
+                try db.execute(
+                    sql: """
+                    UPDATE audit_jobs
+                    SET payload = ?, updated_at = ?, directory_path = ?, status = ?, stage = ?, progress = ?, report_id = ?
+                    WHERE id = ?
+                    """,
+                    arguments: [
+                        updatedPayload,
+                        job.updatedAt,
+                        job.configuration.directoryPath,
+                        job.status.rawValue,
+                        job.stage.rawValue,
+                        job.progress,
+                        job.reportID?.uuidString,
+                        jobID,
+                    ]
+                )
+                try db.execute(sql: "DELETE FROM audit_job_events WHERE job_id = ?", arguments: [jobID])
+                for event in job.events {
+                    try db.execute(
+                        sql: """
+                        INSERT INTO audit_job_events (id, job_id, timestamp, message, progress)
+                        VALUES (?, ?, ?, ?, ?)
+                        """,
+                        arguments: [event.id.uuidString, jobID, event.timestamp, event.message, event.progress]
+                    )
+                }
+            }
+            return rows.count
+        }
+    }
+
     func saveReport(_ report: AuditReport) throws {
         let payload = try JSONEncoder.pitcherPlant.encodeToString(report)
         try dbQueue.write { db in

@@ -156,6 +156,60 @@ struct AuditReport: Codable, Identifiable, Hashable, Sendable {
     var sourceURL: URL {
         URL(fileURLWithPath: sourcePath)
     }
+
+    var preferredEvidenceSection: ReportSection? {
+        let sections = displaySections
+        let primaryKinds: [ReportSectionKind] = [.text, .code, .image, .metadata, .dedup, .crossBatch]
+        if let primarySection = sections.first(where: { section in
+            primaryKinds.contains(section.kind) && section.table?.rows.isEmpty == false
+        }) {
+            return primarySection
+        }
+        return sections.first(where: { $0.table?.rows.isEmpty == false }) ?? sections.first
+    }
+
+    var displaySections: [ReportSection] {
+        var seen = Set<ReportSectionKind>()
+        return sections.compactMap { section in
+            guard seen.insert(section.kind).inserted else {
+                return nil
+            }
+            return displaySection(for: section.kind)
+        }
+    }
+
+    func displaySection(for kind: ReportSectionKind?) -> ReportSection? {
+        guard let kind else {
+            return displaySections.first
+        }
+        let matches = sections.filter { $0.kind == kind }
+        guard matches.count > 1 else {
+            return matches.first
+        }
+
+        let summaries = matches
+            .map(\.summary)
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { $0.isEmpty == false }
+        let callouts = Array(
+            NSOrderedSet(array: matches.flatMap(\.callouts))
+                .compactMap { $0 as? String }
+                .prefix(8)
+        )
+        let tables = matches.compactMap(\.table)
+        let rows = tables.flatMap(\.rows)
+        let headers = tables.first?.headers ?? ["条目", "摘要", "分数", "详情"]
+        let titleSet = Set(matches.map(\.title))
+
+        return ReportSection(
+            id: matches[0].id,
+            kind: kind,
+            title: titleSet.count == 1 ? matches[0].title : kind.title,
+            summary: summaries.isEmpty ? "\(kind.title)章节来自多个旧报告区块。" : summaries.joined(separator: "\n\n"),
+            callouts: callouts,
+            table: rows.isEmpty ? nil : ReportTable(headers: headers, rows: rows)
+        )
+    }
 }
 
 struct FingerprintRecord: Codable, Identifiable, Hashable, Sendable {

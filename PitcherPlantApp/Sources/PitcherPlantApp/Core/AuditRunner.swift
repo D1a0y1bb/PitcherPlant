@@ -449,8 +449,16 @@ struct DocumentIngestionService {
             guard ["pdf", "docx", "md", "txt"].contains(url.pathExtension.lowercased()) else {
                 continue
             }
-            if let document = try parseDocument(at: url) {
-                documents.append(document)
+            do {
+                if let document = try parseDocument(at: url) {
+                    documents.append(document)
+                }
+            } catch {
+                if let document = parseMislabeledTextDocument(at: url, error: error) {
+                    documents.append(document)
+                } else {
+                    print("PitcherPlant skipped unreadable document: \(url.path) (\(error.localizedDescription))")
+                }
             }
         }
 
@@ -485,7 +493,7 @@ struct DocumentIngestionService {
 
         if let entry = archive["word/document.xml"] {
             var data = Data()
-            _ = try archive.extract(entry) { part in
+            _ = try? archive.extract(entry) { part in
                 data.append(part)
             }
             content = XMLTextExtractor.plainText(from: data)
@@ -493,7 +501,7 @@ struct DocumentIngestionService {
 
         if let entry = archive["docProps/core.xml"] {
             var data = Data()
-            _ = try archive.extract(entry) { part in
+            _ = try? archive.extract(entry) { part in
                 data.append(part)
             }
             author = XMLTextExtractor.metadataValue(named: "dc:creator", in: data)
@@ -502,8 +510,10 @@ struct DocumentIngestionService {
 
         for entry in archive where entry.path.hasPrefix("word/media/") {
             var data = Data()
-            _ = try archive.extract(entry) { part in
+            guard (try? archive.extract(entry) { part in
                 data.append(part)
+            }) != nil else {
+                continue
             }
             images.append(ParsedImage(
                 source: entry.path,
@@ -516,6 +526,16 @@ struct DocumentIngestionService {
         }
 
         return buildDocument(url: url, ext: "docx", content: content, author: author, lastModifiedBy: lastModifiedBy, images: images)
+    }
+
+    private func parseMislabeledTextDocument(at url: URL, error: Error) -> ParsedDocument? {
+        guard url.pathExtension.lowercased() == "docx",
+              let data = try? Data(contentsOf: url),
+              Self.isLikelyPlainText(data) else {
+            return nil
+        }
+        let content = Self.decodeLossyText(data)
+        return buildDocument(url: url, ext: "docx", content: content, author: "", images: [])
     }
 
     private func buildDocument(url: URL, ext: String, content: String, author: String, lastModifiedBy: String = "", images: [ParsedImage]) -> ParsedDocument {
@@ -538,10 +558,24 @@ struct DocumentIngestionService {
             return content
         }
         let data = try Data(contentsOf: url)
+        return decodeLossyText(data)
+    }
+
+    private static func decodeLossyText(_ data: Data) -> String {
         if let content = String(data: data, encoding: .isoLatin1) {
             return content
         }
         return String(decoding: data, as: UTF8.self)
+    }
+
+    private static func isLikelyPlainText(_ data: Data) -> Bool {
+        guard data.isEmpty == false else {
+            return true
+        }
+        let printable = data.filter { byte in
+            byte == 0x09 || byte == 0x0a || byte == 0x0d || (byte >= 0x20 && byte != 0x7f)
+        }.count
+        return Double(printable) / Double(data.count) >= 0.85
     }
 
     private func parsePDFImages(document: PDFDocument, sourceURL: URL) -> [ParsedImage] {

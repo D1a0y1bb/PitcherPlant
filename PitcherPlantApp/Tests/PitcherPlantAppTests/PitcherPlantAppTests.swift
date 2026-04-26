@@ -83,6 +83,27 @@ func databaseStorePersistsStructuredJobEventsAndReportSections() async throws {
 }
 
 @Test
+func databaseStoreMarksInterruptedRunningJobs() async throws {
+    let root = FileManager.default.temporaryDirectory
+        .appendingPathComponent("pitcherplant-interrupted-\(UUID().uuidString)", isDirectory: true)
+    try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+
+    let store = try DatabaseStore(rootDirectory: root)
+    try await store.prepare()
+
+    var job = AuditJob(configuration: AuditConfiguration.defaults(for: root))
+    job = job.advanced(stage: .parsed, message: "解析文档完成")
+    try await store.upsertJob(job)
+
+    let marked = try await store.markInterruptedJobs()
+    let loadedJob = try #require(try await store.loadJobs().first)
+
+    #expect(marked == 1)
+    #expect(loadedJob.status == .failed)
+    #expect(loadedJob.latestMessage.contains("中断"))
+}
+
+@Test
 func codeSimilarityAnalyzerBuildsStructuredEvidence() {
     let docA = ParsedDocument(
         url: URL(fileURLWithPath: "/tmp/a.swift"),
@@ -275,6 +296,21 @@ func ingestionSkipsOfficeTempsAndReadsLossyText() throws {
 }
 
 @Test
+func ingestionFallsBackForMislabeledTextDocxAndSkipsBrokenDocx() throws {
+    let root = FileManager.default.temporaryDirectory
+        .appendingPathComponent("pitcherplant-mislabeled-docx-\(UUID().uuidString)", isDirectory: true)
+    try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+    try "plain writeup stored with docx extension".write(to: root.appendingPathComponent("plain.docx"), atomically: true, encoding: .utf8)
+    try Data([0x00, 0x01, 0x02, 0x03, 0x04]).write(to: root.appendingPathComponent("broken.docx"))
+
+    let configuration = AuditConfiguration.defaults(for: root)
+    let documents = try DocumentIngestionService(configuration: configuration).ingestDocuments(in: root)
+
+    #expect(documents.map(\.filename) == ["plain.docx"])
+    #expect(documents.first?.content.contains("plain writeup") == true)
+}
+
+@Test
 func normalizerRemovesLegacyNoisePatternsDuringIngestion() throws {
     let root = FileManager.default.temporaryDirectory
         .appendingPathComponent("pitcherplant-normalizer-\(UUID().uuidString)", isDirectory: true)
@@ -405,6 +441,67 @@ func auditRunnerProducesNativeReportRowsForAppViewing() async throws {
     #expect(textSection.table?.rows.isEmpty == false)
     #expect(textSection.table?.rows.first?.detailBody.isEmpty == false)
     #expect(FileManager.default.fileExists(atPath: result.report.sourcePath))
+}
+
+@Test
+func auditReportPrefersBusinessEvidenceForInlineReview() throws {
+    let overviewRow = ReportTableRow(columns: ["总览", "", "1"], detailTitle: "总览行", detailBody: "总览")
+    let textRow = ReportTableRow(columns: ["a.md", "b.md", "0.91"], detailTitle: "文本证据", detailBody: "文本相似")
+    let report = AuditReport(
+        title: "选择测试",
+        sourcePath: "/tmp/report.html",
+        scanDirectoryPath: "/tmp/date",
+        metrics: [],
+        sections: [
+            ReportSection(
+                kind: .overview,
+                title: "总览",
+                summary: "summary",
+                table: ReportTable(headers: ["A", "B", "C"], rows: [overviewRow])
+            ),
+            ReportSection(
+                kind: .text,
+                title: "文本相似",
+                summary: "summary",
+                table: ReportTable(headers: ["A", "B", "C"], rows: [textRow])
+            )
+        ]
+    )
+
+    #expect(report.preferredEvidenceSection?.kind == .text)
+    #expect(report.preferredEvidenceSection?.table?.rows.first?.detailTitle == "文本证据")
+}
+
+@Test
+func auditReportMergesDuplicateDisplaySections() throws {
+    let firstRow = ReportTableRow(columns: ["a.swift", "b.swift", "0.82"], detailTitle: "代码证据 A", detailBody: "A")
+    let secondRow = ReportTableRow(columns: ["c.swift", "d.swift", "0.91"], detailTitle: "代码证据 B", detailBody: "B")
+    let report = AuditReport(
+        title: "Legacy 重复章节",
+        sourcePath: "/tmp/report.html",
+        scanDirectoryPath: "/tmp/date",
+        metrics: [],
+        sections: [
+            ReportSection(kind: .overview, title: "总览", summary: "summary"),
+            ReportSection(
+                kind: .code,
+                title: "代码",
+                summary: "first",
+                table: ReportTable(headers: ["A", "B", "分数"], rows: [firstRow])
+            ),
+            ReportSection(
+                kind: .code,
+                title: "代码",
+                summary: "second",
+                table: ReportTable(headers: ["A", "B", "分数"], rows: [secondRow])
+            )
+        ]
+    )
+
+    let codeSection = try #require(report.displaySection(for: .code))
+
+    #expect(report.displaySections.map(\.kind) == [.overview, .code])
+    #expect(codeSection.table?.rows.map(\.detailTitle) == ["代码证据 A", "代码证据 B"])
 }
 
 @Test

@@ -67,6 +67,7 @@ final class AppState {
         do {
             try await database.prepare()
             lastMigrationSummary = try await migrationService.runIfNeeded(database: database)
+            _ = try await database.markInterruptedJobs()
         } catch {
             print("PitcherPlant bootstrap error: \(error)")
         }
@@ -94,7 +95,7 @@ final class AppState {
                 selectedReportID = latestReport?.id
             }
             if let report = selectedReport, selectedReportSection == nil {
-                selectedReportSection = report.sections.first?.kind
+                selectedReportSection = report.preferredEvidenceSection?.kind
             }
             syncReportSelection()
         } catch {
@@ -112,10 +113,7 @@ final class AppState {
 
     var selectedReportSectionModel: ReportSection? {
         guard let report = selectedReport else { return nil }
-        if let selectedReportSection {
-            return report.sections.first(where: { $0.kind == selectedReportSection }) ?? report.sections.first
-        }
-        return report.sections.first
+        return report.displaySection(for: selectedReportSection)
     }
 
     var selectedReportRow: ReportTableRow? {
@@ -162,22 +160,51 @@ final class AppState {
     }
 
     func selectReport(_ reportID: UUID?) {
+        guard let reportID else {
+            selectedReportID = nil
+            selectedReportSection = nil
+            selectedReportRowID = nil
+            return
+        }
         selectedReportID = reportID
         syncReportSelection()
     }
 
     func selectLatestReport() {
-        selectedReportID = latestReport?.id
+        guard let report = latestReport ?? reports.sorted(by: { $0.createdAt > $1.createdAt }).first else {
+            selectedReportID = nil
+            selectedReportSection = nil
+            selectedReportRowID = nil
+            return
+        }
+        selectedReportID = report.id
         syncReportSelection()
+    }
+
+    func showReportsCenter(selectLatest: Bool = false) {
+        if selectLatest || selectedReportID == nil {
+            selectLatestReport()
+        } else {
+            syncReportSelection()
+        }
+        selectedMainSidebar = .reports
+        NSApp.activate(ignoringOtherApps: true)
+    }
+
+    func showReport(_ reportID: UUID?) {
+        selectReport(reportID)
+        selectedMainSidebar = .reports
+        NSApp.activate(ignoringOtherApps: true)
+    }
+
+    func showWorkspace() {
+        selectedMainSidebar = .workspace
+        NSApp.activate(ignoringOtherApps: true)
     }
 
     func selectReportSection(_ kind: ReportSectionKind?) {
         selectedReportSection = kind
         selectedReportRowID = selectedReportSectionModel?.table?.rows.first?.id
-    }
-
-    func openReportsWindow() {
-        NSApp.activate(ignoringOtherApps: true)
     }
 
     func openLatestReportInFinder() {
@@ -340,11 +367,11 @@ final class AppState {
     private func selectReportForInlineReview(_ report: AuditReport) {
         latestReport = report
         selectedReportID = report.id
-        let firstEvidenceSection = report.sections.first { section in
-            section.table?.rows.isEmpty == false
-        }
-        selectedReportSection = (firstEvidenceSection ?? report.sections.first)?.kind
-        selectedReportRowID = (firstEvidenceSection ?? report.sections.first)?.table?.rows.first?.id
+        let section = report.preferredEvidenceSection
+        selectedReportSection = section?.kind
+        selectedReportRowID = section?.table?.rows.first?.id
+        selectedMainSidebar = .reports
+        NSApp.activate(ignoringOtherApps: true)
     }
 
     private func syncReportSelection() {
@@ -353,8 +380,9 @@ final class AppState {
             selectedReportRowID = nil
             return
         }
-        if selectedReportSection == nil || report.sections.contains(where: { $0.kind == selectedReportSection }) == false {
-            selectedReportSection = report.sections.first?.kind
+        selectedReportID = report.id
+        if selectedReportSection == nil || report.displaySections.contains(where: { $0.kind == selectedReportSection }) == false {
+            selectedReportSection = report.preferredEvidenceSection?.kind
         }
         if let section = selectedReportSectionModel, let rows = section.table?.rows, !rows.isEmpty {
             if selectedReportRowID == nil || rows.contains(where: { $0.id == selectedReportRowID }) == false {

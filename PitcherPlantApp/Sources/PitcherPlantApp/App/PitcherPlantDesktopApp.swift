@@ -11,7 +11,7 @@ struct PitcherPlantDesktopApp: App {
     @Environment(\.openWindow) private var openWindow
 
     var body: some Scene {
-        WindowGroup("PitcherPlant") {
+        Window("PitcherPlant", id: AppWindow.main.rawValue) {
             MainWindowView()
                 .environment(appState)
                 .task {
@@ -23,23 +23,12 @@ struct PitcherPlantDesktopApp: App {
         .commands {
             PitcherPlantCommands(
                 appState: appState,
-                openMainWindow: {
+                showMainWindow: {
+                    openWindow(id: AppWindow.main.rawValue)
                     NSApp.activate(ignoringOtherApps: true)
-                },
-                openReportsWindow: {
-                    openWindow(id: AppWindow.reports.rawValue)
                 }
             )
         }
-
-        Window("报告中心", id: AppWindow.reports.rawValue) {
-            ReportsWindowView()
-                .environment(appState)
-                .task {
-                    await appState.bootstrapIfNeeded()
-                }
-        }
-        .defaultSize(width: 1320, height: 840)
 
         Settings {
             SettingsRootView()

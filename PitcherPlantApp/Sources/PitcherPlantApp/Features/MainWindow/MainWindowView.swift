@@ -2,7 +2,6 @@ import SwiftUI
 
 struct MainWindowView: View {
     @Environment(AppState.self) private var appState
-    @Environment(\.openWindow) private var openWindow
 
     var body: some View {
         @Bindable var state = appState
@@ -14,8 +13,14 @@ struct MainWindowView: View {
             mainContent
                 .navigationSplitViewColumnWidth(min: 560, ideal: 760, max: .infinity)
         } detail: {
-            JobInspectorView()
-                .navigationSplitViewColumnWidth(min: 340, ideal: 400, max: 520)
+            Group {
+                if appState.selectedMainSidebar == .reports {
+                    ReportEvidenceInspectorHost()
+                } else {
+                    JobInspectorView()
+                }
+            }
+            .navigationSplitViewColumnWidth(min: 340, ideal: 400, max: 520)
         }
         .navigationSplitViewStyle(.balanced)
         .toolbar {
@@ -49,7 +54,7 @@ struct MainWindowView: View {
                 }
 
                 Button {
-                    openWindow(id: AppWindow.reports.rawValue)
+                    appState.showReportsCenter()
                 } label: {
                     Label("报告中心", systemImage: "sidebar.right")
                 }
@@ -58,9 +63,7 @@ struct MainWindowView: View {
     }
 
     private func runAuditAndOpenReport() async {
-        if await appState.startAudit() != nil {
-            openWindow(id: AppWindow.reports.rawValue)
-        }
+        await appState.startAudit()
     }
 
     @ViewBuilder
@@ -72,6 +75,8 @@ struct MainWindowView: View {
             NewAuditView()
         case .history:
             JobHistoryView()
+        case .reports:
+            ReportsInlineView()
         case .fingerprints:
             FingerprintLibraryView()
         case .whitelist:
@@ -92,6 +97,7 @@ private struct MainSidebarView: View {
                 sidebarRow(.workspace, count: appState.jobs.count)
                 sidebarRow(.newAudit)
                 sidebarRow(.history, count: appState.jobs.count)
+                sidebarRow(.reports, count: appState.reports.count)
             }
 
             Section("资产") {
@@ -144,7 +150,6 @@ private struct MainSidebarView: View {
 
 private struct WorkspaceDashboardView: View {
     @Environment(AppState.self) private var appState
-    @Environment(\.openWindow) private var openWindow
 
     var body: some View {
         NativePage {
@@ -160,7 +165,7 @@ private struct WorkspaceDashboardView: View {
                     .disabled(appState.isRunningAudit)
 
                     Button {
-                        openWindow(id: AppWindow.reports.rawValue)
+                        appState.showReportsCenter()
                     } label: {
                         Label("报告中心", systemImage: "sidebar.right")
                     }
@@ -195,8 +200,7 @@ private struct WorkspaceDashboardView: View {
                     DenseHeader(columns: ["标题", "类型", "章节", "时间"])
                     ForEach(appState.reports.sorted(by: { $0.createdAt > $1.createdAt }).prefix(8)) { report in
                         Button {
-                            appState.selectReport(report.id)
-                            openWindow(id: AppWindow.reports.rawValue)
+                            appState.showReport(report.id)
                         } label: {
                             AuditReportListRow(report: report)
                         }
@@ -211,7 +215,6 @@ private struct WorkspaceDashboardView: View {
 
 private struct NewAuditView: View {
     @Environment(AppState.self) private var appState
-    @Environment(\.openWindow) private var openWindow
     @State private var presetName = ""
 
     var body: some View {
@@ -331,9 +334,7 @@ private struct NewAuditView: View {
     }
 
     private func runAuditAndOpenReport() async {
-        if await appState.startAudit() != nil {
-            openWindow(id: AppWindow.reports.rawValue)
-        }
+        await appState.startAudit()
     }
 }
 
@@ -497,7 +498,6 @@ private struct JobInspectorView: View {
 
 private struct PresetTableRow: View {
     @Environment(AppState.self) private var appState
-    @Environment(\.openWindow) private var openWindow
     let preset: AuditConfigurationPreset
 
     var body: some View {
@@ -514,9 +514,7 @@ private struct PresetTableRow: View {
             Button("套用") { appState.applyPreset(preset) }
             Button("运行") {
                 Task {
-                    if await appState.startAudit(using: preset) != nil {
-                        openWindow(id: AppWindow.reports.rawValue)
-                    }
+                    await appState.startAudit(using: preset)
                 }
             }
                 .disabled(appState.isRunningAudit)
