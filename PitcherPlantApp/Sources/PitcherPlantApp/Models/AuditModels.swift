@@ -9,6 +9,12 @@ enum MainSidebarItem: String, CaseIterable, Identifiable {
     case newAudit
     case history
     case reports
+    case textEvidence
+    case codeEvidence
+    case imageEvidence
+    case metadataEvidence
+    case dedupEvidence
+    case crossBatchEvidence
     case fingerprints
     case whitelist
     case settings
@@ -21,6 +27,12 @@ enum MainSidebarItem: String, CaseIterable, Identifiable {
         case .newAudit: return "新建审计"
         case .history: return "历史任务"
         case .reports: return "报告中心"
+        case .textEvidence: return "文本证据"
+        case .codeEvidence: return "代码证据"
+        case .imageEvidence: return "图片证据"
+        case .metadataEvidence: return "元数据证据"
+        case .dedupEvidence: return "重复证据"
+        case .crossBatchEvidence: return "跨批次证据"
         case .fingerprints: return "指纹库"
         case .whitelist: return "白名单"
         case .settings: return "设置"
@@ -33,10 +45,32 @@ enum MainSidebarItem: String, CaseIterable, Identifiable {
         case .newAudit: return "play.circle.fill"
         case .history: return "clock.arrow.circlepath"
         case .reports: return "doc.text.magnifyingglass"
+        case .textEvidence: return "text.quote"
+        case .codeEvidence: return "curlybraces"
+        case .imageEvidence: return "photo.on.rectangle"
+        case .metadataEvidence: return "person.text.rectangle"
+        case .dedupEvidence: return "doc.on.doc"
+        case .crossBatchEvidence: return "arrow.triangle.branch"
         case .fingerprints: return "server.rack"
         case .whitelist: return "checklist"
         case .settings: return "gearshape.fill"
         }
+    }
+
+    var reportSectionKind: ReportSectionKind? {
+        switch self {
+        case .textEvidence: return .text
+        case .codeEvidence: return .code
+        case .imageEvidence: return .image
+        case .metadataEvidence: return .metadata
+        case .dedupEvidence: return .dedup
+        case .crossBatchEvidence: return .crossBatch
+        default: return nil
+        }
+    }
+
+    var usesReportInspector: Bool {
+        self == .reports || reportSectionKind != nil
     }
 }
 

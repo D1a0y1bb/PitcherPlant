@@ -37,5 +37,13 @@ struct PitcherPlantDesktopApp: App {
                     await appState.bootstrapIfNeeded()
                 }
         }
+
+        MenuBarExtra {
+            PitcherPlantMenuBarView(appState: appState)
+                .environment(appState)
+        } label: {
+            Image(systemName: "leaf")
+        }
+        .menuBarExtraStyle(.window)
     }
 }

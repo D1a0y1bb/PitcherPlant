@@ -2,19 +2,23 @@ import SwiftUI
 
 struct MainWindowView: View {
     @Environment(AppState.self) private var appState
+    @State private var columnVisibility = NavigationSplitViewVisibility.all
 
     var body: some View {
         @Bindable var state = appState
 
-        NavigationSplitView {
+        NavigationSplitView(columnVisibility: $columnVisibility) {
             MainSidebarView(selection: $state.selectedMainSidebar)
                 .navigationSplitViewColumnWidth(min: 190, ideal: 220, max: 260)
         } content: {
             mainContent
+                .safeAreaInset(edge: .bottom, spacing: 0) {
+                    MainStatusBar()
+                }
                 .navigationSplitViewColumnWidth(min: 560, ideal: 760, max: .infinity)
         } detail: {
             Group {
-                if appState.selectedMainSidebar == .reports {
+                if appState.selectedMainSidebar.usesReportInspector {
                     ReportEvidenceInspectorHost()
                 } else {
                     JobInspectorView()
@@ -23,41 +27,36 @@ struct MainWindowView: View {
             .navigationSplitViewColumnWidth(min: 340, ideal: 400, max: 520)
         }
         .navigationSplitViewStyle(.balanced)
+        .onAppear {
+            NSApp.setActivationPolicy(.regular)
+            NSApp.activate(ignoringOtherApps: true)
+        }
         .toolbar {
-            ToolbarItemGroup(placement: .navigation) {
-                Button {
-                    appState.selectedMainSidebar = .workspace
-                } label: {
-                    Label("工作台", systemImage: "square.grid.2x2")
-                }
-            }
-
             ToolbarItemGroup(placement: .primaryAction) {
+                Button {
+                    Task { await appState.reload() }
+                } label: {
+                    Label("重新加载", systemImage: "arrow.clockwise")
+                }
+                .keyboardShortcut("r", modifiers: .command)
+                .help("重新加载数据")
+
                 Button {
                     Task { await runAuditAndOpenReport() }
                 } label: {
                     Label("开始", systemImage: "play.fill")
                 }
+                .keyboardShortcut(.return, modifiers: .command)
                 .disabled(appState.isRunningAudit)
+                .help("开始审计")
 
                 Button {
-                    Task { await runAuditAndOpenReport() }
+                    appState.selectedMainSidebar = .settings
                 } label: {
-                    Label("重跑", systemImage: "arrow.clockwise")
+                    Label("设置", systemImage: "gear")
                 }
-                .disabled(appState.isRunningAudit)
-
-                Button {
-                    appState.openLatestReportInFinder()
-                } label: {
-                    Label("输出", systemImage: "folder")
-                }
-
-                Button {
-                    appState.showReportsCenter()
-                } label: {
-                    Label("报告中心", systemImage: "sidebar.right")
-                }
+                .keyboardShortcut(",", modifiers: .command)
+                .help("打开设置")
             }
         }
     }
@@ -77,6 +76,8 @@ struct MainWindowView: View {
             JobHistoryView()
         case .reports:
             ReportsInlineView()
+        case .textEvidence, .codeEvidence, .imageEvidence, .metadataEvidence, .dedupEvidence, .crossBatchEvidence:
+            EvidenceFocusedReportsView(kind: appState.selectedMainSidebar.reportSectionKind)
         case .fingerprints:
             FingerprintLibraryView()
         case .whitelist:
@@ -87,26 +88,100 @@ struct MainWindowView: View {
     }
 }
 
+private struct EvidenceFocusedReportsView: View {
+    @Environment(AppState.self) private var appState
+    let kind: ReportSectionKind?
+
+    var body: some View {
+        ReportsInlineView()
+            .onAppear {
+                focusEvidenceKind()
+            }
+            .onChange(of: kind) { _, _ in
+                focusEvidenceKind()
+            }
+    }
+
+    private func focusEvidenceKind() {
+        guard let kind else {
+            return
+        }
+        if appState.selectedReportID == nil {
+            appState.selectLatestReport()
+        }
+        appState.selectReportSection(kind)
+    }
+}
+
+private struct MainStatusBar: View {
+    @Environment(AppState.self) private var appState
+
+    private var statusText: String {
+        "\(appState.jobs.count) audits · \(appState.reports.count) reports · \(appState.fingerprints.count) fingerprints"
+    }
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Text(statusText)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+
+            Spacer()
+
+            if appState.isRunningAudit {
+                ProgressView()
+                    .controlSize(.small)
+                Text("Auditing...")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            } else if let latestReport = appState.latestReport {
+                Text("Latest: \(latestReport.createdAt.formatted(date: .abbreviated, time: .shortened))")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            } else {
+                Text("Ready")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 7)
+        .background(Color(nsColor: .windowBackgroundColor))
+        .overlay(alignment: .top) {
+            Divider()
+        }
+    }
+}
+
 private struct MainSidebarView: View {
     @Binding var selection: MainSidebarItem
     @Environment(AppState.self) private var appState
 
     var body: some View {
         List(selection: $selection) {
-            Section("审计") {
-                sidebarRow(.workspace, count: appState.jobs.count)
-                sidebarRow(.newAudit)
-                sidebarRow(.history, count: appState.jobs.count)
-                sidebarRow(.reports, count: appState.reports.count)
+            Section("Categories") {
+                sidebarRow(.workspace, title: "All Audits", count: appState.jobs.count)
+                sidebarRow(.newAudit, title: "New Audit")
+                sidebarRow(.history, title: "History", count: appState.jobs.count)
+                sidebarRow(.reports, title: "Reports", count: appState.reports.count)
             }
 
-            Section("资产") {
-                sidebarRow(.fingerprints, count: appState.fingerprints.count)
-                sidebarRow(.whitelist, count: appState.whitelistRules.count)
+            Section("Evidence Types") {
+                sidebarRow(.textEvidence, title: "Text", count: evidenceCount(.text))
+                sidebarRow(.codeEvidence, title: "Code", count: evidenceCount(.code))
+                sidebarRow(.imageEvidence, title: "Images", count: evidenceCount(.image))
+                sidebarRow(.metadataEvidence, title: "Metadata", count: evidenceCount(.metadata))
+                sidebarRow(.dedupEvidence, title: "Duplicates", count: evidenceCount(.dedup))
+                sidebarRow(.crossBatchEvidence, title: "Cross Batch", count: evidenceCount(.crossBatch))
+            }
+
+            Section("Libraries") {
+                sidebarRow(.fingerprints, title: "Fingerprints", count: appState.fingerprints.count)
+                sidebarRow(.whitelist, title: "Whitelist", count: appState.whitelistRules.count)
             }
 
             Section {
-                sidebarRow(.settings)
+                sidebarRow(.settings, title: "Settings")
             }
         }
         .listStyle(.sidebar)
@@ -129,10 +204,10 @@ private struct MainSidebarView: View {
         }
     }
 
-    private func sidebarRow(_ item: MainSidebarItem, count: Int? = nil) -> some View {
+    private func sidebarRow(_ item: MainSidebarItem, title: String? = nil, count: Int? = nil) -> some View {
         Label {
             HStack {
-                Text(item.title)
+                Text(title ?? item.title)
                 Spacer()
                 if let count {
                     Text("\(count)")
@@ -145,6 +220,12 @@ private struct MainSidebarView: View {
             Image(systemName: item.systemImage)
         }
         .tag(item)
+    }
+
+    private func evidenceCount(_ kind: ReportSectionKind) -> Int {
+        appState.reports.reduce(0) { total, report in
+            total + (report.displaySection(for: kind)?.table?.rows.count ?? 0)
+        }
     }
 }
 
