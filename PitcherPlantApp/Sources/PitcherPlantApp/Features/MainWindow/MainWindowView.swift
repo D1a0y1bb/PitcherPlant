@@ -29,14 +29,14 @@ struct MainWindowView: View {
 
             ToolbarItemGroup(placement: .primaryAction) {
                 Button {
-                    Task { await appState.startAudit() }
+                    Task { await runAuditAndOpenReport() }
                 } label: {
                     Label("开始", systemImage: "play.fill")
                 }
                 .disabled(appState.isRunningAudit)
 
                 Button {
-                    Task { await appState.startAudit() }
+                    Task { await runAuditAndOpenReport() }
                 } label: {
                     Label("重跑", systemImage: "arrow.clockwise")
                 }
@@ -54,6 +54,12 @@ struct MainWindowView: View {
                     Label("报告中心", systemImage: "sidebar.right")
                 }
             }
+        }
+    }
+
+    private func runAuditAndOpenReport() async {
+        if await appState.startAudit() != nil {
+            openWindow(id: AppWindow.reports.rawValue)
         }
     }
 
@@ -205,6 +211,7 @@ private struct WorkspaceDashboardView: View {
 
 private struct NewAuditView: View {
     @Environment(AppState.self) private var appState
+    @Environment(\.openWindow) private var openWindow
     @State private var presetName = ""
 
     var body: some View {
@@ -214,7 +221,7 @@ private struct NewAuditView: View {
                 subtitle: "配置目录、阈值、OCR 和白名单策略",
                 actions: {
                     Button {
-                        Task { await appState.startAudit() }
+                        Task { await runAuditAndOpenReport() }
                     } label: {
                         Label(appState.isRunningAudit ? "运行中" : "开始审计", systemImage: "play.fill")
                     }
@@ -320,6 +327,12 @@ private struct NewAuditView: View {
                     }
                 }
             }
+        }
+    }
+
+    private func runAuditAndOpenReport() async {
+        if await appState.startAudit() != nil {
+            openWindow(id: AppWindow.reports.rawValue)
         }
     }
 }
@@ -484,6 +497,7 @@ private struct JobInspectorView: View {
 
 private struct PresetTableRow: View {
     @Environment(AppState.self) private var appState
+    @Environment(\.openWindow) private var openWindow
     let preset: AuditConfigurationPreset
 
     var body: some View {
@@ -498,7 +512,13 @@ private struct PresetTableRow: View {
             }
             Spacer()
             Button("套用") { appState.applyPreset(preset) }
-            Button("运行") { Task { await appState.startAudit(using: preset) } }
+            Button("运行") {
+                Task {
+                    if await appState.startAudit(using: preset) != nil {
+                        openWindow(id: AppWindow.reports.rawValue)
+                    }
+                }
+            }
                 .disabled(appState.isRunningAudit)
             Button(role: .destructive) {
                 appState.deletePreset(preset)

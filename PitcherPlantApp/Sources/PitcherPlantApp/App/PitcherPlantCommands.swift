@@ -13,7 +13,11 @@ struct PitcherPlantCommands: Commands {
             .keyboardShortcut("1", modifiers: [.command])
 
             Button("开始审计") {
-                Task { await appState.startAudit() }
+                Task {
+                    if await appState.startAudit() != nil {
+                        openReportsWindow()
+                    }
+                }
             }
             .keyboardShortcut(.return, modifiers: [.command])
             .disabled(appState.isRunningAudit)

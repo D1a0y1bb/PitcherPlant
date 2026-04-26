@@ -352,6 +352,62 @@ func metadataCollisionUsesLastModifiedByAuthor() {
 }
 
 @Test
+func fingerprintAnalyzerUsesWrappingStableHash() {
+    let document = ParsedDocument(
+        url: URL(fileURLWithPath: "/tmp/wrapping.md"),
+        filename: "wrapping.md",
+        ext: "md",
+        content: "",
+        cleanText: "this token forces fnv hash wrapping during fingerprint generation",
+        codeBlocks: [],
+        author: "alice",
+        images: []
+    )
+
+    let record = FingerprintAnalyzer().buildRecords(documents: [document], scanDirectory: "date").first
+
+    #expect(record?.filename == "wrapping.md")
+    #expect(record?.simhash.count == 16)
+}
+
+@Test
+func auditRunnerProducesNativeReportRowsForAppViewing() async throws {
+    let root = FileManager.default.temporaryDirectory
+        .appendingPathComponent("pitcherplant-native-audit-\(UUID().uuidString)", isDirectory: true)
+    let source = root.appendingPathComponent("source", isDirectory: true)
+    let reports = root.appendingPathComponent("reports", isDirectory: true)
+    try FileManager.default.createDirectory(at: source, withIntermediateDirectories: true)
+    try FileManager.default.createDirectory(at: reports, withIntermediateDirectories: true)
+    try """
+    SSRF 解法：读取 index.php 后使用 php://filter 披露源码，拼接 payload 完成利用。
+    关键步骤包含 curl、base64 decode 和最终 flag 提取。
+    """.write(to: source.appendingPathComponent("alpha.md"), atomically: true, encoding: .utf8)
+    try """
+    SSRF 解法：读取 index.php 后使用 php://filter 披露源码，拼接 payload 完成利用。
+    关键步骤包含 curl、base64 decode 和最终 flag 提取。
+    """.write(to: source.appendingPathComponent("beta.md"), atomically: true, encoding: .utf8)
+
+    var configuration = AuditConfiguration.defaults(for: root)
+    configuration.directoryPath = source.path
+    configuration.outputDirectoryPath = reports.path
+    configuration.reportNameTemplate = "native-{date}.html"
+    configuration.textThreshold = 0.70
+
+    let result = try await AuditRunner().run(
+        configuration: configuration,
+        importedFingerprints: [],
+        whitelistRules: []
+    ) { _, _ in }
+
+    let textSection = try #require(result.report.sections.first(where: { $0.kind == .text }))
+
+    #expect(result.report.isLegacy == false)
+    #expect(textSection.table?.rows.isEmpty == false)
+    #expect(textSection.table?.rows.first?.detailBody.isEmpty == false)
+    #expect(FileManager.default.fileExists(atPath: result.report.sourcePath))
+}
+
+@Test
 func imageReuseCountsExamplesAndUsesThreeHashes() throws {
     let leftImage = ParsedImage(
         source: "docx word/media/a.png",

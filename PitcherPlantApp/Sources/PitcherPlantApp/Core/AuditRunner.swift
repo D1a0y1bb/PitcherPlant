@@ -1695,7 +1695,7 @@ private enum SimHasher {
         var hash: UInt64 = 1469598103934665603
         for byte in value.utf8 {
             hash ^= UInt64(byte)
-            hash *= 1099511628211
+            hash = hash &* 1099511628211
         }
         return hash
     }

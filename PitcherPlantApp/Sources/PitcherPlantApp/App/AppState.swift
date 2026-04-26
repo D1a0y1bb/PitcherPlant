@@ -155,9 +155,10 @@ final class AppState {
         AppPreferences.saveDraftConfiguration(draftConfiguration, for: workspaceRoot)
     }
 
-    func startAudit(using preset: AuditConfigurationPreset) async {
+    @discardableResult
+    func startAudit(using preset: AuditConfigurationPreset) async -> AuditReport? {
         applyPreset(preset)
-        await startAudit()
+        return await startAudit()
     }
 
     func selectReport(_ reportID: UUID?) {
@@ -289,11 +290,14 @@ final class AppState {
         }
     }
 
-    func startAudit() async {
+    @discardableResult
+    func startAudit() async -> AuditReport? {
         guard !isRunningAudit else {
-            return
+            return nil
         }
         isRunningAudit = true
+        defer { isRunningAudit = false }
+
         var job = AuditJob(configuration: draftConfiguration)
         selectedJobID = job.id
         do {
@@ -320,14 +324,27 @@ final class AppState {
             if !result.fingerprints.isEmpty {
                 try await database.insertFingerprints(result.fingerprints)
             }
+            selectReportForInlineReview(result.report)
             AppPreferences.saveDraftConfiguration(draftConfiguration, for: workspaceRoot)
             await reload()
+            selectReportForInlineReview(result.report)
+            return result.report
         } catch {
             job = job.failed(error.localizedDescription)
             try? await database.upsertJob(job)
             await reload()
+            return nil
         }
-        isRunningAudit = false
+    }
+
+    private func selectReportForInlineReview(_ report: AuditReport) {
+        latestReport = report
+        selectedReportID = report.id
+        let firstEvidenceSection = report.sections.first { section in
+            section.table?.rows.isEmpty == false
+        }
+        selectedReportSection = (firstEvidenceSection ?? report.sections.first)?.kind
+        selectedReportRowID = (firstEvidenceSection ?? report.sections.first)?.table?.rows.first?.id
     }
 
     private func syncReportSelection() {
