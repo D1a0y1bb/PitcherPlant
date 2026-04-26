@@ -4,7 +4,7 @@ enum AppWindow: String {
     case main
 }
 
-enum MainSidebarItem: String, CaseIterable, Identifiable {
+enum MainSidebarItem: String, Codable, CaseIterable, Identifiable, Sendable {
     case workspace
     case newAudit
     case history
@@ -36,6 +36,24 @@ enum MainSidebarItem: String, CaseIterable, Identifiable {
         case .fingerprints: return "指纹库"
         case .whitelist: return "白名单"
         case .settings: return "设置"
+        }
+    }
+
+    var localizationKey: String {
+        switch self {
+        case .workspace: return "sidebar.workspace"
+        case .newAudit: return "sidebar.newAudit"
+        case .history: return "sidebar.history"
+        case .reports: return "sidebar.reports"
+        case .textEvidence: return "sidebar.textEvidence"
+        case .codeEvidence: return "sidebar.codeEvidence"
+        case .imageEvidence: return "sidebar.imageEvidence"
+        case .metadataEvidence: return "sidebar.metadataEvidence"
+        case .dedupEvidence: return "sidebar.dedupEvidence"
+        case .crossBatchEvidence: return "sidebar.crossBatchEvidence"
+        case .fingerprints: return "sidebar.fingerprints"
+        case .whitelist: return "sidebar.whitelist"
+        case .settings: return "sidebar.settings"
         }
     }
 
@@ -88,6 +106,15 @@ enum AuditJobStatus: String, Codable, CaseIterable {
         case .failed: return "失败"
         }
     }
+
+    var localizationKey: String {
+        switch self {
+        case .queued: return "status.queued"
+        case .running: return "status.running"
+        case .succeeded: return "status.succeeded"
+        case .failed: return "status.failed"
+        }
+    }
 }
 
 enum AuditStage: String, Codable, CaseIterable {
@@ -125,6 +152,19 @@ enum AuditStage: String, Codable, CaseIterable {
         case .done: return "报告生成完成"
         }
     }
+
+    var localizationKey: String {
+        switch self {
+        case .queued: return "stage.queued"
+        case .initialize: return "stage.initialize"
+        case .parsed: return "stage.parsed"
+        case .text: return "stage.text"
+        case .code: return "stage.code"
+        case .image: return "stage.image"
+        case .metadata: return "stage.metadata"
+        case .done: return "stage.done"
+        }
+    }
 }
 
 struct AuditConfiguration: Codable, Hashable, Sendable {
@@ -146,6 +186,13 @@ struct AuditConfiguration: Codable, Hashable, Sendable {
             switch self {
             case .mark: return "标记"
             case .hide: return "隐藏"
+            }
+        }
+
+        var localizationKey: String {
+            switch self {
+            case .mark: return "mode.mark"
+            case .hide: return "mode.hide"
             }
         }
     }

@@ -1,0 +1,511 @@
+import Foundation
+
+enum LocalizationStrings {
+    static func resolvedLanguage(_ preference: AppLanguage) -> AppLanguage {
+        switch preference {
+        case .system:
+            let preferred = Locale.preferredLanguages.first?.lowercased() ?? ""
+            return preferred.hasPrefix("zh") ? .zhHans : .english
+        case .zhHans, .english:
+            return preference
+        }
+    }
+
+    static func locale(for preference: AppLanguage) -> Locale {
+        switch resolvedLanguage(preference) {
+        case .zhHans:
+            return Locale(identifier: "zh-Hans")
+        case .english:
+            return Locale(identifier: "en")
+        case .system:
+            return .current
+        }
+    }
+
+    static func text(_ key: String, language preference: AppLanguage) -> String {
+        let language = resolvedLanguage(preference)
+        switch language {
+        case .zhHans:
+            return zhHans[key] ?? english[key] ?? key
+        case .english:
+            return english[key] ?? zhHans[key] ?? key
+        case .system:
+            return zhHans[key] ?? english[key] ?? key
+        }
+    }
+
+    private static let zhHans: [String: String] = [
+        "app.taskMenu": "任务",
+        "app.reportMenu": "报告",
+        "command.showWorkspace": "显示工作台",
+        "command.startAudit": "开始审计",
+        "command.reloadData": "重新加载数据",
+        "command.openReports": "打开报告中心",
+        "command.openLatestReport": "打开最近报告",
+        "command.showLatestInFinder": "在 Finder 显示最近报告",
+        "command.exportPDF": "导出当前报告 PDF",
+        "command.exportHTML": "导出当前报告 HTML",
+        "command.deleteReport": "删除当前报告记录",
+        "toolbar.reload": "重新加载",
+        "toolbar.start": "开始",
+        "toolbar.settings": "设置",
+        "toolbar.showInspector": "显示 Inspector",
+        "toolbar.hideInspector": "隐藏 Inspector",
+        "sidebar.categories": "分类",
+        "sidebar.evidenceTypes": "证据类型",
+        "sidebar.libraries": "资料库",
+        "sidebar.workspace": "工作台",
+        "sidebar.newAudit": "新建审计",
+        "sidebar.history": "历史任务",
+        "sidebar.reports": "报告中心",
+        "sidebar.textEvidence": "文本证据",
+        "sidebar.codeEvidence": "代码证据",
+        "sidebar.imageEvidence": "图片证据",
+        "sidebar.metadataEvidence": "元数据证据",
+        "sidebar.dedupEvidence": "重复证据",
+        "sidebar.crossBatchEvidence": "跨批次证据",
+        "sidebar.fingerprints": "指纹库",
+        "sidebar.whitelist": "白名单",
+        "sidebar.settings": "设置",
+        "status.audits": "审计",
+        "status.reports": "报告",
+        "status.fingerprints": "指纹",
+        "status.auditing": "审计中...",
+        "status.latest": "最近",
+        "status.ready": "就绪",
+        "status.queued": "排队中",
+        "status.running": "运行中",
+        "status.succeeded": "已完成",
+        "status.failed": "失败",
+        "stage.queued": "等待开始",
+        "stage.initialize": "初始化",
+        "stage.parsed": "解析文档完成",
+        "stage.text": "文本分析完成",
+        "stage.code": "代码分析完成",
+        "stage.image": "图片分析完成",
+        "stage.metadata": "元数据分析完成",
+        "stage.done": "报告生成完成",
+        "workspace.title": "工作台",
+        "workspace.recentJobs": "最近任务",
+        "workspace.recentReports": "最近报告",
+        "workspace.reportCenter": "报告中心",
+        "workspace.summary.jobs": "历史任务",
+        "workspace.summary.reports": "报告",
+        "workspace.summary.fingerprints": "指纹",
+        "workspace.summary.whitelist": "白名单",
+        "audit.title": "新建审计",
+        "audit.subtitle": "配置目录、阈值、OCR 和白名单策略",
+        "audit.running": "运行中",
+        "audit.paths": "路径",
+        "audit.paths.subtitle": "输入审计目录和报告输出位置",
+        "audit.directory": "审计目录",
+        "audit.outputDirectory": "报告目录",
+        "audit.fileNameTemplate": "文件名模板",
+        "audit.parameters": "检测参数",
+        "audit.parameters.subtitle": "控制相似度、复用和跨批次阈值",
+        "audit.textThreshold": "文本阈值",
+        "audit.dedupThreshold": "重复阈值",
+        "audit.imageThreshold": "图片阈值",
+        "audit.simhashThreshold": "SimHash 位差",
+        "audit.visionOCR": "Vision OCR",
+        "audit.whitelistMode": "白名单模式",
+        "audit.preset": "参数预设",
+        "audit.preset.subtitle": "保存常用目录和阈值组合",
+        "audit.presetName": "预设名称",
+        "audit.saveCurrent": "保存当前",
+        "audit.emptyPreset": "保存一套常用参数后，可在这里直接套用或运行。",
+        "audit.applyPreset": "套用",
+        "audit.runPreset": "运行",
+        "mode.mark": "标记",
+        "mode.hide": "隐藏",
+        "history.searchPrompt": "搜索任务、路径、状态",
+        "fingerprints.searchPrompt": "搜索文件、作者、SimHash",
+        "whitelist.searchPrompt": "搜索规则",
+        "whitelist.type": "类型",
+        "whitelist.newRule": "新增规则",
+        "whitelist.save": "保存",
+        "whitelist.author": "作者",
+        "whitelist.filename": "文件名",
+        "job.restoreParameters": "恢复参数",
+        "job.timeline": "执行时间线",
+        "job.noSelection": "未选择任务",
+        "job.noSelectionDescription": "在历史任务中选择一项后查看详情。",
+        "common.countSuffix": "条",
+        "common.native": "原生",
+        "common.legacy": "Legacy",
+        "common.none": "暂无",
+        "common.open": "打开",
+        "common.refresh": "刷新",
+        "common.new": "新建",
+        "common.quit": "退出",
+        "common.finder": "Finder",
+        "common.delete": "删除",
+        "common.export": "导出",
+        "common.cancel": "取消",
+        "common.search": "搜索",
+        "common.score": "分数",
+        "common.type": "类型",
+        "common.badge": "标记",
+        "common.source": "来源",
+        "common.summary": "摘要",
+        "common.createdAt": "创建时间",
+        "common.updatedAt": "更新时间",
+        "common.path": "路径",
+        "common.enabled": "开启",
+        "common.disabled": "关闭",
+        "common.followSystem": "跟随系统",
+        "common.light": "浅色",
+        "common.dark": "深色",
+        "settings.title": "设置",
+        "settings.general": "通用",
+        "settings.appearance": "外观",
+        "settings.auditDefaults": "审计默认值",
+        "settings.reports": "报告",
+        "settings.dataMigration": "数据与迁移",
+        "settings.shortcuts": "快捷操作",
+        "settings.language": "语言",
+        "settings.defaultPage": "启动后默认页面",
+        "settings.menuBar": "菜单栏面板",
+        "settings.workspace": "工作区路径",
+        "settings.theme": "外观模式",
+        "settings.inspectorDefault": "Inspector 默认显示",
+        "settings.compactRows": "紧凑列表密度",
+        "settings.preferInAppReports": "默认打开 App 内报告中心",
+        "settings.defaultExportFormat": "默认导出格式",
+        "settings.showLegacyBadges": "显示 Legacy 徽标",
+        "settings.attachmentPreview": "证据附件预览",
+        "settings.databaseLocation": "数据库位置",
+        "settings.migrationSummary": "最近迁移摘要",
+        "settings.recordCounts": "数据统计",
+        "settings.openDataDirectory": "打开数据目录",
+        "settings.reloadData": "重新加载数据",
+        "settings.openReports": "打开报告中心",
+        "settings.exportHTML": "导出 HTML",
+        "settings.exportPDF": "导出 PDF",
+        "settings.openFinder": "打开 Finder",
+        "settings.noMigration": "尚未产生迁移记录。",
+        "reports.title": "报告中心",
+        "reports.subtitle": "在 App 内查看章节、证据表格和详情",
+        "reports.selectReport": "选择报告",
+        "reports.filter": "报告筛选",
+        "reports.filter.all": "全部",
+        "reports.filter.native": "原生",
+        "reports.filter.legacy": "Legacy",
+        "reports.evidenceFilter.all": "全部",
+        "reports.evidenceFilter.highRisk": "高危",
+        "reports.evidenceFilter.attachments": "带附件",
+        "reports.sort": "排序",
+        "reports.sort.default": "默认顺序",
+        "reports.sort.severity": "风险优先",
+        "reports.sort.title": "按标题",
+        "reports.searchPrompt": "搜索报告",
+        "reports.noReport": "暂无报告",
+        "reports.noReportDescription": "完成一次审计或导入旧报告后会显示在这里。",
+        "reports.noMatchedReport": "暂无匹配报告",
+        "reports.noMatchedDescription": "调整搜索或筛选条件。",
+        "reports.noSection": "未选择章节",
+        "reports.noSectionDescription": "选择一个章节查看证据。",
+        "reports.noEvidence": "暂无结构化证据",
+        "reports.noEvidenceDescription": "切换带数量的章节，或清空当前搜索和筛选条件。",
+        "reports.searchEvidence": "搜索当前章节证据",
+        "reports.evidenceDetails": "证据详情",
+        "reports.attachments": "附件",
+        "reports.reportProperties": "报告属性",
+        "reports.metrics": "指标",
+        "reports.reportFile": "报告文件",
+        "reports.scanDirectory": "审计目录",
+        "reports.sectionSummary": "章节摘要",
+        "reports.callouts": "提示",
+        "reports.evidenceCount": "证据数量",
+        "reports.noEvidenceSelection": "未选择证据",
+        "reports.noEvidenceSelectionDescription": "在中间列表选择一条证据后查看详情。",
+        "reports.objectA": "对象 A",
+        "reports.objectB": "对象 B",
+        "reports.rows": "条",
+        "reports.structuredRecords": "条结构化记录",
+        "reports.legacyHTML": "Legacy HTML",
+        "reports.nativeReport": "原生报告",
+        "reports.sectionNoStructuredEvidence": "该章节暂无结构化证据。",
+        "section.overview": "总览",
+        "section.text": "文本",
+        "section.code": "代码",
+        "section.image": "图片",
+        "section.metadata": "元数据",
+        "section.dedup": "重复",
+        "section.fingerprints": "指纹",
+        "section.crossBatch": "跨批次",
+        "menu.recentAudits": "最近审计",
+        "menu.noAudits": "暂无审计",
+        "menu.noAuditsDescription": "从主窗口开始一次审计",
+        "menu.noReports": "暂无报告",
+        "menu.noReportsDescription": "完成的审计会显示在这里",
+        "menu.searchPrompt": "搜索审计和报告..."
+    ]
+
+    private static let english: [String: String] = [
+        "app.taskMenu": "Tasks",
+        "app.reportMenu": "Reports",
+        "command.showWorkspace": "Show Workspace",
+        "command.startAudit": "Start Audit",
+        "command.reloadData": "Reload Data",
+        "command.openReports": "Open Reports",
+        "command.openLatestReport": "Open Latest Report",
+        "command.showLatestInFinder": "Reveal Latest in Finder",
+        "command.exportPDF": "Export Current Report as PDF",
+        "command.exportHTML": "Export Current Report as HTML",
+        "command.deleteReport": "Delete Current Report",
+        "toolbar.reload": "Reload",
+        "toolbar.start": "Start",
+        "toolbar.settings": "Settings",
+        "toolbar.showInspector": "Show Inspector",
+        "toolbar.hideInspector": "Hide Inspector",
+        "sidebar.categories": "Categories",
+        "sidebar.evidenceTypes": "Evidence Types",
+        "sidebar.libraries": "Libraries",
+        "sidebar.workspace": "Workspace",
+        "sidebar.newAudit": "New Audit",
+        "sidebar.history": "History",
+        "sidebar.reports": "Reports",
+        "sidebar.textEvidence": "Text Evidence",
+        "sidebar.codeEvidence": "Code Evidence",
+        "sidebar.imageEvidence": "Image Evidence",
+        "sidebar.metadataEvidence": "Metadata Evidence",
+        "sidebar.dedupEvidence": "Duplicate Evidence",
+        "sidebar.crossBatchEvidence": "Cross-Batch Evidence",
+        "sidebar.fingerprints": "Fingerprints",
+        "sidebar.whitelist": "Whitelist",
+        "sidebar.settings": "Settings",
+        "status.audits": "audits",
+        "status.reports": "reports",
+        "status.fingerprints": "fingerprints",
+        "status.auditing": "Auditing...",
+        "status.latest": "Latest",
+        "status.ready": "Ready",
+        "status.queued": "Queued",
+        "status.running": "Running",
+        "status.succeeded": "Completed",
+        "status.failed": "Failed",
+        "stage.queued": "Waiting",
+        "stage.initialize": "Initializing",
+        "stage.parsed": "Documents parsed",
+        "stage.text": "Text analysis completed",
+        "stage.code": "Code analysis completed",
+        "stage.image": "Image analysis completed",
+        "stage.metadata": "Metadata analysis completed",
+        "stage.done": "Report generated",
+        "workspace.title": "Workspace",
+        "workspace.recentJobs": "Recent Audits",
+        "workspace.recentReports": "Recent Reports",
+        "workspace.reportCenter": "Reports",
+        "workspace.summary.jobs": "Audits",
+        "workspace.summary.reports": "Reports",
+        "workspace.summary.fingerprints": "Fingerprints",
+        "workspace.summary.whitelist": "Whitelist",
+        "audit.title": "New Audit",
+        "audit.subtitle": "Configure paths, thresholds, OCR, and whitelist behavior",
+        "audit.running": "Running",
+        "audit.paths": "Paths",
+        "audit.paths.subtitle": "Choose scan and report output locations",
+        "audit.directory": "Audit Directory",
+        "audit.outputDirectory": "Report Directory",
+        "audit.fileNameTemplate": "File Name Template",
+        "audit.parameters": "Detection Parameters",
+        "audit.parameters.subtitle": "Control similarity, reuse, and cross-batch thresholds",
+        "audit.textThreshold": "Text Threshold",
+        "audit.dedupThreshold": "Duplicate Threshold",
+        "audit.imageThreshold": "Image Threshold",
+        "audit.simhashThreshold": "SimHash Bit Delta",
+        "audit.visionOCR": "Vision OCR",
+        "audit.whitelistMode": "Whitelist Mode",
+        "audit.preset": "Presets",
+        "audit.preset.subtitle": "Save frequently used path and threshold combinations",
+        "audit.presetName": "Preset Name",
+        "audit.saveCurrent": "Save Current",
+        "audit.emptyPreset": "Save a preset to apply or run it directly here.",
+        "audit.applyPreset": "Apply",
+        "audit.runPreset": "Run",
+        "mode.mark": "Mark",
+        "mode.hide": "Hide",
+        "history.searchPrompt": "Search task, path, or status",
+        "fingerprints.searchPrompt": "Search file, author, or SimHash",
+        "whitelist.searchPrompt": "Search rules",
+        "whitelist.type": "Type",
+        "whitelist.newRule": "New Rule",
+        "whitelist.save": "Save",
+        "whitelist.author": "Author",
+        "whitelist.filename": "Filename",
+        "job.restoreParameters": "Restore Parameters",
+        "job.timeline": "Timeline",
+        "job.noSelection": "No Task Selected",
+        "job.noSelectionDescription": "Select a history item to inspect details.",
+        "common.countSuffix": "items",
+        "common.native": "Native",
+        "common.legacy": "Legacy",
+        "common.none": "None",
+        "common.open": "Open",
+        "common.refresh": "Refresh",
+        "common.new": "New",
+        "common.quit": "Quit",
+        "common.finder": "Finder",
+        "common.delete": "Delete",
+        "common.export": "Export",
+        "common.cancel": "Cancel",
+        "common.search": "Search",
+        "common.score": "Score",
+        "common.type": "Type",
+        "common.badge": "Tag",
+        "common.source": "Source",
+        "common.summary": "Summary",
+        "common.createdAt": "Created",
+        "common.updatedAt": "Updated",
+        "common.path": "Path",
+        "common.enabled": "On",
+        "common.disabled": "Off",
+        "common.followSystem": "Follow System",
+        "common.light": "Light",
+        "common.dark": "Dark",
+        "settings.title": "Settings",
+        "settings.general": "General",
+        "settings.appearance": "Appearance",
+        "settings.auditDefaults": "Audit Defaults",
+        "settings.reports": "Reports",
+        "settings.dataMigration": "Data & Migration",
+        "settings.shortcuts": "Quick Actions",
+        "settings.language": "Language",
+        "settings.defaultPage": "Default Page",
+        "settings.menuBar": "Menu Bar Panel",
+        "settings.workspace": "Workspace",
+        "settings.theme": "Appearance",
+        "settings.inspectorDefault": "Show Inspector by Default",
+        "settings.compactRows": "Compact Rows",
+        "settings.preferInAppReports": "Open Reports In App",
+        "settings.defaultExportFormat": "Default Export Format",
+        "settings.showLegacyBadges": "Show Legacy Badges",
+        "settings.attachmentPreview": "Attachment Previews",
+        "settings.databaseLocation": "Database Location",
+        "settings.migrationSummary": "Last Migration",
+        "settings.recordCounts": "Record Counts",
+        "settings.openDataDirectory": "Open Data Directory",
+        "settings.reloadData": "Reload Data",
+        "settings.openReports": "Open Reports",
+        "settings.exportHTML": "Export HTML",
+        "settings.exportPDF": "Export PDF",
+        "settings.openFinder": "Open Finder",
+        "settings.noMigration": "No migration summary yet.",
+        "reports.title": "Reports",
+        "reports.subtitle": "Review sections, evidence tables, and details in the app",
+        "reports.selectReport": "Select Report",
+        "reports.filter": "Filter",
+        "reports.filter.all": "All",
+        "reports.filter.native": "Native",
+        "reports.filter.legacy": "Legacy",
+        "reports.evidenceFilter.all": "All",
+        "reports.evidenceFilter.highRisk": "High Risk",
+        "reports.evidenceFilter.attachments": "With Attachments",
+        "reports.sort": "Sort",
+        "reports.sort.default": "Default",
+        "reports.sort.severity": "Risk First",
+        "reports.sort.title": "Title",
+        "reports.searchPrompt": "Search reports",
+        "reports.noReport": "No Reports",
+        "reports.noReportDescription": "Finished audits and imported legacy reports appear here.",
+        "reports.noMatchedReport": "No Matching Reports",
+        "reports.noMatchedDescription": "Adjust search or filters.",
+        "reports.noSection": "No Section Selected",
+        "reports.noSectionDescription": "Choose a section to view evidence.",
+        "reports.noEvidence": "No Structured Evidence",
+        "reports.noEvidenceDescription": "Choose a section with rows, or clear search and filters.",
+        "reports.searchEvidence": "Search current section",
+        "reports.evidenceDetails": "Evidence Details",
+        "reports.attachments": "Attachments",
+        "reports.reportProperties": "Report Properties",
+        "reports.metrics": "Metrics",
+        "reports.reportFile": "Report File",
+        "reports.scanDirectory": "Audit Directory",
+        "reports.sectionSummary": "Section Summary",
+        "reports.callouts": "Notes",
+        "reports.evidenceCount": "Evidence Count",
+        "reports.noEvidenceSelection": "No Evidence Selected",
+        "reports.noEvidenceSelectionDescription": "Select an evidence row in the middle pane.",
+        "reports.objectA": "Object A",
+        "reports.objectB": "Object B",
+        "reports.rows": "rows",
+        "reports.structuredRecords": "structured records",
+        "reports.legacyHTML": "Legacy HTML",
+        "reports.nativeReport": "Native Report",
+        "reports.sectionNoStructuredEvidence": "This section has no structured evidence.",
+        "section.overview": "Overview",
+        "section.text": "Text",
+        "section.code": "Code",
+        "section.image": "Images",
+        "section.metadata": "Metadata",
+        "section.dedup": "Duplicates",
+        "section.fingerprints": "Fingerprints",
+        "section.crossBatch": "Cross Batch",
+        "menu.recentAudits": "Recent Audits",
+        "menu.noAudits": "No Audits",
+        "menu.noAuditsDescription": "Start an audit from the main window",
+        "menu.noReports": "No Reports",
+        "menu.noReportsDescription": "Finished audits appear here",
+        "menu.searchPrompt": "Search audits and reports..."
+    ]
+}
+
+extension AppState {
+    func t(_ key: String) -> String {
+        LocalizationStrings.text(key, language: appSettings.language)
+    }
+
+    func title(for item: MainSidebarItem) -> String {
+        t(item.localizationKey)
+    }
+
+    func title(for status: AuditJobStatus) -> String {
+        t(status.localizationKey)
+    }
+
+    func title(for mode: AuditConfiguration.WhitelistMode) -> String {
+        t(mode.localizationKey)
+    }
+
+    func title(for type: WhitelistRule.RuleType) -> String {
+        t(type.localizationKey)
+    }
+
+    func title(for filter: ReportLibraryFilter) -> String {
+        switch filter {
+        case .all: return t("reports.filter.all")
+        case .nativeOnly: return t("reports.filter.native")
+        case .legacyOnly: return t("reports.filter.legacy")
+        }
+    }
+
+    func title(for filter: ReportEvidenceFilter) -> String {
+        switch filter {
+        case .all: return t("reports.evidenceFilter.all")
+        case .highRisk: return t("reports.evidenceFilter.highRisk")
+        case .withAttachments: return t("reports.evidenceFilter.attachments")
+        }
+    }
+
+    func title(for sortOrder: ReportEvidenceSortOrder) -> String {
+        switch sortOrder {
+        case .default: return t("reports.sort.default")
+        case .severity: return t("reports.sort.severity")
+        case .title: return t("reports.sort.title")
+        }
+    }
+
+    func title(for kind: ReportSectionKind) -> String {
+        switch kind {
+        case .overview: return t("section.overview")
+        case .text: return t("section.text")
+        case .code: return t("section.code")
+        case .image: return t("section.image")
+        case .metadata: return t("section.metadata")
+        case .dedup: return t("section.dedup")
+        case .fingerprints: return t("section.fingerprints")
+        case .crossBatch: return t("section.crossBatch")
+        }
+    }
+}

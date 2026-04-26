@@ -48,10 +48,10 @@ struct PitcherPlantMenuBarView: View {
 
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
-                    menuSectionTitle("Recent Audits", count: filteredJobs.count)
+                    menuSectionTitle(appState.t("menu.recentAudits"), count: filteredJobs.count)
 
                     if filteredJobs.isEmpty {
-                        CompactEmptyRow(title: "No Audits", subtitle: "Start an audit from the main window")
+                        CompactEmptyRow(title: appState.t("menu.noAudits"), subtitle: appState.t("menu.noAuditsDescription"))
                     } else {
                         ForEach(filteredJobs) { job in
                             CompactJobRow(job: job) {
@@ -63,10 +63,10 @@ struct PitcherPlantMenuBarView: View {
                         }
                     }
 
-                    menuSectionTitle("Reports", count: filteredReports.count)
+                    menuSectionTitle(appState.t("reports.title"), count: filteredReports.count)
 
                     if filteredReports.isEmpty {
-                        CompactEmptyRow(title: "No Reports", subtitle: "Finished audits appear here")
+                        CompactEmptyRow(title: appState.t("menu.noReports"), subtitle: appState.t("menu.noReportsDescription"))
                     } else {
                         ForEach(filteredReports) { report in
                             CompactReportRow(report: report) {
@@ -95,7 +95,7 @@ struct PitcherPlantMenuBarView: View {
             Image(systemName: "doc.text.magnifyingglass")
                 .foregroundStyle(.secondary)
 
-            TextField("Search audits, reports...", text: $searchText)
+            TextField(appState.t("menu.searchPrompt"), text: $searchText)
                 .textFieldStyle(.plain)
 
             Text("\(filteredJobs.count + filteredReports.count)")
@@ -114,7 +114,7 @@ struct PitcherPlantMenuBarView: View {
                 Button {
                     Task { await appState.reload() }
                 } label: {
-                    Label("Refresh", systemImage: "arrow.clockwise")
+                    Label(appState.t("common.refresh"), systemImage: "arrow.clockwise")
                         .frame(maxWidth: .infinity)
                 }
 
@@ -122,7 +122,7 @@ struct PitcherPlantMenuBarView: View {
                     appState.selectedMainSidebar = .newAudit
                     openMainWindow()
                 } label: {
-                    Label("New", systemImage: "plus")
+                    Label(appState.t("common.new"), systemImage: "plus")
                         .frame(maxWidth: .infinity)
                 }
             }
@@ -134,7 +134,7 @@ struct PitcherPlantMenuBarView: View {
                         openMainWindow()
                     }
                 } label: {
-                    Label(appState.isRunningAudit ? "Running" : "Start", systemImage: "play.fill")
+                    Label(appState.isRunningAudit ? appState.t("status.running") : appState.t("toolbar.start"), systemImage: "play.fill")
                         .frame(maxWidth: .infinity)
                 }
                 .disabled(appState.isRunningAudit)
@@ -142,7 +142,7 @@ struct PitcherPlantMenuBarView: View {
                 Button {
                     openMainWindow()
                 } label: {
-                    Label("Open", systemImage: "arrow.up.forward.app")
+                    Label(appState.t("common.open"), systemImage: "arrow.up.forward.app")
                         .frame(maxWidth: .infinity)
                 }
             }
@@ -152,14 +152,14 @@ struct PitcherPlantMenuBarView: View {
                     appState.selectedMainSidebar = .settings
                     openMainWindow()
                 } label: {
-                    Label("Settings", systemImage: "gear")
+                    Label(appState.t("settings.title"), systemImage: "gear")
                         .frame(maxWidth: .infinity)
                 }
 
                 Button {
                     NSApp.terminate(nil)
                 } label: {
-                    Label("Quit", systemImage: "power")
+                    Label(appState.t("common.quit"), systemImage: "power")
                         .frame(maxWidth: .infinity)
                 }
             }
@@ -192,6 +192,7 @@ struct PitcherPlantMenuBarView: View {
 }
 
 private struct CompactJobRow: View {
+    @Environment(AppState.self) private var appState
     let job: AuditJob
     let action: () -> Void
 
@@ -204,7 +205,7 @@ private struct CompactJobRow: View {
                     Text(URL(fileURLWithPath: job.configuration.directoryPath).lastPathComponent)
                         .font(.subheadline.weight(.medium))
                         .lineLimit(1)
-                    Text("\(job.status.displayTitle) · \(job.progress)% · \(job.latestMessage)")
+                    Text("\(appState.title(for: job.status)) · \(job.progress)% · \(job.latestMessage)")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
@@ -225,6 +226,7 @@ private struct CompactJobRow: View {
 }
 
 private struct CompactReportRow: View {
+    @Environment(AppState.self) private var appState
     let report: AuditReport
     let action: () -> Void
 
@@ -239,7 +241,7 @@ private struct CompactReportRow: View {
                     Text(report.title)
                         .font(.subheadline.weight(.medium))
                         .lineLimit(1)
-                    Text("\(report.sections.count) sections · \(report.createdAt.formatted(date: .abbreviated, time: .shortened))")
+                    Text("\(report.sections.count) \(appState.t("reports.sectionSummary")) · \(report.createdAt.formatted(date: .abbreviated, time: .shortened))")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         .lineLimit(1)

@@ -5,14 +5,14 @@ struct PitcherPlantCommands: Commands {
     let showMainWindow: () -> Void
 
     var body: some Commands {
-        CommandMenu("任务") {
-            Button("显示工作台") {
+        CommandMenu(appState.t("app.taskMenu")) {
+            Button(appState.t("command.showWorkspace")) {
                 appState.showWorkspace()
                 showMainWindow()
             }
             .keyboardShortcut("1", modifiers: [.command])
 
-            Button("开始审计") {
+            Button(appState.t("command.startAudit")) {
                 Task {
                     await appState.startAudit()
                     showMainWindow()
@@ -21,27 +21,27 @@ struct PitcherPlantCommands: Commands {
             .keyboardShortcut(.return, modifiers: [.command])
             .disabled(appState.isRunningAudit)
 
-            Button("重新加载数据") {
+            Button(appState.t("command.reloadData")) {
                 Task { await appState.reload() }
             }
             .keyboardShortcut("l", modifiers: [.command, .shift])
         }
 
-        CommandMenu("报告") {
-            Button("打开报告中心") {
+        CommandMenu(appState.t("app.reportMenu")) {
+            Button(appState.t("command.openReports")) {
                 appState.showReportsCenter()
                 showMainWindow()
             }
             .keyboardShortcut("r", modifiers: [.command, .shift])
 
-            Button("打开最近报告") {
+            Button(appState.t("command.openLatestReport")) {
                 appState.showReportsCenter(selectLatest: true)
                 showMainWindow()
             }
             .keyboardShortcut("r", modifiers: [.command, .option])
             .disabled(appState.latestReport == nil)
 
-            Button("在 Finder 显示最近报告") {
+            Button(appState.t("command.showLatestInFinder")) {
                 appState.openLatestReportInFinder()
             }
             .keyboardShortcut("o", modifiers: [.command, .shift])
@@ -49,19 +49,19 @@ struct PitcherPlantCommands: Commands {
 
             Divider()
 
-            Button("导出当前报告 PDF") {
+            Button(appState.t("command.exportPDF")) {
                 appState.exportSelectedReportAsPDF()
             }
             .keyboardShortcut("p", modifiers: [.command, .shift])
             .disabled(appState.selectedReport == nil)
 
-            Button("导出当前报告 HTML") {
+            Button(appState.t("command.exportHTML")) {
                 appState.exportSelectedReportAsHTML()
             }
             .keyboardShortcut("e", modifiers: [.command, .shift])
             .disabled(appState.selectedReport == nil)
 
-            Button("删除当前报告记录") {
+            Button(appState.t("command.deleteReport")) {
                 Task { await appState.removeSelectedReport() }
             }
             .keyboardShortcut(.delete, modifiers: [.command])

@@ -2,6 +2,7 @@ import SwiftUI
 
 struct MainWindowView: View {
     @Environment(AppState.self) private var appState
+    @SceneStorage("pitcherplant.inspectorVisible") private var inspectorVisible = true
     @State private var columnVisibility = NavigationSplitViewVisibility.all
 
     var body: some View {
@@ -18,7 +19,9 @@ struct MainWindowView: View {
                 .navigationSplitViewColumnWidth(min: 560, ideal: 760, max: .infinity)
         } detail: {
             Group {
-                if appState.selectedMainSidebar.usesReportInspector {
+                if !inspectorVisible {
+                    Color.clear
+                } else if appState.selectedMainSidebar.usesReportInspector {
                     ReportEvidenceInspectorHost()
                 } else {
                     JobInspectorView()
@@ -30,39 +33,64 @@ struct MainWindowView: View {
         .onAppear {
             NSApp.setActivationPolicy(.regular)
             NSApp.activate(ignoringOtherApps: true)
+            inspectorVisible = appState.appSettings.showInspectorByDefault
+            updateColumnVisibility()
+        }
+        .onChange(of: inspectorVisible) { _, visible in
+            appState.updateSettings { $0.showInspectorByDefault = visible }
+            updateColumnVisibility()
+        }
+        .onChange(of: appState.selectedMainSidebar) { _, _ in
+            updateColumnVisibility()
         }
         .toolbar {
             ToolbarItemGroup(placement: .primaryAction) {
                 Button {
+                    inspectorVisible.toggle()
+                } label: {
+                    Label(
+                        inspectorVisible ? appState.t("toolbar.hideInspector") : appState.t("toolbar.showInspector"),
+                        systemImage: inspectorVisible ? "sidebar.right" : "sidebar.trailing"
+                    )
+                }
+                .help(inspectorVisible ? appState.t("toolbar.hideInspector") : appState.t("toolbar.showInspector"))
+
+                Button {
                     Task { await appState.reload() }
                 } label: {
-                    Label("重新加载", systemImage: "arrow.clockwise")
+                    Label(appState.t("toolbar.reload"), systemImage: "arrow.clockwise")
                 }
                 .keyboardShortcut("r", modifiers: .command)
-                .help("重新加载数据")
+                .help(appState.t("command.reloadData"))
 
                 Button {
                     Task { await runAuditAndOpenReport() }
                 } label: {
-                    Label("开始", systemImage: "play.fill")
+                    Label(appState.t("toolbar.start"), systemImage: "play.fill")
                 }
                 .keyboardShortcut(.return, modifiers: .command)
                 .disabled(appState.isRunningAudit)
-                .help("开始审计")
+                .help(appState.t("command.startAudit"))
 
                 Button {
                     appState.selectedMainSidebar = .settings
                 } label: {
-                    Label("设置", systemImage: "gear")
+                    Label(appState.t("toolbar.settings"), systemImage: "gear")
                 }
                 .keyboardShortcut(",", modifiers: .command)
-                .help("打开设置")
+                .help(appState.t("toolbar.settings"))
             }
         }
+        .environment(\.locale, appState.effectiveLocale ?? .current)
+        .preferredColorScheme(appState.effectiveColorScheme)
     }
 
     private func runAuditAndOpenReport() async {
         await appState.startAudit()
+    }
+
+    private func updateColumnVisibility() {
+        columnVisibility = inspectorVisible ? .all : .doubleColumn
     }
 
     @ViewBuilder
@@ -117,7 +145,7 @@ private struct MainStatusBar: View {
     @Environment(AppState.self) private var appState
 
     private var statusText: String {
-        "\(appState.jobs.count) audits · \(appState.reports.count) reports · \(appState.fingerprints.count) fingerprints"
+        "\(appState.jobs.count) \(appState.t("status.audits")) · \(appState.reports.count) \(appState.t("status.reports")) · \(appState.fingerprints.count) \(appState.t("status.fingerprints"))"
     }
 
     var body: some View {
@@ -131,15 +159,15 @@ private struct MainStatusBar: View {
             if appState.isRunningAudit {
                 ProgressView()
                     .controlSize(.small)
-                Text("Auditing...")
+                Text(appState.t("status.auditing"))
                     .font(.caption)
                     .foregroundStyle(.secondary)
             } else if let latestReport = appState.latestReport {
-                Text("Latest: \(latestReport.createdAt.formatted(date: .abbreviated, time: .shortened))")
+                Text("\(appState.t("status.latest")): \(latestReport.createdAt.formatted(date: .abbreviated, time: .shortened))")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             } else {
-                Text("Ready")
+                Text(appState.t("status.ready"))
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -159,55 +187,38 @@ private struct MainSidebarView: View {
 
     var body: some View {
         List(selection: $selection) {
-            Section("Categories") {
-                sidebarRow(.workspace, title: "All Audits", count: appState.jobs.count)
-                sidebarRow(.newAudit, title: "New Audit")
-                sidebarRow(.history, title: "History", count: appState.jobs.count)
-                sidebarRow(.reports, title: "Reports", count: appState.reports.count)
+            Section(appState.t("sidebar.categories")) {
+                sidebarRow(.workspace, count: appState.jobs.count)
+                sidebarRow(.newAudit)
+                sidebarRow(.history, count: appState.jobs.count)
+                sidebarRow(.reports, count: appState.reports.count)
             }
 
-            Section("Evidence Types") {
-                sidebarRow(.textEvidence, title: "Text", count: evidenceCount(.text))
-                sidebarRow(.codeEvidence, title: "Code", count: evidenceCount(.code))
-                sidebarRow(.imageEvidence, title: "Images", count: evidenceCount(.image))
-                sidebarRow(.metadataEvidence, title: "Metadata", count: evidenceCount(.metadata))
-                sidebarRow(.dedupEvidence, title: "Duplicates", count: evidenceCount(.dedup))
-                sidebarRow(.crossBatchEvidence, title: "Cross Batch", count: evidenceCount(.crossBatch))
+            Section(appState.t("sidebar.evidenceTypes")) {
+                sidebarRow(.textEvidence, count: evidenceCount(.text))
+                sidebarRow(.codeEvidence, count: evidenceCount(.code))
+                sidebarRow(.imageEvidence, count: evidenceCount(.image))
+                sidebarRow(.metadataEvidence, count: evidenceCount(.metadata))
+                sidebarRow(.dedupEvidence, count: evidenceCount(.dedup))
+                sidebarRow(.crossBatchEvidence, count: evidenceCount(.crossBatch))
             }
 
-            Section("Libraries") {
-                sidebarRow(.fingerprints, title: "Fingerprints", count: appState.fingerprints.count)
-                sidebarRow(.whitelist, title: "Whitelist", count: appState.whitelistRules.count)
+            Section(appState.t("sidebar.libraries")) {
+                sidebarRow(.fingerprints, count: appState.fingerprints.count)
+                sidebarRow(.whitelist, count: appState.whitelistRules.count)
             }
 
             Section {
-                sidebarRow(.settings, title: "Settings")
+                sidebarRow(.settings)
             }
         }
         .listStyle(.sidebar)
-        .safeAreaInset(edge: .top) {
-            HStack(spacing: 10) {
-                Image(systemName: "leaf")
-                    .foregroundStyle(.secondary)
-                    .frame(width: 22)
-                VStack(alignment: .leading, spacing: 1) {
-                    Text("PitcherPlant")
-                        .font(.headline)
-                    Text("WriteUP 审计")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-                Spacer()
-            }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 14)
-        }
     }
 
     private func sidebarRow(_ item: MainSidebarItem, title: String? = nil, count: Int? = nil) -> some View {
         Label {
             HStack {
-                Text(title ?? item.title)
+                Text(title ?? appState.title(for: item))
                 Spacer()
                 if let count {
                     Text("\(count)")
@@ -235,34 +246,34 @@ private struct WorkspaceDashboardView: View {
     var body: some View {
         NativePage {
             NativePageHeader(
-                title: "工作台",
-                subtitle: "\(appState.jobs.count) 个任务 · \(appState.reports.count) 份报告 · \(appState.fingerprints.count) 条指纹",
+                title: appState.t("workspace.title"),
+                subtitle: "\(appState.jobs.count) \(appState.t("status.audits")) · \(appState.reports.count) \(appState.t("status.reports")) · \(appState.fingerprints.count) \(appState.t("status.fingerprints"))",
                 actions: {
                     Button {
                         Task { await appState.startAudit() }
                     } label: {
-                        Label(appState.isRunningAudit ? "运行中" : "开始审计", systemImage: "play.fill")
+                        Label(appState.isRunningAudit ? appState.t("audit.running") : appState.t("command.startAudit"), systemImage: "play.fill")
                     }
                     .disabled(appState.isRunningAudit)
 
                     Button {
                         appState.showReportsCenter()
                     } label: {
-                        Label("报告中心", systemImage: "sidebar.right")
+                        Label(appState.t("workspace.reportCenter"), systemImage: "sidebar.right")
                     }
                 }
             )
 
             SummaryStrip(items: [
-                SummaryItem(title: "历史任务", value: "\(appState.jobs.count)", systemImage: "clock.arrow.circlepath"),
-                SummaryItem(title: "报告", value: "\(appState.reports.count)", systemImage: "doc.text"),
-                SummaryItem(title: "指纹", value: "\(appState.fingerprints.count)", systemImage: "number"),
-                SummaryItem(title: "白名单", value: "\(appState.whitelistRules.count)", systemImage: "checkmark.shield")
+                SummaryItem(title: appState.t("workspace.summary.jobs"), value: "\(appState.jobs.count)", systemImage: "clock.arrow.circlepath"),
+                SummaryItem(title: appState.t("workspace.summary.reports"), value: "\(appState.reports.count)", systemImage: "doc.text"),
+                SummaryItem(title: appState.t("workspace.summary.fingerprints"), value: "\(appState.fingerprints.count)", systemImage: "number"),
+                SummaryItem(title: appState.t("workspace.summary.whitelist"), value: "\(appState.whitelistRules.count)", systemImage: "checkmark.shield")
             ])
 
-            NativeSection(title: "最近任务", subtitle: "最近 \(min(appState.jobs.count, 8)) 条") {
+            NativeSection(title: appState.t("workspace.recentJobs"), subtitle: "\(min(appState.jobs.count, 8)) \(appState.t("common.countSuffix"))") {
                 VStack(spacing: 0) {
-                    DenseHeader(columns: ["目录", "状态", "进度", "更新时间"])
+                    DenseHeader(columns: [appState.t("audit.directory"), appState.t("common.type"), "Progress", appState.t("common.updatedAt")])
                     ForEach(appState.jobs.prefix(8)) { job in
                         Button {
                             appState.selectedJobID = job.id
@@ -276,9 +287,9 @@ private struct WorkspaceDashboardView: View {
                 }
             }
 
-            NativeSection(title: "最近报告", subtitle: "最近 \(min(appState.reports.count, 8)) 份") {
+            NativeSection(title: appState.t("workspace.recentReports"), subtitle: "\(min(appState.reports.count, 8)) \(appState.t("common.countSuffix"))") {
                 VStack(spacing: 0) {
-                    DenseHeader(columns: ["标题", "类型", "章节", "时间"])
+                    DenseHeader(columns: ["Title", appState.t("common.type"), appState.t("reports.sectionSummary"), appState.t("common.createdAt")])
                     ForEach(appState.reports.sorted(by: { $0.createdAt > $1.createdAt }).prefix(8)) { report in
                         Button {
                             appState.showReport(report.id)
@@ -301,61 +312,61 @@ private struct NewAuditView: View {
     var body: some View {
         NativePage {
             NativePageHeader(
-                title: "新建审计",
-                subtitle: "配置目录、阈值、OCR 和白名单策略",
+                title: appState.t("audit.title"),
+                subtitle: appState.t("audit.subtitle"),
                 actions: {
                     Button {
                         Task { await runAuditAndOpenReport() }
                     } label: {
-                        Label(appState.isRunningAudit ? "运行中" : "开始审计", systemImage: "play.fill")
+                        Label(appState.isRunningAudit ? appState.t("audit.running") : appState.t("command.startAudit"), systemImage: "play.fill")
                     }
                     .disabled(appState.isRunningAudit)
                 }
             )
 
-            NativeSection(title: "路径", subtitle: "输入审计目录和报告输出位置") {
+            NativeSection(title: appState.t("audit.paths"), subtitle: appState.t("audit.paths.subtitle")) {
                 VStack(spacing: 0) {
-                    SettingsTextRow(title: "审计目录", text: Binding(
+                    SettingsTextRow(title: appState.t("audit.directory"), text: Binding(
                         get: { appState.draftConfiguration.directoryPath },
                         set: { newValue in appState.updateDraft { $0.directoryPath = newValue } }
                     ))
                     Divider()
-                    SettingsTextRow(title: "报告目录", text: Binding(
+                    SettingsTextRow(title: appState.t("audit.outputDirectory"), text: Binding(
                         get: { appState.draftConfiguration.outputDirectoryPath },
                         set: { newValue in appState.updateDraft { $0.outputDirectoryPath = newValue } }
                     ))
                     Divider()
-                    SettingsTextRow(title: "文件名模板", text: Binding(
+                    SettingsTextRow(title: appState.t("audit.fileNameTemplate"), text: Binding(
                         get: { appState.draftConfiguration.reportNameTemplate },
                         set: { newValue in appState.updateDraft { $0.reportNameTemplate = newValue } }
                     ))
                 }
             }
 
-            NativeSection(title: "检测参数", subtitle: "控制相似度、复用和跨批次阈值") {
+            NativeSection(title: appState.t("audit.parameters"), subtitle: appState.t("audit.parameters.subtitle")) {
                 VStack(spacing: 0) {
-                    SettingsNumberRow(title: "文本阈值", value: Binding(
+                    SettingsNumberRow(title: appState.t("audit.textThreshold"), value: Binding(
                         get: { appState.draftConfiguration.textThreshold },
                         set: { newValue in appState.updateDraft { $0.textThreshold = newValue } }
                     ), format: .number.precision(.fractionLength(2)))
                     Divider()
-                    SettingsNumberRow(title: "重复阈值", value: Binding(
+                    SettingsNumberRow(title: appState.t("audit.dedupThreshold"), value: Binding(
                         get: { appState.draftConfiguration.dedupThreshold },
                         set: { newValue in appState.updateDraft { $0.dedupThreshold = newValue } }
                     ), format: .number.precision(.fractionLength(2)))
                     Divider()
-                    SettingsIntegerRow(title: "图片阈值", value: Binding(
+                    SettingsIntegerRow(title: appState.t("audit.imageThreshold"), value: Binding(
                         get: { appState.draftConfiguration.imageThreshold },
                         set: { newValue in appState.updateDraft { $0.imageThreshold = newValue } }
                     ))
                     Divider()
-                    SettingsIntegerRow(title: "SimHash 位差", value: Binding(
+                    SettingsIntegerRow(title: appState.t("audit.simhashThreshold"), value: Binding(
                         get: { appState.draftConfiguration.simhashThreshold },
                         set: { newValue in appState.updateDraft { $0.simhashThreshold = newValue } }
                     ))
                     Divider()
                     HStack {
-                        Text("Vision OCR")
+                        Text(appState.t("audit.visionOCR"))
                         Spacer()
                         Toggle("", isOn: Binding(
                             get: { appState.draftConfiguration.useVisionOCR },
@@ -366,14 +377,14 @@ private struct NewAuditView: View {
                     .padding(.vertical, 9)
                     Divider()
                     HStack {
-                        Text("白名单模式")
+                        Text(appState.t("audit.whitelistMode"))
                         Spacer()
                         Picker("", selection: Binding(
                             get: { appState.draftConfiguration.whitelistMode },
                             set: { newValue in appState.updateDraft { $0.whitelistMode = newValue } }
                         )) {
                             ForEach(AuditConfiguration.WhitelistMode.allCases, id: \.self) { mode in
-                                Text(mode.displayTitle).tag(mode)
+                                Text(appState.title(for: mode)).tag(mode)
                             }
                         }
                         .pickerStyle(.segmented)
@@ -383,12 +394,12 @@ private struct NewAuditView: View {
                 }
             }
 
-            NativeSection(title: "参数预设", subtitle: "保存常用目录和阈值组合") {
+            NativeSection(title: appState.t("audit.preset"), subtitle: appState.t("audit.preset.subtitle")) {
                 VStack(spacing: 0) {
                     HStack(spacing: 12) {
-                        TextField("预设名称", text: $presetName)
+                        TextField(appState.t("audit.presetName"), text: $presetName)
                             .textFieldStyle(.roundedBorder)
-                        Button("保存当前") {
+                        Button(appState.t("audit.saveCurrent")) {
                             let name = presetName
                             presetName = ""
                             appState.saveCurrentConfigurationPreset(named: name)
@@ -398,7 +409,7 @@ private struct NewAuditView: View {
                     .padding(.vertical, 8)
 
                     if appState.configurationPresets.isEmpty {
-                        Text("保存一套常用参数后，可在这里直接套用或运行。")
+                        Text(appState.t("audit.emptyPreset"))
                             .foregroundStyle(.secondary)
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .padding(.vertical, 8)
@@ -434,7 +445,7 @@ private struct JobHistoryView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            SearchHeader(title: "历史任务", count: filteredJobs.count, query: $query, prompt: "搜索任务、路径、状态")
+            SearchHeader(title: appState.t("sidebar.history"), count: filteredJobs.count, query: $query, prompt: appState.t("history.searchPrompt"))
             List(selection: Binding(get: { appState.selectedJobID }, set: { appState.selectedJobID = $0 })) {
                 ForEach(filteredJobs) { job in
                     JobTableRow(job: job)
@@ -462,7 +473,7 @@ private struct FingerprintLibraryView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            SearchHeader(title: "指纹库", count: filteredRecords.count, query: $query, prompt: "搜索文件、作者、SimHash")
+            SearchHeader(title: appState.t("sidebar.fingerprints"), count: filteredRecords.count, query: $query, prompt: appState.t("fingerprints.searchPrompt"))
             List(filteredRecords) { record in
                 FingerprintTableRow(record: record)
                     .listRowInsets(EdgeInsets(top: 4, leading: 12, bottom: 4, trailing: 12))
@@ -487,20 +498,20 @@ private struct WhitelistLibraryView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            SearchHeader(title: "白名单", count: filteredRules.count, query: $query, prompt: "搜索规则")
+            SearchHeader(title: appState.t("sidebar.whitelist"), count: filteredRules.count, query: $query, prompt: appState.t("whitelist.searchPrompt"))
             HStack(spacing: 10) {
-                Picker("类型", selection: $newType) {
+                Picker(appState.t("whitelist.type"), selection: $newType) {
                     ForEach(WhitelistRule.RuleType.allCases, id: \.self) { type in
-                        Text(type.displayTitle).tag(type)
+                        Text(appState.title(for: type)).tag(type)
                     }
                 }
                 .pickerStyle(.segmented)
                 .frame(width: 190)
 
-                TextField("新增规则", text: $newPattern)
+                TextField(appState.t("whitelist.newRule"), text: $newPattern)
                     .textFieldStyle(.roundedBorder)
 
-                Button("保存") {
+                Button(appState.t("whitelist.save")) {
                     let pattern = newPattern
                     newPattern = ""
                     Task { await appState.addWhitelistRule(pattern: pattern, type: newType) }
@@ -544,7 +555,7 @@ private struct JobInspectorView: View {
                         Button {
                             appState.restoreDraft(from: job)
                         } label: {
-                            Label("恢复参数", systemImage: "arrow.counterclockwise")
+                            Label(appState.t("job.restoreParameters"), systemImage: "arrow.counterclockwise")
                         }
 
                         VStack(alignment: .leading, spacing: 6) {
@@ -559,7 +570,7 @@ private struct JobInspectorView: View {
                         }
                     }
 
-                    InspectorSection(title: "执行时间线", subtitle: "最近 \(job.events.count) 条事件") {
+                    InspectorSection(title: appState.t("job.timeline"), subtitle: "\(job.events.count) \(appState.t("common.countSuffix"))") {
                         VStack(alignment: .leading, spacing: 0) {
                             ForEach(Array(job.events.reversed())) { event in
                                 TimelineEventRow(event: event)
@@ -572,7 +583,7 @@ private struct JobInspectorView: View {
             }
             .background(Color(nsColor: .textBackgroundColor))
         } else {
-            ContentUnavailableView("未选择任务", systemImage: "clock.badge.questionmark", description: Text("在历史任务中选择一项后查看详情。"))
+            ContentUnavailableView(appState.t("job.noSelection"), systemImage: "clock.badge.questionmark", description: Text(appState.t("job.noSelectionDescription")))
         }
     }
 }
@@ -592,8 +603,8 @@ private struct PresetTableRow: View {
                     .lineLimit(1)
             }
             Spacer()
-            Button("套用") { appState.applyPreset(preset) }
-            Button("运行") {
+            Button(appState.t("audit.applyPreset")) { appState.applyPreset(preset) }
+            Button(appState.t("audit.runPreset")) {
                 Task {
                     await appState.startAudit(using: preset)
                 }
@@ -635,6 +646,7 @@ private struct JobTableRow: View {
 }
 
 private struct AuditReportListRow: View {
+    @Environment(AppState.self) private var appState
     let report: AuditReport
 
     var body: some View {
@@ -647,7 +659,7 @@ private struct AuditReportListRow: View {
                 PillLabel(title: "Legacy", tint: .orange)
                     .frame(width: 74, alignment: .trailing)
             } else {
-                Text("原生")
+                Text(appState.t("common.native"))
                     .foregroundStyle(.secondary)
                     .frame(width: 74, alignment: .trailing)
             }
@@ -700,7 +712,7 @@ private struct WhitelistTableRow: View {
                 .fontWeight(.medium)
                 .lineLimit(1)
                 .frame(maxWidth: .infinity, alignment: .leading)
-            Text(rule.type.displayTitle)
+            Text(appState.title(for: rule.type))
                 .foregroundStyle(.secondary)
                 .frame(width: 90, alignment: .leading)
             Text(rule.createdAt.formatted(date: .abbreviated, time: .shortened))
@@ -819,6 +831,7 @@ private struct InspectorSection<Content: View>: View {
 }
 
 private struct SearchHeader: View {
+    @Environment(AppState.self) private var appState
     let title: String
     let count: Int
     @Binding var query: String
@@ -829,7 +842,7 @@ private struct SearchHeader: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)
                     .font(.headline)
-                Text("\(count) 条")
+                Text("\(count) \(appState.t("common.countSuffix"))")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }

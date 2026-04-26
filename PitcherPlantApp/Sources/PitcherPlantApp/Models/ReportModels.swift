@@ -290,6 +290,14 @@ struct WhitelistRule: Codable, Identifiable, Hashable, Sendable {
             case .simhash: return "SimHash"
             }
         }
+
+        var localizationKey: String {
+            switch self {
+            case .author: return "whitelist.author"
+            case .filename: return "whitelist.filename"
+            case .simhash: return "SimHash"
+            }
+        }
     }
 
     let id: UUID

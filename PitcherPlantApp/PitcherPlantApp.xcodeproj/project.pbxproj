@@ -18,8 +18,11 @@
 		39915228C43CDE97E8DF349B /* GRDB in Frameworks */ = {isa = PBXBuildFile; productRef = 5FDA8BDEA269DDEDB1B90303 /* GRDB */; };
 		39F8C94B08952D4D59F36A98 /* ReportModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = E18F48FACAE380029052976A /* ReportModels.swift */; };
 		5ABE317374EE212C9D507DD2 /* ReportExporter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 58D12DF8783F55B02E4AD0E1 /* ReportExporter.swift */; };
+		6470E071E62B237D2C06A4DA /* AppSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = C48B2A6AD8AB4857937A22C1 /* AppSettings.swift */; };
 		7941BB9E236B61F85AD918B0 /* PitcherPlantAppTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4E8F017B4A688937783887DB /* PitcherPlantAppTests.swift */; };
 		8BD430020DC85D148FE017ED /* AppIcon.icon in Resources */ = {isa = PBXBuildFile; fileRef = 70FC071922DC2A6E2A85216E /* AppIcon.icon */; };
+		9AAB9C491ACC74A03100126A /* LocalizationStrings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 226DC10D014769BA6202F5F1 /* LocalizationStrings.swift */; };
+		B265FE7BFDC6A7FD77963AF7 /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = 66BD2172991DB0803156344E /* Localizable.xcstrings */; };
 		B6493DB2EA73BC22433270F0 /* AppState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 360E2A6F9482BC2AE7C2124F /* AppState.swift */; };
 		CDD91EEEA2866EA14573EDF1 /* DatabaseStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94E86405322D0D8F372EF4FF /* DatabaseStore.swift */; };
 		D0C6CFF3D16216B53B687BE0 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 39088A4183CFB4929068ABFF /* Theme.swift */; };
@@ -42,6 +45,7 @@
 
 /* Begin PBXFileReference section */
 		2092DD6866F25F2D4AA56877 /* PitcherPlantApp.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = PitcherPlantApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		226DC10D014769BA6202F5F1 /* LocalizationStrings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalizationStrings.swift; sourceTree = "<group>"; };
 		360E2A6F9482BC2AE7C2124F /* AppState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppState.swift; sourceTree = "<group>"; };
 		39088A4183CFB4929068ABFF /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
 		469A6C23D8D6999877D42361 /* ReportFiltering.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReportFiltering.swift; sourceTree = "<group>"; };
@@ -50,6 +54,7 @@
 		4E8F017B4A688937783887DB /* PitcherPlantAppTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PitcherPlantAppTests.swift; sourceTree = "<group>"; };
 		58D12DF8783F55B02E4AD0E1 /* ReportExporter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReportExporter.swift; sourceTree = "<group>"; };
 		5D684506393797F240E731AA /* SettingsRootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsRootView.swift; sourceTree = "<group>"; };
+		66BD2172991DB0803156344E /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
 		70FC071922DC2A6E2A85216E /* AppIcon.icon */ = {isa = PBXFileReference; lastKnownFileType = wrapper.icon; path = AppIcon.icon; sourceTree = "<group>"; };
 		892ED664C219F3B9AD3C6D6D /* AuditModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuditModels.swift; sourceTree = "<group>"; };
 		94E86405322D0D8F372EF4FF /* DatabaseStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DatabaseStore.swift; sourceTree = "<group>"; };
@@ -57,6 +62,7 @@
 		AE04FBF480A6296285FC313E /* PitcherPlantCommands.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PitcherPlantCommands.swift; sourceTree = "<group>"; };
 		AEA2F52160967FD69B95CE2E /* MigrationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MigrationService.swift; sourceTree = "<group>"; };
 		B243A89073978EF52F2CE854 /* PitcherPlantAppTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = PitcherPlantAppTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		C48B2A6AD8AB4857937A22C1 /* AppSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppSettings.swift; sourceTree = "<group>"; };
 		D8B20F825AD69CF5EE6BF033 /* PitcherPlantDesktopApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PitcherPlantDesktopApp.swift; sourceTree = "<group>"; };
 		E02E2A9EBDD61AF8EB8A15FF /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		E18F48FACAE380029052976A /* ReportModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReportModels.swift; sourceTree = "<group>"; };
@@ -120,6 +126,7 @@
 			isa = PBXGroup;
 			children = (
 				EB7D836E4BAE584D68A8771F /* EnvironmentSupport.swift */,
+				226DC10D014769BA6202F5F1 /* LocalizationStrings.swift */,
 				469A6C23D8D6999877D42361 /* ReportFiltering.swift */,
 				39088A4183CFB4929068ABFF /* Theme.swift */,
 			);
@@ -151,6 +158,7 @@
 			children = (
 				70FC071922DC2A6E2A85216E /* AppIcon.icon */,
 				E02E2A9EBDD61AF8EB8A15FF /* Assets.xcassets */,
+				66BD2172991DB0803156344E /* Localizable.xcstrings */,
 			);
 			path = Resources;
 			sourceTree = "<group>";
@@ -192,6 +200,7 @@
 		B3322E3359249DE2D3A5AD9B /* Models */ = {
 			isa = PBXGroup;
 			children = (
+				C48B2A6AD8AB4857937A22C1 /* AppSettings.swift */,
 				892ED664C219F3B9AD3C6D6D /* AuditModels.swift */,
 				E18F48FACAE380029052976A /* ReportModels.swift */,
 			);
@@ -314,6 +323,7 @@
 			files = (
 				8BD430020DC85D148FE017ED /* AppIcon.icon in Resources */,
 				F0B691414CEE4B6A29F91BF1 /* Assets.xcassets in Resources */,
+				B265FE7BFDC6A7FD77963AF7 /* Localizable.xcstrings in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -332,11 +342,13 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				6470E071E62B237D2C06A4DA /* AppSettings.swift in Sources */,
 				B6493DB2EA73BC22433270F0 /* AppState.swift in Sources */,
 				DE268C489FBA6E36A3939F2D /* AuditModels.swift in Sources */,
 				226949DD41EEA8D356BA06BA /* AuditRunner.swift in Sources */,
 				CDD91EEEA2866EA14573EDF1 /* DatabaseStore.swift in Sources */,
 				D176E1EB74E4E9B350B4B40C /* EnvironmentSupport.swift in Sources */,
+				9AAB9C491ACC74A03100126A /* LocalizationStrings.swift in Sources */,
 				E5E7CD8F82E84E1FA32492B7 /* MainWindowView.swift in Sources */,
 				045358DDD28C944FD21466C6 /* MigrationService.swift in Sources */,
 				127CC905AA3111E18E295DD2 /* PitcherPlantCommands.swift in Sources */,

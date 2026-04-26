@@ -11,9 +11,11 @@ struct PitcherPlantDesktopApp: App {
     @Environment(\.openWindow) private var openWindow
 
     var body: some Scene {
-        Window("PitcherPlant", id: AppWindow.main.rawValue) {
+        WindowGroup("PitcherPlant", id: AppWindow.main.rawValue) {
             MainWindowView()
                 .environment(appState)
+                .environment(\.locale, appState.effectiveLocale ?? .current)
+                .preferredColorScheme(appState.effectiveColorScheme)
                 .task {
                     await appState.bootstrapIfNeeded()
                 }
@@ -33,6 +35,8 @@ struct PitcherPlantDesktopApp: App {
         Settings {
             SettingsRootView()
                 .environment(appState)
+                .environment(\.locale, appState.effectiveLocale ?? .current)
+                .preferredColorScheme(appState.effectiveColorScheme)
                 .task {
                     await appState.bootstrapIfNeeded()
                 }
@@ -41,8 +45,12 @@ struct PitcherPlantDesktopApp: App {
         MenuBarExtra {
             PitcherPlantMenuBarView(appState: appState)
                 .environment(appState)
+                .environment(\.locale, appState.effectiveLocale ?? .current)
+                .preferredColorScheme(appState.effectiveColorScheme)
         } label: {
-            Image(systemName: "leaf")
+            if appState.appSettings.showMenuBarExtra {
+                Image(systemName: "leaf")
+            }
         }
         .menuBarExtraStyle(.window)
     }

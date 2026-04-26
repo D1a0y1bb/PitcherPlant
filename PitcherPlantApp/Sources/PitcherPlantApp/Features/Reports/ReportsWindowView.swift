@@ -36,31 +36,31 @@ struct ReportsWindowView: View {
                 Button {
                     appState.exportSelectedReportAsPDF()
                 } label: {
-                    Label("导出 PDF", systemImage: "doc.richtext")
+                    Label(appState.t("settings.exportPDF"), systemImage: "doc.richtext")
                 }
 
                 Button {
                     appState.exportSelectedReportAsHTML()
                 } label: {
-                    Label("导出 HTML", systemImage: "chevron.left.forwardslash.chevron.right")
+                    Label(appState.t("settings.exportHTML"), systemImage: "chevron.left.forwardslash.chevron.right")
                 }
 
                 Button {
                     appState.openSelectedReportSource()
                 } label: {
-                    Label("在 Finder 打开", systemImage: "folder")
+                    Label(appState.t("settings.openFinder"), systemImage: "folder")
                 }
 
                 Button(role: .destructive) {
                     Task { await appState.removeSelectedReport() }
                 } label: {
-                    Label("删除记录", systemImage: "trash")
+                    Label(appState.t("command.deleteReport"), systemImage: "trash")
                 }
 
                 Button {
                     Task { await appState.reload() }
                 } label: {
-                    Label("重新加载", systemImage: "arrow.clockwise")
+                    Label(appState.t("toolbar.reload"), systemImage: "arrow.clockwise")
                 }
             }
         }
@@ -89,16 +89,14 @@ struct ReportsInlineView: View {
     }
 
     var body: some View {
-        HSplitView {
-            ReportLibrarySidebar(
+        VStack(spacing: 0) {
+            ReportsCenterSelectorBar(
                 reports: filteredReports,
                 reportQuery: $reportQuery,
                 reportFilter: $reportFilter
             )
-            .frame(minWidth: 260, idealWidth: 300, maxWidth: 340)
-
-            ReportSectionsAndEvidenceView()
-                .frame(minWidth: 500)
+            Divider()
+            ReportSectionsAndEvidenceView(showsReportHeader: false)
         }
         .background(Color(nsColor: .textBackgroundColor))
         .onAppear {
@@ -122,6 +120,81 @@ struct ReportsInlineView: View {
     }
 }
 
+private struct ReportsCenterSelectorBar: View {
+    @Environment(AppState.self) private var appState
+    let reports: [AuditReport]
+    @Binding var reportQuery: String
+    @Binding var reportFilter: ReportLibraryFilter
+
+    var body: some View {
+        HStack(spacing: 12) {
+            VStack(alignment: .leading, spacing: 3) {
+                Text(appState.t("reports.title"))
+                    .font(.headline)
+                if let report = appState.selectedReport {
+                    Text(report.title)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                } else {
+                    Text(appState.t("reports.noReport"))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+
+            Spacer()
+
+            TextField(appState.t("reports.searchPrompt"), text: $reportQuery)
+                .textFieldStyle(.roundedBorder)
+                .frame(width: 210)
+
+            Picker(appState.t("reports.filter"), selection: $reportFilter) {
+                ForEach(ReportLibraryFilter.allCases) { filter in
+                    Text(appState.title(for: filter)).tag(filter)
+                }
+            }
+            .pickerStyle(.segmented)
+            .frame(width: 180)
+
+            Menu {
+                if reports.isEmpty {
+                    Text(appState.t("reports.noMatchedReport"))
+                } else {
+                    ForEach(reports) { report in
+                        Button {
+                            appState.selectReport(report.id)
+                        } label: {
+                            Label(report.title, systemImage: report.isLegacy ? "doc.richtext" : "doc.text.magnifyingglass")
+                        }
+                    }
+                }
+            } label: {
+                Label(appState.t("reports.selectReport"), systemImage: "doc.on.doc")
+            }
+            .menuStyle(.borderlessButton)
+
+            Button {
+                appState.exportSelectedReportAsPDF()
+            } label: {
+                Label("PDF", systemImage: "doc.richtext")
+            }
+            .disabled(appState.selectedReport == nil)
+
+            Button {
+                appState.exportSelectedReportAsHTML()
+            } label: {
+                Label("HTML", systemImage: "chevron.left.forwardslash.chevron.right")
+            }
+            .disabled(appState.selectedReport == nil)
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 10)
+        .background(Color(nsColor: .windowBackgroundColor))
+    }
+}
+
 struct ReportEvidenceInspectorHost: View {
     var body: some View {
         ReportEvidenceInspector()
@@ -138,16 +211,16 @@ private struct ReportLibrarySidebar: View {
         VStack(alignment: .leading, spacing: 0) {
             VStack(alignment: .leading, spacing: 10) {
                 HStack(alignment: .firstTextBaseline) {
-                    Text("报告")
+                    Text(appState.t("reports.title"))
                         .font(.headline)
                     Spacer()
                     Text("\(reports.count)")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
-                Picker("报告筛选", selection: $reportFilter) {
+                Picker(appState.t("reports.filter"), selection: $reportFilter) {
                     ForEach(ReportLibraryFilter.allCases) { filter in
-                        Text(filter.title).tag(filter)
+                        Text(appState.title(for: filter)).tag(filter)
                     }
                 }
                 .pickerStyle(.segmented)
@@ -162,7 +235,7 @@ private struct ReportLibrarySidebar: View {
                 set: { appState.selectReport($0) }
             )) {
                 if reports.isEmpty {
-                    ContentUnavailableView("暂无匹配报告", systemImage: "doc.text.magnifyingglass", description: Text("调整搜索或筛选条件。"))
+                    ContentUnavailableView(appState.t("reports.noMatchedReport"), systemImage: "doc.text.magnifyingglass", description: Text(appState.t("reports.noMatchedDescription")))
                         .listRowSeparator(.hidden)
                 } else {
                     ForEach(reports) { report in
@@ -174,12 +247,13 @@ private struct ReportLibrarySidebar: View {
             }
             .listStyle(.plain)
         }
-        .searchable(text: $reportQuery, placement: .sidebar, prompt: "搜索报告")
+        .searchable(text: $reportQuery, placement: .sidebar, prompt: appState.t("reports.searchPrompt"))
         .background(Color(nsColor: .textBackgroundColor))
     }
 }
 
 private struct ReportLibraryRow: View {
+    @Environment(AppState.self) private var appState
     let report: AuditReport
 
     var body: some View {
@@ -194,7 +268,7 @@ private struct ReportLibraryRow: View {
                         .font(.subheadline.weight(.medium))
                         .lineLimit(1)
                         .truncationMode(.middle)
-                    if report.isLegacy {
+                    if report.isLegacy && appState.appSettings.showLegacyBadges {
                         Text("Legacy")
                             .font(.caption2.weight(.semibold))
                             .padding(.horizontal, 6)
@@ -214,6 +288,7 @@ private struct ReportLibraryRow: View {
 
 private struct ReportSectionsAndEvidenceView: View {
     @Environment(AppState.self) private var appState
+    var showsReportHeader = true
     @State private var evidenceQuery = ""
     @State private var evidenceFilter: ReportEvidenceFilter = .all
     @State private var evidenceSortOrder: ReportEvidenceSortOrder = .default
@@ -237,8 +312,10 @@ private struct ReportSectionsAndEvidenceView: View {
     var body: some View {
         if let report = appState.selectedReport {
             VStack(spacing: 0) {
-                ReportContentHeader(report: report)
-                Divider()
+                if showsReportHeader {
+                    ReportContentHeader(report: report)
+                    Divider()
+                }
 
                 ReportSectionStrip(report: report)
                 Divider()
@@ -258,7 +335,7 @@ private struct ReportSectionsAndEvidenceView: View {
                         ReportSectionReadingView(section: section, report: report)
                     }
                 } else {
-                    ContentUnavailableView("未选择章节", systemImage: "list.bullet.rectangle", description: Text("选择一个章节查看证据。"))
+                    ContentUnavailableView(appState.t("reports.noSection"), systemImage: "list.bullet.rectangle", description: Text(appState.t("reports.noSectionDescription")))
                 }
             }
             .background(Color(nsColor: .textBackgroundColor))
@@ -277,7 +354,7 @@ private struct ReportSectionsAndEvidenceView: View {
                 syncVisibleEvidenceSelection()
             }
         } else {
-            ContentUnavailableView("暂无报告", systemImage: "doc.text", description: Text("完成一次审计或导入旧报告后会显示在这里。"))
+            ContentUnavailableView(appState.t("reports.noReport"), systemImage: "doc.text", description: Text(appState.t("reports.noReportDescription")))
         }
     }
 
@@ -295,6 +372,7 @@ private struct ReportSectionsAndEvidenceView: View {
 }
 
 private struct ReportContentHeader: View {
+    @Environment(AppState.self) private var appState
     let report: AuditReport
 
     var body: some View {
@@ -325,7 +403,7 @@ private struct ReportContentHeader: View {
 
             Spacer()
 
-            if report.isLegacy {
+            if report.isLegacy && appState.appSettings.showLegacyBadges {
                 Text("Legacy")
                     .font(.caption.weight(.semibold))
                     .padding(.horizontal, 10)
@@ -364,6 +442,7 @@ private struct ReportSectionStrip: View {
 }
 
 private struct ReportSectionChip: View {
+    @Environment(AppState.self) private var appState
     let section: ReportSection
     let isSelected: Bool
     let action: () -> Void
@@ -376,7 +455,7 @@ private struct ReportSectionChip: View {
         Button(action: action) {
             VStack(spacing: 5) {
                 HStack(spacing: 6) {
-                    Text(section.kind.title)
+                    Text(appState.title(for: section.kind))
                         .lineLimit(1)
                     if rowCount > 0 {
                         Text("\(rowCount)")
@@ -403,6 +482,7 @@ private struct ReportSectionChip: View {
 }
 
 private struct ReportSectionReadingView: View {
+    @Environment(AppState.self) private var appState
     let section: ReportSection
     let report: AuditReport
 
@@ -413,22 +493,22 @@ private struct ReportSectionReadingView: View {
                     Label(section.title, systemImage: section.kind.systemImage)
                         .font(.title3.weight(.semibold))
                     Spacer()
-                    Text(report.isLegacy ? "Legacy HTML" : "原生报告")
+                    Text(report.isLegacy ? appState.t("reports.legacyHTML") : appState.t("reports.nativeReport"))
                         .font(.caption.weight(.medium))
                         .foregroundStyle(.secondary)
                 }
 
                 VStack(alignment: .leading, spacing: 10) {
-                    Text("章节摘要")
+                    Text(appState.t("reports.sectionSummary"))
                         .font(.headline)
-                    Text(section.summary.isEmpty ? "该章节暂无结构化证据。" : section.summary)
+                    Text(section.summary.isEmpty ? appState.t("reports.sectionNoStructuredEvidence") : section.summary)
                         .foregroundStyle(.secondary)
                         .textSelection(.enabled)
                 }
 
                 if section.callouts.isEmpty == false {
                     VStack(alignment: .leading, spacing: 10) {
-                        Text("提示")
+                        Text(appState.t("reports.callouts"))
                             .font(.headline)
                         ForEach(section.callouts, id: \.self) { callout in
                             Label(callout, systemImage: "info.circle")
@@ -438,7 +518,7 @@ private struct ReportSectionReadingView: View {
                 }
 
                 VStack(alignment: .leading, spacing: 8) {
-                    Text("来源")
+                    Text(appState.t("common.source"))
                         .font(.headline)
                     Text(report.sourcePath)
                         .font(.caption)
@@ -455,6 +535,7 @@ private struct ReportSectionReadingView: View {
 }
 
 private struct EvidenceToolbar: View {
+    @Environment(AppState.self) private var appState
     @Binding var evidenceQuery: String
     @Binding var evidenceFilter: ReportEvidenceFilter
     @Binding var evidenceSortOrder: ReportEvidenceSortOrder
@@ -463,31 +544,31 @@ private struct EvidenceToolbar: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            TextField("搜索当前章节证据", text: $evidenceQuery)
+            TextField(appState.t("reports.searchEvidence"), text: $evidenceQuery)
                 .textFieldStyle(.roundedBorder)
                 .frame(maxWidth: 260)
 
-            Picker("筛选", selection: $evidenceFilter) {
+            Picker(appState.t("reports.filter"), selection: $evidenceFilter) {
                 ForEach(ReportEvidenceFilter.allCases) { option in
-                    Text(option.title).tag(option)
+                    Text(appState.title(for: option)).tag(option)
                 }
             }
             .pickerStyle(.segmented)
             .frame(width: 220)
 
             Menu {
-                Picker("排序", selection: $evidenceSortOrder) {
+                Picker(appState.t("reports.sort"), selection: $evidenceSortOrder) {
                     ForEach(ReportEvidenceSortOrder.allCases) { option in
-                        Text(option.title).tag(option)
+                        Text(appState.title(for: option)).tag(option)
                     }
                 }
             } label: {
-                Label(evidenceSortOrder.title, systemImage: "arrow.up.arrow.down")
+                Label(appState.title(for: evidenceSortOrder), systemImage: "arrow.up.arrow.down")
             }
             .menuStyle(.borderlessButton)
 
             Spacer()
-            Text("\(visibleRowCount) / \(totalRowCount) 条")
+            Text("\(visibleRowCount) / \(totalRowCount) \(appState.t("reports.rows"))")
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }
@@ -503,7 +584,7 @@ private struct EvidenceList: View {
 
     var body: some View {
         if rows.isEmpty, section.table != nil {
-            ContentUnavailableView("暂无结构化证据", systemImage: "line.3.horizontal.decrease.circle", description: Text("切换左侧带数量的章节，或清空当前搜索和筛选条件。"))
+            ContentUnavailableView(appState.t("reports.noEvidence"), systemImage: "line.3.horizontal.decrease.circle", description: Text(appState.t("reports.noEvidenceDescription")))
         } else if section.kind == .overview {
             OverviewEvidenceList(rows: rows)
         } else if rows.isEmpty {
@@ -540,16 +621,21 @@ private struct EvidenceList: View {
 }
 
 private struct DenseEvidenceHeader: View {
+    @Environment(AppState.self) private var appState
     let headers: [String]
 
     var body: some View {
         HStack(spacing: 12) {
-            Text(headers[safe: 0] ?? "对象 A")
+            Text(headers[safe: 0] ?? appState.t("reports.objectA"))
                 .frame(maxWidth: .infinity, alignment: .leading)
-            Text(headers[safe: 1] ?? "对象 B")
+            Text(headers[safe: 1] ?? appState.t("reports.objectB"))
                 .frame(maxWidth: .infinity, alignment: .leading)
-            Text(headers[safe: 2] ?? "分数")
+            Text(headers[safe: 2] ?? appState.t("common.score"))
                 .frame(width: 70, alignment: .trailing)
+            Text(headers[safe: 3] ?? appState.t("common.type"))
+                .frame(width: 84, alignment: .leading)
+            Text(appState.t("common.badge"))
+                .frame(width: 92, alignment: .leading)
         }
         .font(.caption.weight(.semibold))
         .foregroundStyle(.secondary)
@@ -573,6 +659,14 @@ private struct EvidenceListRow: View {
             Text(row.columns[safe: 2] ?? "")
                 .foregroundStyle(.secondary)
                 .frame(width: 70, alignment: .trailing)
+            Text(row.columns[safe: 3] ?? "")
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+                .frame(width: 84, alignment: .leading)
+            Text(row.badges.first?.title ?? row.columns[safe: 4] ?? "")
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+                .frame(width: 92, alignment: .leading)
         }
         .font(.subheadline)
         .padding(.vertical, 5)
@@ -629,15 +723,18 @@ private struct ReportEvidenceInspector: View {
                         }
                     }
 
-                    InspectorSection(title: "证据详情") {
+                    InspectorSection(title: appState.t("reports.evidenceDetails")) {
                         Text(row.detailBody)
                             .foregroundStyle(.secondary)
                             .textSelection(.enabled)
                     }
 
                     if !row.attachments.isEmpty {
-                        InspectorSection(title: "附件") {
-                            ImageEvidenceDetailView(attachments: row.attachments)
+                        InspectorSection(title: appState.t("reports.attachments")) {
+                            ImageEvidenceDetailView(
+                                attachments: row.attachments,
+                                showsPreviews: appState.appSettings.showAttachmentPreviews
+                            )
                         }
                     }
                 }
@@ -655,22 +752,23 @@ private struct ReportEvidenceInspector: View {
             }
         } else {
             ContentUnavailableView {
-                Label("未选择证据", systemImage: "doc.text.magnifyingglass")
+                Label(appState.t("reports.noEvidenceSelection"), systemImage: "doc.text.magnifyingglass")
             } description: {
-                Text("在中间列表选择一条证据后查看详情。")
+                Text(appState.t("reports.noEvidenceSelectionDescription"))
             }
         }
     }
 }
 
 private struct ReportQuickInspector: View {
+    @Environment(AppState.self) private var appState
     let report: AuditReport
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
                 VStack(alignment: .leading, spacing: 8) {
-                    Text("报告属性")
+                    Text(appState.t("reports.reportProperties"))
                         .font(.title3.weight(.semibold))
                     Text(report.title)
                         .font(.caption)
@@ -678,7 +776,7 @@ private struct ReportQuickInspector: View {
                         .lineLimit(2)
                 }
 
-                InspectorSection(title: "指标") {
+                InspectorSection(title: appState.t("reports.metrics")) {
                     VStack(alignment: .leading, spacing: 8) {
                         ForEach(report.metrics, id: \.title) { metric in
                             HStack {
@@ -693,15 +791,15 @@ private struct ReportQuickInspector: View {
                     }
                 }
 
-                InspectorSection(title: "路径") {
+                InspectorSection(title: appState.t("common.path")) {
                     VStack(alignment: .leading, spacing: 8) {
-                        Text("报告文件")
+                        Text(appState.t("reports.reportFile"))
                             .font(.caption.weight(.semibold))
                         Text(report.sourcePath)
                             .font(.caption)
                             .foregroundStyle(.secondary)
                             .textSelection(.enabled)
-                        Text("审计目录")
+                        Text(appState.t("reports.scanDirectory"))
                             .font(.caption.weight(.semibold))
                         Text(report.scanDirectoryPath)
                             .font(.caption)
@@ -718,6 +816,7 @@ private struct ReportQuickInspector: View {
 }
 
 private struct ReportSectionSummaryInspector: View {
+    @Environment(AppState.self) private var appState
     let section: ReportSection
     let report: AuditReport?
 
@@ -735,14 +834,14 @@ private struct ReportSectionSummaryInspector: View {
                     }
                 }
 
-                InspectorSection(title: "章节摘要") {
-                    Text(section.summary.isEmpty ? "该章节暂无结构化证据。" : section.summary)
+                InspectorSection(title: appState.t("reports.sectionSummary")) {
+                    Text(section.summary.isEmpty ? appState.t("reports.sectionNoStructuredEvidence") : section.summary)
                         .foregroundStyle(.secondary)
                         .textSelection(.enabled)
                 }
 
                 if section.callouts.isEmpty == false {
-                    InspectorSection(title: "提示") {
+                    InspectorSection(title: appState.t("reports.callouts")) {
                         VStack(alignment: .leading, spacing: 8) {
                             ForEach(section.callouts, id: \.self) { callout in
                                 Label(callout, systemImage: "info.circle")
@@ -753,8 +852,8 @@ private struct ReportSectionSummaryInspector: View {
                 }
 
                 if let table = section.table {
-                    InspectorSection(title: "证据数量") {
-                        Text("\(table.rows.count) 条结构化记录")
+                    InspectorSection(title: appState.t("reports.evidenceCount")) {
+                        Text("\(table.rows.count) \(appState.t("reports.structuredRecords"))")
                             .foregroundStyle(.secondary)
                     }
                 }
@@ -786,6 +885,7 @@ private struct InspectorSection<Content: View>: View {
 
 private struct ImageEvidenceDetailView: View {
     let attachments: [ReportAttachment]
+    let showsPreviews: Bool
 
     private let columns = [
         GridItem(.flexible(minimum: 180), spacing: 12),
@@ -804,7 +904,7 @@ private struct ImageEvidenceDetailView: View {
                             .foregroundStyle(.secondary)
                     }
 
-                    if let image = attachment.imageBase64.flatMap(decodedImage) {
+                    if showsPreviews, let image = attachment.imageBase64.flatMap(decodedImage) {
                         Image(nsImage: image)
                             .resizable()
                             .aspectRatio(contentMode: .fit)

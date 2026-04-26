@@ -26,10 +26,11 @@ struct MetricCard: View {
 }
 
 struct StatusBadge: View {
+    @Environment(AppState.self) private var appState
     let status: AuditJobStatus
 
     var body: some View {
-        Text(status.displayTitle)
+        Text(appState.title(for: status))
             .font(.caption.weight(.semibold))
             .padding(.horizontal, 10)
             .padding(.vertical, 5)

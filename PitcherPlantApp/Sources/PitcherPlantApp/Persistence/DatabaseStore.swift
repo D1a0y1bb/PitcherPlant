@@ -5,6 +5,10 @@ actor DatabaseStore {
     private let dbQueue: DatabaseQueue
     private let dbURL: URL
 
+    nonisolated var databaseURL: URL {
+        dbURL
+    }
+
     init(rootDirectory: URL) throws {
         let supportURL = try Self.resolveSupportDirectory(rootDirectory: rootDirectory)
         try FileManager.default.createDirectory(at: supportURL, withIntermediateDirectories: true)

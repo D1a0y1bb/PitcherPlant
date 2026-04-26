@@ -56,6 +56,21 @@ struct ProjectLocator {
 enum AppPreferences {
     private static let prefix = "pitcherplant.macos"
 
+    static func loadAppSettings(defaults: UserDefaults = .standard) -> AppSettings {
+        let key = "\(prefix).appSettings"
+        guard let data = defaults.data(forKey: key),
+              let settings = try? JSONDecoder().decode(AppSettings.self, from: data) else {
+            return .defaults
+        }
+        return settings
+    }
+
+    static func saveAppSettings(_ settings: AppSettings, defaults: UserDefaults = .standard) {
+        let key = "\(prefix).appSettings"
+        let data = try? JSONEncoder().encode(settings)
+        defaults.set(data, forKey: key)
+    }
+
     static func loadDraftConfiguration(for root: URL, defaults: UserDefaults = .standard) -> AuditConfiguration {
         let key = "\(prefix).draft.\(root.path)"
         guard let data = defaults.data(forKey: key),

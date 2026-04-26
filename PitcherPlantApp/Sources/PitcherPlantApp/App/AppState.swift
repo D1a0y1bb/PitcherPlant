@@ -25,6 +25,7 @@ final class AppState {
     var whitelistRules: [WhitelistRule] = []
     var configurationPresets: [AuditConfigurationPreset] = []
     var exportRecords: [ExportRecord] = []
+    var appSettings: AppSettings
 
     var draftConfiguration: AuditConfiguration
     var latestReport: AuditReport?
@@ -35,6 +36,9 @@ final class AppState {
     init() {
         let locator = ProjectLocator()
         self.workspaceRoot = locator.workspaceRoot()
+        let settings = AppPreferences.loadAppSettings()
+        self.appSettings = settings
+        self.selectedMainSidebar = settings.defaultSidebarItem
         let databaseResult = Self.makeDatabase(rootDirectory: workspaceRoot)
         self.database = databaseResult.database
         self.initializationMessage = databaseResult.message
@@ -127,6 +131,19 @@ final class AppState {
     func updateDraft(_ transform: (inout AuditConfiguration) -> Void) {
         transform(&draftConfiguration)
         AppPreferences.saveDraftConfiguration(draftConfiguration, for: workspaceRoot)
+    }
+
+    func updateSettings(_ transform: (inout AppSettings) -> Void) {
+        transform(&appSettings)
+        AppPreferences.saveAppSettings(appSettings)
+    }
+
+    var effectiveLocale: Locale? {
+        appSettings.language == .system ? nil : LocalizationStrings.locale(for: appSettings.language)
+    }
+
+    var effectiveColorScheme: ColorScheme? {
+        appSettings.appearance.colorScheme
     }
 
     func saveCurrentConfigurationPreset(named name: String) {
