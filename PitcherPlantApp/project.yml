@@ -24,6 +24,7 @@ targets:
     deploymentTarget: "15.0"
     sources:
       - path: Sources/PitcherPlantApp
+      - path: Resources/AppIcon.icon
       - path: Resources/Assets.xcassets
     dependencies:
       - package: GRDB

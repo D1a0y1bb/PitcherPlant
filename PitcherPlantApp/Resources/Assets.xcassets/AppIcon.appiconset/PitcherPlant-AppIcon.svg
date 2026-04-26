@@ -1,14 +1,14 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
   <defs>
-    <linearGradient id="bg" x1="180" y1="70" x2="850" y2="950" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#EFFFF8" stop-opacity="0.94"/>
-      <stop offset="0.38" stop-color="#8CF3C8" stop-opacity="0.92"/>
-      <stop offset="0.72" stop-color="#178C72" stop-opacity="0.96"/>
-      <stop offset="1" stop-color="#06251F" stop-opacity="0.98"/>
+    <linearGradient id="bg" x1="120" y1="40" x2="900" y2="980" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#70FFD2" stop-opacity="1"/>
+      <stop offset="0.34" stop-color="#22D9A4" stop-opacity="1"/>
+      <stop offset="0.72" stop-color="#08715E" stop-opacity="1"/>
+      <stop offset="1" stop-color="#021915" stop-opacity="1"/>
     </linearGradient>
     <radialGradient id="glass" cx="35%" cy="18%" r="80%">
-      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.86"/>
-      <stop offset="0.3" stop-color="#DFFCF1" stop-opacity="0.44"/>
+      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.38"/>
+      <stop offset="0.3" stop-color="#DFFCF1" stop-opacity="0.18"/>
       <stop offset="1" stop-color="#0B2F2A" stop-opacity="0"/>
     </radialGradient>
     <linearGradient id="pitcher" x1="342" y1="232" x2="664" y2="792" gradientUnits="userSpaceOnUse">
@@ -25,11 +25,11 @@
       <feDropShadow dx="0" dy="2" stdDeviation="3" flood-color="#FFFFFF" flood-opacity="0.28"/>
     </filter>
     <clipPath id="squircle">
-      <path d="M512 52C178 52 52 178 52 512s126 460 460 460 460-126 460-460S846 52 512 52Z"/>
+      <path d="M220 0H804C926 0 1024 98 1024 220V804C1024 926 926 1024 804 1024H220C98 1024 0 926 0 804V220C0 98 98 0 220 0Z"/>
     </clipPath>
   </defs>
 
-  <path d="M512 52C178 52 52 178 52 512s126 460 460 460 460-126 460-460S846 52 512 52Z" fill="url(#bg)"/>
+  <path d="M220 0H804C926 0 1024 98 1024 220V804C1024 926 926 1024 804 1024H220C98 1024 0 926 0 804V220C0 98 98 0 220 0Z" fill="url(#bg)"/>
   <g clip-path="url(#squircle)">
     <path d="M72 84h880v360c-154-58-276-39-404 60-156 121-289 138-476 62Z" fill="url(#glass)"/>
     <path d="M128 776c198-104 369-102 768-7v210H128Z" fill="#061F1B" opacity="0.18"/>

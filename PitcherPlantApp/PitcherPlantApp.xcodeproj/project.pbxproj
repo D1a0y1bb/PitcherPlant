@@ -18,6 +18,7 @@
 		39F8C94B08952D4D59F36A98 /* ReportModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = E18F48FACAE380029052976A /* ReportModels.swift */; };
 		5ABE317374EE212C9D507DD2 /* ReportExporter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 58D12DF8783F55B02E4AD0E1 /* ReportExporter.swift */; };
 		7941BB9E236B61F85AD918B0 /* PitcherPlantAppTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4E8F017B4A688937783887DB /* PitcherPlantAppTests.swift */; };
+		8BD430020DC85D148FE017ED /* AppIcon.icon in Resources */ = {isa = PBXBuildFile; fileRef = 70FC071922DC2A6E2A85216E /* AppIcon.icon */; };
 		B6493DB2EA73BC22433270F0 /* AppState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 360E2A6F9482BC2AE7C2124F /* AppState.swift */; };
 		CDD91EEEA2866EA14573EDF1 /* DatabaseStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94E86405322D0D8F372EF4FF /* DatabaseStore.swift */; };
 		D0C6CFF3D16216B53B687BE0 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 39088A4183CFB4929068ABFF /* Theme.swift */; };
@@ -47,6 +48,7 @@
 		4E8F017B4A688937783887DB /* PitcherPlantAppTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PitcherPlantAppTests.swift; sourceTree = "<group>"; };
 		58D12DF8783F55B02E4AD0E1 /* ReportExporter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReportExporter.swift; sourceTree = "<group>"; };
 		5D684506393797F240E731AA /* SettingsRootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsRootView.swift; sourceTree = "<group>"; };
+		70FC071922DC2A6E2A85216E /* AppIcon.icon */ = {isa = PBXFileReference; lastKnownFileType = wrapper.icon; path = AppIcon.icon; sourceTree = "<group>"; };
 		892ED664C219F3B9AD3C6D6D /* AuditModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuditModels.swift; sourceTree = "<group>"; };
 		94E86405322D0D8F372EF4FF /* DatabaseStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DatabaseStore.swift; sourceTree = "<group>"; };
 		A3BD2EB5398BC6FA45FFE4EB /* ReportsWindowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReportsWindowView.swift; sourceTree = "<group>"; };
@@ -145,6 +147,7 @@
 		9119E2D8ED5123D4C02094EF /* Resources */ = {
 			isa = PBXGroup;
 			children = (
+				70FC071922DC2A6E2A85216E /* AppIcon.icon */,
 				E02E2A9EBDD61AF8EB8A15FF /* Assets.xcassets */,
 			);
 			path = Resources;
@@ -306,6 +309,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				8BD430020DC85D148FE017ED /* AppIcon.icon in Resources */,
 				F0B691414CEE4B6A29F91BF1 /* Assets.xcassets in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
