@@ -56,6 +56,7 @@ func appVersionInfoReadsBundleMetadata() {
     #expect(version.build == "12")
     #expect(version.bundleIdentifier == "com.pitcherplant.desktop")
     #expect(version.releaseTag == "v0.1.0-rc.5")
+    #expect(version.displayVersion == "0.1.0-rc.5")
     #expect(version.versionAndBuild == "0.1.0-rc.5 (12)")
 }
 

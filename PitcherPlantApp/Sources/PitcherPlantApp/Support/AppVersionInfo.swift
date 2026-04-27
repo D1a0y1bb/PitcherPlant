@@ -11,8 +11,11 @@ struct AppVersionInfo: Equatable {
         AppVersionInfo(bundle: .main)
     }
 
+    var displayVersion: String {
+        releaseTag.map(Self.displayReleaseTag) ?? version
+    }
+
     var versionAndBuild: String {
-        let displayVersion = releaseTag.map(Self.displayReleaseTag) ?? version
         guard !build.isEmpty, build != "Unknown" else {
             return displayVersion
         }
