@@ -13,6 +13,7 @@ DIST_DIR="$BUILD_DIR/dist"
 CHECK_DIR="$BUILD_DIR/checks"
 DISTRIBUTION="ad-hoc"
 NOTARIZE="false"
+RELEASE_TAG="${RELEASE_TAG:-}"
 
 usage() {
   cat <<USAGE
@@ -86,6 +87,7 @@ archive_ad_hoc() {
     -scheme "$SCHEME" \
     -configuration "$CONFIGURATION" \
     -archivePath "$ARCHIVE_PATH" \
+    PP_RELEASE_TAG="$RELEASE_TAG" \
     CODE_SIGN_STYLE=Manual \
     CODE_SIGN_IDENTITY="-"
 
@@ -100,6 +102,7 @@ archive_developer_id() {
     -scheme "$SCHEME" \
     -configuration "$CONFIGURATION" \
     -archivePath "$ARCHIVE_PATH" \
+    PP_RELEASE_TAG="$RELEASE_TAG" \
     DEVELOPMENT_TEAM="$APPLE_TEAM_ID" \
     CODE_SIGN_STYLE=Manual \
     CODE_SIGN_IDENTITY="$APPLE_SIGNING_IDENTITY" \

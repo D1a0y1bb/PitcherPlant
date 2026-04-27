@@ -40,6 +40,26 @@ func projectLocatorRejectsFilesystemRootSavedWorkspace() throws {
 }
 
 @Test
+func appVersionInfoReadsBundleMetadata() {
+    let version = AppVersionInfo(
+        infoDictionary: [
+            "CFBundleDisplayName": "PitcherPlant",
+            "CFBundleShortVersionString": "0.1.0",
+            "CFBundleVersion": "12",
+            "PPReleaseTag": "v0.1.0-rc.5"
+        ],
+        bundleIdentifier: "com.pitcherplant.desktop"
+    )
+
+    #expect(version.name == "PitcherPlant")
+    #expect(version.version == "0.1.0")
+    #expect(version.build == "12")
+    #expect(version.bundleIdentifier == "com.pitcherplant.desktop")
+    #expect(version.releaseTag == "v0.1.0-rc.5")
+    #expect(version.versionAndBuild == "0.1.0-rc.5 (12)")
+}
+
+@Test
 func presetStorageRoundTripsByWorkspaceRoot() throws {
     let suiteName = "pitcherplant.tests.\(UUID().uuidString)"
     guard let defaults = UserDefaults(suiteName: suiteName) else {

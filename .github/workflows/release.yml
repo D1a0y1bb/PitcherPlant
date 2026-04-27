@@ -135,7 +135,17 @@ jobs:
             SIGNED_RELEASE="false"
           fi
 
+          case "$TAG_NAME" in
+            v*)
+              BUNDLE_RELEASE_TAG="$TAG_NAME"
+              ;;
+            *)
+              BUNDLE_RELEASE_TAG=""
+              ;;
+          esac
+
           echo "tag_name=$TAG_NAME" >> "$GITHUB_OUTPUT"
+          echo "bundle_release_tag=$BUNDLE_RELEASE_TAG" >> "$GITHUB_OUTPUT"
           echo "dry_run=$DRY_RUN" >> "$GITHUB_OUTPUT"
           echo "distribution=$DISTRIBUTION" >> "$GITHUB_OUTPUT"
           echo "publish_release=$PUBLISH_RELEASE" >> "$GITHUB_OUTPUT"
@@ -242,6 +252,7 @@ jobs:
               -scheme PitcherPlantApp \
               -configuration Release \
               -destination 'platform=macOS' \
+              PP_RELEASE_TAG="${{ steps.release.outputs.bundle_release_tag }}" \
               DEVELOPMENT_TEAM="$APPLE_TEAM_ID" \
               CODE_SIGN_STYLE=Manual \
               CODE_SIGN_IDENTITY="$APPLE_SIGNING_IDENTITY" \
@@ -253,6 +264,7 @@ jobs:
               -scheme PitcherPlantApp \
               -configuration Release \
               -destination 'platform=macOS' \
+              PP_RELEASE_TAG="${{ steps.release.outputs.bundle_release_tag }}" \
               CODE_SIGN_STYLE=Manual \
               CODE_SIGN_IDENTITY="-" \
               build
@@ -260,6 +272,8 @@ jobs:
 
       - name: Archive, package, and verify artifacts
         working-directory: PitcherPlantApp
+        env:
+          RELEASE_TAG: ${{ steps.release.outputs.bundle_release_tag }}
         run: |
           if [ "${{ steps.release.outputs.signed_release }}" = "true" ]; then
             ./script/package_release.sh --distribution developer-id --notarize

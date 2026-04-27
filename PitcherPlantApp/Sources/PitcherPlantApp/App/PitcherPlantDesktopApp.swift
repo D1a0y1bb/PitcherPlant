@@ -30,6 +30,12 @@ struct PitcherPlantDesktopApp: App {
         .windowResizability(.contentMinSize)
         .defaultLaunchBehavior(.presented)
         .commands {
+            CommandGroup(replacing: .appInfo) {
+                Button(appState.t("about.menuTitle")) {
+                    showAboutPanel()
+                }
+            }
+
             PitcherPlantCommands(
                 appState: appState,
                 showMainWindow: {
@@ -64,6 +70,16 @@ struct PitcherPlantDesktopApp: App {
             }
         }
         .menuBarExtraStyle(.window)
+    }
+
+    private func showAboutPanel() {
+        let version = AppVersionInfo.current
+        NSApp.orderFrontStandardAboutPanel(options: [
+            .applicationName: version.name,
+            .applicationVersion: version.versionAndBuild,
+            .credits: NSAttributedString(string: appState.t("about.credits"))
+        ])
+        NSApp.activate(ignoringOtherApps: true)
     }
 }
 

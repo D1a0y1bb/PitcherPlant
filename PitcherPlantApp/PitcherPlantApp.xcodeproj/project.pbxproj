@@ -18,6 +18,7 @@
 		138BD38561399E8ADF48CA11 /* ReportsWindowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3BD2EB5398BC6FA45FFE4EB /* ReportsWindowView.swift */; };
 		165BFA68924490812A106325 /* AnalyzerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 87E368BB66F8C9946724E4F4 /* AnalyzerTests.swift */; };
 		1705B2991572DD3C65098E85 /* MainWindowSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA73A59BEE30962F5D0EECD0 /* MainWindowSupport.swift */; };
+		1ACF06AC04A048D82A0B30CB /* AppVersionInfo.swift in Sources */ = {isa = PBXBuildFile; fileRef = 54162EA7478EAFCCE88C5709 /* AppVersionInfo.swift */; };
 		1B17F3120D231966A4CD3BB9 /* PitcherPlantMenuBarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49FE455BEF863D8F1AD2DF2B /* PitcherPlantMenuBarView.swift */; };
 		20E832FF85AE3A044C5AD3DD /* ReportInspectorViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7C73FC68D60FC392E1AF947 /* ReportInspectorViews.swift */; };
 		226949DD41EEA8D356BA06BA /* AuditRunner.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDB265F6090B7FE8324A83B2 /* AuditRunner.swift */; };
@@ -108,6 +109,7 @@
 		4AA176FFC61F4E3C6C10B4E3 /* LibraryViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibraryViews.swift; sourceTree = "<group>"; };
 		4BF556CB79EA2D6CC23D09D3 /* MainWindowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainWindowView.swift; sourceTree = "<group>"; };
 		4DE75C67A1CA3F98A8DAEFB7 /* MigrationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MigrationTests.swift; sourceTree = "<group>"; };
+		54162EA7478EAFCCE88C5709 /* AppVersionInfo.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppVersionInfo.swift; sourceTree = "<group>"; };
 		58D12DF8783F55B02E4AD0E1 /* ReportExporter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReportExporter.swift; sourceTree = "<group>"; };
 		5D684506393797F240E731AA /* SettingsRootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsRootView.swift; sourceTree = "<group>"; };
 		5F1E3A67673DB71739C8CE8D /* FeatureCompletionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeatureCompletionTests.swift; sourceTree = "<group>"; };
@@ -212,6 +214,7 @@
 		7BE2CBD0DD98D9DB3998C8E0 /* Support */ = {
 			isa = PBXGroup;
 			children = (
+				54162EA7478EAFCCE88C5709 /* AppVersionInfo.swift */,
 				EB7D836E4BAE584D68A8771F /* EnvironmentSupport.swift */,
 				226DC10D014769BA6202F5F1 /* LocalizationStrings.swift */,
 				469A6C23D8D6999877D42361 /* ReportFiltering.swift */,
@@ -495,6 +498,7 @@
 				3A7C68DB36662C6B77BAAA4B /* Analyzers.swift in Sources */,
 				6470E071E62B237D2C06A4DA /* AppSettings.swift in Sources */,
 				B6493DB2EA73BC22433270F0 /* AppState.swift in Sources */,
+				1ACF06AC04A048D82A0B30CB /* AppVersionInfo.swift in Sources */,
 				3998778E910006CACEEA8015 /* AuditAssistantService.swift in Sources */,
 				DE268C489FBA6E36A3939F2D /* AuditModels.swift in Sources */,
 				226949DD41EEA8D356BA06BA /* AuditRunner.swift in Sources */,
@@ -557,14 +561,14 @@
 				COMBINE_HIDPI_IMAGES = YES;
 				ENABLE_DEBUG_DYLIB = NO;
 				ENABLE_HARDENED_RUNTIME = YES;
-				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_CFBundleDisplayName = PitcherPlant;
-				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.developer-tools";
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = Resources/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 15.0;
+				PP_RELEASE_TAG = "";
 				PRODUCT_BUNDLE_IDENTIFIER = com.pitcherplant.desktop;
 				PRODUCT_MODULE_NAME = PitcherPlantApp;
 				PRODUCT_NAME = PitcherPlant;
@@ -645,14 +649,14 @@
 				COMBINE_HIDPI_IMAGES = YES;
 				ENABLE_DEBUG_DYLIB = NO;
 				ENABLE_HARDENED_RUNTIME = YES;
-				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_CFBundleDisplayName = PitcherPlant;
-				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.developer-tools";
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = Resources/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 15.0;
+				PP_RELEASE_TAG = "";
 				PRODUCT_BUNDLE_IDENTIFIER = com.pitcherplant.desktop;
 				PRODUCT_MODULE_NAME = PitcherPlantApp;
 				PRODUCT_NAME = PitcherPlant;
