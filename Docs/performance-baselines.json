@@ -1,0 +1,8 @@
+{
+  "candidateRecall": {
+    "documentCount": 1000,
+    "maxCandidatePairs": 25000,
+    "maxEvaluatedPairs": 25000,
+    "minimumPositiveRecall": 1.0
+  }
+}

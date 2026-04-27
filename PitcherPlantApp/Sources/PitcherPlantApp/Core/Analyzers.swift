@@ -257,15 +257,37 @@ struct MetadataCollisionAnalyzer {
 struct FingerprintAnalyzer {
     func buildRecords(documents: [ParsedDocument], scanDirectory: String) -> [FingerprintRecord] {
         documents.map { document in
-            FingerprintRecord(
+            let source = inferredSourceFields(for: document, scanDirectory: scanDirectory)
+            return FingerprintRecord(
                 filename: document.filename,
                 ext: document.ext,
                 author: document.author,
                 size: document.cleanText.count,
                 simhash: SimHasher.hexHash(for: document.cleanText),
-                scanDir: scanDirectory
+                scanDir: scanDirectory,
+                batchName: scanDirectory,
+                challengeName: source.challengeName,
+                teamName: source.teamName
             )
         }
+    }
+
+    private func inferredSourceFields(for document: ParsedDocument, scanDirectory: String) -> (challengeName: String?, teamName: String?) {
+        let parentName = document.url.deletingLastPathComponent().lastPathComponent
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        guard parentName.isEmpty == false, parentName != scanDirectory else {
+            return (nil, nil)
+        }
+
+        let challengeName = document.url
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .lastPathComponent
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        return (
+            challengeName.isEmpty || challengeName == scanDirectory ? nil : challengeName,
+            parentName
+        )
     }
 }
 
@@ -293,7 +315,19 @@ struct CrossBatchReuseAnalyzer {
                         previousFile: previous.filename,
                         previousScan: previous.scanDir,
                         distance: distance,
-                        status: status
+                        status: status,
+                        sourceReportID: previous.sourceReportID,
+                        batchName: previous.batchName,
+                        teamName: previous.teamName,
+                        challengeName: previous.challengeName,
+                        currentBatchName: record.batchName,
+                        currentTeamName: record.teamName,
+                        currentChallengeName: record.challengeName,
+                        currentSimhash: record.simhash,
+                        historicalSimhash: previous.simhash,
+                        currentAuthor: record.author,
+                        historicalAuthor: previous.author,
+                        tags: normalizedTags((record.tags ?? []) + (previous.tags ?? []))
                     )
                 )
             }
@@ -315,5 +349,9 @@ struct CrossBatchReuseAnalyzer {
             }
         }
         return "疑似复用"
+    }
+
+    private func normalizedTags(_ tags: [String]) -> [String] {
+        Array(Set(tags.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }.filter { $0.isEmpty == false })).sorted()
     }
 }

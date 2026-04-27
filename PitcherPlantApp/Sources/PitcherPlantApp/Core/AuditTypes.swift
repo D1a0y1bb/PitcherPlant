@@ -120,4 +120,63 @@ struct CrossBatchMatch: Hashable, Sendable {
     let previousScan: String
     let distance: Int
     let status: String
+    let sourceReportID: UUID?
+    let batchName: String?
+    let teamName: String?
+    let challengeName: String?
+    let currentBatchName: String?
+    let currentTeamName: String?
+    let currentChallengeName: String?
+    let currentSimhash: String?
+    let historicalSimhash: String?
+    let currentAuthor: String?
+    let historicalAuthor: String?
+    let tags: [String]
+
+    init(
+        currentFile: String,
+        previousFile: String,
+        previousScan: String,
+        distance: Int,
+        status: String,
+        sourceReportID: UUID? = nil,
+        batchName: String? = nil,
+        teamName: String? = nil,
+        challengeName: String? = nil,
+        currentBatchName: String? = nil,
+        currentTeamName: String? = nil,
+        currentChallengeName: String? = nil,
+        currentSimhash: String? = nil,
+        historicalSimhash: String? = nil,
+        currentAuthor: String? = nil,
+        historicalAuthor: String? = nil,
+        tags: [String] = []
+    ) {
+        self.currentFile = currentFile
+        self.previousFile = previousFile
+        self.previousScan = previousScan
+        self.distance = distance
+        self.status = status
+        self.sourceReportID = sourceReportID
+        self.batchName = Self.normalized(batchName)
+        self.teamName = Self.normalized(teamName)
+        self.challengeName = Self.normalized(challengeName)
+        self.currentBatchName = Self.normalized(currentBatchName)
+        self.currentTeamName = Self.normalized(currentTeamName)
+        self.currentChallengeName = Self.normalized(currentChallengeName)
+        self.currentSimhash = Self.normalized(currentSimhash)
+        self.historicalSimhash = Self.normalized(historicalSimhash)
+        self.currentAuthor = Self.normalized(currentAuthor)
+        self.historicalAuthor = Self.normalized(historicalAuthor)
+        self.tags = Array(Set(tags.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }.filter { $0.isEmpty == false })).sorted()
+    }
+
+    var displayBatchName: String {
+        batchName ?? previousScan
+    }
+
+    private static func normalized(_ value: String?) -> String? {
+        let trimmed = value?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        return trimmed.isEmpty ? nil : trimmed
+    }
 }

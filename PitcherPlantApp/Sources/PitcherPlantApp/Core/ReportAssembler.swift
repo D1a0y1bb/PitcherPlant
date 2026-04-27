@@ -24,6 +24,7 @@ struct ReportAssembler {
         )
         let riskAggregates = riskService.aggregate(records: evidenceRecords)
         let overviewRows = EvidenceRecordFactory.overviewRows(from: riskAggregates)
+        let crossBatchRows = crossBatchRows(matches: crossBatch, records: evidenceRecords)
         let highRiskCount = riskAggregates.filter { $0.assessment.level == .high }.count
 
         let metrics = [
@@ -104,7 +105,7 @@ struct ReportAssembler {
                         ReportTableRow(
                             columns: [$0.filename, $0.author, $0.ext, $0.simhash],
                             detailTitle: $0.filename,
-                            detailBody: "作者：\($0.author)\n扩展名：\($0.ext)\n字符数：\($0.size)\nSimHash：\($0.simhash)",
+                            detailBody: fingerprintDetailBody(for: $0),
                             badges: [ReportBadge(title: $0.ext.uppercased(), tone: .accent)]
                         )
                     }
@@ -116,7 +117,7 @@ struct ReportAssembler {
                 summary: "当前批次与历史指纹库的近似匹配结果。",
                 table: ReportTable(
                     headers: ["当前文件", "历史文件", "批次", "位差", "状态"],
-                    rows: EvidenceRecordFactory.rows(from: evidenceRecords, type: .crossBatch, label: "跨批次复用")
+                    rows: crossBatchRows
                 )
             ),
         ]
@@ -128,5 +129,135 @@ struct ReportAssembler {
             metrics: metrics,
             sections: sections
         )
+    }
+
+    private func crossBatchRows(matches: [CrossBatchMatch], records: [EvidenceRecord]) -> [ReportTableRow] {
+        let crossBatchRecords = records.filter { $0.type == .crossBatch }
+        return matches.sorted {
+            if $0.distance == $1.distance {
+                return $0.currentFile.localizedStandardCompare($1.currentFile) == .orderedAscending
+            }
+            return $0.distance < $1.distance
+        }
+        .map { match in
+            let record = crossBatchRecords.first { record in
+                record.fileA == match.currentFile
+                    && record.fileB == match.previousFile
+                    && record.evidence.contains(match.previousScan)
+            } ?? crossBatchRecords.first { record in
+                record.fileA == match.currentFile && record.fileB == match.previousFile
+            }
+            let score = max(0, 1.0 - (Double(match.distance) / 16.0))
+            let assessment = record?.riskAssessment ?? RiskAssessment(score: score, reasons: ["跨批次复用"])
+            let evidenceID = record?.id ?? UUID.pitcherPlantStable(
+                namespace: "cross-batch-evidence",
+                components: [match.currentFile, match.previousFile, match.previousScan, "\(match.distance)", match.status]
+            )
+            let riskBadge = ReportBadge(title: "\(assessment.level.title)风险 \(assessment.formattedScore)", tone: assessment.level.badgeTone)
+            let statusBadge = ReportBadge(title: match.status, tone: match.status.contains("白名单") ? .success : .danger)
+            return ReportTableRow(
+                id: evidenceID,
+                columns: [
+                    match.currentFile,
+                    match.previousFile,
+                    match.displayBatchName,
+                    "\(match.distance)",
+                    match.status,
+                ],
+                detailTitle: "\(match.currentFile) ↔ \(match.previousFile)",
+                detailBody: crossBatchDetailBody(match: match, assessment: assessment, record: record),
+                badges: [riskBadge, statusBadge],
+                attachments: record?.attachments ?? [],
+                evidenceID: evidenceID,
+                evidenceType: .crossBatch,
+                riskAssessment: assessment,
+                metadata: crossBatchMetadata(for: match)
+            )
+        }
+    }
+
+    private func crossBatchDetailBody(match: CrossBatchMatch, assessment: RiskAssessment, record: EvidenceRecord?) -> String {
+        var lines = [
+            "当前文件：\(match.currentFile)",
+            "历史文件：\(match.previousFile)",
+            "历史批次：\(match.displayBatchName)",
+            "历史扫描目录：\(match.previousScan)",
+            "SimHash 位差：\(match.distance)",
+            "状态：\(match.status)",
+        ]
+        append("历史报告 ID", match.sourceReportID?.uuidString, to: &lines)
+        append("历史队伍", match.teamName, to: &lines)
+        append("历史题目", match.challengeName, to: &lines)
+        append("当前批次", match.currentBatchName, to: &lines)
+        append("当前队伍", match.currentTeamName, to: &lines)
+        append("当前题目", match.currentChallengeName, to: &lines)
+        append("当前作者", match.currentAuthor, to: &lines)
+        append("历史作者", match.historicalAuthor, to: &lines)
+        append("当前 SimHash", match.currentSimhash, to: &lines)
+        append("历史 SimHash", match.historicalSimhash, to: &lines)
+        if match.tags.isEmpty == false {
+            lines.append("标签：\(match.tags.joined(separator: "、"))")
+        }
+        if assessment.reasons.isEmpty == false {
+            lines.append("风险原因：\(assessment.reasons.joined(separator: "、"))")
+        }
+        if let record, record.detailLines.isEmpty == false {
+            lines.append(record.detailLines.joined(separator: "\n"))
+        }
+        return lines.joined(separator: "\n")
+    }
+
+    private func crossBatchMetadata(for match: CrossBatchMatch) -> [String: String] {
+        var metadata: [String: String] = [
+            CrossBatchGraphMetadataKey.batchName: match.displayBatchName,
+            CrossBatchGraphMetadataKey.previousScan: match.previousScan,
+            CrossBatchGraphMetadataKey.status: match.status,
+            CrossBatchGraphMetadataKey.distance: "\(match.distance)",
+        ]
+        put(match.sourceReportID?.uuidString, for: CrossBatchGraphMetadataKey.sourceReportID, into: &metadata)
+        put(match.teamName, for: CrossBatchGraphMetadataKey.teamName, into: &metadata)
+        put(match.challengeName, for: CrossBatchGraphMetadataKey.challengeName, into: &metadata)
+        put(match.currentBatchName, for: CrossBatchGraphMetadataKey.currentBatchName, into: &metadata)
+        put(match.currentTeamName, for: CrossBatchGraphMetadataKey.currentTeamName, into: &metadata)
+        put(match.currentChallengeName, for: CrossBatchGraphMetadataKey.currentChallengeName, into: &metadata)
+        put(match.currentSimhash, for: CrossBatchGraphMetadataKey.currentSimhash, into: &metadata)
+        put(match.historicalSimhash, for: CrossBatchGraphMetadataKey.historicalSimhash, into: &metadata)
+        put(match.currentAuthor, for: CrossBatchGraphMetadataKey.currentAuthor, into: &metadata)
+        put(match.historicalAuthor, for: CrossBatchGraphMetadataKey.historicalAuthor, into: &metadata)
+        if match.tags.isEmpty == false {
+            metadata[CrossBatchGraphMetadataKey.tags] = match.tags.joined(separator: ",")
+        }
+        return metadata
+    }
+
+    private func fingerprintDetailBody(for record: FingerprintRecord) -> String {
+        var lines = [
+            "作者：\(record.author)",
+            "扩展名：\(record.ext)",
+            "字符数：\(record.size)",
+            "SimHash：\(record.simhash)",
+            "扫描目录：\(record.scanDir)",
+        ]
+        append("来源报告 ID", record.sourceReportID?.uuidString, to: &lines)
+        append("批次", record.batchName, to: &lines)
+        append("队伍", record.teamName, to: &lines)
+        append("题目", record.challengeName, to: &lines)
+        append("提交 ID", record.submissionItemID?.uuidString, to: &lines)
+        if let tags = record.tags, tags.isEmpty == false {
+            lines.append("标签：\(tags.joined(separator: "、"))")
+        }
+        return lines.joined(separator: "\n")
+    }
+
+    private func append(_ label: String, _ value: String?, to lines: inout [String]) {
+        let trimmed = value?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        guard trimmed.isEmpty == false else { return }
+        lines.append("\(label)：\(trimmed)")
+    }
+
+    private func put(_ value: String?, for key: String, into metadata: inout [String: String]) {
+        let trimmed = value?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        guard trimmed.isEmpty == false else { return }
+        metadata[key] = trimmed
     }
 }

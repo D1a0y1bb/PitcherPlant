@@ -1,0 +1,134 @@
+{
+  "version": 1,
+  "cases": [
+    {
+      "id": "text-paraphrase",
+      "kind": "text",
+      "threshold": 0.55,
+      "minimumScore": 0.55,
+      "expectedPairs": [["text-alpha.md", "text-beta.md"]],
+      "documents": [
+        {
+          "filename": "text-alpha.md",
+          "ext": "md",
+          "content": "ssrf metadata endpoint token reuse evidence curl request temporary credential exfiltration report",
+          "cleanText": "ssrf metadata endpoint token reuse evidence curl request temporary credential exfiltration report"
+        },
+        {
+          "filename": "text-beta.md",
+          "ext": "md",
+          "content": "metadata endpoint ssrf token reuse evidence curl request temporary credential exfiltration notes",
+          "cleanText": "metadata endpoint ssrf token reuse evidence curl request temporary credential exfiltration notes"
+        }
+      ]
+    },
+    {
+      "id": "code-structure",
+      "kind": "code",
+      "minimumScore": 0.6,
+      "expectedPairs": [["code-alpha.swift", "code-beta.swift"]],
+      "documents": [
+        {
+          "filename": "code-alpha.swift",
+          "ext": "swift",
+          "content": "func normalizeUser(_ input: String) -> String { let trimmed = input.trimmingCharacters(in: .whitespacesAndNewlines); if trimmed.isEmpty { return \"empty\" }; return trimmed.lowercased() }",
+          "cleanText": "",
+          "codeBlocks": ["func normalizeUser(_ input: String) -> String { let trimmed = input.trimmingCharacters(in: .whitespacesAndNewlines); if trimmed.isEmpty { return \"empty\" }; return trimmed.lowercased() }"]
+        },
+        {
+          "filename": "code-beta.swift",
+          "ext": "swift",
+          "content": "func normalizeAccount(_ raw: String) -> String { let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines); if trimmed.isEmpty { return \"empty\" }; return trimmed.lowercased() }",
+          "cleanText": "",
+          "codeBlocks": ["func normalizeAccount(_ raw: String) -> String { let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines); if trimmed.isEmpty { return \"empty\" }; return trimmed.lowercased() }"]
+        }
+      ]
+    },
+    {
+      "id": "image-reuse",
+      "kind": "image",
+      "imageThreshold": 2,
+      "minimumScore": 0.0,
+      "expectedPairs": [["image-alpha.docx", "image-beta.pdf"]],
+      "documents": [
+        {
+          "filename": "image-alpha.docx",
+          "ext": "docx",
+          "content": "",
+          "cleanText": "",
+          "images": [
+            {
+              "source": "word/media/login.png",
+              "perceptualHash": "0000000000000000",
+              "averageHash": "ffffffffffffffff",
+              "differenceHash": "aaaaaaaaaaaaaaaa",
+              "ocrPreview": "login screenshot"
+            }
+          ]
+        },
+        {
+          "filename": "image-beta.pdf",
+          "ext": "pdf",
+          "content": "",
+          "cleanText": "",
+          "images": [
+            {
+              "source": "pdf page 1",
+              "perceptualHash": "0000000000000001",
+              "averageHash": "fffffffffffffffe",
+              "differenceHash": "aaaaaaaaaaaaaaab",
+              "ocrPreview": "login screenshot copy"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "dedup-exact",
+      "kind": "dedup",
+      "threshold": 0.85,
+      "minimumScore": 0.85,
+      "expectedPairs": [["dedup-alpha.md", "dedup-beta.md"]],
+      "documents": [
+        {
+          "filename": "dedup-alpha.md",
+          "ext": "md",
+          "content": "identical exploit path with request replay proof and final credential extraction",
+          "cleanText": "identical exploit path with request replay proof and final credential extraction"
+        },
+        {
+          "filename": "dedup-beta.md",
+          "ext": "md",
+          "content": "identical exploit path with request replay proof and final credential extraction",
+          "cleanText": "identical exploit path with request replay proof and final credential extraction"
+        }
+      ]
+    },
+    {
+      "id": "cross-batch-simhash",
+      "kind": "crossBatch",
+      "simhashThreshold": 4,
+      "expectedPairs": [["current-alpha.md", "history-alpha.md"]],
+      "currentFingerprints": [
+        {
+          "filename": "current-alpha.md",
+          "ext": "md",
+          "author": "Alpha",
+          "size": 128,
+          "simhash": "0000000000000000",
+          "scanDir": "current"
+        }
+      ],
+      "historicalFingerprints": [
+        {
+          "filename": "history-alpha.md",
+          "ext": "md",
+          "author": "Alpha",
+          "size": 126,
+          "simhash": "0000000000000003",
+          "scanDir": "previous"
+        }
+      ]
+    }
+  ]
+}

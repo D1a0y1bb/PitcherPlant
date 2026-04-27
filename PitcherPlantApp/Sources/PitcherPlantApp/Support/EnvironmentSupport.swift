@@ -125,6 +125,47 @@ enum AppPreferences {
         defaults.set(data, forKey: key)
     }
 
+    static func loadWhitelistSuggestionStatuses(defaults: UserDefaults = .standard) -> [UUID: WhitelistSuggestionStatus] {
+        let key = "\(prefix).whitelistSuggestionStatuses"
+        guard let data = defaults.data(forKey: key),
+              let statuses = try? JSONDecoder().decode([String: WhitelistSuggestionStatus].self, from: data) else {
+            return [:]
+        }
+        return Dictionary(uniqueKeysWithValues: statuses.compactMap { key, value in
+            guard let id = UUID(uuidString: key) else { return nil }
+            return (id, value)
+        })
+    }
+
+    static func saveWhitelistSuggestionStatuses(_ statuses: [UUID: WhitelistSuggestionStatus], defaults: UserDefaults = .standard) {
+        let key = "\(prefix).whitelistSuggestionStatuses"
+        let payload = Dictionary(uniqueKeysWithValues: statuses.map { ($0.key.uuidString, $0.value) })
+        let data = try? JSONEncoder().encode(payload)
+        defaults.set(data, forKey: key)
+    }
+
+    static func loadWhitelistSuggestions(defaults: UserDefaults = .standard) -> [WhitelistSuggestion] {
+        let key = "\(prefix).whitelistSuggestions"
+        guard let data = defaults.data(forKey: key),
+              let suggestions = try? JSONDecoder().decode([WhitelistSuggestion].self, from: data) else {
+            return []
+        }
+        let statuses = loadWhitelistSuggestionStatuses(defaults: defaults)
+        return suggestions.map { suggestion in
+            var copy = suggestion
+            if let status = statuses[suggestion.id] {
+                copy.status = status
+            }
+            return copy
+        }
+    }
+
+    static func saveWhitelistSuggestions(_ suggestions: [WhitelistSuggestion], defaults: UserDefaults = .standard) {
+        let key = "\(prefix).whitelistSuggestions"
+        let data = try? JSONEncoder().encode(suggestions)
+        defaults.set(data, forKey: key)
+    }
+
     static func loadDraftConfiguration(for root: URL, defaults: UserDefaults = .standard) -> AuditConfiguration {
         let key = "\(prefix).draft.\(root.path)"
         guard let data = defaults.data(forKey: key),

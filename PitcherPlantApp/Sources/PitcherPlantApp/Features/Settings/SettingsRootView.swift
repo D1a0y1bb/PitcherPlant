@@ -156,6 +156,48 @@ struct SettingsRootView: View {
                     }
                 }
 
+                SettingsGroup(title: "审计助手") {
+                    SettingsPickerRow(
+                        title: "助手模式",
+                        subtitle: currentValueSubtitle("选择关闭、本地命令或外部 API", value: auditAssistantModeTitle(auditAssistantMode))
+                    ) {
+                        SettingsMenuPicker(
+                            selection: auditAssistantBinding(\.mode),
+                            options: AuditAssistantConfiguration.Mode.allCases,
+                            width: SettingsLayout.menuWidth,
+                            title: auditAssistantModeTitle,
+                            systemImage: auditAssistantModeImage
+                        )
+                    }
+
+                    SettingsDivider()
+
+                    SettingsTextFieldRow(
+                        title: auditAssistantEndpointTitle,
+                        subtitle: auditAssistantEndpointSubtitle,
+                        text: auditAssistantBinding(\.endpointOrCommand)
+                    )
+                    .disabled(auditAssistantMode == .disabled)
+
+                    SettingsDivider()
+
+                    SettingsAssistantTimeoutRow(
+                        title: "超时时间",
+                        subtitle: "本地命令和外部 API 的最大等待秒数",
+                        value: auditAssistantBinding(\.timeoutSeconds)
+                    )
+                    .disabled(auditAssistantMode == .disabled)
+
+                    SettingsDivider()
+
+                    SettingsTextFieldRow(
+                        title: "Keychain 引用",
+                        subtitle: "外部 API 凭据引用，将作为 X-PitcherPlant-Credential-Ref 请求头传递",
+                        text: auditAssistantBinding(\.keychainCredentialReference)
+                    )
+                    .disabled(auditAssistantMode != .externalAPI)
+                }
+
                 SettingsGroup(title: appState.t("settings.reports")) {
                     SettingsToggleRow(
                         title: appState.t("settings.preferInAppReports"),
@@ -310,6 +352,26 @@ struct SettingsRootView: View {
         "\(appState.jobs.count) \(appState.t("status.audits")) · \(appState.reports.count) \(appState.t("status.reports")) · \(appState.fingerprints.count) \(appState.t("status.fingerprints")) · \(appState.whitelistRules.count) \(appState.t("sidebar.whitelist"))"
     }
 
+    private var auditAssistantMode: AuditAssistantConfiguration.Mode {
+        (appState.appSettings.auditAssistant ?? AuditAssistantConfiguration()).mode
+    }
+
+    private var auditAssistantEndpointTitle: String {
+        switch auditAssistantMode {
+        case .disabled: return "Endpoint / Command"
+        case .localCommand: return "本地命令"
+        case .externalAPI: return "API Endpoint"
+        }
+    }
+
+    private var auditAssistantEndpointSubtitle: String {
+        switch auditAssistantMode {
+        case .disabled: return "配置会保留，启用模式后生效"
+        case .localCommand: return "通过 zsh -lc 执行，证据 payload 会写入标准输入"
+        case .externalAPI: return "以 POST JSON 请求发送证据 payload"
+        }
+    }
+
     private func settingsBinding<Value>(_ keyPath: WritableKeyPath<AppSettings, Value>) -> Binding<Value> {
         Binding(
             get: { appState.appSettings[keyPath: keyPath] },
@@ -347,6 +409,22 @@ struct SettingsRootView: View {
         )
     }
 
+    private func auditAssistantBinding<Value>(_ keyPath: WritableKeyPath<AuditAssistantConfiguration, Value>) -> Binding<Value> {
+        Binding(
+            get: {
+                let configuration = appState.appSettings.auditAssistant ?? AuditAssistantConfiguration()
+                return configuration[keyPath: keyPath]
+            },
+            set: { value in
+                appState.updateSettings { settings in
+                    var configuration = settings.auditAssistant ?? AuditAssistantConfiguration()
+                    configuration[keyPath: keyPath] = value
+                    settings.auditAssistant = configuration
+                }
+            }
+        )
+    }
+
     private func appearanceTitle(_ appearance: AppAppearance) -> String {
         switch appearance {
         case .system: appState.t("common.followSystem")
@@ -365,5 +443,85 @@ struct SettingsRootView: View {
 
     private func currentValueSubtitle(_ subtitle: String, value: String) -> String {
         "\(subtitle) · \(appState.t("settings.currentPrefix"))\(value)"
+    }
+
+    private func auditAssistantModeTitle(_ mode: AuditAssistantConfiguration.Mode) -> String {
+        mode.title
+    }
+
+    private func auditAssistantModeImage(_ mode: AuditAssistantConfiguration.Mode) -> String {
+        switch mode {
+        case .disabled: return "slash.circle"
+        case .localCommand: return "terminal"
+        case .externalAPI: return "network"
+        }
+    }
+}
+
+private struct SettingsAssistantTimeoutRow: View {
+    let title: String
+    let subtitle: String
+    @Binding var value: Double
+
+    var body: some View {
+        SettingsControlRow(title: title, subtitle: subtitle) {
+            SettingsAssistantTimeoutStepper(value: $value)
+        }
+    }
+}
+
+private struct SettingsAssistantTimeoutStepper: View {
+    @Binding var value: Double
+
+    private let range: ClosedRange<Double> = 1...300
+    private let step: Double = 5
+
+    var body: some View {
+        HStack(spacing: 8) {
+            HStack(spacing: 0) {
+                Button {
+                    value = clamped(value - step)
+                } label: {
+                    Image(systemName: "minus")
+                }
+                .buttonStyle(SettingsStepperButtonStyle())
+                .disabled(value <= range.lowerBound)
+                .frame(width: 38)
+
+                TextField("秒", value: clampedBinding, format: .number.precision(.fractionLength(0)))
+                    .textFieldStyle(.plain)
+                    .multilineTextAlignment(.center)
+                    .font(.system(.callout, design: .monospaced).weight(.medium))
+                    .frame(width: SettingsLayout.numberFieldWidth)
+
+                Button {
+                    value = clamped(value + step)
+                } label: {
+                    Image(systemName: "plus")
+                }
+                .buttonStyle(SettingsStepperButtonStyle())
+                .disabled(value >= range.upperBound)
+                .frame(width: 38)
+            }
+            .frame(width: SettingsLayout.stepperWidth, height: 30)
+            .settingsPanelSurface(cornerRadius: 8)
+
+            Text("秒")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+                .frame(width: SettingsLayout.hintWidth, alignment: .trailing)
+        }
+        .frame(width: SettingsLayout.thresholdControlWidth, alignment: .trailing)
+    }
+
+    private var clampedBinding: Binding<Double> {
+        Binding(
+            get: { clamped(value) },
+            set: { value = clamped($0) }
+        )
+    }
+
+    private func clamped(_ candidate: Double) -> Double {
+        min(max(candidate, range.lowerBound), range.upperBound)
     }
 }

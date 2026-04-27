@@ -26,7 +26,10 @@ let package = Package(
         .testTarget(
             name: "PitcherPlantAppTests",
             dependencies: ["PitcherPlantApp"],
-            path: "Tests/PitcherPlantAppTests"
+            path: "Tests/PitcherPlantAppTests",
+            resources: [
+                .copy("Fixtures"),
+            ]
         ),
     ]
 )

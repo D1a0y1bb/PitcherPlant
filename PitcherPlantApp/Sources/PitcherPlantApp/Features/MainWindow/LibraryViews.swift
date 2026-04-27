@@ -91,6 +91,11 @@ struct WhitelistLibraryView: View {
     @State private var newPattern = ""
     @State private var newType: WhitelistRule.RuleType = .filename
     @State private var query = ""
+    @State private var suggestionFilter: WhitelistSuggestionStatus = .pending
+    @State private var suggestions = AppPreferences.loadWhitelistSuggestions()
+    @State private var suggestionStatuses = AppPreferences.loadWhitelistSuggestionStatuses()
+    @State private var isRefreshingSuggestions = false
+    @State private var suggestionMessage: String?
 
     private var filteredRules: [WhitelistRule] {
         guard query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false else { return appState.whitelistRules }
@@ -99,36 +104,296 @@ struct WhitelistLibraryView: View {
         }
     }
 
+    private var decoratedSuggestions: [WhitelistSuggestion] {
+        suggestions.map { suggestion in
+            var copy = suggestion
+            if ruleExists(copy.rule) {
+                copy.status = .accepted
+            } else if let status = suggestionStatuses[copy.id] {
+                copy.status = status
+            }
+            return copy
+        }
+    }
+
+    private var filteredSuggestions: [WhitelistSuggestion] {
+        decoratedSuggestions.filter { suggestion in
+            suggestion.status == suggestionFilter && suggestionMatchesSearch(suggestion)
+        }
+    }
+
+    private var pendingSuggestionsForBatch: [WhitelistSuggestion] {
+        decoratedSuggestions.filter { suggestion in
+            suggestion.status == .pending && suggestionMatchesSearch(suggestion)
+        }
+    }
+
     var body: some View {
         VStack(spacing: 0) {
-            SearchHeader(title: appState.t("sidebar.whitelist"), count: filteredRules.count, query: $query, prompt: appState.t("whitelist.searchPrompt"))
+            SearchHeader(title: appState.t("sidebar.whitelist"), count: filteredRules.count + filteredSuggestions.count, query: $query, prompt: appState.t("whitelist.searchPrompt"))
+            VStack(spacing: 0) {
+                HStack(spacing: 10) {
+                    Picker(appState.t("whitelist.type"), selection: $newType) {
+                        ForEach(WhitelistRule.RuleType.allCases, id: \.self) { type in
+                            Text(appState.title(for: type)).tag(type)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                    .frame(width: 190)
+
+                    TextField(appState.t("whitelist.newRule"), text: $newPattern)
+                        .textFieldStyle(.roundedBorder)
+
+                    Button(appState.t("whitelist.save")) {
+                        let pattern = newPattern
+                        newPattern = ""
+                        Task { await appState.addWhitelistRule(pattern: pattern, type: newType) }
+                    }
+                    .disabled(newPattern.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                }
+                .padding(12)
+
+                Divider()
+
+                WhitelistSuggestionToolbar(
+                    filter: $suggestionFilter,
+                    pendingCount: pendingSuggestionsForBatch.count,
+                    isRefreshing: isRefreshingSuggestions,
+                    message: suggestionMessage,
+                    refresh: { Task { await refreshSuggestions() } },
+                    acceptPending: acceptPendingSuggestions
+                )
+            }
+            .background(Color(nsColor: .windowBackgroundColor))
+
+            List {
+                if filteredSuggestions.isEmpty == false {
+                    Section("白名单建议") {
+                        ForEach(filteredSuggestions) { suggestion in
+                            WhitelistSuggestionTableRow(
+                                suggestion: suggestion,
+                                accept: { acceptSuggestion(suggestion) },
+                                dismiss: { dismissSuggestion(suggestion) }
+                            )
+                            .listRowInsets(EdgeInsets(top: 4, leading: 12, bottom: 4, trailing: 12))
+                        }
+                    }
+                }
+
+                Section("现有规则") {
+                    ForEach(filteredRules) { rule in
+                        WhitelistTableRow(rule: rule)
+                            .listRowInsets(EdgeInsets(top: 4, leading: 12, bottom: 4, trailing: 12))
+                    }
+                }
+            }
+            .listStyle(.plain)
+        }
+        .task {
+            if suggestions.isEmpty {
+                await refreshSuggestions()
+            }
+        }
+        .onAppear {
+            suggestionStatuses = AppPreferences.loadWhitelistSuggestionStatuses()
+            suggestions = AppPreferences.loadWhitelistSuggestions()
+        }
+    }
+
+    private func suggestionMatchesSearch(_ suggestion: WhitelistSuggestion) -> Bool {
+        let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmed.isEmpty == false else { return true }
+        return [
+            suggestion.rule.pattern,
+            suggestion.rule.type.displayTitle,
+            appState.title(for: suggestion.rule.type),
+            suggestion.reason,
+            suggestion.status.title,
+        ]
+        .joined(separator: " ")
+        .localizedCaseInsensitiveContains(trimmed)
+    }
+
+    private func ruleExists(_ rule: WhitelistRule) -> Bool {
+        appState.whitelistRules.contains { existing in
+            existing.type == rule.type && existing.pattern.caseInsensitiveCompare(rule.pattern) == .orderedSame
+        }
+    }
+
+    private func acceptSuggestion(_ suggestion: WhitelistSuggestion) {
+        setSuggestionStatus(.accepted, for: suggestion)
+        Task {
+            await appState.addWhitelistRule(pattern: suggestion.rule.pattern, type: suggestion.rule.type)
+        }
+    }
+
+    private func dismissSuggestion(_ suggestion: WhitelistSuggestion) {
+        setSuggestionStatus(.dismissed, for: suggestion)
+    }
+
+    private func acceptPendingSuggestions() {
+        let targets = pendingSuggestionsForBatch
+        guard targets.isEmpty == false else { return }
+        for suggestion in targets {
+            setSuggestionStatus(.accepted, for: suggestion)
+        }
+        Task {
+            for suggestion in targets {
+                await appState.addWhitelistRule(pattern: suggestion.rule.pattern, type: suggestion.rule.type)
+            }
+        }
+    }
+
+    private func setSuggestionStatus(_ status: WhitelistSuggestionStatus, for suggestion: WhitelistSuggestion) {
+        suggestionStatuses[suggestion.id] = status
+        suggestions = suggestions.map { item in
+            var copy = item
+            if copy.id == suggestion.id {
+                copy.status = status
+            }
+            return copy
+        }
+        AppPreferences.saveWhitelistSuggestionStatuses(suggestionStatuses)
+        AppPreferences.saveWhitelistSuggestions(suggestions)
+    }
+
+    @MainActor
+    private func refreshSuggestions() async {
+        guard isRefreshingSuggestions == false else { return }
+        isRefreshingSuggestions = true
+        suggestionMessage = nil
+        let configuration = appState.draftConfiguration
+        let directoryURL = URL(fileURLWithPath: configuration.directoryPath)
+        let statuses = suggestionStatuses
+
+        do {
+            let generated = try await Task.detached(priority: .userInitiated) {
+                let documents = try DocumentIngestionService(configuration: configuration).ingestDocuments(in: directoryURL)
+                return WhitelistSuggestionService().suggest(from: documents)
+            }.value
+            suggestions = generated.map { suggestion in
+                var copy = suggestion
+                if let status = statuses[suggestion.id] {
+                    copy.status = status
+                }
+                return copy
+            }
+            AppPreferences.saveWhitelistSuggestions(suggestions)
+        } catch {
+            suggestionMessage = "建议生成失败：\(error.localizedDescription)"
+        }
+
+        isRefreshingSuggestions = false
+    }
+}
+
+private struct WhitelistSuggestionToolbar: View {
+    @Binding var filter: WhitelistSuggestionStatus
+    let pendingCount: Int
+    let isRefreshing: Bool
+    let message: String?
+    let refresh: () -> Void
+    let acceptPending: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 10) {
-                Picker(appState.t("whitelist.type"), selection: $newType) {
-                    ForEach(WhitelistRule.RuleType.allCases, id: \.self) { type in
-                        Text(appState.title(for: type)).tag(type)
+                Picker("建议状态", selection: $filter) {
+                    ForEach(WhitelistSuggestionStatus.allCases) { status in
+                        Text(status.title).tag(status)
                     }
                 }
                 .pickerStyle(.segmented)
-                .frame(width: 190)
+                .frame(width: 220)
 
-                TextField(appState.t("whitelist.newRule"), text: $newPattern)
-                    .textFieldStyle(.roundedBorder)
-
-                Button(appState.t("whitelist.save")) {
-                    let pattern = newPattern
-                    newPattern = ""
-                    Task { await appState.addWhitelistRule(pattern: pattern, type: newType) }
+                Button(action: refresh) {
+                    Label(isRefreshing ? "生成中" : "刷新建议", systemImage: "arrow.clockwise")
                 }
-                .disabled(newPattern.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-            }
-            .padding(12)
-            .background(Color(nsColor: .windowBackgroundColor))
+                .disabled(isRefreshing)
 
-            List(filteredRules) { rule in
-                WhitelistTableRow(rule: rule)
-                    .listRowInsets(EdgeInsets(top: 4, leading: 12, bottom: 4, trailing: 12))
+                Button(action: acceptPending) {
+                    Label("批量接受", systemImage: "checkmark.seal")
+                }
+                .disabled(pendingCount == 0 || isRefreshing)
+
+                if isRefreshing {
+                    ProgressView()
+                        .controlSize(.small)
+                }
+
+                Spacer()
+
+                Text("\(pendingCount) 条待处理")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
-            .listStyle(.plain)
+            .buttonStyle(.borderless)
+
+            if let message {
+                Text(message)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(2)
+            }
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+    }
+}
+
+private struct WhitelistSuggestionTableRow: View {
+    @Environment(AppState.self) private var appState
+    let suggestion: WhitelistSuggestion
+    let accept: () -> Void
+    let dismiss: () -> Void
+
+    var body: some View {
+        HStack(spacing: 12) {
+            VStack(alignment: .leading, spacing: 3) {
+                Text(suggestion.rule.pattern)
+                    .fontWeight(.medium)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+                Text(suggestion.reason)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+
+            Text(appState.title(for: suggestion.rule.type))
+                .foregroundStyle(.secondary)
+                .frame(width: 90, alignment: .leading)
+
+            Text("\(suggestion.supportCount) 次")
+                .foregroundStyle(.secondary)
+                .frame(width: 54, alignment: .trailing)
+
+            Text(suggestion.status.title)
+                .foregroundStyle(statusColor)
+                .frame(width: 64, alignment: .trailing)
+
+            Button(action: accept) {
+                Image(systemName: "checkmark")
+            }
+            .buttonStyle(.borderless)
+            .disabled(suggestion.status == .accepted)
+
+            Button(action: dismiss) {
+                Image(systemName: "xmark")
+            }
+            .buttonStyle(.borderless)
+            .disabled(suggestion.status == .dismissed)
+        }
+        .font(.subheadline)
+        .padding(.vertical, 7)
+    }
+
+    private var statusColor: Color {
+        switch suggestion.status {
+        case .pending: return .secondary
+        case .accepted: return .green
+        case .dismissed: return .orange
         }
     }
 }

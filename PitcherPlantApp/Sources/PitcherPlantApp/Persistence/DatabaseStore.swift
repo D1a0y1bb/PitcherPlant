@@ -247,6 +247,10 @@ actor DatabaseStore {
             try createOperationalTables(db)
         }
 
+        migrator.registerMigration("extend-document-features-cache-v1") { db in
+            try extendDocumentFeaturesSchema(db)
+        }
+
         try migrator.migrate(dbQueue)
     }
 
@@ -648,27 +652,109 @@ actor DatabaseStore {
                 let payload = try JSONEncoder.pitcherPlant.encodeToString(feature)
                 try db.execute(
                     sql: """
-                    INSERT INTO document_features (id, document_path, simhash, text_length, updated_at, payload)
-                    VALUES (?, ?, ?, ?, ?, ?)
+                    INSERT INTO document_features (
+                        id,
+                        document_path,
+                        scan_id,
+                        batch_id,
+                        content_hash,
+                        source_mtime,
+                        source_size,
+                        feature_version,
+                        simhash,
+                        text_length,
+                        updated_at,
+                        payload
+                    )
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     ON CONFLICT(id) DO UPDATE SET
                         document_path = excluded.document_path,
+                        scan_id = excluded.scan_id,
+                        batch_id = excluded.batch_id,
+                        content_hash = excluded.content_hash,
+                        source_mtime = excluded.source_mtime,
+                        source_size = excluded.source_size,
+                        feature_version = excluded.feature_version,
                         simhash = excluded.simhash,
                         text_length = excluded.text_length,
                         updated_at = excluded.updated_at,
                         payload = excluded.payload
                     """,
-                    arguments: [feature.id.uuidString, feature.documentPath, feature.simhash, feature.textLength, feature.updatedAt, payload]
+                    arguments: [
+                        feature.id.uuidString,
+                        feature.documentPath,
+                        feature.scanID?.uuidString,
+                        feature.batchID?.uuidString,
+                        feature.contentHash,
+                        feature.sourceMTime,
+                        feature.sourceSize,
+                        feature.featureVersion,
+                        feature.simhash,
+                        feature.textLength,
+                        feature.updatedAt,
+                        payload
+                    ]
                 )
             }
         }
     }
 
-    func loadDocumentFeatures() throws -> [DocumentFeature] {
+    func loadDocumentFeatures(scanID: UUID? = nil, batchID: UUID? = nil) throws -> [DocumentFeature] {
         try dbQueue.read { db in
-            let rows = try Row.fetchAll(db, sql: "SELECT payload FROM document_features ORDER BY updated_at DESC")
+            var clauses: [String] = []
+            var arguments: StatementArguments = []
+            if let scanID {
+                clauses.append("scan_id = ?")
+                arguments += [scanID.uuidString]
+            }
+            if let batchID {
+                clauses.append("batch_id = ?")
+                arguments += [batchID.uuidString]
+            }
+            let whereClause = clauses.isEmpty ? "" : " WHERE \(clauses.joined(separator: " AND "))"
+            let rows = try Row.fetchAll(
+                db,
+                sql: "SELECT payload FROM document_features\(whereClause) ORDER BY updated_at DESC",
+                arguments: arguments
+            )
             return try rows.map { row in
                 try JSONDecoder.pitcherPlant.decodeString(DocumentFeature.self, from: row["payload"])
             }
+        }
+    }
+
+    @discardableResult
+    func deleteDocumentFeatures(ids: [UUID]) throws -> Int {
+        guard ids.isEmpty == false else { return 0 }
+        return try dbQueue.write { db in
+            var deleted = 0
+            for id in ids {
+                try db.execute(sql: "DELETE FROM document_features WHERE id = ?", arguments: [id.uuidString])
+                deleted += db.changesCount
+            }
+            return deleted
+        }
+    }
+
+    @discardableResult
+    func cleanupDocumentFeatures(excludingDocumentPaths documentPaths: Set<String>, batchID: UUID? = nil) throws -> Int {
+        try dbQueue.write { db in
+            let rows: [Row]
+            if let batchID {
+                rows = try Row.fetchAll(db, sql: "SELECT id, document_path FROM document_features WHERE batch_id = ?", arguments: [batchID.uuidString])
+            } else {
+                rows = try Row.fetchAll(db, sql: "SELECT id, document_path FROM document_features")
+            }
+
+            var deleted = 0
+            for row in rows {
+                let path: String = row["document_path"]
+                guard documentPaths.contains(path) == false else { continue }
+                let id: String = row["id"]
+                try db.execute(sql: "DELETE FROM document_features WHERE id = ?", arguments: [id])
+                deleted += db.changesCount
+            }
+            return deleted
         }
     }
 
@@ -834,11 +920,66 @@ private func createOperationalTables(_ db: Database) throws {
     try db.create(table: "document_features", ifNotExists: true) { table in
         table.column("id", .text).primaryKey()
         table.column("document_path", .text).notNull().indexed()
+        table.column("scan_id", .text)
+        table.column("batch_id", .text)
+        table.column("content_hash", .text)
+        table.column("source_mtime", .datetime)
+        table.column("source_size", .integer)
+        table.column("feature_version", .integer)
         table.column("simhash", .text).notNull().indexed()
         table.column("text_length", .integer).notNull().indexed()
         table.column("updated_at", .datetime).notNull().indexed()
         table.column("payload", .text).notNull()
     }
+}
+
+private func extendDocumentFeaturesSchema(_ db: Database) throws {
+    try createOperationalTables(db)
+    try ensureColumn("scan_id", in: "document_features", type: .text, db: db)
+    try ensureColumn("batch_id", in: "document_features", type: .text, db: db)
+    try ensureColumn("content_hash", in: "document_features", type: .text, db: db)
+    try ensureColumn("source_mtime", in: "document_features", type: .datetime, db: db)
+    try ensureColumn("source_size", in: "document_features", type: .integer, db: db)
+    try ensureColumn("feature_version", in: "document_features", type: .integer, db: db)
+
+    let rows = try Row.fetchAll(db, sql: "SELECT id, payload FROM document_features")
+    for row in rows {
+        let id: String = row["id"]
+        let payload: String = row["payload"]
+        let feature = try JSONDecoder.pitcherPlant.decodeString(DocumentFeature.self, from: payload)
+        let normalizedPayload = try JSONEncoder.pitcherPlant.encodeToString(feature)
+        try db.execute(
+            sql: """
+            UPDATE document_features
+            SET scan_id = ?, batch_id = ?, content_hash = ?, source_mtime = ?, source_size = ?,
+                feature_version = ?, simhash = ?, text_length = ?, updated_at = ?, payload = ?
+            WHERE id = ?
+            """,
+            arguments: [
+                feature.scanID?.uuidString,
+                feature.batchID?.uuidString,
+                feature.contentHash,
+                feature.sourceMTime,
+                feature.sourceSize,
+                feature.featureVersion,
+                feature.simhash,
+                feature.textLength,
+                feature.updatedAt,
+                normalizedPayload,
+                id
+            ]
+        )
+    }
+
+    try createDocumentFeatureIndexes(db)
+}
+
+private func createDocumentFeatureIndexes(_ db: Database) throws {
+    try db.execute(sql: "CREATE INDEX IF NOT EXISTS document_features_scan_id_idx ON document_features(scan_id)")
+    try db.execute(sql: "CREATE INDEX IF NOT EXISTS document_features_batch_id_idx ON document_features(batch_id)")
+    try db.execute(sql: "CREATE INDEX IF NOT EXISTS document_features_content_hash_idx ON document_features(content_hash)")
+    try db.execute(sql: "CREATE INDEX IF NOT EXISTS document_features_feature_version_idx ON document_features(feature_version)")
+    try db.execute(sql: "CREATE INDEX IF NOT EXISTS document_features_path_hash_idx ON document_features(document_path, content_hash)")
 }
 
 private extension JSONEncoder {

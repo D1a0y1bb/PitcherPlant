@@ -337,10 +337,18 @@ struct SubmissionItem: Codable, Identifiable, Hashable, Sendable {
 }
 
 struct DocumentFeature: Codable, Identifiable, Hashable, Sendable {
+    static let currentFeatureVersion = 2
+
     let id: UUID
     let documentPath: String
     let filename: String
     let ext: String
+    let scanID: UUID?
+    let batchID: UUID?
+    let contentHash: String
+    let sourceMTime: Date?
+    let sourceSize: Int64?
+    let featureVersion: Int
     let textLength: Int
     let simhash: String
     let keywordSignature: [String]
@@ -349,11 +357,18 @@ struct DocumentFeature: Codable, Identifiable, Hashable, Sendable {
     let author: String
     let updatedAt: Date
 
-    init(document: ParsedDocument, updatedAt: Date = .now) {
+    init(document: ParsedDocument, scanID: UUID? = nil, batchID: UUID? = nil, updatedAt: Date = .now) {
+        let source = DocumentFeature.sourceDescriptor(for: document)
         self.id = UUID.pitcherPlantStable(namespace: "document-feature", components: [document.url.path])
         self.documentPath = document.url.path
         self.filename = document.filename
         self.ext = document.ext
+        self.scanID = scanID
+        self.batchID = batchID
+        self.contentHash = DocumentFeature.contentHash(for: document)
+        self.sourceMTime = source.mtime
+        self.sourceSize = source.size
+        self.featureVersion = DocumentFeature.currentFeatureVersion
         self.textLength = document.cleanText.count
         self.simhash = SimHasher.hexHash(for: document.cleanText)
         self.keywordSignature = DocumentFeature.keywords(from: document.cleanText)
@@ -363,6 +378,136 @@ struct DocumentFeature: Codable, Identifiable, Hashable, Sendable {
         }
         self.author = document.author.isEmpty ? document.lastModifiedBy : document.author
         self.updatedAt = updatedAt
+    }
+
+    init(
+        id: UUID,
+        documentPath: String,
+        filename: String,
+        ext: String,
+        scanID: UUID?,
+        batchID: UUID?,
+        contentHash: String,
+        sourceMTime: Date?,
+        sourceSize: Int64?,
+        featureVersion: Int,
+        textLength: Int,
+        simhash: String,
+        keywordSignature: [String],
+        codeTokenSignature: [String],
+        imageHashPrefixes: [String],
+        author: String,
+        updatedAt: Date
+    ) {
+        self.id = id
+        self.documentPath = documentPath
+        self.filename = filename
+        self.ext = ext
+        self.scanID = scanID
+        self.batchID = batchID
+        self.contentHash = contentHash
+        self.sourceMTime = sourceMTime
+        self.sourceSize = sourceSize
+        self.featureVersion = featureVersion
+        self.textLength = textLength
+        self.simhash = simhash
+        self.keywordSignature = keywordSignature
+        self.codeTokenSignature = codeTokenSignature
+        self.imageHashPrefixes = imageHashPrefixes
+        self.author = author
+        self.updatedAt = updatedAt
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.id = try container.decode(UUID.self, forKey: .id)
+        self.documentPath = try container.decode(String.self, forKey: .documentPath)
+        self.filename = try container.decode(String.self, forKey: .filename)
+        self.ext = try container.decode(String.self, forKey: .ext)
+        self.scanID = try container.decodeIfPresent(UUID.self, forKey: .scanID)
+        self.batchID = try container.decodeIfPresent(UUID.self, forKey: .batchID)
+        self.contentHash = try container.decodeIfPresent(String.self, forKey: .contentHash) ?? ""
+        self.sourceMTime = try container.decodeIfPresent(Date.self, forKey: .sourceMTime)
+        self.sourceSize = try container.decodeIfPresent(Int64.self, forKey: .sourceSize)
+        self.featureVersion = try container.decodeIfPresent(Int.self, forKey: .featureVersion) ?? 1
+        self.textLength = try container.decode(Int.self, forKey: .textLength)
+        self.simhash = try container.decode(String.self, forKey: .simhash)
+        self.keywordSignature = try container.decode([String].self, forKey: .keywordSignature)
+        self.codeTokenSignature = try container.decode([String].self, forKey: .codeTokenSignature)
+        self.imageHashPrefixes = try container.decode([String].self, forKey: .imageHashPrefixes)
+        self.author = try container.decode(String.self, forKey: .author)
+        self.updatedAt = try container.decodeIfPresent(Date.self, forKey: .updatedAt) ?? .distantPast
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(id, forKey: .id)
+        try container.encode(documentPath, forKey: .documentPath)
+        try container.encode(filename, forKey: .filename)
+        try container.encode(ext, forKey: .ext)
+        try container.encodeIfPresent(scanID, forKey: .scanID)
+        try container.encodeIfPresent(batchID, forKey: .batchID)
+        try container.encode(contentHash, forKey: .contentHash)
+        try container.encodeIfPresent(sourceMTime, forKey: .sourceMTime)
+        try container.encodeIfPresent(sourceSize, forKey: .sourceSize)
+        try container.encode(featureVersion, forKey: .featureVersion)
+        try container.encode(textLength, forKey: .textLength)
+        try container.encode(simhash, forKey: .simhash)
+        try container.encode(keywordSignature, forKey: .keywordSignature)
+        try container.encode(codeTokenSignature, forKey: .codeTokenSignature)
+        try container.encode(imageHashPrefixes, forKey: .imageHashPrefixes)
+        try container.encode(author, forKey: .author)
+        try container.encode(updatedAt, forKey: .updatedAt)
+    }
+
+    func refreshed(scanID: UUID?, batchID: UUID?, updatedAt: Date = .now) -> DocumentFeature {
+        DocumentFeature(
+            id: id,
+            documentPath: documentPath,
+            filename: filename,
+            ext: ext,
+            scanID: scanID,
+            batchID: batchID,
+            contentHash: contentHash,
+            sourceMTime: sourceMTime,
+            sourceSize: sourceSize,
+            featureVersion: featureVersion,
+            textLength: textLength,
+            simhash: simhash,
+            keywordSignature: keywordSignature,
+            codeTokenSignature: codeTokenSignature,
+            imageHashPrefixes: imageHashPrefixes,
+            author: author,
+            updatedAt: updatedAt
+        )
+    }
+
+    func isReusable(for candidate: DocumentFeature) -> Bool {
+        featureVersion == DocumentFeature.currentFeatureVersion
+            && documentPath == candidate.documentPath
+            && contentHash == candidate.contentHash
+            && sourceSize == candidate.sourceSize
+            && DocumentFeature.sameDate(sourceMTime, candidate.sourceMTime)
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case id
+        case documentPath
+        case filename
+        case ext
+        case scanID
+        case batchID
+        case contentHash
+        case sourceMTime
+        case sourceSize
+        case featureVersion
+        case textLength
+        case simhash
+        case keywordSignature
+        case codeTokenSignature
+        case imageHashPrefixes
+        case author
+        case updatedAt
     }
 
     private static func keywords(from text: String) -> [String] {
@@ -377,6 +522,58 @@ struct DocumentFeature: Codable, Identifiable, Hashable, Sendable {
             }
             .prefix(24)
             .map(\.key)
+    }
+
+    private static func contentHash(for document: ParsedDocument) -> String {
+        stableHash(
+            parts: [
+                document.content,
+                document.cleanText,
+                document.codeBlocks.joined(separator: "\u{1F}"),
+                document.images.map { image in
+                    [image.source, image.perceptualHash, image.averageHash, image.differenceHash, image.ocrPreview]
+                        .joined(separator: "\u{1E}")
+                }.joined(separator: "\u{1F}")
+            ]
+        )
+    }
+
+    private static func sourceDescriptor(for document: ParsedDocument) -> (mtime: Date?, size: Int64?) {
+        let values = try? document.url.resourceValues(forKeys: [.contentModificationDateKey, .fileSizeKey])
+        let size = values?.fileSize.map(Int64.init) ?? Int64(document.content.utf8.count)
+        return (values?.contentModificationDate, size)
+    }
+
+    private static func sameDate(_ left: Date?, _ right: Date?) -> Bool {
+        switch (left, right) {
+        case (.none, .none):
+            return true
+        case let (.some(lhs), .some(rhs)):
+            return abs(lhs.timeIntervalSince(rhs)) < 0.001
+        default:
+            return false
+        }
+    }
+
+    private static func stableHash(parts: [String]) -> String {
+        var left: UInt64 = 1469598103934665603
+        var right: UInt64 = 1099511628211
+
+        func ingest(_ byte: UInt8) {
+            left ^= UInt64(byte)
+            left = left &* 1099511628211
+            right ^= UInt64(byte) &+ 0x9e3779b97f4a7c15
+            right = right &* 1469598103934665603
+        }
+
+        for part in parts {
+            for byte in part.utf8 {
+                ingest(byte)
+            }
+            ingest(0x1f)
+        }
+
+        return String(format: "%016llx%016llx", left, right)
     }
 }
 

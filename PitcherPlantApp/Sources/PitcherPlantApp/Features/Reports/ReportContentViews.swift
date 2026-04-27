@@ -301,6 +301,8 @@ struct EvidenceList: View {
             ContentUnavailableView(appState.t("reports.noEvidence"), systemImage: "line.3.horizontal.decrease.circle", description: Text(appState.t("reports.noEvidenceDescription")))
         } else if section.kind == .overview {
             OverviewEvidenceList(rows: rows)
+        } else if section.kind == .crossBatch {
+            CrossBatchEvidenceBrowser(rows: rows)
         } else if rows.isEmpty {
             ScrollView {
                 VStack(alignment: .leading, spacing: 12) {
@@ -331,6 +333,322 @@ struct EvidenceList: View {
             }
             .listStyle(.plain)
         }
+    }
+}
+
+private enum CrossBatchEvidenceMode: String, CaseIterable, Identifiable {
+    case list
+    case graph
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .list: return "列表"
+        case .graph: return "图谱"
+        }
+    }
+}
+
+struct CrossBatchEvidenceBrowser: View {
+    @State private var mode: CrossBatchEvidenceMode = .list
+    @State private var selectedBatch = CrossBatchFilter.all
+    @State private var selectedTeam = CrossBatchFilter.all
+    @State private var selectedTag = CrossBatchFilter.all
+    @State private var selectedStatus = CrossBatchFilter.all
+
+    let rows: [ReportTableRow]
+
+    private var graph: CrossBatchGraph {
+        CrossBatchGraphBuilder().build(rows: rows)
+    }
+
+    private var filteredGraph: CrossBatchGraph {
+        graph.filtered(
+            batch: CrossBatchFilter.value(selectedBatch),
+            team: CrossBatchFilter.value(selectedTeam),
+            tag: CrossBatchFilter.value(selectedTag),
+            status: CrossBatchFilter.value(selectedStatus)
+        )
+    }
+
+    var body: some View {
+        VStack(spacing: 0) {
+            HStack(spacing: 12) {
+                Picker("视图", selection: $mode) {
+                    ForEach(CrossBatchEvidenceMode.allCases) { option in
+                        Text(option.title).tag(option)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .frame(width: 140)
+
+                if mode == .graph {
+                    CrossBatchFilterPicker(title: "批次", allTitle: "全部批次", options: graph.batches, selection: $selectedBatch)
+                    CrossBatchFilterPicker(title: "队伍", allTitle: "全部队伍", options: graph.teams, selection: $selectedTeam)
+                    CrossBatchFilterPicker(title: "标签", allTitle: "全部标签", options: graph.tags, selection: $selectedTag)
+                    CrossBatchFilterPicker(title: "状态", allTitle: "全部状态", options: graph.statuses, selection: $selectedStatus)
+                    Spacer()
+                    Text("\(filteredGraph.nodes.count) 节点 / \(filteredGraph.edges.count) 边")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                } else {
+                    Spacer()
+                }
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
+            .background(Color(nsColor: .windowBackgroundColor))
+
+            Divider()
+
+            switch mode {
+            case .list:
+                CrossBatchList(rows: rows)
+            case .graph:
+                CrossBatchGraphPanel(graph: filteredGraph)
+            }
+        }
+        .onChange(of: rows.map(\.id)) { _, _ in
+            selectedBatch = CrossBatchFilter.all
+            selectedTeam = CrossBatchFilter.all
+            selectedTag = CrossBatchFilter.all
+            selectedStatus = CrossBatchFilter.all
+        }
+    }
+}
+
+private enum CrossBatchFilter {
+    static let all = "__all__"
+
+    static func value(_ selection: String) -> String? {
+        selection == all ? nil : selection
+    }
+}
+
+struct CrossBatchFilterPicker: View {
+    let title: String
+    let allTitle: String
+    let options: [String]
+    @Binding var selection: String
+
+    var body: some View {
+        Picker(title, selection: $selection) {
+            Text(allTitle).tag(CrossBatchFilter.all)
+            ForEach(options, id: \.self) { option in
+                Text(option).tag(option)
+            }
+        }
+        .frame(width: 132)
+    }
+}
+
+struct CrossBatchList: View {
+    @Environment(AppState.self) private var appState
+    let rows: [ReportTableRow]
+
+    var body: some View {
+        List(selection: Binding(
+            get: { appState.selectedReportRowID },
+            set: { appState.selectedReportRowID = $0 }
+        )) {
+            CrossBatchHeader()
+                .listRowSeparator(.visible)
+                .listRowInsets(EdgeInsets(top: 4, leading: 12, bottom: 4, trailing: 12))
+
+            ForEach(rows) { row in
+                CrossBatchListRow(row: row)
+                    .tag(row.id)
+                    .listRowInsets(EdgeInsets(top: 3, leading: 12, bottom: 3, trailing: 12))
+            }
+        }
+        .listStyle(.plain)
+    }
+}
+
+struct CrossBatchHeader: View {
+    var body: some View {
+        HStack(spacing: 12) {
+            Text("当前文件")
+                .frame(maxWidth: .infinity, alignment: .leading)
+            Text("历史文件")
+                .frame(maxWidth: .infinity, alignment: .leading)
+            Text("批次")
+                .frame(width: 150, alignment: .leading)
+            Text("位差")
+                .frame(width: 54, alignment: .trailing)
+            Text("状态")
+                .frame(width: 110, alignment: .leading)
+        }
+        .font(.caption.weight(.semibold))
+        .foregroundStyle(.secondary)
+    }
+}
+
+struct CrossBatchListRow: View {
+    let row: ReportTableRow
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Text(row.columns[safe: 0] ?? row.detailTitle)
+                .lineLimit(1)
+                .truncationMode(.middle)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            Text(row.columns[safe: 1] ?? "")
+                .lineLimit(1)
+                .truncationMode(.middle)
+                .foregroundStyle(.secondary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            Text(row.columns[safe: 2] ?? "")
+                .lineLimit(1)
+                .truncationMode(.middle)
+                .foregroundStyle(.secondary)
+                .frame(width: 150, alignment: .leading)
+            Text(row.columns[safe: 3] ?? "")
+                .foregroundStyle(.secondary)
+                .frame(width: 54, alignment: .trailing)
+            Text(row.columns[safe: 4] ?? "")
+                .lineLimit(1)
+                .foregroundStyle(statusColor)
+                .frame(width: 110, alignment: .leading)
+        }
+        .font(.subheadline)
+        .padding(.vertical, 5)
+    }
+
+    private var statusColor: Color {
+        (row.columns[safe: 4] ?? "").contains("白名单") ? .green : .secondary
+    }
+}
+
+struct CrossBatchGraphPanel: View {
+    let graph: CrossBatchGraph
+
+    private var currentNodes: [CrossBatchGraphNode] {
+        graph.nodes.filter { $0.role == .current }
+    }
+
+    private var historicalNodes: [CrossBatchGraphNode] {
+        graph.nodes.filter { $0.role == .historical }
+    }
+
+    var body: some View {
+        if graph.edges.isEmpty {
+            ContentUnavailableView("无匹配边", systemImage: "arrow.triangle.branch", description: Text("调整批次、队伍、标签或状态过滤条件"))
+        } else {
+            ScrollView {
+                HStack(alignment: .top, spacing: 14) {
+                    CrossBatchNodeColumn(title: "当前节点", nodes: currentNodes)
+                    CrossBatchEdgeColumn(edges: graph.edges)
+                    CrossBatchNodeColumn(title: "历史节点", nodes: historicalNodes)
+                }
+                .padding(16)
+                .frame(maxWidth: .infinity, alignment: .topLeading)
+            }
+            .background(Color(nsColor: .textBackgroundColor))
+        }
+    }
+}
+
+struct CrossBatchNodeColumn: View {
+    let title: String
+    let nodes: [CrossBatchGraphNode]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("\(title) \(nodes.count)")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.secondary)
+            ForEach(nodes) { node in
+                CrossBatchNodeView(node: node)
+            }
+        }
+        .frame(minWidth: 190, maxWidth: .infinity, alignment: .topLeading)
+    }
+}
+
+struct CrossBatchNodeView: View {
+    let node: CrossBatchGraphNode
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 5) {
+            Label(node.fileName, systemImage: node.role == .current ? "doc.text" : "archivebox")
+                .font(.subheadline.weight(.medium))
+                .lineLimit(1)
+                .truncationMode(.middle)
+            if node.subtitle.isEmpty == false {
+                Text(node.subtitle)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(2)
+            }
+            if node.tags.isEmpty == false {
+                Text(node.tags.prefix(3).joined(separator: " / "))
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
+        }
+        .padding(10)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color(nsColor: .windowBackgroundColor))
+        .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).stroke(.separator.opacity(0.32)))
+    }
+}
+
+struct CrossBatchEdgeColumn: View {
+    @Environment(AppState.self) private var appState
+    let edges: [CrossBatchGraphEdge]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("边 \(edges.count)")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.secondary)
+            ForEach(edges) { edge in
+                Button {
+                    appState.selectedReportRowID = edge.evidenceID
+                } label: {
+                    CrossBatchEdgeView(edge: edge)
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .frame(minWidth: 240, maxWidth: .infinity, alignment: .topLeading)
+    }
+}
+
+struct CrossBatchEdgeView: View {
+    let edge: CrossBatchGraphEdge
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 7) {
+            HStack(spacing: 8) {
+                Image(systemName: "arrow.left.and.right")
+                    .foregroundStyle(.secondary)
+                Text("\(edge.currentFile) → \(edge.historicalFile)")
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+                Spacer(minLength: 8)
+                Text("\(edge.distance)")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.secondary)
+            }
+            HStack(spacing: 8) {
+                Text(edge.displayBatchName)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+                Text(edge.status)
+                    .foregroundStyle(edge.status.contains("白名单") ? .green : .secondary)
+                    .lineLimit(1)
+            }
+            .font(.caption)
+            .foregroundStyle(.secondary)
+        }
+        .padding(10)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color(nsColor: .controlBackgroundColor))
+        .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).stroke(.separator.opacity(0.32)))
     }
 }
 
@@ -412,4 +730,3 @@ struct OverviewEvidenceList: View {
         .listStyle(.plain)
     }
 }
-

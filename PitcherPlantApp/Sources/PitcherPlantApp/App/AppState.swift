@@ -41,6 +41,7 @@ final class AppState {
     var exportRecords: [ExportRecord] = []
     var evidenceReviews: [EvidenceReview] = []
     var submissionBatches: [SubmissionBatch] = []
+    var whitelistSuggestions: [WhitelistSuggestion] = []
     var appSettings: AppSettings
 
     var draftConfiguration: AuditConfiguration
@@ -111,6 +112,7 @@ final class AppState {
             configurationPresets = AppPreferences.loadPresets(for: workspaceRoot)
             exportRecords = try await database.loadExportRecords(limit: 20)
             submissionBatches = try await database.loadSubmissionBatches()
+            whitelistSuggestions = AppPreferences.loadWhitelistSuggestions()
             latestReport = reports.sorted(by: { $0.createdAt > $1.createdAt }).first
 
             if selectedJobID == nil {
@@ -359,8 +361,8 @@ final class AppState {
             return
         }
         await saveReview(for: row, decision: decision, severity: row.riskAssessment?.level, note: review(for: row)?.reviewerNote ?? "")
-        if decision == .whitelisted, let pattern = row.columns.first, pattern.isEmpty == false {
-            await addWhitelistRule(pattern: pattern, type: .filename)
+        if decision == .whitelisted, let candidate = whitelistRuleCandidate(for: row) {
+            await addWhitelistRule(pattern: candidate.pattern, type: candidate.type)
         }
     }
 
@@ -384,6 +386,22 @@ final class AppState {
             await reload()
         } catch {
             showNotice(title: t("notice.whitelistDeleteFailed"), message: error.localizedDescription, tone: .error)
+        }
+    }
+
+    func acceptWhitelistSuggestion(_ suggestion: WhitelistSuggestion) async {
+        await setWhitelistSuggestionStatus(suggestion, status: .accepted)
+        await addWhitelistRule(pattern: suggestion.rule.pattern, type: suggestion.rule.type)
+    }
+
+    func dismissWhitelistSuggestion(_ suggestion: WhitelistSuggestion) {
+        setWhitelistSuggestionStatusInMemory(suggestion, status: .dismissed)
+    }
+
+    func acceptAllPendingWhitelistSuggestions() async {
+        let pending = whitelistSuggestions.filter { $0.status == .pending }
+        for suggestion in pending {
+            await acceptWhitelistSuggestion(suggestion)
         }
     }
 
@@ -614,11 +632,17 @@ final class AppState {
             try await database.upsertJob(job)
             try await database.saveReport(result.report)
             if !result.fingerprints.isEmpty {
-                try await database.insertFingerprints(result.fingerprints)
+                let fingerprints = try await fingerprintsWithSourceContext(
+                    result.fingerprints,
+                    reportID: result.report.id,
+                    job: job
+                )
+                try await database.insertFingerprints(fingerprints)
             }
             if let documents = try? DocumentIngestionService(configuration: configuration).ingestDocuments(in: URL(fileURLWithPath: configuration.directoryPath)) {
                 let features = DocumentFeatureStore().buildFeatures(for: documents)
                 try? await database.upsertDocumentFeatures(features)
+                refreshWhitelistSuggestions(from: documents)
             }
             if selectCompletedReport {
                 selectReportForInlineReview(result.report)
@@ -693,6 +717,124 @@ final class AppState {
         } else {
             selectedReportRowID = nil
         }
+    }
+
+    private func refreshWhitelistSuggestions(from documents: [ParsedDocument]) {
+        let statuses = AppPreferences.loadWhitelistSuggestionStatuses()
+        let existingRules = Set(whitelistRules.map { "\($0.type.rawValue):\($0.pattern)" })
+        let suggestions = WhitelistSuggestionService()
+            .suggest(from: documents)
+            .map { suggestion in
+                var copy = suggestion
+                if let status = statuses[suggestion.id] {
+                    copy.status = status
+                } else if existingRules.contains("\(suggestion.rule.type.rawValue):\(suggestion.rule.pattern)") {
+                    copy.status = .accepted
+                }
+                return copy
+            }
+        whitelistSuggestions = suggestions
+        AppPreferences.saveWhitelistSuggestions(suggestions)
+    }
+
+    private func setWhitelistSuggestionStatus(_ suggestion: WhitelistSuggestion, status: WhitelistSuggestionStatus) async {
+        setWhitelistSuggestionStatusInMemory(suggestion, status: status)
+    }
+
+    private func setWhitelistSuggestionStatusInMemory(_ suggestion: WhitelistSuggestion, status: WhitelistSuggestionStatus) {
+        var statuses = AppPreferences.loadWhitelistSuggestionStatuses()
+        statuses[suggestion.id] = status
+        AppPreferences.saveWhitelistSuggestionStatuses(statuses)
+        whitelistSuggestions = whitelistSuggestions.map { item in
+            guard item.id == suggestion.id else { return item }
+            var copy = item
+            copy.status = status
+            return copy
+        }
+        AppPreferences.saveWhitelistSuggestions(whitelistSuggestions)
+    }
+
+    private func whitelistRuleCandidate(for row: ReportTableRow) -> (pattern: String, type: WhitelistRule.RuleType)? {
+        let body = ([row.detailBody] + row.attachments.flatMap { [$0.title, $0.subtitle, $0.body] })
+            .joined(separator: "\n")
+        let evidenceText = row.columns.dropFirst(3).first ?? body
+        let type = row.evidenceType ?? EvidenceType(rawValue: selectedReportSection?.rawValue ?? "") ?? .dedup
+
+        switch type {
+        case .text:
+            return cleanedWhitelistCandidate(row.attachments.first?.body ?? evidenceText, type: .textSnippet)
+        case .code:
+            return cleanedWhitelistCandidate(row.attachments.first?.body ?? evidenceText, type: .codeTemplate)
+        case .image:
+            if let hash = firstHashCandidate(in: body) {
+                return (hash, .imageHash)
+            }
+            return cleanedWhitelistCandidate(evidenceText, type: .imageHash)
+        case .metadata:
+            return cleanedWhitelistCandidate(evidenceText, type: .metadata)
+        case .dedup:
+            return cleanedWhitelistCandidate(row.columns.first ?? evidenceText, type: .filename)
+        case .crossBatch:
+            return cleanedWhitelistCandidate(row.columns.first ?? evidenceText, type: .filename)
+        }
+    }
+
+    private func fingerprintsWithSourceContext(
+        _ records: [FingerprintRecord],
+        reportID: UUID,
+        job: AuditJob
+    ) async throws -> [FingerprintRecord] {
+        let batch = job.batchID.flatMap { batchID in
+            submissionBatches.first(where: { $0.id == batchID })
+        }
+        let item: SubmissionItem?
+        if let itemID = job.submissionItemID {
+            item = try await database.loadSubmissionItems(batchID: job.batchID).first(where: { $0.id == itemID })
+        } else {
+            item = nil
+        }
+        return records.map { record in
+            var copy = record
+            copy.sourceReportID = reportID
+            copy.batchName = batch?.name ?? record.batchName
+            copy.teamName = item?.teamName ?? record.teamName
+            copy.submissionItemID = item?.id ?? job.submissionItemID
+            if copy.challengeName == nil {
+                copy.challengeName = inferChallengeName(from: record, item: item)
+            }
+            return copy
+        }
+    }
+
+    private func inferChallengeName(from record: FingerprintRecord, item: SubmissionItem?) -> String? {
+        if let item {
+            let itemURL = URL(fileURLWithPath: item.rootPath)
+            let scanURL = URL(fileURLWithPath: record.scanDir)
+            let parent = scanURL.deletingLastPathComponent().lastPathComponent
+            if parent.isEmpty == false, parent != itemURL.lastPathComponent {
+                return parent
+            }
+        }
+        return nil
+    }
+
+    private func cleanedWhitelistCandidate(_ value: String, type: WhitelistRule.RuleType) -> (pattern: String, type: WhitelistRule.RuleType)? {
+        let pattern = value
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .replacingOccurrences(of: "\n", with: " ")
+        guard pattern.isEmpty == false else { return nil }
+        return (String(pattern.prefix(220)), type)
+    }
+
+    private func firstHashCandidate(in value: String) -> String? {
+        let pattern = #"[A-Fa-f0-9]{16,64}"#
+        guard let regex = try? NSRegularExpression(pattern: pattern) else { return nil }
+        let range = NSRange(value.startIndex..<value.endIndex, in: value)
+        guard let match = regex.firstMatch(in: value, range: range),
+              let matchRange = Range(match.range, in: value) else {
+            return nil
+        }
+        return String(value[matchRange])
     }
 
     private func reportWithReviews(_ report: AuditReport) -> AuditReport {

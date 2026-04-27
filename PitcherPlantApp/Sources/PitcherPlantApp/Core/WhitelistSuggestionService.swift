@@ -1,16 +1,34 @@
 import Foundation
 
-struct WhitelistSuggestion: Identifiable, Hashable, Sendable {
+struct WhitelistSuggestion: Codable, Identifiable, Hashable, Sendable {
     let id: UUID
     let rule: WhitelistRule
     let reason: String
     let supportCount: Int
+    var status: WhitelistSuggestionStatus
 
-    init(rule: WhitelistRule, reason: String, supportCount: Int) {
+    init(rule: WhitelistRule, reason: String, supportCount: Int, status: WhitelistSuggestionStatus = .pending) {
         self.id = UUID.pitcherPlantStable(namespace: "whitelist-suggestion", components: [rule.type.rawValue, rule.pattern, reason])
         self.rule = rule
         self.reason = reason
         self.supportCount = supportCount
+        self.status = status
+    }
+}
+
+enum WhitelistSuggestionStatus: String, Codable, CaseIterable, Identifiable, Sendable {
+    case pending
+    case accepted
+    case dismissed
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .pending: return "待处理"
+        case .accepted: return "已接受"
+        case .dismissed: return "已忽略"
+        }
     }
 }
 

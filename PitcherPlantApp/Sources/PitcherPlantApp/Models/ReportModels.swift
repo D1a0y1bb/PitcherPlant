@@ -76,6 +76,7 @@ struct ReportTableRow: Codable, Identifiable, Hashable, Sendable {
     var evidenceType: EvidenceType?
     var riskAssessment: RiskAssessment?
     var review: EvidenceReview?
+    var metadata: [String: String]?
 
     init(
         id: UUID = UUID(),
@@ -87,7 +88,8 @@ struct ReportTableRow: Codable, Identifiable, Hashable, Sendable {
         evidenceID: UUID? = nil,
         evidenceType: EvidenceType? = nil,
         riskAssessment: RiskAssessment? = nil,
-        review: EvidenceReview? = nil
+        review: EvidenceReview? = nil,
+        metadata: [String: String]? = nil
     ) {
         self.id = id
         self.columns = columns
@@ -99,6 +101,7 @@ struct ReportTableRow: Codable, Identifiable, Hashable, Sendable {
         self.evidenceType = evidenceType
         self.riskAssessment = riskAssessment
         self.review = review
+        self.metadata = metadata
     }
 }
 
@@ -238,6 +241,7 @@ struct FingerprintRecord: Codable, Identifiable, Hashable, Sendable {
     var batchName: String?
     var challengeName: String?
     var teamName: String?
+    var submissionItemID: UUID?
 
     init(
         id: UUID = UUID(),
@@ -252,7 +256,8 @@ struct FingerprintRecord: Codable, Identifiable, Hashable, Sendable {
         sourceReportID: UUID? = nil,
         batchName: String? = nil,
         challengeName: String? = nil,
-        teamName: String? = nil
+        teamName: String? = nil,
+        submissionItemID: UUID? = nil
     ) {
         self.id = id
         self.filename = filename
@@ -267,6 +272,7 @@ struct FingerprintRecord: Codable, Identifiable, Hashable, Sendable {
         self.batchName = batchName
         self.challengeName = challengeName
         self.teamName = teamName
+        self.submissionItemID = submissionItemID
     }
 }
 

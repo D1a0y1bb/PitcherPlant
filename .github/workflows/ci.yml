@@ -10,13 +10,33 @@ on:
 
 jobs:
   macos:
-    name: macOS build and test
-    runs-on: macos-latest
+    name: macOS build and test (${{ matrix.runner_label }})
+    runs-on: ${{ matrix.runner }}
     timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner_label: "macos-15-xcode-16.4"
+            runner: macos-15
+            xcode_path: /Applications/Xcode_16.4.app
+          - runner_label: "macos-latest"
+            runner: macos-latest
+            xcode_path: ""
 
     steps:
       - name: Checkout
         uses: actions/checkout@v5
+
+      - name: Select fixed Xcode
+        if: matrix.xcode_path != ''
+        run: |
+          if [ ! -d "${{ matrix.xcode_path }}" ]; then
+            echo "Required Xcode is missing: ${{ matrix.xcode_path }}"
+            ls -1 /Applications | grep '^Xcode' || true
+            exit 1
+          fi
+          sudo xcode-select -s "${{ matrix.xcode_path }}/Contents/Developer"
 
       - name: Print toolchain versions
         run: |
@@ -51,6 +71,8 @@ jobs:
             -project PitcherPlantApp.xcodeproj \
             -scheme PitcherPlantApp \
             -destination 'platform=macOS' \
+            CODE_SIGN_STYLE=Manual \
+            CODE_SIGN_IDENTITY="-" \
             build
 
       - name: Xcode tests
@@ -60,4 +82,24 @@ jobs:
             -project PitcherPlantApp.xcodeproj \
             -scheme PitcherPlantApp \
             -destination 'platform=macOS' \
+            CODE_SIGN_STYLE=Manual \
+            CODE_SIGN_IDENTITY="-" \
             test
+
+      - name: Release configuration build
+        working-directory: PitcherPlantApp
+        run: |
+          xcodebuild \
+            -project PitcherPlantApp.xcodeproj \
+            -scheme PitcherPlantApp \
+            -configuration Release \
+            -destination 'platform=macOS' \
+            CODE_SIGN_STYLE=Manual \
+            CODE_SIGN_IDENTITY="-" \
+            build
+
+      - name: Lightweight integration and performance smoke
+        working-directory: PitcherPlantApp
+        env:
+          PITCHERPLANT_CI_SMOKE: "1"
+        run: swift test --parallel
