@@ -10,7 +10,7 @@ enum AppLanguage: String, Codable, CaseIterable, Identifiable, Sendable {
 
     var displayName: String {
         switch self {
-        case .system: return "跟随系统 / System"
+        case .system: return "System"
         case .zhHans: return "简体中文"
         case .english: return "English"
         }
@@ -36,7 +36,6 @@ enum AppAppearance: String, Codable, CaseIterable, Identifiable, Sendable {
 struct AppSettings: Codable, Hashable, Sendable {
     var language: AppLanguage
     var appearance: AppAppearance
-    var defaultSidebarItem: MainSidebarItem
     var showInspectorByDefault: Bool
     var compactRows: Bool
     var showMenuBarExtra: Bool
@@ -48,7 +47,6 @@ struct AppSettings: Codable, Hashable, Sendable {
     static let defaults = AppSettings(
         language: .system,
         appearance: .system,
-        defaultSidebarItem: .workspace,
         showInspectorByDefault: true,
         compactRows: true,
         showMenuBarExtra: true,

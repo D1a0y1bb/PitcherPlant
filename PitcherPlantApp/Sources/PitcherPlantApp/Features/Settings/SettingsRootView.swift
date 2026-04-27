@@ -20,22 +20,7 @@ struct SettingsRootView: View {
                             selection: settingsBinding(\.language),
                             options: AppLanguage.allCases,
                             width: SettingsLayout.menuWidth,
-                            title: { $0.displayName }
-                        )
-                    }
-
-                    SettingsDivider()
-
-                    SettingsPickerRow(
-                        title: appState.t("settings.defaultPage"),
-                        subtitle: appState.t("settings.defaultPageDescription")
-                    ) {
-                        SettingsMenuPicker(
-                            selection: settingsBinding(\.defaultSidebarItem),
-                            options: MainSidebarItem.allCases,
-                            width: SettingsLayout.menuWidth,
-                            title: { appState.title(for: $0) },
-                            systemImage: { $0.systemImage }
+                            title: languageTitle
                         )
                     }
 
@@ -61,16 +46,11 @@ struct SettingsRootView: View {
                         title: appState.t("settings.theme"),
                         subtitle: appState.t("settings.themeDescription")
                     ) {
-                        SettingsChoicePicker(
+                        SettingsMenuPicker(
                             selection: settingsBinding(\.appearance),
                             options: AppAppearance.allCases,
-                            title: { appearance in
-                                switch appearance {
-                                case .system: appState.t("common.followSystem")
-                                case .light: appState.t("common.light")
-                                case .dark: appState.t("common.dark")
-                                }
-                            }
+                            width: SettingsLayout.menuWidth,
+                            title: appearanceTitle
                         )
                     }
 
@@ -162,12 +142,13 @@ struct SettingsRootView: View {
 
                     SettingsPickerRow(
                         title: appState.t("audit.whitelistMode"),
-                        subtitle: appState.t("settings.whitelistModeDescription")
+                        subtitle: currentValueSubtitle(
+                            appState.t("settings.whitelistModeDescription"),
+                            value: appState.title(for: appState.draftConfiguration.whitelistMode)
+                        )
                     ) {
-                        SettingsChoicePicker(
-                            selection: draftWhitelistModeBinding(),
-                            options: AuditConfiguration.WhitelistMode.allCases,
-                            title: { appState.title(for: $0) }
+                        SettingsMappedToggle(
+                            isOn: draftWhitelistHideBinding()
                         )
                     }
                 }
@@ -183,12 +164,13 @@ struct SettingsRootView: View {
 
                     SettingsPickerRow(
                         title: appState.t("settings.defaultExportFormat"),
-                        subtitle: appState.t("settings.defaultExportFormatDescription")
+                        subtitle: currentValueSubtitle(
+                            appState.t("settings.defaultExportFormatDescription"),
+                            value: appState.appSettings.defaultExportFormat.displayTitle
+                        )
                     ) {
-                        SettingsChoicePicker(
-                            selection: settingsBinding(\.defaultExportFormat),
-                            options: ExportRecord.Format.allCases,
-                            title: { $0.displayTitle }
+                        SettingsMappedToggle(
+                            isOn: exportPDFBinding()
                         )
                     }
 
@@ -358,22 +340,58 @@ struct SettingsRootView: View {
         )
     }
 
-    private func draftWhitelistModeBinding() -> Binding<AuditConfiguration.WhitelistMode> {
+    private func draftWhitelistHideBinding() -> Binding<Bool> {
         Binding(
-            get: { appState.draftConfiguration.whitelistMode },
-            set: { value in appState.updateDraft { $0.whitelistMode = value } }
+            get: { appState.draftConfiguration.whitelistMode == .hide },
+            set: { enabled in
+                appState.updateDraft { $0.whitelistMode = enabled ? .hide : .mark }
+            }
         )
+    }
+
+    private func exportPDFBinding() -> Binding<Bool> {
+        Binding(
+            get: { appState.appSettings.defaultExportFormat == .pdf },
+            set: { enabled in
+                appState.updateSettings { $0.defaultExportFormat = enabled ? .pdf : .html }
+            }
+        )
+    }
+
+    private func appearanceTitle(_ appearance: AppAppearance) -> String {
+        switch appearance {
+        case .system: appState.t("common.followSystem")
+        case .light: appState.t("common.light")
+        case .dark: appState.t("common.dark")
+        }
+    }
+
+    private func languageTitle(_ language: AppLanguage) -> String {
+        switch language {
+        case .system: appState.t("common.followSystem")
+        case .zhHans: "简体中文"
+        case .english: "English"
+        }
+    }
+
+    private func currentValueSubtitle(_ subtitle: String, value: String) -> String {
+        "\(subtitle) · \(appState.t("settings.currentPrefix"))\(value)"
     }
 }
 
 private enum SettingsLayout {
+    static let sectionIconWidth: CGFloat = 18
+    static let sectionTitleSpacing: CGFloat = 8
     static let horizontalPadding: CGFloat = 14
+    static let trailingWidth: CGFloat = 360
     static let menuWidth: CGFloat = 220
-    static let numberFieldWidth: CGFloat = 74
-
-    static var dividerLeadingPadding: CGFloat {
-        horizontalPadding + 36
-    }
+    static let numberFieldWidth: CGFloat = 58
+    static let stepperWidth: CGFloat = 156
+    static let hintWidth: CGFloat = 70
+    static let thresholdControlWidth: CGFloat = stepperWidth + 8 + hintWidth
+    static let pathControlHeight: CGFloat = 30
+    static let pathButtonWidth: CGFloat = 96
+    static let compactPathWidth: CGFloat = 360
 }
 
 private struct SettingsGroup<Content: View>: View {
@@ -383,14 +401,16 @@ private struct SettingsGroup<Content: View>: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            HStack(spacing: 8) {
+            HStack(spacing: SettingsLayout.sectionTitleSpacing) {
                 Image(systemName: systemImage)
                     .font(.body)
                     .foregroundStyle(.secondary)
+                    .frame(width: SettingsLayout.sectionIconWidth, alignment: .center)
 
                 Text(title)
                     .font(.headline)
             }
+            .padding(.leading, SettingsLayout.horizontalPadding)
 
             VStack(spacing: 0) {
                 content
@@ -432,9 +452,13 @@ private struct SettingsPathRow: View {
                     .font(.system(.caption, design: .monospaced))
                     .lineLimit(1)
                     .truncationMode(.middle)
+                    .frame(maxWidth: .infinity, minHeight: SettingsLayout.pathControlHeight, maxHeight: SettingsLayout.pathControlHeight)
 
-                Button(appState.t("settings.choose")) {
+                Button {
                     chooseDirectory()
+                } label: {
+                    Label(appState.t("settings.choose"), systemImage: "folder")
+                        .frame(width: SettingsLayout.pathButtonWidth)
                 }
                 .buttonStyle(.bordered)
                 .controlSize(.small)
@@ -462,22 +486,35 @@ private struct SettingsReadOnlyPathRow: View {
     let value: String
 
     var body: some View {
-        SettingsPathBlockRow(title: title, subtitle: subtitle) {
+        SettingsControlRow(title: title, subtitle: subtitle) {
+            SettingsPathDisplay(value: value)
+        }
+    }
+}
+
+private struct SettingsPathDisplay: View {
+    let value: String
+
+    var body: some View {
+        HStack(spacing: 7) {
+            Image(systemName: "folder")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+
             Text(value)
                 .font(.system(.caption, design: .monospaced))
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
                 .truncationMode(.middle)
                 .textSelection(.enabled)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.horizontal, 8)
-                .padding(.vertical, 5)
-                .background(Color(nsColor: .textBackgroundColor).opacity(0.72))
-                .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
-                .overlay {
-                    RoundedRectangle(cornerRadius: 6, style: .continuous)
-                        .stroke(.separator.opacity(0.16))
-                }
+        }
+        .padding(.horizontal, 9)
+        .frame(width: SettingsLayout.compactPathWidth, height: SettingsLayout.pathControlHeight, alignment: .leading)
+        .background(Color(nsColor: .textBackgroundColor))
+        .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 6, style: .continuous)
+                .stroke(.separator.opacity(0.14))
         }
     }
 }
@@ -492,6 +529,7 @@ private struct SettingsTextFieldRow: View {
             TextField(title, text: $text)
                 .textFieldStyle(.roundedBorder)
                 .font(.system(.caption, design: .monospaced))
+                .frame(minHeight: SettingsLayout.pathControlHeight, maxHeight: SettingsLayout.pathControlHeight)
         }
     }
 }
@@ -504,15 +542,12 @@ private struct SettingsNumberFieldRow: View {
 
     var body: some View {
         SettingsControlRow(title: title, subtitle: subtitle) {
-            HStack(spacing: 8) {
-                TextField(title, value: $value, format: .number.precision(.fractionLength(2)))
-                    .textFieldStyle(.roundedBorder)
-                    .multilineTextAlignment(.trailing)
-                    .frame(width: SettingsLayout.numberFieldWidth)
-                Text(hint)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
+            SettingsNumberStepper(
+                value: $value,
+                range: 0...1,
+                step: 0.05,
+                hint: hint
+            )
         }
     }
 }
@@ -525,15 +560,12 @@ private struct SettingsIntegerFieldRow: View {
 
     var body: some View {
         SettingsControlRow(title: title, subtitle: subtitle) {
-            HStack(spacing: 8) {
-                TextField(title, value: $value, format: .number)
-                    .textFieldStyle(.roundedBorder)
-                    .multilineTextAlignment(.trailing)
-                    .frame(width: SettingsLayout.numberFieldWidth)
-                Text(hint)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
+            SettingsIntegerStepper(
+                value: $value,
+                range: 0...64,
+                step: 1,
+                hint: hint
+            )
         }
     }
 }
@@ -550,6 +582,17 @@ private struct SettingsToggleRow: View {
                 .toggleStyle(.switch)
                 .controlSize(.small)
         }
+    }
+}
+
+private struct SettingsMappedToggle: View {
+    @Binding var isOn: Bool
+
+    var body: some View {
+        Toggle("", isOn: $isOn)
+            .labelsHidden()
+            .toggleStyle(.switch)
+            .controlSize(.small)
     }
 }
 
@@ -575,7 +618,7 @@ private struct SettingsButtonGroupRow<Content: View>: View {
             HStack(spacing: 8) {
                 content
             }
-            .buttonStyle(SettingsRoundedButtonStyle())
+            .buttonStyle(.bordered)
             .controlSize(.small)
         }
     }
@@ -593,7 +636,7 @@ private struct SettingsActionRow: View {
             Button(action: action) {
                 Label(buttonTitle, systemImage: systemImage)
             }
-            .buttonStyle(SettingsRoundedButtonStyle())
+            .buttonStyle(.bordered)
             .controlSize(.small)
         }
     }
@@ -607,44 +650,16 @@ private struct SettingsMenuPicker<Value: Hashable>: View {
     var systemImage: ((Value) -> String)?
 
     var body: some View {
-        Menu {
+        Picker("", selection: $selection) {
             ForEach(options, id: \.self) { option in
-                Button {
-                    selection = option
-                } label: {
-                    HStack {
-                        menuLabel(for: option)
-                        if option == selection {
-                            Image(systemName: "checkmark")
-                        }
-                    }
-                }
-            }
-        } label: {
-            HStack(spacing: 7) {
-                menuLabel(for: selection)
-
-                Spacer(minLength: 8)
-
-                Image(systemName: "chevron.up.chevron.down")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(.secondary)
-            }
-            .font(.callout.weight(.medium))
-            .lineLimit(1)
-            .padding(.horizontal, 12)
-            .padding(.vertical, 7)
-            .frame(width: width, alignment: .leading)
-            .background(Color(nsColor: .controlBackgroundColor).opacity(0.88))
-            .clipShape(Capsule(style: .continuous))
-            .overlay {
-                Capsule(style: .continuous)
-                    .stroke(.separator.opacity(0.12))
+                menuLabel(for: option)
+                    .tag(option)
             }
         }
-        .menuStyle(.button)
-        .buttonStyle(.plain)
-        .fixedSize()
+        .labelsHidden()
+        .pickerStyle(.menu)
+        .controlSize(.small)
+        .frame(width: width, alignment: .trailing)
     }
 
     @ViewBuilder
@@ -657,80 +672,134 @@ private struct SettingsMenuPicker<Value: Hashable>: View {
     }
 }
 
-private struct SettingsChoicePicker<Value: Hashable>: View {
-    @Binding var selection: Value
-    let options: [Value]
-    let title: (Value) -> String
+private struct SettingsNumberStepper: View {
+    @Binding var value: Double
+    let range: ClosedRange<Double>
+    let step: Double
+    let hint: String
 
     var body: some View {
-        HStack(spacing: 6) {
-            ForEach(options, id: \.self) { option in
+        HStack(spacing: 8) {
+            HStack(spacing: 2) {
                 Button {
-                    selection = option
+                    value = clamped(value - step)
                 } label: {
-                    Text(title(option))
-                        .frame(minWidth: 54)
+                    Image(systemName: "minus")
                 }
-                .buttonStyle(SettingsChoiceButtonStyle(isSelected: option == selection))
+                .buttonStyle(SettingsStepperButtonStyle())
+                .disabled(value <= range.lowerBound)
+
+                TextField(hint, value: clampedBinding, format: .number.precision(.fractionLength(2)))
+                    .textFieldStyle(.plain)
+                    .multilineTextAlignment(.center)
+                    .font(.system(.callout, design: .monospaced).weight(.medium))
+                    .frame(width: SettingsLayout.numberFieldWidth)
+
+                Button {
+                    value = clamped(value + step)
+                } label: {
+                    Image(systemName: "plus")
+                }
+                .buttonStyle(SettingsStepperButtonStyle())
+                .disabled(value >= range.upperBound)
             }
+            .frame(width: SettingsLayout.stepperWidth, height: 30)
+            .background(Color(nsColor: .textBackgroundColor).opacity(0.72))
+            .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
+            .overlay {
+                RoundedRectangle(cornerRadius: 7, style: .continuous)
+                    .stroke(.separator.opacity(0.14))
+            }
+
+            Text(hint)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .frame(width: SettingsLayout.hintWidth, alignment: .leading)
         }
+        .frame(width: SettingsLayout.thresholdControlWidth, alignment: .trailing)
+    }
+
+    private var clampedBinding: Binding<Double> {
+        Binding(
+            get: { clamped(value) },
+            set: { value = clamped($0) }
+        )
+    }
+
+    private func clamped(_ candidate: Double) -> Double {
+        min(max(candidate, range.lowerBound), range.upperBound)
     }
 }
 
-private struct SettingsRoundedButtonStyle: ButtonStyle {
+private struct SettingsIntegerStepper: View {
+    @Binding var value: Int
+    let range: ClosedRange<Int>
+    let step: Int
+    let hint: String
+
+    var body: some View {
+        HStack(spacing: 8) {
+            HStack(spacing: 2) {
+                Button {
+                    value = clamped(value - step)
+                } label: {
+                    Image(systemName: "minus")
+                }
+                .buttonStyle(SettingsStepperButtonStyle())
+                .disabled(value <= range.lowerBound)
+
+                TextField(hint, value: clampedBinding, format: .number)
+                    .textFieldStyle(.plain)
+                    .multilineTextAlignment(.center)
+                    .font(.system(.callout, design: .monospaced).weight(.medium))
+                    .frame(width: SettingsLayout.numberFieldWidth)
+
+                Button {
+                    value = clamped(value + step)
+                } label: {
+                    Image(systemName: "plus")
+                }
+                .buttonStyle(SettingsStepperButtonStyle())
+                .disabled(value >= range.upperBound)
+            }
+            .frame(width: SettingsLayout.stepperWidth, height: 30)
+            .background(Color(nsColor: .textBackgroundColor).opacity(0.72))
+            .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
+            .overlay {
+                RoundedRectangle(cornerRadius: 7, style: .continuous)
+                    .stroke(.separator.opacity(0.14))
+            }
+
+            Text(hint)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .frame(width: SettingsLayout.hintWidth, alignment: .leading)
+        }
+        .frame(width: SettingsLayout.thresholdControlWidth, alignment: .trailing)
+    }
+
+    private var clampedBinding: Binding<Int> {
+        Binding(
+            get: { clamped(value) },
+            set: { value = clamped($0) }
+        )
+    }
+
+    private func clamped(_ candidate: Int) -> Int {
+        min(max(candidate, range.lowerBound), range.upperBound)
+    }
+}
+
+private struct SettingsStepperButtonStyle: ButtonStyle {
     @Environment(\.isEnabled) private var isEnabled
-    var prominent = false
 
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .font(.callout.weight(.medium))
-            .foregroundStyle(foregroundStyle)
-            .padding(.horizontal, 12)
-            .padding(.vertical, 6)
-            .background(backgroundStyle)
-            .clipShape(Capsule(style: .continuous))
-            .overlay {
-                Capsule(style: .continuous)
-                    .stroke(borderStyle)
-            }
-            .opacity(configuration.isPressed ? 0.72 : 1)
-    }
-
-    private var foregroundStyle: Color {
-        if !isEnabled {
-            return .secondary
-        }
-        return prominent ? .white : .primary
-    }
-
-    private var backgroundStyle: Color {
-        if !isEnabled {
-            return Color(nsColor: .controlBackgroundColor).opacity(0.38)
-        }
-        return prominent ? .accentColor : Color(nsColor: .controlBackgroundColor).opacity(0.88)
-    }
-
-    private var borderStyle: Color {
-        prominent || !isEnabled ? .clear : Color.secondary.opacity(0.12)
-    }
-}
-
-private struct SettingsChoiceButtonStyle: ButtonStyle {
-    var isSelected: Bool
-
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .font(.callout.weight(.semibold))
-            .foregroundStyle(isSelected ? .white : .primary)
-            .padding(.horizontal, 12)
-            .padding(.vertical, 6)
-            .background(isSelected ? Color.accentColor : Color(nsColor: .controlBackgroundColor).opacity(0.88))
-            .clipShape(Capsule(style: .continuous))
-            .overlay {
-                Capsule(style: .continuous)
-                    .stroke(isSelected ? Color.clear : Color.secondary.opacity(0.12))
-            }
-            .opacity(configuration.isPressed ? 0.72 : 1)
+            .font(.caption.weight(.semibold))
+            .foregroundStyle(isEnabled ? .secondary : .tertiary)
+            .frame(width: 28, height: 28)
+            .contentShape(Circle())
+            .opacity(configuration.isPressed ? 0.6 : 1)
     }
 }
 
@@ -750,7 +819,7 @@ private struct SettingsControlRow<Content: View>: View {
 
                 content
                     .controlSize(.small)
-                    .fixedSize(horizontal: true, vertical: false)
+                    .frame(width: SettingsLayout.trailingWidth, alignment: .trailing)
             }
         }
         .opacity(searchOpacity)
@@ -840,8 +909,10 @@ private struct SettingsStatusPill: View {
 
 private struct SettingsDivider: View {
     var body: some View {
-        Divider()
-            .padding(.leading, SettingsLayout.dividerLeadingPadding)
+        Rectangle()
+            .fill(Color(nsColor: .separatorColor).opacity(0.42))
+            .frame(height: 0.5)
+            .padding(.horizontal, SettingsLayout.horizontalPadding)
     }
 }
 

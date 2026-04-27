@@ -19,6 +19,11 @@ struct MainWindowView: View {
                         MainStatusBar()
                     }
                 }
+                .modifier(SettingsSearchToolbarModifier(
+                    isActive: appState.selectedMainSidebar == .settings,
+                    searchText: $settingsSearchText,
+                    prompt: appState.t("settings.searchPrompt")
+                ))
                 .navigationSplitViewColumnWidth(min: 560, ideal: 760, max: .infinity)
         } detail: {
             Group {
@@ -79,11 +84,6 @@ struct MainWindowView: View {
                     }
                     .keyboardShortcut(",", modifiers: .command)
                     .help(appState.t("toolbar.settings"))
-
-                    TextField(appState.t("settings.searchPrompt"), text: $settingsSearchText)
-                        .textFieldStyle(.roundedBorder)
-                        .controlSize(.small)
-                        .frame(width: 240)
                 } else {
                     if appState.selectedMainSidebar.allowsInspector {
                         Button {
@@ -159,6 +159,21 @@ struct MainWindowView: View {
             WhitelistLibraryView()
         case .settings:
             SettingsRootView(searchText: $settingsSearchText)
+        }
+    }
+}
+
+private struct SettingsSearchToolbarModifier: ViewModifier {
+    let isActive: Bool
+    @Binding var searchText: String
+    let prompt: String
+
+    func body(content: Content) -> some View {
+        if isActive {
+            content
+                .searchable(text: $searchText, prompt: prompt)
+        } else {
+            content
         }
     }
 }

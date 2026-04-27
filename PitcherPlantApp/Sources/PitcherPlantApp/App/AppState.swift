@@ -38,7 +38,7 @@ final class AppState {
         self.workspaceRoot = locator.workspaceRoot()
         let settings = AppPreferences.loadAppSettings()
         self.appSettings = settings
-        self.selectedMainSidebar = settings.defaultSidebarItem
+        self.selectedMainSidebar = .workspace
         let databaseResult = Self.makeDatabase(rootDirectory: workspaceRoot)
         self.database = databaseResult.database
         self.initializationMessage = databaseResult.message
