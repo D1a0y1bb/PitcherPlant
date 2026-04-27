@@ -19,7 +19,7 @@ struct MainWindowView: View {
                 .navigationSplitViewColumnWidth(min: 560, ideal: 760, max: .infinity)
         } detail: {
             Group {
-                if !inspectorVisible {
+                if !isInspectorColumnVisible {
                     Color.clear
                 } else if appState.selectedMainSidebar.usesReportInspector {
                     ReportEvidenceInspectorHost()
@@ -27,7 +27,11 @@ struct MainWindowView: View {
                     JobInspectorView()
                 }
             }
-            .navigationSplitViewColumnWidth(min: 340, ideal: 400, max: 520)
+            .navigationSplitViewColumnWidth(
+                min: isInspectorColumnVisible ? 340 : 0,
+                ideal: isInspectorColumnVisible ? 400 : 0,
+                max: isInspectorColumnVisible ? 520 : 0
+            )
         }
         .navigationSplitViewStyle(.balanced)
         .onAppear {
@@ -37,23 +41,33 @@ struct MainWindowView: View {
             updateColumnVisibility()
         }
         .onChange(of: inspectorVisible) { _, visible in
-            appState.updateSettings { $0.showInspectorByDefault = visible }
+            if appState.selectedMainSidebar.allowsInspector {
+                appState.updateSettings { $0.showInspectorByDefault = visible }
+            }
             updateColumnVisibility()
         }
         .onChange(of: appState.selectedMainSidebar) { _, _ in
             updateColumnVisibility()
         }
+        .onChange(of: appState.appSettings.showInspectorByDefault) { _, visible in
+            if !appState.selectedMainSidebar.allowsInspector {
+                inspectorVisible = visible
+            }
+            updateColumnVisibility()
+        }
         .toolbar {
             ToolbarItemGroup(placement: .primaryAction) {
-                Button {
-                    inspectorVisible.toggle()
-                } label: {
-                    Label(
-                        inspectorVisible ? appState.t("toolbar.hideInspector") : appState.t("toolbar.showInspector"),
-                        systemImage: inspectorVisible ? "sidebar.right" : "sidebar.trailing"
-                    )
+                if appState.selectedMainSidebar.allowsInspector {
+                    Button {
+                        inspectorVisible.toggle()
+                    } label: {
+                        Label(
+                            inspectorVisible ? appState.t("toolbar.hideInspector") : appState.t("toolbar.showInspector"),
+                            systemImage: inspectorVisible ? "sidebar.right" : "sidebar.trailing"
+                        )
+                    }
+                    .help(inspectorVisible ? appState.t("toolbar.hideInspector") : appState.t("toolbar.showInspector"))
                 }
-                .help(inspectorVisible ? appState.t("toolbar.hideInspector") : appState.t("toolbar.showInspector"))
 
                 Button {
                     Task { await appState.reload() }
@@ -89,8 +103,12 @@ struct MainWindowView: View {
         await appState.startAudit()
     }
 
+    private var isInspectorColumnVisible: Bool {
+        appState.selectedMainSidebar.allowsInspector && inspectorVisible
+    }
+
     private func updateColumnVisibility() {
-        columnVisibility = inspectorVisible ? .all : .doubleColumn
+        columnVisibility = .all
     }
 
     @ViewBuilder

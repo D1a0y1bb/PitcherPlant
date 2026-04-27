@@ -90,6 +90,10 @@ enum MainSidebarItem: String, Codable, CaseIterable, Identifiable, Sendable {
     var usesReportInspector: Bool {
         self == .reports || reportSectionKind != nil
     }
+
+    var allowsInspector: Bool {
+        self != .settings
+    }
 }
 
 enum AuditJobStatus: String, Codable, CaseIterable {

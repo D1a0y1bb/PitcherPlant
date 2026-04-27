@@ -11,6 +11,8 @@ PitcherPlantApp/.build/
 PitcherPlantApp/.pitcherplant-macos/
 PitcherPlantApp/reports/
 PitcherPlant.xcworkspace/xcshareddata/
+*.xcworkspace/xcuserdata/
+*.xcodeproj/xcuserdata/
 .pitcherplant-macos/
 GeneratedReports/
 
