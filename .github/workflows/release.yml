@@ -37,7 +37,6 @@ jobs:
     timeout-minutes: 60
     env:
       APP_NAME: PitcherPlant
-      DEFAULT_XCODE_PATH: /Applications/Xcode_26.3.app
       XCODE_PATH: ${{ github.event.inputs.xcode_path }}
       APPLE_CERTIFICATE_BASE64: ${{ secrets.APPLE_CERTIFICATE_BASE64 }}
       APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
@@ -62,8 +61,6 @@ jobs:
               exit 1
             fi
             SELECTED_XCODE="$XCODE_PATH"
-          elif [ -d "$DEFAULT_XCODE_PATH" ]; then
-            SELECTED_XCODE="$DEFAULT_XCODE_PATH"
           else
             SELECTED_XCODE=""
             SELECTED_VERSION=""
