@@ -99,16 +99,16 @@ struct ReportsInlineView: View {
     }
 
     var body: some View {
-        VStack(spacing: 0) {
+        VStack(spacing: 14) {
             ReportsCenterSelectorBar(
                 reports: filteredReports,
                 reportQuery: $reportQuery,
                 reportFilter: $reportFilter
             )
-            Divider()
             ReportSectionsAndEvidenceView(showsReportHeader: false)
         }
-        .background(Color(nsColor: .textBackgroundColor))
+        .padding(AppLayout.pagePadding)
+        .background(.background)
         .onAppear {
             syncVisibleReportSelection()
         }
@@ -137,69 +137,72 @@ private struct ReportsCenterSelectorBar: View {
     @Binding var reportFilter: ReportLibraryFilter
 
     var body: some View {
-        HStack(spacing: 12) {
-            VStack(alignment: .leading, spacing: 3) {
-                Text(appState.t("reports.title"))
-                    .font(AppTypography.sectionTitle)
-                if let report = appState.selectedReport {
-                    Text(report.title)
-                        .font(AppTypography.metadata)
-                        .foregroundStyle(.secondary)
+        AppToolbarBand {
+            HStack(spacing: 12) {
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(appState.t("reports.title"))
+                        .font(AppTypography.sectionTitle)
                         .lineLimit(1)
-                        .truncationMode(.middle)
-                } else {
-                    Text(appState.t("reports.noReport"))
-                        .font(AppTypography.metadata)
-                        .foregroundStyle(.secondary)
-                }
-            }
-
-            Spacer()
-
-            TextField(appState.t("reports.searchPrompt"), text: $reportQuery)
-                .textFieldStyle(.roundedBorder)
-                .frame(width: 210)
-
-            Picker(appState.t("reports.filter"), selection: $reportFilter) {
-                ForEach(ReportLibraryFilter.allCases) { filter in
-                    Text(appState.title(for: filter)).tag(filter)
-                }
-            }
-            .pickerStyle(.segmented)
-            .frame(width: 180)
-
-            Menu {
-                if reports.isEmpty {
-                    Text(appState.t("reports.noMatchedReport"))
-                } else {
-                    ForEach(reports) { report in
-                        Button {
-                            appState.selectReport(report.id)
-                        } label: {
-                            Label(report.title, systemImage: report.isLegacy ? "doc.richtext" : "doc.text.magnifyingglass")
-                        }
+                        .fixedSize(horizontal: true, vertical: false)
+                    if let report = appState.selectedReport {
+                        Text(report.title)
+                            .font(AppTypography.metadata)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                            .truncationMode(.middle)
+                    } else {
+                        Text(appState.t("reports.noReport"))
+                            .font(AppTypography.metadata)
+                            .foregroundStyle(.secondary)
                     }
                 }
-            } label: {
-                Label(appState.t("reports.selectReport"), systemImage: "doc.on.doc")
-            }
-            .menuStyle(.borderlessButton)
+                .frame(minWidth: 124, maxWidth: 180, alignment: .leading)
 
-            Menu {
-                Button { appState.exportSelectedReportAsHTML() } label: { Label("HTML", systemImage: "chevron.left.forwardslash.chevron.right") }
-                Button { appState.exportSelectedReportAsPDF() } label: { Label("PDF", systemImage: "doc.richtext") }
-                Button { appState.exportSelectedReportAsCSV() } label: { Label("CSV", systemImage: "tablecells") }
-                Button { appState.exportSelectedReportAsJSON() } label: { Label("JSON", systemImage: "curlybraces") }
-                Button { appState.exportSelectedReportAsMarkdown() } label: { Label("Markdown", systemImage: "doc.plaintext") }
-                Button { appState.exportSelectedReportAsEvidenceBundle() } label: { Label(appState.t("settings.exportBundle"), systemImage: "archivebox") }
-            } label: {
-                Label(appState.t("settings.exportReport"), systemImage: "square.and.arrow.up")
+                Spacer()
+
+                TextField(appState.t("reports.searchPrompt"), text: $reportQuery)
+                    .textFieldStyle(.roundedBorder)
+                    .frame(width: 220)
+
+                Picker(appState.t("reports.filter"), selection: $reportFilter) {
+                    ForEach(ReportLibraryFilter.allCases) { filter in
+                        Text(appState.title(for: filter)).tag(filter)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .labelsHidden()
+                .frame(width: 190)
+
+                Menu {
+                    if reports.isEmpty {
+                        Text(appState.t("reports.noMatchedReport"))
+                    } else {
+                        ForEach(reports) { report in
+                            Button {
+                                appState.selectReport(report.id)
+                            } label: {
+                                Label(report.title, systemImage: report.isLegacy ? "doc.richtext" : "doc.text.magnifyingglass")
+                            }
+                        }
+                    }
+                } label: {
+                    Label(appState.t("reports.selectReport"), systemImage: "doc.on.doc")
+                }
+                .menuStyle(.borderlessButton)
+
+                Menu {
+                    Button { appState.exportSelectedReportAsHTML() } label: { Label("HTML", systemImage: "chevron.left.forwardslash.chevron.right") }
+                    Button { appState.exportSelectedReportAsPDF() } label: { Label("PDF", systemImage: "doc.richtext") }
+                    Button { appState.exportSelectedReportAsCSV() } label: { Label("CSV", systemImage: "tablecells") }
+                    Button { appState.exportSelectedReportAsJSON() } label: { Label("JSON", systemImage: "curlybraces") }
+                    Button { appState.exportSelectedReportAsMarkdown() } label: { Label("Markdown", systemImage: "doc.plaintext") }
+                    Button { appState.exportSelectedReportAsEvidenceBundle() } label: { Label(appState.t("settings.exportBundle"), systemImage: "archivebox") }
+                } label: {
+                    Label(appState.t("settings.exportReport"), systemImage: "square.and.arrow.up")
+                }
+                .disabled(appState.selectedReport == nil)
             }
-            .disabled(appState.selectedReport == nil)
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 10)
-        .background(Color(nsColor: .windowBackgroundColor))
     }
 }
 

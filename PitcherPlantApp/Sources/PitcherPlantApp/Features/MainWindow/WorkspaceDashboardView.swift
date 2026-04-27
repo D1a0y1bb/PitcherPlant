@@ -42,15 +42,19 @@ struct WorkspaceDashboardView: View {
             NativeSection(title: appState.t("workspace.recentJobs"), subtitle: "\(min(appState.jobs.count, 8)) \(appState.t("common.countSuffix"))") {
                 VStack(spacing: 0) {
                     DenseHeader(columns: [appState.t("audit.directory"), appState.t("common.type"), "Progress", appState.t("common.updatedAt")])
-                    ForEach(appState.jobs.prefix(8)) { job in
-                        Button {
-                            appState.selectedJobID = job.id
-                            appState.selectedMainSidebar = .history
-                        } label: {
-                            JobTableRow(job: job)
+                    if appState.jobs.isEmpty {
+                        EmptyInlineRow(title: appState.t("job.noSelection"), subtitle: appState.t("job.noSelectionDescription"), systemImage: "clock.badge.questionmark")
+                    } else {
+                        ForEach(appState.jobs.prefix(8)) { job in
+                            Button {
+                                appState.selectedJobID = job.id
+                                appState.selectedMainSidebar = .history
+                            } label: {
+                                JobTableRow(job: job)
+                            }
+                            .buttonStyle(.plain)
+                            AppDivider()
                         }
-                        .buttonStyle(.plain)
-                        Divider()
                     }
                 }
             }
@@ -58,14 +62,18 @@ struct WorkspaceDashboardView: View {
             NativeSection(title: appState.t("workspace.recentReports"), subtitle: "\(min(appState.reports.count, 8)) \(appState.t("common.countSuffix"))") {
                 VStack(spacing: 0) {
                     DenseHeader(columns: ["Title", appState.t("common.type"), appState.t("reports.sectionSummary"), appState.t("common.createdAt")])
-                    ForEach(appState.reports.sorted(by: { $0.createdAt > $1.createdAt }).prefix(8)) { report in
-                        Button {
-                            appState.showReport(report.id)
-                        } label: {
-                            AuditReportListRow(report: report)
+                    if appState.reports.isEmpty {
+                        EmptyInlineRow(title: appState.t("reports.noReport"), subtitle: appState.t("reports.noReportDescription"), systemImage: "doc.text")
+                    } else {
+                        ForEach(appState.reports.sorted(by: { $0.createdAt > $1.createdAt }).prefix(8)) { report in
+                            Button {
+                                appState.showReport(report.id)
+                            } label: {
+                                AuditReportListRow(report: report)
+                            }
+                            .buttonStyle(.plain)
+                            AppDivider()
                         }
-                        .buttonStyle(.plain)
-                        Divider()
                     }
                 }
             }
@@ -100,12 +108,12 @@ struct NewAuditView: View {
                         get: { appState.draftConfiguration.directoryPath },
                         set: { newValue in appState.updateDraft { $0.directoryPath = newValue } }
                     ))
-                    Divider()
+                    AppDivider()
                     SettingsTextRow(title: appState.t("audit.outputDirectory"), text: Binding(
                         get: { appState.draftConfiguration.outputDirectoryPath },
                         set: { newValue in appState.updateDraft { $0.outputDirectoryPath = newValue } }
                     ))
-                    Divider()
+                    AppDivider()
                     SettingsTextRow(title: appState.t("audit.fileNameTemplate"), text: Binding(
                         get: { appState.draftConfiguration.reportNameTemplate },
                         set: { newValue in appState.updateDraft { $0.reportNameTemplate = newValue } }
@@ -114,17 +122,13 @@ struct NewAuditView: View {
             }
 
             NativeSection(title: appState.t("audit.batchImport"), subtitle: appState.t("audit.batchImport.subtitle")) {
-                HStack(spacing: 12) {
-                    Label(appState.t("audit.batchImport.description"), systemImage: "archivebox")
-                        .foregroundStyle(.secondary)
-                    Spacer()
+                AppControlRow(title: appState.t("audit.batchImport"), subtitle: appState.t("audit.batchImport.description"), trailingWidth: 190) {
                     Button {
                         appState.importSubmissionPackageWithPanel()
                     } label: {
                         Label(appState.t("audit.importSubmissions"), systemImage: "tray.and.arrow.down")
                     }
                 }
-                .padding(.vertical, 8)
             }
 
             NativeSection(title: appState.t("audit.parameters"), subtitle: appState.t("audit.parameters.subtitle")) {
@@ -133,36 +137,31 @@ struct NewAuditView: View {
                         get: { appState.draftConfiguration.textThreshold },
                         set: { newValue in appState.updateDraft { $0.textThreshold = newValue } }
                     ), format: .number.precision(.fractionLength(2)))
-                    Divider()
+                    AppDivider()
                     SettingsNumberRow(title: appState.t("audit.dedupThreshold"), value: Binding(
                         get: { appState.draftConfiguration.dedupThreshold },
                         set: { newValue in appState.updateDraft { $0.dedupThreshold = newValue } }
                     ), format: .number.precision(.fractionLength(2)))
-                    Divider()
+                    AppDivider()
                     SettingsIntegerRow(title: appState.t("audit.imageThreshold"), value: Binding(
                         get: { appState.draftConfiguration.imageThreshold },
                         set: { newValue in appState.updateDraft { $0.imageThreshold = newValue } }
                     ))
-                    Divider()
+                    AppDivider()
                     SettingsIntegerRow(title: appState.t("audit.simhashThreshold"), value: Binding(
                         get: { appState.draftConfiguration.simhashThreshold },
                         set: { newValue in appState.updateDraft { $0.simhashThreshold = newValue } }
                     ))
-                    Divider()
-                    HStack {
-                        Text(appState.t("audit.visionOCR"))
-                        Spacer()
+                    AppDivider()
+                    AppControlRow(title: appState.t("audit.visionOCR"), trailingWidth: 80) {
                         Toggle("", isOn: Binding(
                             get: { appState.draftConfiguration.useVisionOCR },
                             set: { newValue in appState.updateDraft { $0.useVisionOCR = newValue } }
                         ))
                         .labelsHidden()
                     }
-                    .padding(.vertical, 9)
-                    Divider()
-                    HStack {
-                        Text(appState.t("audit.whitelistMode"))
-                        Spacer()
+                    AppDivider()
+                    AppControlRow(title: appState.t("audit.whitelistMode"), trailingWidth: 180) {
                         Picker("", selection: Binding(
                             get: { appState.draftConfiguration.whitelistMode },
                             set: { newValue in appState.updateDraft { $0.whitelistMode = newValue } }
@@ -174,7 +173,6 @@ struct NewAuditView: View {
                         .pickerStyle(.segmented)
                         .frame(width: 160)
                     }
-                    .padding(.vertical, 9)
                 }
             }
 
@@ -190,18 +188,17 @@ struct NewAuditView: View {
                         }
                         .disabled(presetName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                     }
-                    .padding(.vertical, 8)
+                    .padding(.horizontal, AppLayout.rowHorizontalPadding)
+                    .padding(.vertical, AppLayout.rowVerticalPadding)
 
                     if appState.configurationPresets.isEmpty {
-                        Text(appState.t("audit.emptyPreset"))
-                            .foregroundStyle(.secondary)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .padding(.vertical, 8)
+                        AppDivider()
+                        EmptyInlineRow(title: appState.t("audit.emptyPreset"), subtitle: appState.t("audit.preset.subtitle"), systemImage: "slider.horizontal.3")
                     } else {
-                        Divider()
+                        AppDivider()
                         ForEach(appState.configurationPresets) { preset in
                             PresetTableRow(preset: preset)
-                            Divider()
+                            AppDivider()
                         }
                     }
                 }
@@ -209,4 +206,29 @@ struct NewAuditView: View {
         }
     }
 
+}
+
+private struct EmptyInlineRow: View {
+    let title: String
+    let subtitle: String
+    let systemImage: String
+
+    var body: some View {
+        HStack(alignment: .center, spacing: 12) {
+            Image(systemName: systemImage)
+                .foregroundStyle(.secondary)
+                .frame(width: 22)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(AppTypography.rowPrimary)
+                Text(subtitle)
+                    .font(AppTypography.supporting)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(2)
+            }
+            Spacer()
+        }
+        .padding(.horizontal, AppLayout.rowHorizontalPadding)
+        .padding(.vertical, 18)
+    }
 }

@@ -67,6 +67,7 @@
 		E0968ED079E63D82CBBD2EF8 /* SettingsPathControls.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7C1FB0D5C276B9F29035D603 /* SettingsPathControls.swift */; };
 		E5E7CD8F82E84E1FA32492B7 /* MainWindowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4BF556CB79EA2D6CC23D09D3 /* MainWindowView.swift */; };
 		EBD10FD19F018821B3388B60 /* DocumentIngestionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36C76AC3AE5F9E1383B33A47 /* DocumentIngestionService.swift */; };
+		ED3D885DE9359848D43F766A /* AppSurfaces.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5FBCED859014E14410FBCAD4 /* AppSurfaces.swift */; };
 		F0176621EE42DE8D28B7D2B6 /* ZIPFoundation in Frameworks */ = {isa = PBXBuildFile; productRef = 90FE11504ED417A4E3BBAA83 /* ZIPFoundation */; };
 		F0B691414CEE4B6A29F91BF1 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = E02E2A9EBDD61AF8EB8A15FF /* Assets.xcassets */; };
 		F1A878A00C3BEFFEF681EEAA /* RiskScoringService.swift in Sources */ = {isa = PBXBuildFile; fileRef = F7DA4CA8CFCADE5C515DD9F6 /* RiskScoringService.swift */; };
@@ -114,6 +115,7 @@
 		58D12DF8783F55B02E4AD0E1 /* ReportExporter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReportExporter.swift; sourceTree = "<group>"; };
 		5D684506393797F240E731AA /* SettingsRootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsRootView.swift; sourceTree = "<group>"; };
 		5F1E3A67673DB71739C8CE8D /* FeatureCompletionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeatureCompletionTests.swift; sourceTree = "<group>"; };
+		5FBCED859014E14410FBCAD4 /* AppSurfaces.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppSurfaces.swift; sourceTree = "<group>"; };
 		65239D837F7125DDE36465A7 /* Typography.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Typography.swift; sourceTree = "<group>"; };
 		66BD2172991DB0803156344E /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
 		6EF4E6E6E579AA134A9F2ECA /* IngestionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IngestionTests.swift; sourceTree = "<group>"; };
@@ -216,6 +218,7 @@
 		7BE2CBD0DD98D9DB3998C8E0 /* Support */ = {
 			isa = PBXGroup;
 			children = (
+				5FBCED859014E14410FBCAD4 /* AppSurfaces.swift */,
 				54162EA7478EAFCCE88C5709 /* AppVersionInfo.swift */,
 				EB7D836E4BAE584D68A8771F /* EnvironmentSupport.swift */,
 				226DC10D014769BA6202F5F1 /* LocalizationStrings.swift */,
@@ -501,6 +504,7 @@
 				3A7C68DB36662C6B77BAAA4B /* Analyzers.swift in Sources */,
 				6470E071E62B237D2C06A4DA /* AppSettings.swift in Sources */,
 				B6493DB2EA73BC22433270F0 /* AppState.swift in Sources */,
+				ED3D885DE9359848D43F766A /* AppSurfaces.swift in Sources */,
 				1ACF06AC04A048D82A0B30CB /* AppVersionInfo.swift in Sources */,
 				3998778E910006CACEEA8015 /* AuditAssistantService.swift in Sources */,
 				DE268C489FBA6E36A3939F2D /* AuditModels.swift in Sources */,

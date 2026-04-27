@@ -4,14 +4,9 @@ struct NativePage<Content: View>: View {
     @ViewBuilder var content: Content
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 18) {
-                content
-            }
-            .padding(22)
-            .frame(maxWidth: .infinity, alignment: .topLeading)
+        AppPageShell(spacing: 24) {
+            content
         }
-        .background(Color(nsColor: .textBackgroundColor))
     }
 }
 
@@ -43,20 +38,8 @@ struct NativeSection<Content: View>: View {
     @ViewBuilder var content: Content
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(alignment: .firstTextBaseline) {
-                Text(title)
-                    .font(AppTypography.sectionTitle)
-                Text(subtitle)
-                    .font(AppTypography.metadata)
-                    .foregroundStyle(.secondary)
-                Spacer()
-            }
+        AppSectionPanel(title: title, subtitle: subtitle) {
             content
-                .padding(.horizontal, 12)
-                .padding(.vertical, 4)
-                .background(Color(nsColor: .windowBackgroundColor))
-                .overlay(Rectangle().stroke(.separator.opacity(0.25)))
         }
     }
 }
@@ -67,14 +50,7 @@ struct JobInspectorSection<Content: View>: View {
     @ViewBuilder var content: Content
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            VStack(alignment: .leading, spacing: 2) {
-                Text(title)
-                    .font(AppTypography.sectionTitle)
-                Text(subtitle)
-                    .font(AppTypography.metadata)
-                    .foregroundStyle(.secondary)
-            }
+        AppInspectorPanel(title: title, subtitle: subtitle) {
             content
         }
     }
@@ -88,21 +64,21 @@ struct SearchHeader: View {
     let prompt: String
 
     var body: some View {
-        HStack(spacing: 12) {
-            VStack(alignment: .leading, spacing: 2) {
-                Text(title)
-                    .font(AppTypography.sectionTitle)
-                Text("\(count) \(appState.t("common.countSuffix"))")
-                    .font(AppTypography.metadata)
-                    .foregroundStyle(.secondary)
+        AppToolbarBand {
+            HStack(spacing: 12) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title)
+                        .font(AppTypography.sectionTitle)
+                    Text("\(count) \(appState.t("common.countSuffix"))")
+                        .font(AppTypography.metadata)
+                        .foregroundStyle(.secondary)
+                }
+                Spacer()
+                TextField(prompt, text: $query)
+                    .textFieldStyle(.roundedBorder)
+                    .frame(width: 280)
             }
-            Spacer()
-            TextField(prompt, text: $query)
-                .textFieldStyle(.roundedBorder)
-                .frame(width: 260)
         }
-        .padding(12)
-        .background(Color(nsColor: .windowBackgroundColor))
     }
 }
 
@@ -119,7 +95,9 @@ struct DenseHeader: View {
         }
         .font(AppTypography.tableHeader)
         .foregroundStyle(.secondary)
-        .padding(.vertical, 6)
+        .padding(.horizontal, AppLayout.rowHorizontalPadding)
+        .padding(.vertical, 8)
+        .background(.thinMaterial)
     }
 }
 
@@ -134,18 +112,26 @@ struct SummaryStrip: View {
     let items: [SummaryItem]
 
     var body: some View {
-        HStack(spacing: 18) {
+        LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 12), count: min(max(items.count, 1), 4)), spacing: 12) {
             ForEach(items) { item in
-                Label {
-                    Text("\(item.value) \(item.title)")
-                } icon: {
+                HStack(spacing: 10) {
                     Image(systemName: item.systemImage)
+                        .foregroundStyle(.secondary)
+                        .frame(width: 20)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(item.value)
+                            .font(.title2.weight(.semibold))
+                        Text(item.title)
+                            .font(AppTypography.supporting)
+                            .foregroundStyle(.secondary)
+                    }
+                    Spacer(minLength: 0)
                 }
-                .foregroundStyle(.secondary)
+                .padding(12)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .appPanelSurface(glass: true)
             }
-            Spacer()
         }
-        .font(AppTypography.rowSecondary)
     }
 }
 
@@ -154,14 +140,10 @@ struct SettingsTextRow: View {
     @Binding var text: String
 
     var body: some View {
-        HStack(spacing: 12) {
-            Text(title)
-                .font(AppTypography.rowPrimary)
-                .frame(width: 96, alignment: .leading)
+        AppControlRow(title: title) {
             TextField(title, text: $text)
                 .textFieldStyle(.roundedBorder)
         }
-        .padding(.vertical, 8)
     }
 }
 
@@ -171,15 +153,10 @@ struct SettingsNumberRow<F: ParseableFormatStyle>: View where F.FormatInput == D
     let format: F
 
     var body: some View {
-        HStack {
-            Text(title)
-                .font(AppTypography.rowPrimary)
-            Spacer()
+        AppControlRow(title: title, trailingWidth: 120) {
             TextField("", value: $value, format: format)
                 .textFieldStyle(.roundedBorder)
-                .frame(width: 90)
         }
-        .padding(.vertical, 8)
     }
 }
 
@@ -188,15 +165,10 @@ struct SettingsIntegerRow: View {
     @Binding var value: Int
 
     var body: some View {
-        HStack {
-            Text(title)
-                .font(AppTypography.rowPrimary)
-            Spacer()
+        AppControlRow(title: title, trailingWidth: 120) {
             TextField("", value: $value, format: .number)
                 .textFieldStyle(.roundedBorder)
-                .frame(width: 90)
         }
-        .padding(.vertical, 8)
     }
 }
 
@@ -210,25 +182,19 @@ struct StatusDot: View {
     }
 
     private var color: Color {
-        switch status {
-        case .queued: return .secondary.opacity(0.5)
-        case .running: return .blue
-        case .succeeded: return .green
-        case .failed: return .red
-        }
+        .secondary
     }
 }
 
 struct PillLabel: View {
     let title: String
-    var tint: Color = .secondary
 
     var body: some View {
         Text(title)
             .font(AppTypography.badge)
             .padding(.horizontal, 8)
             .padding(.vertical, 3)
-            .background(tint.opacity(0.12), in: Capsule())
-            .foregroundStyle(tint)
+            .background(.quaternary, in: Capsule())
+            .foregroundStyle(.secondary)
     }
 }

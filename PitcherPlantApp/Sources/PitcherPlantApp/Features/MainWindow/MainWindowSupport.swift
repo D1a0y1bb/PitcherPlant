@@ -90,10 +90,10 @@ struct MainStatusBar: View {
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 7)
-        .background(Color(nsColor: .windowBackgroundColor))
-        .overlay(alignment: .top) {
-            Divider()
-        }
+        .appPanelSurface(cornerRadius: 10, glass: true)
+        .padding(.horizontal, 14)
+        .padding(.vertical, 8)
+        .background(.background)
     }
 
     private func noticeIcon(for tone: AppNotice.Tone) -> String {
@@ -105,11 +105,7 @@ struct MainStatusBar: View {
     }
 
     private func noticeColor(for tone: AppNotice.Tone) -> Color {
-        switch tone {
-        case .info: return .secondary
-        case .success: return .green
-        case .error: return .red
-        }
+        .secondary
     }
 }
 
@@ -148,20 +144,21 @@ struct MainSidebarView: View {
     }
 
     private func sidebarRow(_ item: MainSidebarItem, title: String? = nil, count: Int? = nil) -> some View {
-        Label {
-            HStack {
-                Text(title ?? appState.title(for: item))
-                Spacer()
-                if let count {
-                    Text("\(count)")
-                        .font(AppTypography.metadata)
-                        .foregroundStyle(.secondary)
-                        .frame(minWidth: 22, alignment: .trailing)
-                }
-            }
-        } icon: {
+        HStack(spacing: 10) {
             Image(systemName: item.systemImage)
+                .frame(width: 18, alignment: .center)
+                .foregroundStyle(.secondary)
+            Text(title ?? appState.title(for: item))
+                .lineLimit(1)
+            Spacer()
+            if let count {
+                Text("\(count)")
+                    .font(AppTypography.metadata)
+                    .foregroundStyle(.secondary)
+                    .frame(minWidth: 26, alignment: .trailing)
+            }
         }
+        .padding(.vertical, 3)
         .tag(item)
     }
 

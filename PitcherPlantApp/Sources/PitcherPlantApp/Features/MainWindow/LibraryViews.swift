@@ -15,17 +15,24 @@ struct JobHistoryView: View {
     }
 
     var body: some View {
-        VStack(spacing: 0) {
+        VStack(spacing: 14) {
             SearchHeader(title: appState.t("sidebar.history"), count: filteredJobs.count, query: $query, prompt: appState.t("history.searchPrompt"))
-            List(selection: Binding(get: { appState.selectedJobID }, set: { appState.selectedJobID = $0 })) {
-                ForEach(filteredJobs) { job in
-                    JobTableRow(job: job)
-                        .tag(job.id)
-                        .listRowInsets(EdgeInsets(top: 4, leading: 12, bottom: 4, trailing: 12))
+
+            AppTablePanel {
+                List(selection: Binding(get: { appState.selectedJobID }, set: { appState.selectedJobID = $0 })) {
+                    ForEach(filteredJobs) { job in
+                        JobTableRow(job: job)
+                            .tag(job.id)
+                            .listRowInsets(EdgeInsets(top: 4, leading: 12, bottom: 4, trailing: 12))
+                    }
                 }
+                .listStyle(.plain)
+                .scrollContentBackground(.hidden)
             }
-            .listStyle(.plain)
         }
+        .padding(AppLayout.pagePadding)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .background(.background)
     }
 }
 
@@ -46,33 +53,39 @@ struct FingerprintLibraryView: View {
     }
 
     var body: some View {
-        VStack(spacing: 0) {
+        VStack(spacing: 14) {
             SearchHeader(title: appState.t("sidebar.fingerprints"), count: filteredRecords.count, query: $query, prompt: appState.t("fingerprints.searchPrompt"))
-            VStack(spacing: 8) {
-                HStack(spacing: 10) {
-                    TextField("导入标签，逗号分隔", text: $importTags)
-                        .textFieldStyle(.roundedBorder)
-                        .frame(width: 190)
 
-                    Button {
-                        appState.importFingerprintPackageWithPanel(tags: parsedTags(importTags))
-                    } label: {
-                        Label(appState.t("fingerprints.importPackage"), systemImage: "square.and.arrow.down")
+            AppToolbarBand {
+                VStack(spacing: 10) {
+                    HStack(spacing: 10) {
+                        TextField("导入标签，逗号分隔", text: $importTags)
+                            .textFieldStyle(.roundedBorder)
+                            .frame(maxWidth: 260)
+
+                        Button {
+                            appState.importFingerprintPackageWithPanel(tags: parsedTags(importTags))
+                        } label: {
+                            Label(appState.t("fingerprints.importPackage"), systemImage: "square.and.arrow.down")
+                        }
+
+                        Spacer()
                     }
 
-                    TextField("导出包标签，逗号分隔", text: $exportTags)
-                        .textFieldStyle(.roundedBorder)
-                        .frame(width: 190)
+                    HStack(spacing: 10) {
+                        TextField("导出包标签，逗号分隔", text: $exportTags)
+                            .textFieldStyle(.roundedBorder)
+                            .frame(maxWidth: 260)
 
-                    Button {
-                        appState.exportFingerprintPackage(records: filteredRecords, tags: parsedTags(exportTags))
-                    } label: {
-                        Label(appState.t("fingerprints.exportPackage"), systemImage: "square.and.arrow.up")
+                        Button {
+                            appState.exportFingerprintPackage(records: filteredRecords, tags: parsedTags(exportTags))
+                        } label: {
+                            Label(appState.t("fingerprints.exportPackage"), systemImage: "square.and.arrow.up")
+                        }
+                        .disabled(filteredRecords.isEmpty)
+
+                        Spacer()
                     }
-                    .disabled(filteredRecords.isEmpty)
-
-                    Spacer()
-                }
 
                 HStack(spacing: 10) {
                     TextField(appState.t("fingerprints.cleanupTag"), text: $cleanupTag)
@@ -93,15 +106,20 @@ struct FingerprintLibraryView: View {
                     Spacer()
                 }
             }
-            .padding(12)
-            .background(Color(nsColor: .windowBackgroundColor))
-
-            List(filteredRecords) { record in
-                FingerprintTableRow(record: record)
-                    .listRowInsets(EdgeInsets(top: 4, leading: 12, bottom: 4, trailing: 12))
             }
-            .listStyle(.plain)
+
+            AppTablePanel {
+                List(filteredRecords) { record in
+                    FingerprintTableRow(record: record)
+                        .listRowInsets(EdgeInsets(top: 4, leading: 12, bottom: 4, trailing: 12))
+                }
+                .listStyle(.plain)
+                .scrollContentBackground(.hidden)
+            }
         }
+        .padding(AppLayout.pagePadding)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .background(.background)
     }
 
     private var cleanupMatchCount: Int {
@@ -177,17 +195,18 @@ struct WhitelistLibraryView: View {
     }
 
     var body: some View {
-        VStack(spacing: 0) {
+        VStack(spacing: 14) {
             SearchHeader(title: appState.t("sidebar.whitelist"), count: filteredRules.count + filteredSuggestions.count, query: $query, prompt: appState.t("whitelist.searchPrompt"))
-            VStack(spacing: 0) {
+
+            AppToolbarBand {
                 HStack(spacing: 10) {
                     Picker(appState.t("whitelist.type"), selection: $newType) {
                         ForEach(WhitelistRule.RuleType.allCases, id: \.self) { type in
                             Text(appState.title(for: type)).tag(type)
                         }
                     }
-                    .pickerStyle(.segmented)
-                    .frame(width: 190)
+                    .pickerStyle(.menu)
+                    .frame(width: 150)
 
                     TextField(appState.t("whitelist.newRule"), text: $newPattern)
                         .textFieldStyle(.roundedBorder)
@@ -199,10 +218,9 @@ struct WhitelistLibraryView: View {
                     }
                     .disabled(newPattern.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 }
-                .padding(12)
+            }
 
-                Divider()
-
+            AppToolbarBand {
                 WhitelistSuggestionToolbar(
                     filter: $suggestionFilter,
                     pendingCount: pendingSuggestionsForBatch.count,
@@ -212,31 +230,41 @@ struct WhitelistLibraryView: View {
                     acceptPending: acceptPendingSuggestions
                 )
             }
-            .background(Color(nsColor: .windowBackgroundColor))
 
-            List {
-                if filteredSuggestions.isEmpty == false {
-                    Section("白名单建议") {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 18) {
+                    AppSectionPanel(title: "白名单建议", subtitle: "\(filteredSuggestions.count) 条") {
+                        if filteredSuggestions.isEmpty {
+                            EmptyWhitelistRow(title: "暂无匹配建议", subtitle: "刷新建议后可在这里接受或忽略候选规则", systemImage: "checklist")
+                        } else {
                         ForEach(filteredSuggestions) { suggestion in
                             WhitelistSuggestionTableRow(
                                 suggestion: suggestion,
                                 accept: { acceptSuggestion(suggestion) },
                                 dismiss: { dismissSuggestion(suggestion) }
                             )
-                            .listRowInsets(EdgeInsets(top: 4, leading: 12, bottom: 4, trailing: 12))
+                            AppDivider()
                         }
                     }
                 }
 
-                Section("现有规则") {
-                    ForEach(filteredRules) { rule in
-                        WhitelistTableRow(rule: rule)
-                            .listRowInsets(EdgeInsets(top: 4, leading: 12, bottom: 4, trailing: 12))
+                    AppSectionPanel(title: "现有规则", subtitle: "\(filteredRules.count) 条") {
+                        if filteredRules.isEmpty {
+                            EmptyWhitelistRow(title: "暂无匹配规则", subtitle: "可在上方输入规则并保存", systemImage: "shield")
+                        } else {
+                            ForEach(filteredRules) { rule in
+                                WhitelistTableRow(rule: rule)
+                                AppDivider()
+                            }
+                        }
                     }
                 }
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .listStyle(.plain)
         }
+        .padding(AppLayout.pagePadding)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .background(.background)
         .task {
             if suggestions.isEmpty {
                 await refreshSuggestions()
@@ -352,6 +380,7 @@ private struct WhitelistSuggestionToolbar: View {
                     }
                 }
                 .pickerStyle(.segmented)
+                .labelsHidden()
                 .frame(width: 220)
 
                 Button(action: refresh) {
@@ -375,7 +404,7 @@ private struct WhitelistSuggestionToolbar: View {
                     .font(AppTypography.metadata)
                     .foregroundStyle(.secondary)
             }
-            .buttonStyle(.borderless)
+        .buttonStyle(.borderless)
 
             if let message {
                 Text(message)
@@ -384,8 +413,30 @@ private struct WhitelistSuggestionToolbar: View {
                     .lineLimit(2)
             }
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 10)
+    }
+}
+
+private struct EmptyWhitelistRow: View {
+    let title: String
+    let subtitle: String
+    let systemImage: String
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Image(systemName: systemImage)
+                .foregroundStyle(.secondary)
+                .frame(width: 22)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(AppTypography.rowPrimary)
+                Text(subtitle)
+                    .font(AppTypography.supporting)
+                    .foregroundStyle(.secondary)
+            }
+            Spacer()
+        }
+        .padding(.horizontal, AppLayout.rowHorizontalPadding)
+        .padding(.vertical, 18)
     }
 }
 
@@ -419,7 +470,7 @@ private struct WhitelistSuggestionTableRow: View {
                 .frame(width: 54, alignment: .trailing)
 
             Text(suggestion.status.title)
-                .foregroundStyle(statusColor)
+                .foregroundStyle(.secondary)
                 .frame(width: 64, alignment: .trailing)
 
             Button(action: accept) {
@@ -435,16 +486,10 @@ private struct WhitelistSuggestionTableRow: View {
             .disabled(suggestion.status == .dismissed)
         }
         .font(AppTypography.rowSecondary)
+        .padding(.horizontal, AppLayout.rowHorizontalPadding)
         .padding(.vertical, 7)
     }
 
-    private var statusColor: Color {
-        switch suggestion.status {
-        case .pending: return .secondary
-        case .accepted: return .green
-        case .dismissed: return .orange
-        }
-    }
 }
 
 struct JobInspectorView: View {
@@ -504,19 +549,22 @@ struct JobInspectorView: View {
                             ProgressView(value: Double(job.progress), total: 100)
                         }
                     }
+                    .padding(12)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .appPanelSurface(glass: true)
 
                     JobInspectorSection(title: appState.t("job.timeline"), subtitle: "\(job.events.count) \(appState.t("common.countSuffix"))") {
                         VStack(alignment: .leading, spacing: 0) {
                             ForEach(Array(job.events.reversed())) { event in
                                 TimelineEventRow(event: event)
-                                Divider()
+                                AppDivider()
                             }
                         }
                     }
                 }
                 .padding(20)
             }
-            .background(Color(nsColor: .textBackgroundColor))
+            .background(.background)
         } else {
             ContentUnavailableView(appState.t("job.noSelection"), systemImage: "clock.badge.questionmark", description: Text(appState.t("job.noSelectionDescription")))
         }

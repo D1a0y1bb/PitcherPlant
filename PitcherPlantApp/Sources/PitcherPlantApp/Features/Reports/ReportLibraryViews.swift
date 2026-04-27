@@ -7,8 +7,9 @@ struct ReportLibrarySidebar: View {
     @Binding var reportFilter: ReportLibraryFilter
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 12) {
+            AppToolbarBand {
+                VStack(alignment: .leading, spacing: 10) {
                 HStack(alignment: .firstTextBaseline) {
                     Text(appState.t("reports.title"))
                         .font(AppTypography.sectionTitle)
@@ -23,31 +24,36 @@ struct ReportLibrarySidebar: View {
                     }
                 }
                 .pickerStyle(.segmented)
+                .labelsHidden()
             }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 12)
+            }
+            .padding(.horizontal, 12)
+            .padding(.top, 12)
 
-            Divider()
-
-            List(selection: Binding(
-                get: { appState.selectedReportID },
-                set: { appState.selectReport($0) }
-            )) {
-                if reports.isEmpty {
-                    ContentUnavailableView(appState.t("reports.noMatchedReport"), systemImage: "doc.text.magnifyingglass", description: Text(appState.t("reports.noMatchedDescription")))
-                        .listRowSeparator(.hidden)
-                } else {
-                    ForEach(reports) { report in
-                        ReportLibraryRow(report: report)
-                            .tag(report.id)
-                            .listRowInsets(EdgeInsets(top: 4, leading: 10, bottom: 4, trailing: 10))
+            AppTablePanel {
+                List(selection: Binding(
+                    get: { appState.selectedReportID },
+                    set: { appState.selectReport($0) }
+                )) {
+                    if reports.isEmpty {
+                        ContentUnavailableView(appState.t("reports.noMatchedReport"), systemImage: "doc.text.magnifyingglass", description: Text(appState.t("reports.noMatchedDescription")))
+                            .listRowSeparator(.hidden)
+                    } else {
+                        ForEach(reports) { report in
+                            ReportLibraryRow(report: report)
+                                .tag(report.id)
+                                .listRowInsets(EdgeInsets(top: 4, leading: 10, bottom: 4, trailing: 10))
+                        }
                     }
                 }
+                .listStyle(.plain)
+                .scrollContentBackground(.hidden)
             }
-            .listStyle(.plain)
+            .padding(.horizontal, 12)
+            .padding(.bottom, 12)
         }
         .searchable(text: $reportQuery, placement: .sidebar, prompt: appState.t("reports.searchPrompt"))
-        .background(Color(nsColor: .textBackgroundColor))
+        .background(.background)
     }
 }
 
@@ -72,8 +78,8 @@ struct ReportLibraryRow: View {
                             .font(AppTypography.badge)
                             .padding(.horizontal, 6)
                             .padding(.vertical, 2)
-                            .background(Color.orange.opacity(0.12), in: Capsule())
-                            .foregroundStyle(.orange)
+                            .background(.quaternary, in: Capsule())
+                            .foregroundStyle(.secondary)
                     }
                 }
                 Text(report.createdAt.formatted(date: .abbreviated, time: .shortened))

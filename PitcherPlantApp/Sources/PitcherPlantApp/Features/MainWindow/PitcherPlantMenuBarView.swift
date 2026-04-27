@@ -125,7 +125,7 @@ struct PitcherPlantMenuBarView: View {
                 .foregroundStyle(.secondary)
                 .padding(.horizontal, 7)
                 .padding(.vertical, 3)
-                .background(Color.secondary.opacity(0.12), in: Capsule())
+                .background(.quaternary, in: Capsule())
         }
         .padding(.horizontal, 12)
         .frame(height: 42)
@@ -228,7 +228,7 @@ private struct MenuBarGlassSection<Content: View>: View {
                     .foregroundStyle(.secondary)
                     .padding(.horizontal, 7)
                     .padding(.vertical, 2)
-                    .background(.secondary.opacity(0.08), in: Capsule())
+                    .background(.quaternary, in: Capsule())
             }
             .padding(.horizontal, 12)
             .padding(.top, 10)
@@ -258,14 +258,14 @@ private struct MenuBarGlassSurface: ViewModifier {
             content
                 .background(.ultraThinMaterial, in: shape)
                 .overlay {
-                    shape.stroke(.separator.opacity(0.18))
+                    shape.stroke(.separator)
                 }
         }
         #else
         content
             .background(.ultraThinMaterial, in: shape)
             .overlay {
-                shape.stroke(.separator.opacity(0.18))
+                shape.stroke(.separator)
             }
         #endif
     }
@@ -377,12 +377,7 @@ private struct MenuBarStatusDot: View {
     let status: AuditJobStatus
 
     private var color: Color {
-        switch status {
-        case .queued: return .secondary.opacity(0.5)
-        case .running: return .blue
-        case .succeeded: return .green
-        case .failed: return .red
-        }
+        .secondary
     }
 
     var body: some View {

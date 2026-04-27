@@ -28,6 +28,7 @@ struct PresetTableRow: View {
             }
             .buttonStyle(.borderless)
         }
+        .padding(.horizontal, AppLayout.rowHorizontalPadding)
         .padding(.vertical, 7)
     }
 }
@@ -53,6 +54,7 @@ struct JobTableRow: View {
                 .frame(width: 128, alignment: .trailing)
         }
         .font(AppTypography.rowSecondary)
+        .padding(.horizontal, AppLayout.rowHorizontalPadding)
         .padding(.vertical, 7)
     }
 }
@@ -69,7 +71,7 @@ struct AuditReportListRow: View {
                 .lineLimit(1)
                 .frame(maxWidth: .infinity, alignment: .leading)
             if report.isLegacy {
-                PillLabel(title: "Legacy", tint: .orange)
+                PillLabel(title: "Legacy")
                     .frame(width: 74, alignment: .trailing)
             } else {
                 Text(appState.t("common.native"))
@@ -84,6 +86,7 @@ struct AuditReportListRow: View {
                 .frame(width: 128, alignment: .trailing)
         }
         .font(AppTypography.rowSecondary)
+        .padding(.horizontal, AppLayout.rowHorizontalPadding)
         .padding(.vertical, 7)
     }
 }
@@ -98,29 +101,35 @@ struct FingerprintTableRow: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            Text(record.filename)
-                .font(AppTypography.rowPrimary)
-                .fontWeight(.medium)
-                .lineLimit(1)
-                .frame(maxWidth: .infinity, alignment: .leading)
-            Text(record.ext.uppercased())
-                .foregroundStyle(.secondary)
-                .frame(width: 60, alignment: .leading)
-            Text(record.scanDir)
-                .foregroundStyle(.secondary)
-                .lineLimit(1)
-                .frame(width: 150, alignment: .leading)
-            Text(tagSummary)
-                .foregroundStyle(.secondary)
-                .lineLimit(1)
-                .frame(width: 150, alignment: .leading)
-            Text(record.simhash)
-                .font(AppTypography.smallCode)
-                .foregroundStyle(.secondary)
-                .lineLimit(1)
-                .frame(width: 170, alignment: .trailing)
+            VStack(alignment: .leading, spacing: 3) {
+                Text(record.filename)
+                    .font(AppTypography.rowPrimary)
+                    .fontWeight(.medium)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+                Text([record.scanDir, tagSummary].filter { $0 != "-" }.joined(separator: " · "))
+                    .font(AppTypography.rowSecondary)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+
+            VStack(alignment: .trailing, spacing: 3) {
+                Text(record.ext.uppercased())
+                    .font(AppTypography.badge)
+                    .foregroundStyle(.secondary)
+                    .padding(.horizontal, 7)
+                    .padding(.vertical, 2)
+                    .background(.quaternary, in: Capsule())
+                Text(record.simhash)
+                    .font(AppTypography.smallCode)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
+            .frame(width: 170, alignment: .trailing)
         }
-        .font(AppTypography.rowSecondary)
+        .padding(.horizontal, AppLayout.rowHorizontalPadding)
         .padding(.vertical, 7)
     }
 }
@@ -150,6 +159,7 @@ struct WhitelistTableRow: View {
             .buttonStyle(.borderless)
         }
         .font(AppTypography.rowSecondary)
+        .padding(.horizontal, AppLayout.rowHorizontalPadding)
         .padding(.vertical, 7)
     }
 }
@@ -160,7 +170,7 @@ struct TimelineEventRow: View {
     var body: some View {
         HStack(alignment: .firstTextBaseline, spacing: 10) {
             Circle()
-                .fill(.secondary.opacity(0.55))
+                .fill(.secondary)
                 .frame(width: 7, height: 7)
             VStack(alignment: .leading, spacing: 2) {
                 Text(event.message)
@@ -171,6 +181,7 @@ struct TimelineEventRow: View {
             }
             Spacer()
         }
+        .padding(.horizontal, AppLayout.rowHorizontalPadding)
         .padding(.vertical, 9)
     }
 }

@@ -23,6 +23,9 @@ struct ReportEvidenceInspector: View {
                             }
                         }
                     }
+                    .padding(12)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .appPanelSurface(glass: true)
 
                     EvidenceReviewPanel(row: row)
 
@@ -47,7 +50,7 @@ struct ReportEvidenceInspector: View {
                 .padding(20)
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .background(Color(nsColor: .textBackgroundColor))
+            .background(.background)
         } else if let section = appState.selectedReportSectionModel {
             if section.table?.rows.isEmpty == false {
                 ReportSectionSummaryInspector(section: section, report: appState.selectedReport)
@@ -81,6 +84,9 @@ struct ReportQuickInspector: View {
                         .foregroundStyle(.secondary)
                         .lineLimit(2)
                 }
+                .padding(12)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .appPanelSurface(glass: true)
 
                 InspectorSection(title: appState.t("reports.metrics")) {
                     VStack(alignment: .leading, spacing: 8) {
@@ -117,7 +123,7 @@ struct ReportQuickInspector: View {
             .padding(20)
             .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .background(Color(nsColor: .textBackgroundColor))
+        .background(.background)
     }
 }
 
@@ -136,9 +142,12 @@ struct ReportSectionSummaryInspector: View {
                         Text(report.title)
                             .font(AppTypography.metadata)
                             .foregroundStyle(.secondary)
-                            .lineLimit(2)
+                        .lineLimit(2)
                     }
                 }
+                .padding(12)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .appPanelSurface(glass: true)
 
                 InspectorSection(title: appState.t("reports.sectionSummary")) {
                     Text(section.summary.isEmpty ? appState.t("reports.sectionNoStructuredEvidence") : section.summary)
@@ -170,7 +179,7 @@ struct ReportSectionSummaryInspector: View {
             .padding(20)
             .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .background(Color(nsColor: .textBackgroundColor))
+        .background(.background)
     }
 }
 
@@ -179,15 +188,8 @@ struct InspectorSection<Content: View>: View {
     @ViewBuilder var content: Content
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text(title)
-                .font(AppTypography.sectionTitle)
+        AppInspectorPanel(title: title) {
             content
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.top, 8)
-        .overlay(alignment: .top) {
-            Divider()
         }
     }
 }
@@ -238,7 +240,8 @@ struct EvidenceReviewPanel: View {
                 TextEditor(text: $note)
                     .font(AppTypography.body)
                     .frame(minHeight: 72)
-                    .overlay(RoundedRectangle(cornerRadius: 6).stroke(.separator.opacity(0.35)))
+                    .padding(6)
+                    .appPanelSurface(cornerRadius: 8)
 
                 Button {
                     Task {
@@ -626,8 +629,7 @@ private struct EvidenceContextCard: View {
         }
         .padding(9)
         .frame(maxWidth: .infinity, alignment: .topLeading)
-        .background(Color(nsColor: .windowBackgroundColor))
-        .overlay(RoundedRectangle(cornerRadius: 8).stroke(.separator.opacity(0.25)))
+        .appPanelSurface(cornerRadius: 10)
     }
 
     private var metricText: String {
@@ -746,6 +748,8 @@ private struct CodeDiffSummaryView: View {
                 .lineLimit(2)
                 .textSelection(.enabled)
         }
+        .padding(10)
+        .appPanelSurface(cornerRadius: 10)
     }
 }
 
@@ -789,8 +793,7 @@ private struct CodeLineDiffView: View {
                 .padding(8)
             }
             .frame(minHeight: 120, maxHeight: 220)
-            .background(Color(nsColor: .textBackgroundColor), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-            .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).stroke(.separator.opacity(0.24)))
+            .appPanelSurface(cornerRadius: 10)
         }
     }
 
@@ -825,22 +828,11 @@ private struct CodeLineDiffView: View {
     }
 
     private func backgroundColor(_ change: CodeLineDiffRow.Change, side: Side) -> Color {
-        switch (change, side) {
-        case (.deleted, .left), (.modified, .left):
-            return Color.red.opacity(0.10)
-        case (.inserted, .right), (.modified, .right):
-            return Color.green.opacity(0.10)
-        default:
-            return Color.clear
-        }
+        change == .unchanged ? Color.clear : Color(nsColor: .selectedContentBackgroundColor)
     }
 
     private func statusColor(_ change: CodeLineDiffRow.Change) -> Color {
-        switch change {
-        case .unchanged: return .secondary
-        case .deleted, .modified: return .orange
-        case .inserted: return .green
-        }
+        .secondary
     }
 }
 
@@ -856,8 +848,8 @@ private struct FlowTokenLine: View {
                     .truncationMode(.middle)
                     .padding(.horizontal, 6)
                     .padding(.vertical, 2)
-                    .background(Color.accentColor.opacity(0.11), in: Capsule())
-                    .foregroundStyle(Color.accentColor)
+                    .background(.quaternary, in: Capsule())
+                    .foregroundStyle(.secondary)
             }
         }
     }
@@ -886,8 +878,7 @@ private struct AttachmentSummaryCard: View {
                 .textSelection(.enabled)
         }
         .padding(10)
-        .background(Color(nsColor: .windowBackgroundColor))
-        .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).stroke(.separator.opacity(0.25)))
+        .appPanelSurface(cornerRadius: 10)
     }
 }
 
@@ -903,9 +894,9 @@ private struct ImageComparisonCard: View {
             HStack(spacing: 8) {
                 Text(label)
                     .font(AppTypography.badge)
-                    .foregroundStyle(.white)
+                    .foregroundStyle(.secondary)
                     .frame(width: 20, height: 20)
-                    .background(Color.accentColor, in: Circle())
+                    .background(.quaternary, in: Circle())
 
                 AttachmentHeader(attachment: attachment)
             }
@@ -919,7 +910,7 @@ private struct ImageComparisonCard: View {
                         .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
                 }
                 .frame(maxWidth: .infinity, minHeight: 180, maxHeight: 260)
-                .background(Color(nsColor: .textBackgroundColor), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                .background(.background, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
             }
 
             Text(attachment.body)
@@ -930,8 +921,7 @@ private struct ImageComparisonCard: View {
         }
         .padding(10)
         .frame(maxWidth: .infinity, alignment: .topLeading)
-        .background(Color(nsColor: .windowBackgroundColor))
-        .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).stroke(.separator.opacity(0.25)))
+        .appPanelSurface(cornerRadius: 10)
     }
 
     private func displaySize(for image: NSImage) -> CGSize {
@@ -1087,7 +1077,7 @@ private enum EvidenceTextHighlighter {
                     of: highlight,
                     options: [.caseInsensitive, .diacriticInsensitive]
                   ) {
-                result[range].backgroundColor = Color.yellow.opacity(0.28)
+                result[range].backgroundColor = Color(nsColor: .selectedTextBackgroundColor)
                 result[range].foregroundColor = Color.primary
                 searchStart = range.upperBound
             }
@@ -1116,27 +1106,7 @@ struct ReportBadgeView: View {
             .font(AppTypography.badge)
             .padding(.horizontal, 8)
             .padding(.vertical, 3)
-            .background(background, in: Capsule())
-            .foregroundStyle(foreground)
-    }
-
-    private var background: Color {
-        switch badge.tone {
-        case .neutral: return Color(nsColor: .separatorColor).opacity(0.16)
-        case .accent: return Color.blue.opacity(0.12)
-        case .warning: return Color.orange.opacity(0.14)
-        case .danger: return Color.red.opacity(0.14)
-        case .success: return Color.green.opacity(0.14)
-        }
-    }
-
-    private var foreground: Color {
-        switch badge.tone {
-        case .neutral: return .secondary
-        case .accent: return .blue
-        case .warning: return .orange
-        case .danger: return .red
-        case .success: return .green
-        }
+            .background(.quaternary, in: Capsule())
+            .foregroundStyle(.secondary)
     }
 }

@@ -25,34 +25,38 @@ struct ReportSectionsAndEvidenceView: View {
 
     var body: some View {
         if let report = appState.selectedReport {
-            VStack(spacing: 0) {
+            VStack(spacing: 14) {
                 if showsReportHeader {
                     ReportContentHeader(report: report)
-                    Divider()
                 }
 
                 ReportSectionStrip(report: report)
-                Divider()
 
                 if let section = selectedSection {
                     if totalRowCount > 0 {
-                        EvidenceToolbar(
-                            evidenceQuery: $evidenceQuery,
-                            evidenceFilter: $evidenceFilter,
-                            evidenceSortOrder: $evidenceSortOrder,
-                            visibleRowCount: rows.count,
-                            totalRowCount: totalRowCount
-                        )
-                        Divider()
-                        EvidenceList(section: section, rows: rows)
+                        AppTablePanel {
+                            VStack(spacing: 0) {
+                                EvidenceToolbar(
+                                    evidenceQuery: $evidenceQuery,
+                                    evidenceFilter: $evidenceFilter,
+                                    evidenceSortOrder: $evidenceSortOrder,
+                                    visibleRowCount: rows.count,
+                                    totalRowCount: totalRowCount
+                                )
+                                AppDivider()
+                                EvidenceList(section: section, rows: rows)
+                            }
+                        }
                     } else {
                         ReportSectionReadingView(section: section, report: report)
                     }
                 } else {
-                    ContentUnavailableView(appState.t("reports.noSection"), systemImage: "list.bullet.rectangle", description: Text(appState.t("reports.noSectionDescription")))
+                    AppEmptyPanel(title: appState.t("reports.noSection"), subtitle: appState.t("reports.noSectionDescription"), systemImage: "list.bullet.rectangle")
                 }
             }
-            .background(Color(nsColor: .textBackgroundColor))
+            .padding(showsReportHeader ? AppLayout.pagePadding : 0)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            .background(.background)
             .onAppear {
                 if appState.selectedReportSection == nil {
                     appState.selectReportSection(report.preferredEvidenceSection?.kind)
@@ -68,7 +72,9 @@ struct ReportSectionsAndEvidenceView: View {
                 syncVisibleEvidenceSelection()
             }
         } else {
-            ContentUnavailableView(appState.t("reports.noReport"), systemImage: "doc.text", description: Text(appState.t("reports.noReportDescription")))
+            AppEmptyPanel(title: appState.t("reports.noReport"), subtitle: appState.t("reports.noReportDescription"), systemImage: "doc.text")
+                .padding(AppLayout.pagePadding)
+                .background(.background)
         }
     }
 
@@ -122,13 +128,13 @@ struct ReportContentHeader: View {
                     .font(AppTypography.badge)
                     .padding(.horizontal, 10)
                     .padding(.vertical, 4)
-                    .background(Color.orange.opacity(0.12), in: Capsule())
-                    .foregroundStyle(.orange)
+                    .background(.quaternary, in: Capsule())
+                    .foregroundStyle(.secondary)
             }
         }
         .padding(.horizontal, 20)
         .padding(.vertical, 12)
-        .background(Color(nsColor: .textBackgroundColor))
+        .appPanelSurface(glass: true)
     }
 }
 
@@ -137,21 +143,20 @@ struct ReportSectionStrip: View {
     let report: AuditReport
 
     var body: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 8) {
-                ForEach(report.displaySections) { section in
-                    ReportSectionChip(
-                        section: section,
-                        isSelected: appState.selectedReportSection == section.kind
-                    ) {
-                        appState.selectReportSection(section.kind)
+        AppToolbarBand {
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    ForEach(report.displaySections) { section in
+                        ReportSectionChip(
+                            section: section,
+                            isSelected: appState.selectedReportSection == section.kind
+                        ) {
+                            appState.selectReportSection(section.kind)
+                        }
                     }
                 }
             }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 8)
         }
-        .background(Color(nsColor: .windowBackgroundColor))
     }
 }
 
@@ -166,32 +171,35 @@ struct ReportSectionChip: View {
     }
 
     var body: some View {
-        Button(action: action) {
-            VStack(spacing: 5) {
-                HStack(spacing: 6) {
-                    Text(appState.title(for: section.kind))
-                        .lineLimit(1)
-                    if rowCount > 0 {
-                        Text("\(rowCount)")
-                            .font(AppTypography.badge)
-                            .padding(.horizontal, 5)
-                            .padding(.vertical, 1)
-                            .background(Color.secondary.opacity(0.12), in: Capsule())
-                            .foregroundStyle(.secondary)
-                    }
-                }
-                Rectangle()
-                    .fill(isSelected ? Color.accentColor : Color.clear)
-                    .frame(height: 2)
+        if isSelected {
+            Button(action: action) {
+                label
             }
-            .font(AppTypography.metadata.weight(.medium))
-            .foregroundStyle(isSelected ? Color.accentColor : .primary)
-            .padding(.horizontal, 8)
-            .padding(.top, 6)
-            .padding(.bottom, 3)
-            .contentShape(Rectangle())
+            .buttonStyle(.borderedProminent)
+            .controlSize(.small)
+        } else {
+            Button(action: action) {
+                label
+            }
+            .buttonStyle(.bordered)
+            .controlSize(.small)
         }
-        .buttonStyle(.plain)
+    }
+
+    private var label: some View {
+        HStack(spacing: 6) {
+            Text(appState.title(for: section.kind))
+                .lineLimit(1)
+            if rowCount > 0 {
+                Text("\(rowCount)")
+                    .font(AppTypography.badge)
+                    .padding(.horizontal, 5)
+                    .padding(.vertical, 1)
+                    .background(.quaternary, in: Capsule())
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .font(AppTypography.metadata.weight(.medium))
     }
 }
 
@@ -220,6 +228,8 @@ struct ReportSectionReadingView: View {
                         .foregroundStyle(.secondary)
                         .textSelection(.enabled)
                 }
+                .padding(12)
+                .appPanelSurface()
 
                 if section.callouts.isEmpty == false {
                     VStack(alignment: .leading, spacing: 10) {
@@ -231,6 +241,8 @@ struct ReportSectionReadingView: View {
                                 .foregroundStyle(.secondary)
                         }
                     }
+                    .padding(12)
+                    .appPanelSurface()
                 }
 
                 VStack(alignment: .leading, spacing: 8) {
@@ -241,12 +253,14 @@ struct ReportSectionReadingView: View {
                         .foregroundStyle(.secondary)
                         .textSelection(.enabled)
                 }
+                .padding(12)
+                .appPanelSurface()
             }
             .padding(24)
             .frame(maxWidth: 760, alignment: .leading)
             .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .background(Color(nsColor: .textBackgroundColor))
+        .background(.background)
     }
 }
 
@@ -262,7 +276,7 @@ struct EvidenceToolbar: View {
         HStack(spacing: 12) {
             TextField(appState.t("reports.searchEvidence"), text: $evidenceQuery)
                 .textFieldStyle(.roundedBorder)
-                .frame(maxWidth: 260)
+                .frame(width: 260)
 
             Picker(appState.t("reports.filter"), selection: $evidenceFilter) {
                 ForEach(ReportEvidenceFilter.allCases) { option in
@@ -270,6 +284,7 @@ struct EvidenceToolbar: View {
                 }
             }
             .pickerStyle(.segmented)
+            .labelsHidden()
             .frame(width: 220)
 
             Menu {
@@ -288,8 +303,9 @@ struct EvidenceToolbar: View {
                 .font(AppTypography.metadata)
                 .foregroundStyle(.secondary)
         }
-        .padding(12)
-        .background(Color(nsColor: .windowBackgroundColor))
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+        .background(.thinMaterial)
     }
 }
 
@@ -334,6 +350,7 @@ struct EvidenceList: View {
                 }
             }
             .listStyle(.plain)
+            .scrollContentBackground(.hidden)
         }
     }
 }
@@ -383,6 +400,7 @@ struct CrossBatchEvidenceBrowser: View {
                     }
                 }
                 .pickerStyle(.segmented)
+                .labelsHidden()
                 .frame(width: 140)
 
                 if mode == .graph {
@@ -400,9 +418,9 @@ struct CrossBatchEvidenceBrowser: View {
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 8)
-            .background(Color(nsColor: .windowBackgroundColor))
+            .background(.thinMaterial)
 
-            Divider()
+            AppDivider()
 
             switch mode {
             case .list:
@@ -465,6 +483,7 @@ struct CrossBatchList: View {
             }
         }
         .listStyle(.plain)
+        .scrollContentBackground(.hidden)
     }
 }
 
@@ -516,11 +535,11 @@ struct CrossBatchListRow: View {
                 .frame(width: 110, alignment: .leading)
         }
         .font(AppTypography.rowSecondary)
-        .padding(.vertical, 5)
+        .padding(.vertical, 7)
     }
 
     private var statusColor: Color {
-        (row.columns[safe: 4] ?? "").contains("白名单") ? .green : .secondary
+        .secondary
     }
 }
 
@@ -553,7 +572,7 @@ struct CrossBatchGraphPanel: View {
                 .padding(16)
                 .frame(maxWidth: .infinity, alignment: .topLeading)
             }
-            .background(Color(nsColor: .textBackgroundColor))
+            .background(.background)
         }
     }
 }
@@ -602,8 +621,7 @@ struct CrossBatchNodeView: View {
         }
         .padding(10)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color(nsColor: .windowBackgroundColor))
-        .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).stroke(.separator.opacity(0.32)))
+        .appPanelSurface(cornerRadius: 10)
     }
 }
 
@@ -650,7 +668,7 @@ struct CrossBatchEdgeView: View {
                     .lineLimit(1)
                     .truncationMode(.middle)
                 Text(edge.status)
-                    .foregroundStyle(edge.status.contains("白名单") ? .green : .secondary)
+                    .foregroundStyle(.secondary)
                     .lineLimit(1)
             }
             .font(AppTypography.metadata)
@@ -658,8 +676,7 @@ struct CrossBatchEdgeView: View {
         }
         .padding(10)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color(nsColor: .controlBackgroundColor))
-        .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).stroke(.separator.opacity(0.32)))
+        .appPanelSurface(cornerRadius: 10)
     }
 }
 
@@ -713,7 +730,7 @@ struct EvidenceListRow: View {
                 .frame(width: 92, alignment: .leading)
         }
         .font(AppTypography.rowSecondary)
-        .padding(.vertical, 5)
+        .padding(.vertical, 7)
     }
 }
 
@@ -741,5 +758,6 @@ struct OverviewEvidenceList: View {
             }
         }
         .listStyle(.plain)
+        .scrollContentBackground(.hidden)
     }
 }
