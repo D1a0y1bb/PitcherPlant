@@ -386,11 +386,11 @@ private enum SettingsLayout {
     static let rowLeadingPadding: CGFloat = horizontalPadding
     static let trailingWidth: CGFloat = 360
     static let menuWidth: CGFloat = 220
-    static let numberFieldWidth: CGFloat = 58
-    static let stepperWidth: CGFloat = 156
-    static let hintWidth: CGFloat = 94
+    static let numberFieldWidth: CGFloat = 50
+    static let stepperWidth: CGFloat = 132
+    static let hintWidth: CGFloat = 70
     static let thresholdControlWidth: CGFloat = stepperWidth + 8 + hintWidth
-    static let pathControlHeight: CGFloat = 32
+    static let pathControlHeight: CGFloat = 34
     static let compactPathWidth: CGFloat = trailingWidth
     static let controlCornerRadius: CGFloat = 9
 }
@@ -518,7 +518,7 @@ private struct SettingsPathDisplay: View {
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
                 .truncationMode(.middle)
-                .textSelection(.enabled)
+                .frame(maxWidth: .infinity, alignment: .leading)
         }
         .padding(.horizontal, 9)
         .frame(width: SettingsLayout.compactPathWidth, height: SettingsLayout.pathControlHeight, alignment: .leading)
@@ -546,10 +546,11 @@ private struct SettingsTextControl: View {
         TextField(title, text: $text)
             .textFieldStyle(.plain)
             .font(.system(.footnote, design: .monospaced))
+            .multilineTextAlignment(.trailing)
             .lineLimit(1)
             .truncationMode(.middle)
             .padding(.horizontal, 9)
-            .frame(width: SettingsLayout.trailingWidth, height: SettingsLayout.pathControlHeight, alignment: .leading)
+            .frame(width: SettingsLayout.trailingWidth, height: SettingsLayout.pathControlHeight, alignment: .trailing)
             .settingsControlBackground()
     }
 }
@@ -711,7 +712,7 @@ private struct SettingsNumberStepper: View {
 
     var body: some View {
         HStack(spacing: 8) {
-            HStack(spacing: 2) {
+            HStack(spacing: 0) {
                 Button {
                     value = clamped(value - step)
                 } label: {
@@ -719,6 +720,7 @@ private struct SettingsNumberStepper: View {
                 }
                 .buttonStyle(SettingsStepperButtonStyle())
                 .disabled(value <= range.lowerBound)
+                .frame(width: 38)
 
                 TextField(hint, value: clampedBinding, format: .number.precision(.fractionLength(2)))
                     .textFieldStyle(.plain)
@@ -733,6 +735,7 @@ private struct SettingsNumberStepper: View {
                 }
                 .buttonStyle(SettingsStepperButtonStyle())
                 .disabled(value >= range.upperBound)
+                .frame(width: 38)
             }
             .frame(width: SettingsLayout.stepperWidth, height: 30)
             .settingsPanelSurface(cornerRadius: 8)
@@ -765,7 +768,7 @@ private struct SettingsIntegerStepper: View {
 
     var body: some View {
         HStack(spacing: 8) {
-            HStack(spacing: 2) {
+            HStack(spacing: 0) {
                 Button {
                     value = clamped(value - step)
                 } label: {
@@ -773,6 +776,7 @@ private struct SettingsIntegerStepper: View {
                 }
                 .buttonStyle(SettingsStepperButtonStyle())
                 .disabled(value <= range.lowerBound)
+                .frame(width: 38)
 
                 TextField(hint, value: clampedBinding, format: .number)
                     .textFieldStyle(.plain)
@@ -787,6 +791,7 @@ private struct SettingsIntegerStepper: View {
                 }
                 .buttonStyle(SettingsStepperButtonStyle())
                 .disabled(value >= range.upperBound)
+                .frame(width: 38)
             }
             .frame(width: SettingsLayout.stepperWidth, height: 30)
             .settingsPanelSurface(cornerRadius: 8)

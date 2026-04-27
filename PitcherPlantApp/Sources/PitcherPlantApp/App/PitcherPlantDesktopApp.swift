@@ -60,7 +60,9 @@ struct PitcherPlantDesktopApp: App {
                 .modifier(AppAppearanceSyncModifier(appearance: appState.appSettings.appearance, syncKey: appearanceSyncKey))
         } label: {
             if appState.appSettings.showMenuBarExtra {
-                Image(systemName: "leaf")
+                Image(systemName: "leaf.fill")
+                    .symbolRenderingMode(.monochrome)
+                    .foregroundStyle(.white)
             }
         }
         .menuBarExtraStyle(.window)

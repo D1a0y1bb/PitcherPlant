@@ -5,6 +5,7 @@ struct MainWindowView: View {
     @SceneStorage("pitcherplant.inspectorVisible") private var inspectorVisible = true
     @State private var columnVisibility = NavigationSplitViewVisibility.all
     @State private var settingsSearchText = ""
+    @State private var settingsSearchExpanded = false
 
     var body: some View {
         @Bindable var state = appState
@@ -19,11 +20,6 @@ struct MainWindowView: View {
                         MainStatusBar()
                     }
                 }
-                .modifier(SettingsSearchToolbarModifier(
-                    isActive: appState.selectedMainSidebar == .settings,
-                    searchText: $settingsSearchText,
-                    prompt: appState.t("settings.searchPrompt")
-                ))
                 .navigationSplitViewColumnWidth(min: 560, ideal: 760, max: .infinity)
         } detail: {
             Group {
@@ -84,6 +80,14 @@ struct MainWindowView: View {
                     }
                     .keyboardShortcut(",", modifiers: .command)
                     .help(appState.t("toolbar.settings"))
+
+                    SettingsToolbarSearchControl(
+                        searchText: $settingsSearchText,
+                        isExpanded: $settingsSearchExpanded,
+                        forceExpanded: isSidebarCollapsed || !settingsSearchText.isEmpty,
+                        prompt: appState.t("settings.searchPrompt"),
+                        clearTitle: appState.t("common.cancel")
+                    )
                 } else {
                     if appState.selectedMainSidebar.allowsInspector {
                         Button {
@@ -137,6 +141,10 @@ struct MainWindowView: View {
         appState.selectedMainSidebar.allowsInspector && inspectorVisible
     }
 
+    private var isSidebarCollapsed: Bool {
+        columnVisibility != .all
+    }
+
     private func updateColumnVisibility() {
         columnVisibility = .all
     }
@@ -164,18 +172,73 @@ struct MainWindowView: View {
     }
 }
 
-private struct SettingsSearchToolbarModifier: ViewModifier {
-    let isActive: Bool
+private struct SettingsToolbarSearchControl: View {
     @Binding var searchText: String
+    @Binding var isExpanded: Bool
+    let forceExpanded: Bool
     let prompt: String
+    let clearTitle: String
+    @FocusState private var isFocused: Bool
 
-    func body(content: Content) -> some View {
-        if isActive {
-            content
-                .searchable(text: $searchText, prompt: prompt)
-        } else {
-            content
+    private var expanded: Bool {
+        isExpanded || forceExpanded
+    }
+
+    var body: some View {
+        Group {
+            if expanded {
+                HStack(spacing: 7) {
+                    Image(systemName: "magnifyingglass")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.secondary)
+
+                    TextField(prompt, text: $searchText)
+                        .textFieldStyle(.plain)
+                        .focused($isFocused)
+                        .font(.callout)
+                        .frame(width: 180)
+
+                    Button {
+                        if searchText.isEmpty {
+                            isExpanded = false
+                        } else {
+                            searchText = ""
+                        }
+                    } label: {
+                        Image(systemName: searchText.isEmpty ? "chevron.right" : "xmark.circle.fill")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(.secondary)
+                    }
+                    .buttonStyle(.plain)
+                    .help(searchText.isEmpty ? prompt : clearTitle)
+                    .opacity(forceExpanded && searchText.isEmpty ? 0.45 : 1)
+                    .disabled(forceExpanded && searchText.isEmpty)
+                }
+                .padding(.horizontal, 10)
+                .frame(height: 28)
+                .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                .overlay {
+                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        .stroke(Color(nsColor: .separatorColor).opacity(0.22))
+                }
+                .onAppear {
+                    if isExpanded || forceExpanded {
+                        isFocused = true
+                    }
+                }
+                .transition(.opacity.combined(with: .scale(scale: 0.98)))
+            } else {
+                Button {
+                    withAnimation(.easeOut(duration: 0.16)) {
+                        isExpanded = true
+                    }
+                } label: {
+                    Label(prompt, systemImage: "magnifyingglass")
+                }
+                .help(prompt)
+            }
         }
+        .animation(.easeOut(duration: 0.16), value: expanded)
     }
 }
 
