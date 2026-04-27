@@ -27,7 +27,6 @@ struct JobHistoryView: View {
                     }
                 }
                 .listStyle(.plain)
-                .scrollContentBackground(.hidden)
             }
         }
         .padding(AppLayout.pagePadding)
@@ -113,7 +112,6 @@ struct FingerprintLibraryView: View {
                         .listRowInsets(EdgeInsets(top: 4, leading: 12, bottom: 4, trailing: 12))
                 }
                 .listStyle(.plain)
-                .scrollContentBackground(.hidden)
             }
         }
         .padding(AppLayout.pagePadding)

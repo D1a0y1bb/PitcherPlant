@@ -340,7 +340,6 @@ struct EvidenceList: View {
                 }
             }
             .listStyle(.plain)
-            .scrollContentBackground(.hidden)
         }
     }
 }
@@ -472,7 +471,6 @@ struct CrossBatchList: View {
             }
         }
         .listStyle(.plain)
-        .scrollContentBackground(.hidden)
     }
 }
 
@@ -746,6 +744,5 @@ struct OverviewEvidenceList: View {
             }
         }
         .listStyle(.plain)
-        .scrollContentBackground(.hidden)
     }
 }
