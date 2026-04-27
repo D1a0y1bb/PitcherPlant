@@ -22,6 +22,10 @@ on:
         options:
           - ad-hoc
           - developer-id
+      xcode_path:
+        description: "Optional Xcode.app path. Empty selects the newest installed Xcode."
+        required: false
+        default: ""
 
 permissions:
   contents: write
@@ -29,11 +33,11 @@ permissions:
 jobs:
   macos-release:
     name: Build macOS release
-    runs-on: macos-15
+    runs-on: macos-latest
     timeout-minutes: 60
     env:
       APP_NAME: PitcherPlant
-      XCODE_PATH: /Applications/Xcode_16.4.app
+      XCODE_PATH: ${{ github.event.inputs.xcode_path }}
       APPLE_CERTIFICATE_BASE64: ${{ secrets.APPLE_CERTIFICATE_BASE64 }}
       APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
       APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
@@ -46,14 +50,43 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v5
 
-      - name: Select Xcode 16.4
+      - name: Select Xcode
         run: |
-          if [ ! -d "$XCODE_PATH" ]; then
-            echo "Required Xcode is missing: $XCODE_PATH"
-            ls -1 /Applications | grep '^Xcode' || true
-            exit 1
+          echo "Available Xcode apps:"
+          ls -1 /Applications | grep '^Xcode' || true
+
+          if [ -n "$XCODE_PATH" ]; then
+            if [ ! -d "$XCODE_PATH" ]; then
+              echo "Requested Xcode is missing: $XCODE_PATH"
+              exit 1
+            fi
+            SELECTED_XCODE="$XCODE_PATH"
+          else
+            SELECTED_XCODE=""
+            SELECTED_VERSION=""
+            for candidate in /Applications/Xcode*.app; do
+              if [ ! -d "$candidate" ]; then
+                continue
+              fi
+              version="$("$candidate/Contents/Developer/usr/bin/xcodebuild" -version | awk '/^Xcode / { print $2; exit }')"
+              if [ -z "$version" ]; then
+                continue
+              fi
+              if [ -z "$SELECTED_VERSION" ] || [ "$(printf '%s\n%s\n' "$SELECTED_VERSION" "$version" | sort -V | tail -n 1)" = "$version" ]; then
+                SELECTED_VERSION="$version"
+                SELECTED_XCODE="$candidate"
+              fi
+            done
+
+            if [ -z "$SELECTED_XCODE" ]; then
+              echo "No usable Xcode installation found."
+              exit 1
+            fi
           fi
-          sudo xcode-select -s "$XCODE_PATH/Contents/Developer"
+
+          echo "Selected Xcode: $SELECTED_XCODE"
+          sudo xcode-select -s "$SELECTED_XCODE/Contents/Developer"
+          xcode-select -p
 
       - name: Print toolchain versions
         run: |

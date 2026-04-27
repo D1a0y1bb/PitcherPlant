@@ -27,6 +27,7 @@ struct ProjectLocator {
                 prepareUserWorkspace(url, fileManager: fileManager)
                 return url
             }
+            defaults.removeObject(forKey: savedWorkspaceRootKey)
         }
 
         let startingPoints = [
@@ -74,6 +75,9 @@ struct ProjectLocator {
     }
 
     private func isUsableWorkspace(_ url: URL, fileManager: FileManager) -> Bool {
+        guard url.standardizedFileURL.path != "/" else {
+            return false
+        }
         var isDirectory: ObjCBool = false
         return fileManager.fileExists(atPath: url.path, isDirectory: &isDirectory) && isDirectory.boolValue
     }

@@ -2,7 +2,6 @@ import Foundation
 import Testing
 @testable import PitcherPlantApp
 
-@testable import PitcherPlantApp
 @Test
 func configurationDefaultsBuildPaths() {
     let root = URL(fileURLWithPath: "/tmp/pitcherplant")
@@ -25,6 +24,19 @@ func projectLocatorUsesSavedWorkspaceAndCreatesDefaultDirectories() throws {
     #expect(resolved.path == root.path)
     #expect(FileManager.default.fileExists(atPath: AuditConfiguration.defaultInputDirectory(for: root).path))
     #expect(FileManager.default.fileExists(atPath: AuditConfiguration.defaultOutputDirectory(for: root).path))
+}
+
+@Test
+func projectLocatorRejectsFilesystemRootSavedWorkspace() throws {
+    let suiteName = "pitcherplant.locator.root.tests.\(UUID().uuidString)"
+    let defaults = try #require(UserDefaults(suiteName: suiteName))
+    defaults.set("/", forKey: "pitcherplant.macos.workspaceRoot")
+
+    let resolved = ProjectLocator(defaults: defaults).workspaceRoot()
+
+    #expect(resolved.path != "/")
+    #expect(AuditConfiguration.defaultInputDirectory(for: resolved).path != "/Fixtures/WriteupSamples/date")
+    #expect(defaults.string(forKey: "pitcherplant.macos.workspaceRoot") == resolved.path)
 }
 
 @Test
