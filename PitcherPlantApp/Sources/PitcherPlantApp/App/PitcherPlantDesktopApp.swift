@@ -27,7 +27,6 @@ struct PitcherPlantDesktopApp: App {
                 }
         }
         .defaultSize(width: 1220, height: 780)
-        .windowResizability(.contentMinSize)
         .defaultLaunchBehavior(.presented)
         .commands {
             CommandGroup(replacing: .appInfo) {

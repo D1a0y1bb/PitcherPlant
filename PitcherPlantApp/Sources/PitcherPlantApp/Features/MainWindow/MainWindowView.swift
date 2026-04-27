@@ -130,7 +130,6 @@ struct MainWindowView: View {
         }
         .environment(\.locale, appState.effectiveLocale ?? .current)
         .preferredColorScheme(appState.effectiveColorScheme)
-        .frame(minWidth: 1180, minHeight: 760)
     }
 
     private var isInspectorColumnVisible: Bool {
