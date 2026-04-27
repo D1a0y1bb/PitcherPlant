@@ -41,56 +41,63 @@ struct PitcherPlantMenuBarView: View {
     }
 
     var body: some View {
-        VStack(spacing: 0) {
-            header
+        VStack(spacing: 12) {
+            headerCard
 
-            Divider()
-
-            ScrollView {
-                VStack(alignment: .leading, spacing: 0) {
-                    menuSectionTitle(appState.t("menu.recentAudits"), count: filteredJobs.count)
-
-                    if filteredJobs.isEmpty {
-                        CompactEmptyRow(title: appState.t("menu.noAudits"), subtitle: appState.t("menu.noAuditsDescription"))
-                    } else {
-                        ForEach(filteredJobs) { job in
-                            CompactJobRow(job: job) {
-                                appState.selectedJobID = job.id
-                                appState.selectedMainSidebar = .history
-                                openMainWindow()
+            ScrollView(showsIndicators: false) {
+                VStack(spacing: 12) {
+                    MenuBarPanelSection(title: appState.t("menu.recentAudits"), count: filteredJobs.count) {
+                        if filteredJobs.isEmpty {
+                            CompactEmptyRow(title: appState.t("menu.noAudits"), subtitle: appState.t("menu.noAuditsDescription"))
+                        } else {
+                            ForEach(Array(filteredJobs.enumerated()), id: \.element.id) { index, job in
+                                CompactJobRow(job: job) {
+                                    appState.selectedJobID = job.id
+                                    appState.selectedMainSidebar = .history
+                                    openMainWindow()
+                                }
+                                if index < filteredJobs.count - 1 {
+                                    Divider().padding(.leading, 30)
+                                }
                             }
-                            Divider()
                         }
                     }
 
-                    menuSectionTitle(appState.t("reports.title"), count: filteredReports.count)
-
-                    if filteredReports.isEmpty {
-                        CompactEmptyRow(title: appState.t("menu.noReports"), subtitle: appState.t("menu.noReportsDescription"))
-                    } else {
-                        ForEach(filteredReports) { report in
-                            CompactReportRow(report: report) {
-                                appState.showReport(report.id)
-                                openMainWindow()
+                    MenuBarPanelSection(title: appState.t("reports.title"), count: filteredReports.count) {
+                        if filteredReports.isEmpty {
+                            CompactEmptyRow(title: appState.t("menu.noReports"), subtitle: appState.t("menu.noReportsDescription"))
+                        } else {
+                            ForEach(Array(filteredReports.enumerated()), id: \.element.id) { index, report in
+                                CompactReportRow(report: report) {
+                                    appState.showReport(report.id)
+                                    openMainWindow()
+                                }
+                                if index < filteredReports.count - 1 {
+                                    Divider().padding(.leading, 30)
+                                }
                             }
-                            Divider()
                         }
                     }
                 }
+                .padding(.vertical, 1)
             }
-            .frame(height: 280)
-
-            Divider()
+            .frame(height: 290)
 
             actions
         }
-        .frame(width: 340)
+        .padding(12)
+        .frame(width: 360)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .stroke(Color(nsColor: .separatorColor).opacity(0.18))
+        }
         .task {
             await appState.bootstrapIfNeeded()
         }
     }
 
-    private var header: some View {
+    private var headerCard: some View {
         HStack(spacing: 10) {
             Image(systemName: "doc.text.magnifyingglass")
                 .foregroundStyle(.secondary)
@@ -105,7 +112,13 @@ struct PitcherPlantMenuBarView: View {
                 .padding(.vertical, 3)
                 .background(Color.secondary.opacity(0.12), in: Capsule())
         }
-        .padding(12)
+        .padding(.horizontal, 12)
+        .frame(height: 38)
+        .background(Color(nsColor: .controlBackgroundColor).opacity(0.72), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .stroke(Color(nsColor: .separatorColor).opacity(0.16))
+        }
     }
 
     private var actions: some View {
@@ -166,28 +179,61 @@ struct PitcherPlantMenuBarView: View {
         }
         .buttonStyle(.bordered)
         .controlSize(.regular)
-        .padding(12)
-    }
-
-    private func menuSectionTitle(_ title: String, count: Int) -> some View {
-        HStack {
-            Text(title)
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(.secondary)
-            Spacer()
-            Text("\(count)")
-                .font(.caption2.weight(.semibold))
-                .foregroundStyle(.secondary)
+        .padding(10)
+        .background(Color(nsColor: .controlBackgroundColor).opacity(0.72), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .stroke(Color(nsColor: .separatorColor).opacity(0.16))
         }
-        .padding(.horizontal, 12)
-        .padding(.top, 12)
-        .padding(.bottom, 6)
     }
 
     private func openMainWindow() {
         openWindow(id: AppWindow.main.rawValue)
         NSApp.setActivationPolicy(.regular)
         NSApp.activate(ignoringOtherApps: true)
+    }
+}
+
+private struct MenuBarPanelSection<Content: View>: View {
+    let title: String
+    let count: Int
+    let content: Content
+
+    init(title: String, count: Int, @ViewBuilder content: () -> Content) {
+        self.title = title
+        self.count = count
+        self.content = content()
+    }
+
+    var body: some View {
+        VStack(spacing: 0) {
+            HStack {
+                Text(title)
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                Spacer()
+                Text("\(count)")
+                    .font(.caption2.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                    .padding(.horizontal, 7)
+                    .padding(.vertical, 2)
+                    .background(Color.secondary.opacity(0.1), in: Capsule())
+            }
+            .padding(.horizontal, 12)
+            .padding(.top, 10)
+            .padding(.bottom, 6)
+
+            Divider()
+
+            VStack(spacing: 0) {
+                content
+            }
+        }
+        .background(Color(nsColor: .controlBackgroundColor).opacity(0.72), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .stroke(Color(nsColor: .separatorColor).opacity(0.16))
+        }
     }
 }
 

@@ -12,7 +12,7 @@ struct MainWindowView: View {
 
         NavigationSplitView(columnVisibility: $columnVisibility) {
             MainSidebarView(selection: $state.selectedMainSidebar)
-                .navigationSplitViewColumnWidth(min: 190, ideal: 220, max: 260)
+                .navigationSplitViewColumnWidth(min: 270, ideal: 300, max: 320)
         } content: {
             mainContent
                 .safeAreaInset(edge: .bottom, spacing: 0) {
@@ -63,8 +63,19 @@ struct MainWindowView: View {
             updateColumnVisibility()
         }
         .toolbar {
-            ToolbarItemGroup(placement: .primaryAction) {
-                if appState.selectedMainSidebar == .settings {
+            if appState.selectedMainSidebar == .settings {
+                ToolbarItem(placement: .automatic) {
+                    SettingsToolbarSearchControl(
+                        searchText: $settingsSearchText,
+                        isExpanded: $settingsSearchExpanded,
+                        prompt: appState.t("settings.searchPrompt"),
+                        clearTitle: appState.t("common.cancel"),
+                        expandTitle: appState.t("settings.searchPrompt"),
+                        collapseTitle: appState.t("toolbar.hideSearch")
+                    )
+                }
+
+                ToolbarItemGroup(placement: .primaryAction) {
                     Button {
                         Task { await appState.reload() }
                     } label: {
@@ -80,15 +91,9 @@ struct MainWindowView: View {
                     }
                     .keyboardShortcut(",", modifiers: .command)
                     .help(appState.t("toolbar.settings"))
-
-                    SettingsToolbarSearchControl(
-                        searchText: $settingsSearchText,
-                        isExpanded: $settingsSearchExpanded,
-                        forceExpanded: isSidebarCollapsed || !settingsSearchText.isEmpty,
-                        prompt: appState.t("settings.searchPrompt"),
-                        clearTitle: appState.t("common.cancel")
-                    )
-                } else {
+                }
+            } else {
+                ToolbarItemGroup(placement: .primaryAction) {
                     if appState.selectedMainSidebar.allowsInspector {
                         Button {
                             inspectorVisible.toggle()
@@ -123,14 +128,14 @@ struct MainWindowView: View {
                     } label: {
                         Label(appState.t("toolbar.settings"), systemImage: "gear")
                     }
-                    .keyboardShortcut(",", modifiers: .command)
-                    .help(appState.t("toolbar.settings"))
+                        .keyboardShortcut(",", modifiers: .command)
+                        .help(appState.t("toolbar.settings"))
                 }
             }
         }
         .environment(\.locale, appState.effectiveLocale ?? .current)
         .preferredColorScheme(appState.effectiveColorScheme)
-        .frame(minWidth: 1080, minHeight: 680)
+        .frame(minWidth: 1180, minHeight: 760)
     }
 
     private func runAuditAndOpenReport() async {
@@ -139,10 +144,6 @@ struct MainWindowView: View {
 
     private var isInspectorColumnVisible: Bool {
         appState.selectedMainSidebar.allowsInspector && inspectorVisible
-    }
-
-    private var isSidebarCollapsed: Bool {
-        columnVisibility != .all
     }
 
     private func updateColumnVisibility() {
@@ -175,18 +176,15 @@ struct MainWindowView: View {
 private struct SettingsToolbarSearchControl: View {
     @Binding var searchText: String
     @Binding var isExpanded: Bool
-    let forceExpanded: Bool
     let prompt: String
     let clearTitle: String
+    let expandTitle: String
+    let collapseTitle: String
     @FocusState private var isFocused: Bool
 
-    private var expanded: Bool {
-        isExpanded || forceExpanded
-    }
-
     var body: some View {
-        Group {
-            if expanded {
+        HStack(spacing: 8) {
+            if isExpanded {
                 HStack(spacing: 7) {
                     Image(systemName: "magnifyingglass")
                         .font(.caption.weight(.semibold))
@@ -196,23 +194,19 @@ private struct SettingsToolbarSearchControl: View {
                         .textFieldStyle(.plain)
                         .focused($isFocused)
                         .font(.callout)
-                        .frame(width: 180)
+                        .frame(width: 210)
 
                     Button {
-                        if searchText.isEmpty {
-                            isExpanded = false
-                        } else {
-                            searchText = ""
-                        }
+                        searchText = ""
                     } label: {
-                        Image(systemName: searchText.isEmpty ? "chevron.right" : "xmark.circle.fill")
+                        Image(systemName: "xmark.circle.fill")
                             .font(.caption.weight(.semibold))
                             .foregroundStyle(.secondary)
                     }
                     .buttonStyle(.plain)
-                    .help(searchText.isEmpty ? prompt : clearTitle)
-                    .opacity(forceExpanded && searchText.isEmpty ? 0.45 : 1)
-                    .disabled(forceExpanded && searchText.isEmpty)
+                    .help(clearTitle)
+                    .opacity(searchText.isEmpty ? 0.35 : 1)
+                    .disabled(searchText.isEmpty)
                 }
                 .padding(.horizontal, 10)
                 .frame(height: 28)
@@ -221,24 +215,36 @@ private struct SettingsToolbarSearchControl: View {
                     RoundedRectangle(cornerRadius: 8, style: .continuous)
                         .stroke(Color(nsColor: .separatorColor).opacity(0.22))
                 }
-                .onAppear {
-                    if isExpanded || forceExpanded {
+                .transition(.opacity.combined(with: .move(edge: .trailing)))
+            }
+
+            Button {
+                withAnimation(.easeOut(duration: 0.2)) {
+                    isExpanded.toggle()
+                }
+            } label: {
+                Label(
+                    isExpanded ? collapseTitle : expandTitle,
+                    systemImage: isExpanded ? "rectangle.compress.horizontal" : "magnifyingglass"
+                )
+            }
+            .help(isExpanded ? collapseTitle : expandTitle)
+            .onChange(of: isExpanded) { _, expanded in
+                if expanded {
+                    DispatchQueue.main.async {
                         isFocused = true
                     }
+                } else {
+                    isFocused = false
                 }
-                .transition(.opacity.combined(with: .scale(scale: 0.98)))
-            } else {
-                Button {
-                    withAnimation(.easeOut(duration: 0.16)) {
-                        isExpanded = true
-                    }
-                } label: {
-                    Label(prompt, systemImage: "magnifyingglass")
-                }
-                .help(prompt)
             }
         }
-        .animation(.easeOut(duration: 0.16), value: expanded)
+        .animation(.easeOut(duration: 0.2), value: isExpanded)
+        .onAppear {
+            if isExpanded {
+                isFocused = true
+            }
+        }
     }
 }
 

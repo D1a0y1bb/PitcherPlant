@@ -60,12 +60,20 @@ struct PitcherPlantDesktopApp: App {
                 .modifier(AppAppearanceSyncModifier(appearance: appState.appSettings.appearance, syncKey: appearanceSyncKey))
         } label: {
             if appState.appSettings.showMenuBarExtra {
-                Image(systemName: "leaf.fill")
-                    .symbolRenderingMode(.monochrome)
-                    .foregroundStyle(.white)
+                MenuBarAppIcon()
             }
         }
         .menuBarExtraStyle(.window)
+    }
+}
+
+private struct MenuBarAppIcon: View {
+    var body: some View {
+        Image(systemName: "doc.text.magnifyingglass")
+            .symbolRenderingMode(.hierarchical)
+            .font(.system(size: 15, weight: .regular))
+            .frame(width: 18, height: 18)
+            .accessibilityLabel("PitcherPlant")
     }
 }
 
