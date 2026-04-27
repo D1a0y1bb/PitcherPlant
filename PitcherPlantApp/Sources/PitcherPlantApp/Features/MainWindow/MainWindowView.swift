@@ -14,7 +14,9 @@ struct MainWindowView: View {
         } content: {
             mainContent
                 .safeAreaInset(edge: .bottom, spacing: 0) {
-                    MainStatusBar()
+                    if appState.selectedMainSidebar != .settings {
+                        MainStatusBar()
+                    }
                 }
                 .navigationSplitViewColumnWidth(min: 560, ideal: 760, max: .infinity)
         } detail: {

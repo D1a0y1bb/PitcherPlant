@@ -5,29 +5,37 @@ struct SettingsRootView: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 24) {
+            VStack(alignment: .leading, spacing: 28) {
                 SettingsPageHeader()
 
-                SettingsFormSection(title: appState.t("settings.general"), systemImage: "gearshape") {
-                    SettingsPickerRow(title: appState.t("settings.language")) {
+                SettingsGroup(title: appState.t("settings.general"), systemImage: "gearshape") {
+                    SettingsPickerRow(
+                        title: appState.t("settings.language"),
+                        subtitle: appState.t("settings.languageDescription")
+                    ) {
                         Picker(appState.t("settings.language"), selection: settingsBinding(\.language)) {
                             ForEach(AppLanguage.allCases) { language in
                                 Text(language.displayName).tag(language)
                             }
                         }
                         .labelsHidden()
+                        .controlSize(.small)
                         .frame(width: SettingsLayout.pickerWidth)
                     }
 
                     SettingsDivider()
 
-                    SettingsPickerRow(title: appState.t("settings.defaultPage")) {
+                    SettingsPickerRow(
+                        title: appState.t("settings.defaultPage"),
+                        subtitle: appState.t("settings.defaultPageDescription")
+                    ) {
                         Picker(appState.t("settings.defaultPage"), selection: settingsBinding(\.defaultSidebarItem)) {
                             ForEach(MainSidebarItem.allCases) { item in
                                 Label(appState.title(for: item), systemImage: item.systemImage).tag(item)
                             }
                         }
                         .labelsHidden()
+                        .controlSize(.small)
                         .frame(width: SettingsLayout.pickerWidth)
                     }
 
@@ -35,17 +43,24 @@ struct SettingsRootView: View {
 
                     SettingsToggleRow(
                         title: appState.t("settings.menuBar"),
-                        subtitle: appState.t("menu.searchPrompt"),
+                        subtitle: appState.t("settings.menuBarDescription"),
                         isOn: settingsBinding(\.showMenuBarExtra)
                     )
 
                     SettingsDivider()
 
-                    SettingsValueRow(title: appState.t("settings.workspace"), value: appState.workspaceRoot.path)
+                    SettingsReadOnlyPathRow(
+                        title: appState.t("settings.workspace"),
+                        subtitle: appState.t("settings.workspaceDescription"),
+                        value: appState.workspaceRoot.path
+                    )
                 }
 
-                SettingsFormSection(title: appState.t("settings.appearance"), systemImage: "paintbrush") {
-                    SettingsPickerRow(title: appState.t("settings.theme")) {
+                SettingsGroup(title: appState.t("settings.appearance"), systemImage: "paintbrush") {
+                    SettingsPickerRow(
+                        title: appState.t("settings.theme"),
+                        subtitle: appState.t("settings.themeDescription")
+                    ) {
                         Picker(appState.t("settings.theme"), selection: settingsBinding(\.appearance)) {
                             Text(appState.t("common.followSystem")).tag(AppAppearance.system)
                             Text(appState.t("common.light")).tag(AppAppearance.light)
@@ -53,6 +68,7 @@ struct SettingsRootView: View {
                         }
                         .pickerStyle(.segmented)
                         .labelsHidden()
+                        .controlSize(.small)
                         .frame(width: SettingsLayout.segmentedWidth)
                     }
 
@@ -68,14 +84,15 @@ struct SettingsRootView: View {
 
                     SettingsToggleRow(
                         title: appState.t("settings.compactRows"),
-                        subtitle: "34–44 pt",
+                        subtitle: appState.t("settings.compactRowsDescription"),
                         isOn: settingsBinding(\.compactRows)
                     )
                 }
 
-                SettingsFormSection(title: appState.t("settings.auditDefaults"), systemImage: "slider.horizontal.3") {
+                SettingsGroup(title: appState.t("settings.auditDefaults"), systemImage: "slider.horizontal.3") {
                     SettingsPathRow(
                         title: appState.t("audit.directory"),
+                        subtitle: appState.t("settings.auditDirectoryDescription"),
                         text: draftBinding(\.directoryPath)
                     )
 
@@ -83,6 +100,7 @@ struct SettingsRootView: View {
 
                     SettingsPathRow(
                         title: appState.t("audit.outputDirectory"),
+                        subtitle: appState.t("settings.reportDirectoryDescription"),
                         text: draftBinding(\.outputDirectoryPath)
                     )
 
@@ -90,6 +108,7 @@ struct SettingsRootView: View {
 
                     SettingsTextFieldRow(
                         title: appState.t("audit.fileNameTemplate"),
+                        subtitle: appState.t("settings.fileNameTemplateDescription"),
                         text: draftBinding(\.reportNameTemplate)
                     )
 
@@ -97,6 +116,7 @@ struct SettingsRootView: View {
 
                     SettingsNumberFieldRow(
                         title: appState.t("audit.textThreshold"),
+                        subtitle: appState.t("settings.textThresholdDescription"),
                         value: draftDoubleBinding(\.textThreshold),
                         hint: "0.00–1.00"
                     )
@@ -105,6 +125,7 @@ struct SettingsRootView: View {
 
                     SettingsNumberFieldRow(
                         title: appState.t("audit.dedupThreshold"),
+                        subtitle: appState.t("settings.dedupThresholdDescription"),
                         value: draftDoubleBinding(\.dedupThreshold),
                         hint: "0.00–1.00"
                     )
@@ -113,6 +134,7 @@ struct SettingsRootView: View {
 
                     SettingsIntegerFieldRow(
                         title: appState.t("audit.imageThreshold"),
+                        subtitle: appState.t("settings.imageThresholdDescription"),
                         value: draftIntBinding(\.imageThreshold),
                         hint: "0–64"
                     )
@@ -121,6 +143,7 @@ struct SettingsRootView: View {
 
                     SettingsIntegerFieldRow(
                         title: appState.t("audit.simhashThreshold"),
+                        subtitle: appState.t("settings.simhashThresholdDescription"),
                         value: draftIntBinding(\.simhashThreshold),
                         hint: "bit"
                     )
@@ -129,13 +152,16 @@ struct SettingsRootView: View {
 
                     SettingsToggleRow(
                         title: appState.t("audit.visionOCR"),
-                        subtitle: "Vision",
+                        subtitle: appState.t("settings.visionOCRDescription"),
                         isOn: draftBoolBinding(\.useVisionOCR)
                     )
 
                     SettingsDivider()
 
-                    SettingsPickerRow(title: appState.t("audit.whitelistMode")) {
+                    SettingsPickerRow(
+                        title: appState.t("audit.whitelistMode"),
+                        subtitle: appState.t("settings.whitelistModeDescription")
+                    ) {
                         Picker(appState.t("audit.whitelistMode"), selection: draftWhitelistModeBinding()) {
                             ForEach(AuditConfiguration.WhitelistMode.allCases, id: \.self) { mode in
                                 Text(appState.title(for: mode)).tag(mode)
@@ -143,20 +169,24 @@ struct SettingsRootView: View {
                         }
                         .pickerStyle(.segmented)
                         .labelsHidden()
+                        .controlSize(.small)
                         .frame(width: SettingsLayout.shortSegmentedWidth)
                     }
                 }
 
-                SettingsFormSection(title: appState.t("settings.reports"), systemImage: "doc.text.magnifyingglass") {
+                SettingsGroup(title: appState.t("settings.reports"), systemImage: "doc.text.magnifyingglass") {
                     SettingsToggleRow(
                         title: appState.t("settings.preferInAppReports"),
-                        subtitle: appState.t("reports.subtitle"),
+                        subtitle: appState.t("settings.preferInAppReportsDescription"),
                         isOn: settingsBinding(\.preferInAppReports)
                     )
 
                     SettingsDivider()
 
-                    SettingsPickerRow(title: appState.t("settings.defaultExportFormat")) {
+                    SettingsPickerRow(
+                        title: appState.t("settings.defaultExportFormat"),
+                        subtitle: appState.t("settings.defaultExportFormatDescription")
+                    ) {
                         Picker(appState.t("settings.defaultExportFormat"), selection: settingsBinding(\.defaultExportFormat)) {
                             ForEach(ExportRecord.Format.allCases, id: \.self) { format in
                                 Text(format.displayTitle).tag(format)
@@ -164,6 +194,7 @@ struct SettingsRootView: View {
                         }
                         .pickerStyle(.segmented)
                         .labelsHidden()
+                        .controlSize(.small)
                         .frame(width: SettingsLayout.shortSegmentedWidth)
                     }
 
@@ -171,7 +202,7 @@ struct SettingsRootView: View {
 
                     SettingsToggleRow(
                         title: appState.t("settings.showLegacyBadges"),
-                        subtitle: appState.t("common.legacy"),
+                        subtitle: appState.t("settings.showLegacyBadgesDescription"),
                         isOn: settingsBinding(\.showLegacyBadges)
                     )
 
@@ -179,25 +210,40 @@ struct SettingsRootView: View {
 
                     SettingsToggleRow(
                         title: appState.t("settings.attachmentPreview"),
-                        subtitle: appState.t("reports.attachments"),
+                        subtitle: appState.t("settings.attachmentPreviewDescription"),
                         isOn: settingsBinding(\.showAttachmentPreviews)
                     )
                 }
 
-                SettingsFormSection(title: appState.t("settings.dataMigration"), systemImage: "externaldrive") {
-                    SettingsValueRow(title: appState.t("settings.databaseLocation"), value: appState.database.databaseURL.path)
+                SettingsGroup(title: appState.t("settings.dataMigration"), systemImage: "externaldrive") {
+                    SettingsReadOnlyPathRow(
+                        title: appState.t("settings.databaseLocation"),
+                        subtitle: appState.t("settings.databaseLocationDescription"),
+                        value: appState.database.databaseURL.path
+                    )
 
                     SettingsDivider()
 
-                    SettingsValueRow(title: appState.t("settings.migrationSummary"), value: summaryText)
+                    SettingsValueRow(
+                        title: appState.t("settings.migrationSummary"),
+                        subtitle: appState.t("settings.migrationSummaryDescription"),
+                        value: summaryText
+                    )
 
                     SettingsDivider()
 
-                    SettingsValueRow(title: appState.t("settings.recordCounts"), value: recordCounts)
+                    SettingsValueRow(
+                        title: appState.t("settings.recordCounts"),
+                        subtitle: appState.t("settings.recordCountsDescription"),
+                        value: recordCounts
+                    )
 
                     SettingsDivider()
 
-                    SettingsButtonGroupRow(title: appState.t("settings.dataActions")) {
+                    SettingsButtonGroupRow(
+                        title: appState.t("settings.dataActions"),
+                        subtitle: appState.t("settings.dataActionsDescription")
+                    ) {
                         Button {
                             NSWorkspace.shared.open(appState.database.databaseURL.deletingLastPathComponent())
                         } label: {
@@ -212,24 +258,34 @@ struct SettingsRootView: View {
                     }
                 }
 
-                SettingsFormSection(title: appState.t("settings.shortcuts"), systemImage: "command") {
-                    SettingsButtonGroupRow(title: appState.t("settings.quickOpen")) {
-                        Button {
-                            appState.selectedMainSidebar = .newAudit
-                        } label: {
-                            Label(appState.t("command.startAudit"), systemImage: "play.fill")
-                        }
+                SettingsGroup(title: appState.t("settings.shortcuts"), systemImage: "command") {
+                    SettingsActionRow(
+                        title: appState.t("command.startAudit"),
+                        subtitle: appState.t("settings.startAuditDescription"),
+                        buttonTitle: appState.t("toolbar.start"),
+                        systemImage: "play.fill"
+                    ) {
+                        Task { await appState.startAudit() }
+                    }
+                    .disabled(appState.isRunningAudit)
 
-                        Button {
-                            appState.showReportsCenter()
-                        } label: {
-                            Label(appState.t("settings.openReports"), systemImage: "doc.text.magnifyingglass")
-                        }
+                    SettingsDivider()
+
+                    SettingsActionRow(
+                        title: appState.t("settings.openReports"),
+                        subtitle: appState.t("settings.openReportsDescription"),
+                        buttonTitle: appState.t("settings.openReports"),
+                        systemImage: "doc.text.magnifyingglass"
+                    ) {
+                        appState.showReportsCenter()
                     }
 
                     SettingsDivider()
 
-                    SettingsButtonGroupRow(title: appState.t("settings.reportActions")) {
+                    SettingsButtonGroupRow(
+                        title: appState.t("settings.reportActions"),
+                        subtitle: appState.t("settings.reportActionsDescription")
+                    ) {
                         Button {
                             appState.exportSelectedReportAsHTML()
                         } label: {
@@ -253,10 +309,9 @@ struct SettingsRootView: View {
                     }
                 }
             }
-            .padding(.horizontal, 36)
-            .padding(.vertical, 30)
-            .frame(maxWidth: 820, alignment: .topLeading)
-            .frame(maxWidth: .infinity, alignment: .top)
+            .padding(28)
+            .frame(maxWidth: SettingsLayout.contentWidth, alignment: .topLeading)
+            .frame(maxWidth: .infinity, alignment: .topLeading)
         }
         .background(Color(nsColor: .textBackgroundColor))
     }
@@ -325,46 +380,49 @@ private struct SettingsPageHeader: View {
             Text(appState.t("settings.title"))
                 .font(.title2.weight(.semibold))
             Text("PitcherPlant · macOS")
-                .font(.subheadline)
+                .font(.callout)
                 .foregroundStyle(.secondary)
         }
     }
 }
 
 private enum SettingsLayout {
-    static let labelWidth: CGFloat = 164
-    static let columnSpacing: CGFloat = 18
-    static let horizontalPadding: CGFloat = 18
-    static let pickerWidth: CGFloat = 230
-    static let segmentedWidth: CGFloat = 280
-    static let shortSegmentedWidth: CGFloat = 168
-    static let textFieldWidth: CGFloat = 470
-    static let numberFieldWidth: CGFloat = 90
+    static let contentWidth: CGFloat = 820
+    static let horizontalPadding: CGFloat = 14
+    static let pickerWidth: CGFloat = 200
+    static let segmentedWidth: CGFloat = 230
+    static let shortSegmentedWidth: CGFloat = 142
+    static let numberFieldWidth: CGFloat = 74
 
     static var dividerLeadingPadding: CGFloat {
-        horizontalPadding + labelWidth + columnSpacing
+        horizontalPadding + 36
     }
 }
 
-private struct SettingsFormSection<Content: View>: View {
+private struct SettingsGroup<Content: View>: View {
     let title: String
     let systemImage: String
     @ViewBuilder var content: Content
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 9) {
-            Label(title, systemImage: systemImage)
-                .font(.subheadline.weight(.semibold))
-                .foregroundStyle(.secondary)
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 8) {
+                Image(systemName: systemImage)
+                    .font(.body)
+                    .foregroundStyle(.secondary)
+
+                Text(title)
+                    .font(.headline)
+            }
 
             VStack(spacing: 0) {
                 content
             }
             .background(Color(nsColor: .controlBackgroundColor))
-            .clipShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
+            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
             .overlay {
-                RoundedRectangle(cornerRadius: 9, style: .continuous)
-                    .stroke(.separator.opacity(0.18))
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .stroke(.separator.opacity(0.12))
             }
         }
     }
@@ -372,17 +430,12 @@ private struct SettingsFormSection<Content: View>: View {
 
 private struct SettingsValueRow: View {
     let title: String
+    let subtitle: String
     let value: String
 
     var body: some View {
-        SettingsRowShell(title: title) {
-            Text(value)
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .lineLimit(1)
-                .truncationMode(.middle)
-                .textSelection(.enabled)
-                .frame(maxWidth: .infinity, alignment: .leading)
+        SettingsControlRow(title: title, subtitle: subtitle) {
+            SettingsStatusPill(value)
         }
     }
 }
@@ -390,23 +443,24 @@ private struct SettingsValueRow: View {
 private struct SettingsPathRow: View {
     @Environment(AppState.self) private var appState
     let title: String
+    let subtitle: String
     @Binding var text: String
 
     var body: some View {
-        SettingsRowShell(title: title) {
+        SettingsPathBlockRow(title: title, subtitle: subtitle) {
             HStack(spacing: 8) {
                 TextField(title, text: $text)
                     .textFieldStyle(.roundedBorder)
+                    .font(.system(.caption, design: .monospaced))
                     .lineLimit(1)
                     .truncationMode(.middle)
-                    .frame(maxWidth: SettingsLayout.textFieldWidth)
 
                 Button(appState.t("settings.choose")) {
                     chooseDirectory()
                 }
+                .buttonStyle(.bordered)
                 .controlSize(.small)
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
 
@@ -424,29 +478,58 @@ private struct SettingsPathRow: View {
     }
 }
 
+private struct SettingsReadOnlyPathRow: View {
+    let title: String
+    let subtitle: String
+    let value: String
+
+    var body: some View {
+        SettingsPathBlockRow(title: title, subtitle: subtitle) {
+            Text(value)
+                .font(.system(.caption, design: .monospaced))
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+                .truncationMode(.middle)
+                .textSelection(.enabled)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 5)
+                .background(Color(nsColor: .textBackgroundColor).opacity(0.72))
+                .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+                .overlay {
+                    RoundedRectangle(cornerRadius: 6, style: .continuous)
+                        .stroke(.separator.opacity(0.16))
+                }
+        }
+    }
+}
+
 private struct SettingsTextFieldRow: View {
     let title: String
+    let subtitle: String
     @Binding var text: String
 
     var body: some View {
-        SettingsRowShell(title: title) {
+        SettingsPathBlockRow(title: title, subtitle: subtitle) {
             TextField(title, text: $text)
                 .textFieldStyle(.roundedBorder)
-                .frame(maxWidth: SettingsLayout.textFieldWidth)
+                .font(.system(.caption, design: .monospaced))
         }
     }
 }
 
 private struct SettingsNumberFieldRow: View {
     let title: String
+    let subtitle: String
     @Binding var value: Double
     let hint: String
 
     var body: some View {
-        SettingsRowShell(title: title) {
+        SettingsControlRow(title: title, subtitle: subtitle) {
             HStack(spacing: 8) {
                 TextField(title, value: $value, format: .number.precision(.fractionLength(2)))
                     .textFieldStyle(.roundedBorder)
+                    .multilineTextAlignment(.trailing)
                     .frame(width: SettingsLayout.numberFieldWidth)
                 Text(hint)
                     .font(.caption)
@@ -458,14 +541,16 @@ private struct SettingsNumberFieldRow: View {
 
 private struct SettingsIntegerFieldRow: View {
     let title: String
+    let subtitle: String
     @Binding var value: Int
     let hint: String
 
     var body: some View {
-        SettingsRowShell(title: title) {
+        SettingsControlRow(title: title, subtitle: subtitle) {
             HStack(spacing: 8) {
                 TextField(title, value: $value, format: .number)
                     .textFieldStyle(.roundedBorder)
+                    .multilineTextAlignment(.trailing)
                     .frame(width: SettingsLayout.numberFieldWidth)
                 Text(hint)
                     .font(.caption)
@@ -481,20 +566,22 @@ private struct SettingsToggleRow: View {
     @Binding var isOn: Bool
 
     var body: some View {
-        SettingsRowShell(title: title, subtitle: subtitle) {
+        SettingsControlRow(title: title, subtitle: subtitle) {
             Toggle("", isOn: $isOn)
                 .labelsHidden()
-                .frame(width: 28, alignment: .leading)
+                .toggleStyle(.switch)
+                .controlSize(.small)
         }
     }
 }
 
 private struct SettingsPickerRow<Content: View>: View {
     let title: String
+    let subtitle: String
     @ViewBuilder var content: Content
 
     var body: some View {
-        SettingsRowShell(title: title) {
+        SettingsControlRow(title: title, subtitle: subtitle) {
             content
         }
     }
@@ -502,13 +589,13 @@ private struct SettingsPickerRow<Content: View>: View {
 
 private struct SettingsButtonGroupRow<Content: View>: View {
     let title: String
+    let subtitle: String
     @ViewBuilder var content: Content
 
     var body: some View {
-        SettingsRowShell(title: title) {
+        SettingsControlRow(title: title, subtitle: subtitle) {
             HStack(spacing: 8) {
                 content
-                Spacer(minLength: 0)
             }
             .buttonStyle(.bordered)
             .controlSize(.small)
@@ -516,31 +603,106 @@ private struct SettingsButtonGroupRow<Content: View>: View {
     }
 }
 
-private struct SettingsRowShell<Content: View>: View {
+private struct SettingsActionRow: View {
     let title: String
-    var subtitle: String?
+    let subtitle: String
+    let buttonTitle: String
+    let systemImage: String
+    let action: () -> Void
+
+    var body: some View {
+        SettingsControlRow(title: title, subtitle: subtitle) {
+            Button(action: action) {
+                Label(buttonTitle, systemImage: systemImage)
+            }
+            .buttonStyle(.borderedProminent)
+            .controlSize(.small)
+        }
+    }
+}
+
+private struct SettingsControlRow<Content: View>: View {
+    let title: String
+    let subtitle: String
     @ViewBuilder var content: Content
 
     var body: some View {
-        HStack(alignment: .center, spacing: SettingsLayout.columnSpacing) {
-            VStack(alignment: .leading, spacing: 2) {
-                Text(title)
-                    .font(.subheadline.weight(.medium))
-                if let subtitle {
-                    Text(subtitle)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-            }
-            .frame(width: SettingsLayout.labelWidth, alignment: .leading)
+        SettingsRowContainer {
+            HStack(alignment: .center, spacing: 16) {
+                SettingsRowText(title: title, subtitle: subtitle)
+                    .frame(maxWidth: .infinity, alignment: .leading)
 
-            content
-                .frame(maxWidth: .infinity, alignment: .leading)
+                Spacer(minLength: 12)
+
+                content
+                    .controlSize(.small)
+            }
         }
-        .padding(.horizontal, SettingsLayout.horizontalPadding)
-        .padding(.vertical, 8)
-        .frame(minHeight: 42)
+    }
+}
+
+private struct SettingsPathBlockRow<Content: View>: View {
+    let title: String
+    let subtitle: String
+    @ViewBuilder var content: Content
+
+    var body: some View {
+        SettingsRowContainer {
+            VStack(alignment: .leading, spacing: 10) {
+                SettingsRowText(title: title, subtitle: subtitle)
+                content
+                    .controlSize(.small)
+            }
+        }
+    }
+}
+
+private struct SettingsRowContainer<Content: View>: View {
+    @ViewBuilder var content: Content
+
+    var body: some View {
+        content
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, SettingsLayout.horizontalPadding)
+            .padding(.vertical, 12)
+            .frame(minHeight: 54)
+    }
+}
+
+private struct SettingsRowText: View {
+    let title: String
+    let subtitle: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(title)
+                .fontWeight(.medium)
+            Text(subtitle)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+}
+
+private struct SettingsStatusPill: View {
+    let text: String
+
+    init(_ text: String) {
+        self.text = text
+    }
+
+    var body: some View {
+        Text(text)
+            .font(.caption)
+            .foregroundStyle(.secondary)
+            .lineLimit(1)
+            .truncationMode(.middle)
+            .textSelection(.enabled)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 4)
+            .background(Color(nsColor: .textBackgroundColor).opacity(0.64))
+            .clipShape(Capsule())
     }
 }
 
