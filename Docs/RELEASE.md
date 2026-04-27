@@ -43,7 +43,7 @@ xattr -dr com.apple.quarantine /Applications/PitcherPlant.app
 
 ## GitHub Actions 发布
 
-推送 `v*` tag 会触发 `.github/workflows/release.yml`，默认走 `macos-latest` runner 上可用的最高版本 Xcode 和 `ad-hoc` 分发并创建 GitHub Release：
+推送 `v*` tag 会触发 `.github/workflows/release.yml`，默认走 `macos-26` runner 上可用的最高版本 Xcode 和 `ad-hoc` 分发并创建 GitHub Release：
 
 ```bash
 git tag v0.1.0-rc.1
