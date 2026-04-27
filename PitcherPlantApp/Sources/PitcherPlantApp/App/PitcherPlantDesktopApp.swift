@@ -88,7 +88,6 @@ private struct AppAppearanceSyncModifier: ViewModifier {
 
     func body(content: Content) -> some View {
         content
-            .background(WindowAppearanceAccessor(appearance: appearance))
             .onAppear {
                 applyAppearance()
             }
@@ -106,29 +105,6 @@ private struct AppAppearanceSyncModifier: ViewModifier {
     }
 }
 
-private struct WindowAppearanceAccessor: NSViewRepresentable {
-    let appearance: AppAppearance
-
-    func makeNSView(context: Context) -> NSView {
-        let view = NSView(frame: .zero)
-        applyAppearance(from: view)
-        return view
-    }
-
-    func updateNSView(_ nsView: NSView, context: Context) {
-        applyAppearance(from: nsView)
-    }
-
-    private func applyAppearance(from view: NSView) {
-        DispatchQueue.main.async {
-            guard let window = view.window else {
-                return
-            }
-            window.applyPitcherPlantAppearance(appearance.nsAppearance)
-        }
-    }
-}
-
 private extension AppAppearance {
     var nsAppearance: NSAppearance? {
         switch self {
@@ -138,29 +114,6 @@ private extension AppAppearance {
             return NSAppearance(named: .aqua)
         case .dark:
             return NSAppearance(named: .darkAqua)
-        }
-    }
-}
-
-private extension NSWindow {
-    func applyPitcherPlantAppearance(_ appearance: NSAppearance?) {
-        titlebarAppearsTransparent = false
-        backgroundColor = .windowBackgroundColor
-        self.appearance = appearance
-        standardWindowButton(.closeButton)?.superview?.appearance = appearance
-        contentView?.resetExplicitPitcherPlantAppearance()
-        invalidateShadow()
-    }
-}
-
-private extension NSView {
-    func resetExplicitPitcherPlantAppearance() {
-        appearance = nil
-        needsDisplay = true
-        needsLayout = true
-        layer?.setNeedsDisplay()
-        subviews.forEach { subview in
-            subview.resetExplicitPitcherPlantAppearance()
         }
     }
 }
