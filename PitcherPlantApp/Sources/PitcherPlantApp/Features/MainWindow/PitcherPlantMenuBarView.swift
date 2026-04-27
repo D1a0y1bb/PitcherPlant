@@ -44,7 +44,6 @@ struct PitcherPlantMenuBarView: View {
     var body: some View {
         menuPanelContent
             .frame(width: 360)
-            .background(MenuBarPanelMaterial())
             .task {
                 await appState.bootstrapIfNeeded()
             }
@@ -123,13 +122,10 @@ struct PitcherPlantMenuBarView: View {
             Text("\(filteredJobs.count + filteredReports.count)")
                 .font(AppTypography.badge)
                 .foregroundStyle(.secondary)
-                .padding(.horizontal, 7)
-                .padding(.vertical, 3)
-                .background(.quaternary, in: Capsule())
         }
         .padding(.horizontal, 12)
         .frame(height: 42)
-        .modifier(MenuBarGlassSurface(radius: 18))
+        .modifier(MenuBarGlassSurface())
     }
 
     private var actions: some View {
@@ -195,7 +191,7 @@ struct PitcherPlantMenuBarView: View {
         .buttonStyle(.bordered)
         .controlSize(.regular)
         .padding(10)
-        .modifier(MenuBarGlassSurface(radius: 18))
+        .modifier(MenuBarGlassSurface())
     }
 
     private func openMainWindow() {
@@ -226,9 +222,6 @@ private struct MenuBarGlassSection<Content: View>: View {
                 Text("\(count)")
                     .font(AppTypography.badge)
                     .foregroundStyle(.secondary)
-                    .padding(.horizontal, 7)
-                    .padding(.vertical, 2)
-                    .background(.quaternary, in: Capsule())
             }
             .padding(.horizontal, 12)
             .padding(.top, 10)
@@ -240,52 +233,22 @@ private struct MenuBarGlassSection<Content: View>: View {
                 content
             }
         }
-        .modifier(MenuBarGlassSurface(radius: 18))
+        .modifier(MenuBarGlassSurface())
     }
 }
 
 private struct MenuBarGlassSurface: ViewModifier {
-    let radius: CGFloat
-
     func body(content: Content) -> some View {
-        let shape = RoundedRectangle(cornerRadius: radius, style: .continuous)
-
         #if compiler(>=6.2)
         if #available(macOS 26.0, *) {
             content
-                .glassEffect(.regular, in: shape)
+                .glassEffect(.regular)
         } else {
             content
-                .background(.ultraThinMaterial, in: shape)
-                .overlay {
-                    shape.stroke(.separator)
-                }
         }
         #else
         content
-            .background(.ultraThinMaterial, in: shape)
-            .overlay {
-                shape.stroke(.separator)
-            }
         #endif
-    }
-}
-
-private struct MenuBarPanelMaterial: NSViewRepresentable {
-    func makeNSView(context: Context) -> NSVisualEffectView {
-        let view = NSVisualEffectView()
-        view.material = .popover
-        view.blendingMode = .behindWindow
-        view.state = .active
-        view.isEmphasized = true
-        return view
-    }
-
-    func updateNSView(_ nsView: NSVisualEffectView, context: Context) {
-        nsView.material = .popover
-        nsView.blendingMode = .behindWindow
-        nsView.state = .active
-        nsView.isEmphasized = true
     }
 }
 
@@ -317,7 +280,6 @@ private struct CompactJobRow: View {
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 8)
-            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
     }
@@ -349,7 +311,6 @@ private struct CompactReportRow: View {
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 8)
-            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
     }
@@ -381,8 +342,17 @@ private struct MenuBarStatusDot: View {
     }
 
     var body: some View {
-        Circle()
-            .fill(color)
-            .frame(width: 8, height: 8)
+        Image(systemName: systemImage)
+            .foregroundStyle(color)
+            .frame(width: 14)
+    }
+
+    private var systemImage: String {
+        switch status {
+        case .queued: return "clock"
+        case .running: return "play.circle"
+        case .succeeded: return "checkmark.circle"
+        case .failed: return "exclamationmark.triangle"
+        }
     }
 }

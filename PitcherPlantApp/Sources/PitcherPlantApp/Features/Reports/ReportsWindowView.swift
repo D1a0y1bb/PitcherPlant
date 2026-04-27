@@ -108,7 +108,6 @@ struct ReportsInlineView: View {
             ReportSectionsAndEvidenceView(showsReportHeader: false)
         }
         .padding(AppLayout.pagePadding)
-        .background(.background)
         .onAppear {
             syncVisibleReportSelection()
         }

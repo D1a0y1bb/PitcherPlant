@@ -50,7 +50,6 @@ struct ReportEvidenceInspector: View {
                 .padding(20)
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .background(.background)
         } else if let section = appState.selectedReportSectionModel {
             if section.table?.rows.isEmpty == false {
                 ReportSectionSummaryInspector(section: section, report: appState.selectedReport)
@@ -123,7 +122,6 @@ struct ReportQuickInspector: View {
             .padding(20)
             .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .background(.background)
     }
 }
 
@@ -179,7 +177,6 @@ struct ReportSectionSummaryInspector: View {
             .padding(20)
             .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .background(.background)
     }
 }
 
@@ -241,7 +238,7 @@ struct EvidenceReviewPanel: View {
                     .font(AppTypography.body)
                     .frame(minHeight: 72)
                     .padding(6)
-                    .appPanelSurface(cornerRadius: 8)
+                    .appPanelSurface()
 
                 Button {
                     Task {
@@ -629,7 +626,7 @@ private struct EvidenceContextCard: View {
         }
         .padding(9)
         .frame(maxWidth: .infinity, alignment: .topLeading)
-        .appPanelSurface(cornerRadius: 10)
+        .appPanelSurface()
     }
 
     private var metricText: String {
@@ -749,7 +746,7 @@ private struct CodeDiffSummaryView: View {
                 .textSelection(.enabled)
         }
         .padding(10)
-        .appPanelSurface(cornerRadius: 10)
+        .appPanelSurface()
     }
 }
 
@@ -793,7 +790,7 @@ private struct CodeLineDiffView: View {
                 .padding(8)
             }
             .frame(minHeight: 120, maxHeight: 220)
-            .appPanelSurface(cornerRadius: 10)
+            .appPanelSurface()
         }
     }
 
@@ -824,11 +821,6 @@ private struct CodeLineDiffView: View {
             .padding(.horizontal, 5)
             .padding(.vertical, 2)
             .frame(minWidth: 240, alignment: .leading)
-            .background(backgroundColor(change, side: side), in: RoundedRectangle(cornerRadius: 4, style: .continuous))
-    }
-
-    private func backgroundColor(_ change: CodeLineDiffRow.Change, side: Side) -> Color {
-        change == .unchanged ? Color.clear : Color(nsColor: .selectedContentBackgroundColor)
     }
 
     private func statusColor(_ change: CodeLineDiffRow.Change) -> Color {
@@ -846,9 +838,6 @@ private struct FlowTokenLine: View {
                     .font(AppTypography.badge)
                     .lineLimit(1)
                     .truncationMode(.middle)
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 2)
-                    .background(.quaternary, in: Capsule())
                     .foregroundStyle(.secondary)
             }
         }
@@ -869,7 +858,6 @@ private struct AttachmentSummaryCard: View {
                     .resizable()
                     .aspectRatio(contentMode: .fit)
                     .frame(maxWidth: .infinity, minHeight: 120, maxHeight: 200)
-                    .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
             }
 
             Text(attachment.body)
@@ -878,7 +866,7 @@ private struct AttachmentSummaryCard: View {
                 .textSelection(.enabled)
         }
         .padding(10)
-        .appPanelSurface(cornerRadius: 10)
+        .appPanelSurface()
     }
 }
 
@@ -896,7 +884,6 @@ private struct ImageComparisonCard: View {
                     .font(AppTypography.badge)
                     .foregroundStyle(.secondary)
                     .frame(width: 20, height: 20)
-                    .background(.quaternary, in: Circle())
 
                 AttachmentHeader(attachment: attachment)
             }
@@ -907,10 +894,8 @@ private struct ImageComparisonCard: View {
                         .resizable()
                         .aspectRatio(contentMode: .fit)
                         .frame(width: displaySize(for: image).width, height: displaySize(for: image).height)
-                        .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
                 }
                 .frame(maxWidth: .infinity, minHeight: 180, maxHeight: 260)
-                .background(.background, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
             }
 
             Text(attachment.body)
@@ -921,7 +906,7 @@ private struct ImageComparisonCard: View {
         }
         .padding(10)
         .frame(maxWidth: .infinity, alignment: .topLeading)
-        .appPanelSurface(cornerRadius: 10)
+        .appPanelSurface()
     }
 
     private func displaySize(for image: NSImage) -> CGSize {
@@ -1104,9 +1089,6 @@ struct ReportBadgeView: View {
     var body: some View {
         Text(badge.title)
             .font(AppTypography.badge)
-            .padding(.horizontal, 8)
-            .padding(.vertical, 3)
-            .background(.quaternary, in: Capsule())
             .foregroundStyle(.secondary)
     }
 }

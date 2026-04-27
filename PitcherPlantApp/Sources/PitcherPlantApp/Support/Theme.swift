@@ -13,7 +13,7 @@ struct MetricCard: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(18)
-        .appPanelSurface(cornerRadius: 10, glass: true)
+        .appPanelSurface(glass: true)
     }
 }
 
@@ -24,9 +24,6 @@ struct StatusBadge: View {
     var body: some View {
         Text(appState.title(for: status))
             .font(AppTypography.badge)
-            .padding(.horizontal, 10)
-            .padding(.vertical, 5)
-            .background(.quaternary, in: Capsule())
             .foregroundStyle(.secondary)
     }
 }

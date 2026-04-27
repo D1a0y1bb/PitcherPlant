@@ -119,9 +119,6 @@ struct FingerprintTableRow: View {
                 Text(record.ext.uppercased())
                     .font(AppTypography.badge)
                     .foregroundStyle(.secondary)
-                    .padding(.horizontal, 7)
-                    .padding(.vertical, 2)
-                    .background(.quaternary, in: Capsule())
                 Text(record.simhash)
                     .font(AppTypography.smallCode)
                     .foregroundStyle(.secondary)
@@ -169,9 +166,10 @@ struct TimelineEventRow: View {
 
     var body: some View {
         HStack(alignment: .firstTextBaseline, spacing: 10) {
-            Circle()
-                .fill(.secondary)
-                .frame(width: 7, height: 7)
+            Image(systemName: "circle.fill")
+                .font(AppTypography.badge)
+                .foregroundStyle(.secondary)
+                .frame(width: 14)
             VStack(alignment: .leading, spacing: 2) {
                 Text(event.message)
                     .font(AppTypography.rowSecondary)

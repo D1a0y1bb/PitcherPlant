@@ -53,7 +53,6 @@ struct ReportLibrarySidebar: View {
             .padding(.bottom, 12)
         }
         .searchable(text: $reportQuery, placement: .sidebar, prompt: appState.t("reports.searchPrompt"))
-        .background(.background)
     }
 }
 
@@ -76,9 +75,6 @@ struct ReportLibraryRow: View {
                     if report.isLegacy && appState.appSettings.showLegacyBadges {
                         Text("Legacy")
                             .font(AppTypography.badge)
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 2)
-                            .background(.quaternary, in: Capsule())
                             .foregroundStyle(.secondary)
                     }
                 }

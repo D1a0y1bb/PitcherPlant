@@ -2,7 +2,6 @@ import SwiftUI
 
 enum AppLayout {
     static let pagePadding: CGFloat = 24
-    static let panelCornerRadius: CGFloat = 12
     static let rowHorizontalPadding: CGFloat = 14
     static let rowVerticalPadding: CGFloat = 11
     static let rowMinHeight: CGFloat = 54
@@ -22,7 +21,6 @@ struct AppPageShell<Content: View>: View {
             .padding(.vertical, 22)
             .frame(maxWidth: .infinity, alignment: .topLeading)
         }
-        .background(.background)
     }
 }
 
@@ -33,8 +31,12 @@ struct AppSectionPanel<Content: View>: View {
     @ViewBuilder var content: Content
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(alignment: .firstTextBaseline, spacing: 8) {
+        GroupBox {
+            content
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(contentPadding)
+        } label: {
+            VStack(alignment: .leading, spacing: 2) {
                 Text(title)
                     .font(AppTypography.sectionTitle)
                 if subtitle.isEmpty == false {
@@ -43,14 +45,9 @@ struct AppSectionPanel<Content: View>: View {
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
                 }
-                Spacer(minLength: 0)
             }
-
-            content
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(contentPadding)
-                .appPanelSurface(glass: true)
         }
+        .groupBoxStyle(.automatic)
     }
 }
 
@@ -60,10 +57,12 @@ struct AppToolbarBand<Content: View>: View {
     @ViewBuilder var content: Content
 
     var body: some View {
-        content
-            .padding(padding)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .appPanelSurface(glass: glass)
+        GroupBox {
+            content
+                .padding(padding)
+                .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .groupBoxStyle(.automatic)
     }
 }
 
@@ -73,7 +72,10 @@ struct AppInspectorPanel<Content: View>: View {
     @ViewBuilder var content: Content
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        GroupBox {
+            content
+                .frame(maxWidth: .infinity, alignment: .leading)
+        } label: {
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)
                     .font(AppTypography.sectionTitle)
@@ -84,13 +86,9 @@ struct AppInspectorPanel<Content: View>: View {
                         .lineLimit(2)
                 }
             }
-
-            content
-                .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .appPanelSurface(glass: true)
+        .groupBoxStyle(.automatic)
     }
 }
 
@@ -98,9 +96,11 @@ struct AppTablePanel<Content: View>: View {
     @ViewBuilder var content: Content
 
     var body: some View {
-        content
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-            .appPanelSurface(glass: true)
+        GroupBox {
+            content
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        }
+        .groupBoxStyle(.automatic)
     }
 }
 
@@ -110,20 +110,22 @@ struct AppEmptyPanel: View {
     let systemImage: String
 
     var body: some View {
-        VStack(spacing: 8) {
-            Image(systemName: systemImage)
-                .font(.title2)
-                .foregroundStyle(.secondary)
-            Text(title)
-                .font(AppTypography.rowPrimary)
-            Text(subtitle)
-                .font(AppTypography.supporting)
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
+        GroupBox {
+            VStack(spacing: 8) {
+                Image(systemName: systemImage)
+                    .font(.title2)
+                    .foregroundStyle(.secondary)
+                Text(title)
+                    .font(AppTypography.rowPrimary)
+                Text(subtitle)
+                    .font(AppTypography.supporting)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+            }
+            .frame(maxWidth: .infinity, minHeight: 160)
+            .padding(18)
         }
-        .frame(maxWidth: .infinity, minHeight: 160)
-        .padding(18)
-        .appPanelSurface(glass: true)
+        .groupBoxStyle(.automatic)
     }
 }
 
@@ -167,35 +169,32 @@ struct AppControlRow<Content: View>: View {
 }
 
 struct AppPanelSurfaceModifier: ViewModifier {
-    var cornerRadius: CGFloat = AppLayout.panelCornerRadius
     var glass: Bool = false
 
+    @ViewBuilder
     func body(content: Content) -> some View {
-        let shape = RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-
         #if compiler(>=6.2)
         if glass, #available(macOS 26.0, *) {
             content
-                .glassEffect(.regular, in: shape)
+                .glassEffect(.regular)
         } else {
-            fallback(content: content, shape: shape)
+            fallback(content: content)
         }
         #else
-        fallback(content: content, shape: shape)
+        fallback(content: content)
         #endif
     }
 
-    private func fallback(content: Content, shape: RoundedRectangle) -> some View {
-        content
-            .background(.regularMaterial, in: shape)
-            .overlay {
-                shape.stroke(.separator)
-            }
+    private func fallback(content: Content) -> some View {
+        GroupBox {
+            content
+        }
+        .groupBoxStyle(.automatic)
     }
 }
 
 extension View {
-    func appPanelSurface(cornerRadius: CGFloat = AppLayout.panelCornerRadius, glass: Bool = false) -> some View {
-        modifier(AppPanelSurfaceModifier(cornerRadius: cornerRadius, glass: glass))
+    func appPanelSurface(glass: Bool = false) -> some View {
+        modifier(AppPanelSurfaceModifier(glass: glass))
     }
 }

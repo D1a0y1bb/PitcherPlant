@@ -56,7 +56,6 @@ struct ReportSectionsAndEvidenceView: View {
             }
             .padding(showsReportHeader ? AppLayout.pagePadding : 0)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-            .background(.background)
             .onAppear {
                 if appState.selectedReportSection == nil {
                     appState.selectReportSection(report.preferredEvidenceSection?.kind)
@@ -74,7 +73,6 @@ struct ReportSectionsAndEvidenceView: View {
         } else {
             AppEmptyPanel(title: appState.t("reports.noReport"), subtitle: appState.t("reports.noReportDescription"), systemImage: "doc.text")
                 .padding(AppLayout.pagePadding)
-                .background(.background)
         }
     }
 
@@ -126,9 +124,6 @@ struct ReportContentHeader: View {
             if report.isLegacy && appState.appSettings.showLegacyBadges {
                 Text("Legacy")
                     .font(AppTypography.badge)
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 4)
-                    .background(.quaternary, in: Capsule())
                     .foregroundStyle(.secondary)
             }
         }
@@ -193,9 +188,6 @@ struct ReportSectionChip: View {
             if rowCount > 0 {
                 Text("\(rowCount)")
                     .font(AppTypography.badge)
-                    .padding(.horizontal, 5)
-                    .padding(.vertical, 1)
-                    .background(.quaternary, in: Capsule())
                     .foregroundStyle(.secondary)
             }
         }
@@ -260,7 +252,6 @@ struct ReportSectionReadingView: View {
             .frame(maxWidth: 760, alignment: .leading)
             .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .background(.background)
     }
 }
 
@@ -305,7 +296,6 @@ struct EvidenceToolbar: View {
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 10)
-        .background(.thinMaterial)
     }
 }
 
@@ -418,7 +408,6 @@ struct CrossBatchEvidenceBrowser: View {
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 8)
-            .background(.thinMaterial)
 
             AppDivider()
 
@@ -572,7 +561,6 @@ struct CrossBatchGraphPanel: View {
                 .padding(16)
                 .frame(maxWidth: .infinity, alignment: .topLeading)
             }
-            .background(.background)
         }
     }
 }
@@ -621,7 +609,7 @@ struct CrossBatchNodeView: View {
         }
         .padding(10)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .appPanelSurface(cornerRadius: 10)
+        .appPanelSurface()
     }
 }
 
@@ -676,7 +664,7 @@ struct CrossBatchEdgeView: View {
         }
         .padding(10)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .appPanelSurface(cornerRadius: 10)
+        .appPanelSurface()
     }
 }
 

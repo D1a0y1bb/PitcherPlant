@@ -90,10 +90,9 @@ struct MainStatusBar: View {
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 7)
-        .appPanelSurface(cornerRadius: 10, glass: true)
+        .appPanelSurface(glass: true)
         .padding(.horizontal, 14)
         .padding(.vertical, 8)
-        .background(.background)
     }
 
     private func noticeIcon(for tone: AppNotice.Tone) -> String {

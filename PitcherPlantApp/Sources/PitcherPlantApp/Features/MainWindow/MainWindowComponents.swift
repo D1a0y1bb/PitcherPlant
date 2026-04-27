@@ -97,7 +97,6 @@ struct DenseHeader: View {
         .foregroundStyle(.secondary)
         .padding(.horizontal, AppLayout.rowHorizontalPadding)
         .padding(.vertical, 8)
-        .background(.thinMaterial)
     }
 }
 
@@ -176,13 +175,22 @@ struct StatusDot: View {
     let status: AuditJobStatus
 
     var body: some View {
-        Circle()
-            .fill(color)
-            .frame(width: 8, height: 8)
+        Image(systemName: systemImage)
+            .foregroundStyle(color)
+            .frame(width: 16)
     }
 
     private var color: Color {
         .secondary
+    }
+
+    private var systemImage: String {
+        switch status {
+        case .queued: return "clock"
+        case .running: return "play.circle"
+        case .succeeded: return "checkmark.circle"
+        case .failed: return "exclamationmark.triangle"
+        }
     }
 }
 
@@ -192,9 +200,6 @@ struct PillLabel: View {
     var body: some View {
         Text(title)
             .font(AppTypography.badge)
-            .padding(.horizontal, 8)
-            .padding(.vertical, 3)
-            .background(.quaternary, in: Capsule())
             .foregroundStyle(.secondary)
     }
 }

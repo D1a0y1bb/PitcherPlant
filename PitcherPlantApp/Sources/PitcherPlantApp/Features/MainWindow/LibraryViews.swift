@@ -32,7 +32,6 @@ struct JobHistoryView: View {
         }
         .padding(AppLayout.pagePadding)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .background(.background)
     }
 }
 
@@ -119,7 +118,6 @@ struct FingerprintLibraryView: View {
         }
         .padding(AppLayout.pagePadding)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .background(.background)
     }
 
     private var cleanupMatchCount: Int {
@@ -264,7 +262,6 @@ struct WhitelistLibraryView: View {
         }
         .padding(AppLayout.pagePadding)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .background(.background)
         .task {
             if suggestions.isEmpty {
                 await refreshSuggestions()
@@ -564,7 +561,6 @@ struct JobInspectorView: View {
                 }
                 .padding(20)
             }
-            .background(.background)
         } else {
             ContentUnavailableView(appState.t("job.noSelection"), systemImage: "clock.badge.questionmark", description: Text(appState.t("job.noSelectionDescription")))
         }
