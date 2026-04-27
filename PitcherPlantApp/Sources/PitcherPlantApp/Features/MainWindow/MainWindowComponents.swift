@@ -60,8 +60,6 @@ struct SearchHeader: View {
     @Environment(AppState.self) private var appState
     let title: String
     let count: Int
-    @Binding var query: String
-    let prompt: String
 
     var body: some View {
         AppToolbarBand {
@@ -74,9 +72,6 @@ struct SearchHeader: View {
                         .foregroundStyle(.secondary)
                 }
                 Spacer()
-                TextField(prompt, text: $query)
-                    .textFieldStyle(.roundedBorder)
-                    .frame(width: 280)
             }
         }
     }

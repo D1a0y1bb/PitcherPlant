@@ -114,6 +114,7 @@ struct ReportsInlineView: View {
         .onChange(of: reportQuery) { _, _ in syncVisibleReportSelection() }
         .onChange(of: reportFilter) { _, _ in syncVisibleReportSelection() }
         .onChange(of: appState.reports.map(\.id)) { _, _ in syncVisibleReportSelection() }
+        .searchable(text: $reportQuery, prompt: appState.t("reports.searchPrompt"))
     }
 
     private func syncVisibleReportSelection() {
@@ -158,10 +159,6 @@ private struct ReportsCenterSelectorBar: View {
                 .frame(minWidth: 124, maxWidth: 180, alignment: .leading)
 
                 Spacer()
-
-                TextField(appState.t("reports.searchPrompt"), text: $reportQuery)
-                    .textFieldStyle(.roundedBorder)
-                    .frame(width: 220)
 
                 Picker(appState.t("reports.filter"), selection: $reportFilter) {
                     ForEach(ReportLibraryFilter.allCases) { filter in
