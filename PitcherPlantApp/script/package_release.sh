@@ -224,12 +224,15 @@ verify_artifacts() {
 }
 
 generate_checksums_and_notes() {
-  shasum -a 256 \
-    "$DIST_DIR/$APP_NAME-macOS.zip" \
-    "$DIST_DIR/$APP_NAME-macOS.dmg" \
-    "$DIST_DIR/$APP_NAME.xcarchive.zip" \
-    "$DIST_DIR/$APP_NAME-dSYMs.zip" \
-    > "$DIST_DIR/$APP_NAME-macOS-checksums.txt"
+  (
+    cd "$DIST_DIR"
+    shasum -a 256 \
+      "$APP_NAME-macOS.zip" \
+      "$APP_NAME-macOS.dmg" \
+      "$APP_NAME.xcarchive.zip" \
+      "$APP_NAME-dSYMs.zip" \
+      > "$APP_NAME-macOS-checksums.txt"
+  )
 
   if [[ "$DISTRIBUTION" == "developer-id" && "$NOTARIZE" == "true" ]]; then
     cat > "$DIST_DIR/release-notes.md" <<NOTES
