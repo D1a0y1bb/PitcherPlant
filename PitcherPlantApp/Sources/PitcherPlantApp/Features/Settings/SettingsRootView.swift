@@ -11,7 +11,7 @@ struct SettingsRootView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 28) {
-                SettingsGroup(title: appState.t("settings.general"), systemImage: "gearshape") {
+                SettingsGroup(title: appState.t("settings.general")) {
                     SettingsPickerRow(
                         title: appState.t("settings.language"),
                         subtitle: appState.t("settings.languageDescription")
@@ -41,7 +41,7 @@ struct SettingsRootView: View {
                     )
                 }
 
-                SettingsGroup(title: appState.t("settings.appearance"), systemImage: "paintbrush") {
+                SettingsGroup(title: appState.t("settings.appearance")) {
                     SettingsPickerRow(
                         title: appState.t("settings.theme"),
                         subtitle: appState.t("settings.themeDescription")
@@ -71,7 +71,7 @@ struct SettingsRootView: View {
                     )
                 }
 
-                SettingsGroup(title: appState.t("settings.auditDefaults"), systemImage: "slider.horizontal.3") {
+                SettingsGroup(title: appState.t("settings.auditDefaults")) {
                     SettingsPathRow(
                         title: appState.t("audit.directory"),
                         subtitle: appState.t("settings.auditDirectoryDescription"),
@@ -153,7 +153,7 @@ struct SettingsRootView: View {
                     }
                 }
 
-                SettingsGroup(title: appState.t("settings.reports"), systemImage: "doc.text.magnifyingglass") {
+                SettingsGroup(title: appState.t("settings.reports")) {
                     SettingsToggleRow(
                         title: appState.t("settings.preferInAppReports"),
                         subtitle: appState.t("settings.preferInAppReportsDescription"),
@@ -191,7 +191,7 @@ struct SettingsRootView: View {
                     )
                 }
 
-                SettingsGroup(title: appState.t("settings.dataMigration"), systemImage: "externaldrive") {
+                SettingsGroup(title: appState.t("settings.dataMigration")) {
                     SettingsReadOnlyPathRow(
                         title: appState.t("settings.databaseLocation"),
                         subtitle: appState.t("settings.databaseLocationDescription"),
@@ -234,7 +234,7 @@ struct SettingsRootView: View {
                     }
                 }
 
-                SettingsGroup(title: appState.t("settings.shortcuts"), systemImage: "command") {
+                SettingsGroup(title: appState.t("settings.shortcuts")) {
                     SettingsActionRow(
                         title: appState.t("command.startAudit"),
                         subtitle: appState.t("settings.startAuditDescription"),
@@ -285,7 +285,7 @@ struct SettingsRootView: View {
                     }
                 }
             }
-            .padding(.leading, 28)
+            .padding(.leading, 24)
             .padding(.trailing, 8)
             .padding(.vertical, 28)
             .frame(maxWidth: .infinity, alignment: .topLeading)
@@ -382,10 +382,8 @@ struct SettingsRootView: View {
 }
 
 private enum SettingsLayout {
-    static let sectionIconWidth: CGFloat = 18
-    static let sectionTitleSpacing: CGFloat = 8
     static let horizontalPadding: CGFloat = 14
-    static let rowLeadingPadding: CGFloat = sectionIconWidth + sectionTitleSpacing
+    static let rowLeadingPadding: CGFloat = horizontalPadding
     static let trailingWidth: CGFloat = 360
     static let menuWidth: CGFloat = 220
     static let numberFieldWidth: CGFloat = 58
@@ -393,39 +391,27 @@ private enum SettingsLayout {
     static let hintWidth: CGFloat = 94
     static let thresholdControlWidth: CGFloat = stepperWidth + 8 + hintWidth
     static let pathControlHeight: CGFloat = 32
-    static let pathButtonWidth: CGFloat = 78
     static let compactPathWidth: CGFloat = trailingWidth
     static let controlCornerRadius: CGFloat = 9
 }
 
 private struct SettingsGroup<Content: View>: View {
     let title: String
-    let systemImage: String
     @ViewBuilder var content: Content
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            HStack(spacing: SettingsLayout.sectionTitleSpacing) {
-                Image(systemName: systemImage)
-                    .font(.body)
-                    .foregroundStyle(.secondary)
-                    .frame(width: SettingsLayout.sectionIconWidth, alignment: .leading)
-
-                Text(title)
-                    .font(.headline)
-            }
-            .padding(.leading, SettingsLayout.horizontalPadding)
+            Text(title)
+                .font(.headline)
 
             HStack(spacing: 0) {
-                Color.clear
-                    .frame(width: SettingsLayout.horizontalPadding)
-
                 VStack(spacing: 0) {
                     content
                 }
                 .settingsPanelSurface(cornerRadius: 12)
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
+            .padding(.leading, -SettingsLayout.horizontalPadding)
             .frame(maxWidth: .infinity, alignment: .leading)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -454,7 +440,6 @@ private struct SettingsPathRow: View {
         SettingsControlRow(title: title, subtitle: subtitle) {
             SettingsEditablePathControl(
                 title: title,
-                chooseTitle: appState.t("settings.choose"),
                 text: $text,
                 chooseDirectory: chooseDirectory
             )
@@ -477,35 +462,32 @@ private struct SettingsPathRow: View {
 
 private struct SettingsEditablePathControl: View {
     let title: String
-    let chooseTitle: String
     @Binding var text: String
     let chooseDirectory: () -> Void
 
     var body: some View {
-        HStack(spacing: 8) {
+        Button {
+            chooseDirectory()
+        } label: {
             HStack(spacing: 7) {
                 Image(systemName: "folder")
                     .font(.caption)
                     .foregroundStyle(.secondary)
 
-                TextField(title, text: $text)
-                    .textFieldStyle(.plain)
+                Text(text.isEmpty ? title : text)
                     .font(.system(.footnote, design: .monospaced))
+                    .foregroundStyle(text.isEmpty ? .tertiary : .secondary)
                     .lineLimit(1)
                     .truncationMode(.middle)
+                    .frame(maxWidth: .infinity, alignment: .leading)
             }
             .padding(.horizontal, 9)
-            .frame(maxWidth: .infinity, minHeight: SettingsLayout.pathControlHeight, maxHeight: SettingsLayout.pathControlHeight, alignment: .leading)
+            .frame(width: SettingsLayout.trailingWidth, height: SettingsLayout.pathControlHeight, alignment: .leading)
             .settingsControlBackground()
-
-            Button {
-                chooseDirectory()
-            } label: {
-                Text(chooseTitle)
-                    .frame(width: SettingsLayout.pathButtonWidth, alignment: .center)
-            }
-            .buttonStyle(SettingsPillButtonStyle())
         }
+        .buttonStyle(.plain)
+        .accessibilityLabel(title)
+        .accessibilityValue(text)
         .frame(width: SettingsLayout.trailingWidth, alignment: .trailing)
     }
 }

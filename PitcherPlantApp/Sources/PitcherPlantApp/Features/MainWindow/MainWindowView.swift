@@ -126,6 +126,7 @@ struct MainWindowView: View {
         }
         .environment(\.locale, appState.effectiveLocale ?? .current)
         .preferredColorScheme(appState.effectiveColorScheme)
+        .frame(minWidth: 1080, minHeight: 680)
     }
 
     private func runAuditAndOpenReport() async {

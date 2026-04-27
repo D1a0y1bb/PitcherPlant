@@ -27,6 +27,7 @@ struct PitcherPlantDesktopApp: App {
                 }
         }
         .defaultSize(width: 1220, height: 780)
+        .windowResizability(.contentMinSize)
         .defaultLaunchBehavior(.presented)
         .commands {
             PitcherPlantCommands(
@@ -133,6 +134,8 @@ private extension AppAppearance {
 
 private extension NSWindow {
     func applyPitcherPlantAppearance(_ appearance: NSAppearance?) {
+        titlebarAppearsTransparent = false
+        backgroundColor = .windowBackgroundColor
         self.appearance = appearance
         standardWindowButton(.closeButton)?.superview?.appearance = appearance
         contentView?.resetExplicitPitcherPlantAppearance()
