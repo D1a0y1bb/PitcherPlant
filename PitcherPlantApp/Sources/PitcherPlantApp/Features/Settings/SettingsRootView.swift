@@ -337,7 +337,6 @@ struct SettingsRootView: View {
             .padding(.vertical, 28)
             .frame(maxWidth: .infinity, alignment: .topLeading)
         }
-        .background(Color(nsColor: .textBackgroundColor))
         .environment(\.settingsSearchQuery, searchText)
     }
 
@@ -478,33 +477,15 @@ private struct SettingsAssistantTimeoutStepper: View {
 
     var body: some View {
         HStack(spacing: 8) {
-            HStack(spacing: 0) {
-                Button {
-                    value = clamped(value - step)
-                } label: {
-                    Image(systemName: "minus")
-                }
-                .buttonStyle(SettingsStepperButtonStyle())
-                .disabled(value <= range.lowerBound)
-                .frame(width: 38)
+            TextField("秒", value: clampedBinding, format: .number.precision(.fractionLength(0)))
+                .textFieldStyle(.roundedBorder)
+                .multilineTextAlignment(.center)
+                .font(AppTypography.code.weight(.medium))
+                .frame(width: SettingsLayout.numberFieldWidth + 12)
 
-                TextField("秒", value: clampedBinding, format: .number.precision(.fractionLength(0)))
-                    .textFieldStyle(.plain)
-                    .multilineTextAlignment(.center)
-                    .font(AppTypography.code.weight(.medium))
-                    .frame(width: SettingsLayout.numberFieldWidth)
-
-                Button {
-                    value = clamped(value + step)
-                } label: {
-                    Image(systemName: "plus")
-                }
-                .buttonStyle(SettingsStepperButtonStyle())
-                .disabled(value >= range.upperBound)
-                .frame(width: 38)
-            }
-            .frame(width: SettingsLayout.stepperWidth, height: 30)
-            .settingsPanelSurface(cornerRadius: 8)
+            Stepper("", value: clampedBinding, in: range, step: step)
+                .labelsHidden()
+                .frame(width: SettingsLayout.stepperWidth - 46)
 
             Text("秒")
                 .font(AppTypography.metadata)

@@ -71,7 +71,7 @@ struct AuditReportListRow: View {
                 .lineLimit(1)
                 .frame(maxWidth: .infinity, alignment: .leading)
             if report.isLegacy {
-                PillLabel(title: "Legacy")
+                PlainBadgeLabel(title: "Legacy")
                     .frame(width: 74, alignment: .trailing)
             } else {
                 Text(appState.t("common.native"))

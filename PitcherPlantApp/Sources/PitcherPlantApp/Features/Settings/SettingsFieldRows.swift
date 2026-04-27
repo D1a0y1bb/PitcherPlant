@@ -18,14 +18,12 @@ struct SettingsTextControl: View {
 
     var body: some View {
         TextField(title, text: $text)
-            .textFieldStyle(.plain)
+            .textFieldStyle(.roundedBorder)
             .font(AppTypography.smallCode)
             .multilineTextAlignment(.trailing)
             .lineLimit(1)
             .truncationMode(.middle)
-            .padding(.horizontal, 9)
-            .frame(width: SettingsLayout.trailingWidth, height: SettingsLayout.pathControlHeight, alignment: .trailing)
-            .settingsControlBackground()
+            .frame(width: SettingsLayout.trailingWidth, alignment: .trailing)
     }
 }
 
@@ -102,7 +100,7 @@ struct SettingsButtonGroupRow<Content: View>: View {
             HStack(spacing: 8) {
                 content
             }
-            .buttonStyle(SettingsPillButtonStyle())
+            .buttonStyle(.bordered)
         }
     }
 }
@@ -119,7 +117,7 @@ struct SettingsActionRow: View {
             Button(action: action) {
                 Label(buttonTitle, systemImage: systemImage)
             }
-            .buttonStyle(SettingsPillButtonStyle())
+            .buttonStyle(.bordered)
         }
     }
 }
@@ -150,10 +148,12 @@ struct SettingsMenuPicker<Value: Hashable>: View {
                     .font(AppTypography.badge)
                     .foregroundStyle(.secondary)
             }
-            .settingsPillLabel(width: width, alignment: .leading)
+            .font(AppTypography.supporting.weight(.medium))
+            .lineLimit(1)
+            .frame(width: width, alignment: .leading)
         }
         .menuStyle(.button)
-        .buttonStyle(.plain)
+        .buttonStyle(.bordered)
         .fixedSize()
     }
 
@@ -175,33 +175,15 @@ struct SettingsNumberStepper: View {
 
     var body: some View {
         HStack(spacing: 8) {
-            HStack(spacing: 0) {
-                Button {
-                    value = clamped(value - step)
-                } label: {
-                    Image(systemName: "minus")
-                }
-                .buttonStyle(SettingsStepperButtonStyle())
-                .disabled(value <= range.lowerBound)
-                .frame(width: 38)
+            TextField(hint, value: clampedBinding, format: .number.precision(.fractionLength(2)))
+                .textFieldStyle(.roundedBorder)
+                .multilineTextAlignment(.center)
+                .font(AppTypography.code.weight(.medium))
+                .frame(width: SettingsLayout.numberFieldWidth + 12)
 
-                TextField(hint, value: clampedBinding, format: .number.precision(.fractionLength(2)))
-                    .textFieldStyle(.plain)
-                    .multilineTextAlignment(.center)
-                    .font(AppTypography.code.weight(.medium))
-                    .frame(width: SettingsLayout.numberFieldWidth)
-
-                Button {
-                    value = clamped(value + step)
-                } label: {
-                    Image(systemName: "plus")
-                }
-                .buttonStyle(SettingsStepperButtonStyle())
-                .disabled(value >= range.upperBound)
-                .frame(width: 38)
-            }
-            .frame(width: SettingsLayout.stepperWidth, height: 30)
-            .settingsPanelSurface(cornerRadius: 8)
+            Stepper("", value: clampedBinding, in: range, step: step)
+                .labelsHidden()
+                .frame(width: SettingsLayout.stepperWidth - 46)
 
             Text(hint)
                 .font(AppTypography.metadata)
@@ -231,33 +213,15 @@ struct SettingsIntegerStepper: View {
 
     var body: some View {
         HStack(spacing: 8) {
-            HStack(spacing: 0) {
-                Button {
-                    value = clamped(value - step)
-                } label: {
-                    Image(systemName: "minus")
-                }
-                .buttonStyle(SettingsStepperButtonStyle())
-                .disabled(value <= range.lowerBound)
-                .frame(width: 38)
+            TextField(hint, value: clampedBinding, format: .number)
+                .textFieldStyle(.roundedBorder)
+                .multilineTextAlignment(.center)
+                .font(AppTypography.code.weight(.medium))
+                .frame(width: SettingsLayout.numberFieldWidth + 12)
 
-                TextField(hint, value: clampedBinding, format: .number)
-                    .textFieldStyle(.plain)
-                    .multilineTextAlignment(.center)
-                    .font(AppTypography.code.weight(.medium))
-                    .frame(width: SettingsLayout.numberFieldWidth)
-
-                Button {
-                    value = clamped(value + step)
-                } label: {
-                    Image(systemName: "plus")
-                }
-                .buttonStyle(SettingsStepperButtonStyle())
-                .disabled(value >= range.upperBound)
-                .frame(width: 38)
-            }
-            .frame(width: SettingsLayout.stepperWidth, height: 30)
-            .settingsPanelSurface(cornerRadius: 8)
+            Stepper("", value: clampedBinding, in: range, step: step)
+                .labelsHidden()
+                .frame(width: SettingsLayout.stepperWidth - 46)
 
             Text(hint)
                 .font(AppTypography.metadata)

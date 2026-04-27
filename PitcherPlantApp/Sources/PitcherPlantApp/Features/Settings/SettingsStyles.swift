@@ -1,65 +1,5 @@
 import SwiftUI
 
-struct SettingsStepperButtonStyle: ButtonStyle {
-    @Environment(\.isEnabled) private var isEnabled
-
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .font(AppTypography.badge)
-            .foregroundStyle(isEnabled ? .secondary : .tertiary)
-            .frame(width: 28, height: 28)
-            .contentShape(Circle())
-            .opacity(configuration.isPressed ? 0.6 : 1)
-    }
-}
-
-struct SettingsPillButtonStyle: ButtonStyle {
-    @Environment(\.isEnabled) private var isEnabled
-
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .settingsPillLabel(alignment: .center)
-            .opacity(configuration.isPressed ? 0.68 : 1)
-            .opacity(isEnabled ? 1 : 0.48)
-    }
-}
-
-extension View {
-    @ViewBuilder
-    func settingsPillLabel(width: CGFloat? = nil, alignment: Alignment = .center) -> some View {
-        if let width {
-            self
-                .font(AppTypography.supporting.weight(.medium))
-                .lineLimit(1)
-                .padding(.horizontal, 12)
-                .frame(width: width, height: SettingsLayout.pathControlHeight, alignment: alignment)
-                .settingsControlBackground()
-        } else {
-            self
-                .font(AppTypography.supporting.weight(.medium))
-                .lineLimit(1)
-                .padding(.horizontal, 12)
-                .frame(height: SettingsLayout.pathControlHeight, alignment: alignment)
-                .settingsControlBackground()
-        }
-    }
-
-    func settingsControlBackground() -> some View {
-        self
-            .settingsPanelSurface(cornerRadius: SettingsLayout.controlCornerRadius)
-    }
-
-    @ViewBuilder
-    func settingsPanelSurface(cornerRadius: CGFloat) -> some View {
-        let shape = RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-        self
-            .background(Color(nsColor: .controlBackgroundColor), in: shape)
-            .overlay {
-                shape.stroke(Color(nsColor: .separatorColor).opacity(0.18))
-            }
-    }
-}
-
 struct SettingsControlRow<Content: View>: View {
     @Environment(\.settingsSearchQuery) private var searchQuery
     let title: String
@@ -118,7 +58,7 @@ struct SettingsRowText: View {
     }
 }
 
-struct SettingsStatusPill: View {
+struct SettingsStatusText: View {
     let text: String
 
     init(_ text: String) {
@@ -132,18 +72,12 @@ struct SettingsStatusPill: View {
             .lineLimit(1)
             .truncationMode(.middle)
             .textSelection(.enabled)
-            .padding(.horizontal, 8)
-            .padding(.vertical, 4)
-            .background(Color(nsColor: .textBackgroundColor).opacity(0.64))
-            .clipShape(Capsule())
     }
 }
 
 struct SettingsDivider: View {
     var body: some View {
-        Rectangle()
-            .fill(Color(nsColor: .separatorColor).opacity(0.42))
-            .frame(height: 0.5)
+        Divider()
             .padding(.leading, SettingsLayout.rowLeadingPadding)
             .padding(.trailing, SettingsLayout.horizontalPadding)
     }

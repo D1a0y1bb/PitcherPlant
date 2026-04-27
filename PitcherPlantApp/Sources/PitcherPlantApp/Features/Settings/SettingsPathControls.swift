@@ -9,23 +9,18 @@ struct SettingsEditablePathControl: View {
         Button {
             chooseDirectory()
         } label: {
-            HStack(spacing: 7) {
-                Image(systemName: "folder")
-                    .font(AppTypography.metadata)
-                    .foregroundStyle(.secondary)
-
+            Label {
                 Text(text.isEmpty ? title : text)
                     .font(AppTypography.smallCode)
-                    .foregroundStyle(text.isEmpty ? .tertiary : .secondary)
                     .lineLimit(1)
                     .truncationMode(.middle)
                     .frame(maxWidth: .infinity, alignment: .leading)
+            } icon: {
+                Image(systemName: "folder")
             }
-            .padding(.horizontal, 9)
-            .frame(width: SettingsLayout.trailingWidth, height: SettingsLayout.pathControlHeight, alignment: .leading)
-            .settingsControlBackground()
+            .frame(width: SettingsLayout.trailingWidth, alignment: .leading)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.bordered)
         .accessibilityLabel(title)
         .accessibilityValue(text)
         .frame(width: SettingsLayout.trailingWidth, alignment: .trailing)
@@ -48,20 +43,10 @@ struct SettingsPathDisplay: View {
     let value: String
 
     var body: some View {
-        HStack(spacing: 7) {
-            Image(systemName: "folder")
-                .font(AppTypography.metadata)
-                .foregroundStyle(.secondary)
-
-            Text(value)
-                .font(AppTypography.smallCode)
-                .foregroundStyle(.secondary)
-                .lineLimit(1)
-                .truncationMode(.middle)
-                .frame(maxWidth: .infinity, alignment: .leading)
-        }
-        .padding(.horizontal, 9)
-        .frame(width: SettingsLayout.compactPathWidth, height: SettingsLayout.pathControlHeight, alignment: .leading)
-        .settingsControlBackground()
+        TextField("", text: .constant(value))
+            .textFieldStyle(.roundedBorder)
+            .font(AppTypography.smallCode)
+            .disabled(true)
+            .frame(width: SettingsLayout.compactPathWidth, alignment: .leading)
     }
 }

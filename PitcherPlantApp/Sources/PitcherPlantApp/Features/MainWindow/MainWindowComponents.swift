@@ -194,7 +194,7 @@ struct StatusDot: View {
     }
 }
 
-struct PillLabel: View {
+struct PlainBadgeLabel: View {
     let title: String
 
     var body: some View {

@@ -11,7 +11,6 @@ enum SettingsLayout {
     static let thresholdControlWidth: CGFloat = stepperWidth + 8 + hintWidth
     static let pathControlHeight: CGFloat = 34
     static let compactPathWidth: CGFloat = trailingWidth
-    static let controlCornerRadius: CGFloat = 9
 }
 
 struct SettingsGroup<Content: View>: View {
@@ -19,20 +18,16 @@ struct SettingsGroup<Content: View>: View {
     @ViewBuilder var content: Content
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        GroupBox {
+            VStack(spacing: 0) {
+                content
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        } label: {
             Text(title)
                 .font(AppTypography.sectionTitle)
-
-            HStack(spacing: 0) {
-                VStack(spacing: 0) {
-                    content
-                }
-                .settingsPanelSurface(cornerRadius: 12)
-                .frame(maxWidth: .infinity, alignment: .leading)
-            }
-            .padding(.leading, -SettingsLayout.horizontalPadding)
-            .frame(maxWidth: .infinity, alignment: .leading)
         }
+        .groupBoxStyle(.automatic)
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
@@ -44,7 +39,7 @@ struct SettingsValueRow: View {
 
     var body: some View {
         SettingsControlRow(title: title, subtitle: subtitle) {
-            SettingsStatusPill(value)
+            SettingsStatusText(value)
         }
     }
 }
