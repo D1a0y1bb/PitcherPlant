@@ -1,35 +1,55 @@
 # PitcherPlant
 
-PitcherPlant 现在以 macOS App 作为唯一主线维护，用 Swift 原生实现 Writeup 自动化审计、报告库、历史指纹库、白名单和旧数据迁移。
+PitcherPlant 是 macOS 原生 WriteUP 自动化审计 App。当前主线只维护 `PitcherPlantApp`，入口、构建、测试和运行都以 Swift/Xcode 为准。
 
-## 主入口
+## 直接打开
+
+用 Xcode 打开这个项目：
+
+```bash
+open PitcherPlant.xcworkspace
+```
+
+在 Xcode 左上角选择 `PitcherPlantApp` scheme，运行目标选择 `My Mac`，点击 Run。
+
+## 命令运行
 
 ```bash
 cd PitcherPlantApp
+./script/build_and_run.sh
+```
+
+验证启动：
+
+```bash
+cd PitcherPlantApp
+./script/build_and_run.sh --verify
+```
+
+## 构建与测试
+
+```bash
+cd PitcherPlantApp
+xcodegen generate
 swift test
-swift build
-```
-
-Xcode App 构建：
-
-```bash
-cd PitcherPlantApp
 xcodebuild -project PitcherPlantApp.xcodeproj -scheme PitcherPlantApp -destination 'platform=macOS' build
-```
-
-Xcode 测试：
-
-```bash
-cd PitcherPlantApp
 xcodebuild -project PitcherPlantApp.xcodeproj -scheme PitcherPlantApp -destination 'platform=macOS' test
 ```
 
-## 旧数据迁移
+## 目录说明
 
-首次启动 macOS App 时会读取工作区中的旧数据并迁移到 `.pitcherplant-macos/PitcherPlantMac.sqlite`：
+- `PitcherPlantApp/`：macOS App 主工程，包含 `Package.swift`、`project.yml`、`PitcherPlantApp.xcodeproj`、源码、资源、测试和运行脚本。
+- `Fixtures/WriteupSamples/`：审计样例数据，用于本地调试和测试。
+- `LegacyData/LegacyImport/`：旧版数据导入资料，首次启动时可迁移到原生数据库。
+- `GeneratedReports/`：App 运行时生成的导出报告目录，由本地运行产生。
+- `Docs/`：项目说明、迁移说明和维护文档。
 
-- `.pitcherplant-web-state.json`：旧 Web 任务状态与最近配置
-- `reports/**/*.html`：旧 HTML 报告
-- `PitcherPlant.sqlite`：旧指纹库与白名单
+## 数据位置
 
-迁移后，macOS App 的报告库、指纹库和白名单视图会直接使用原生数据库。旧 Python Web/CLI 入口已经退出主线维护。
+macOS App 的原生数据库位于：
+
+```text
+.pitcherplant-macos/PitcherPlantMac.sqlite
+```
+
+App 设置页会显示实际数据库目录，并提供打开数据目录的快捷操作。

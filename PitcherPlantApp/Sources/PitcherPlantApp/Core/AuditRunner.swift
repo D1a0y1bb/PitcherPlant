@@ -1389,7 +1389,7 @@ private enum CodeBlockExtractor {
             let lines = text.components(separatedBy: .newlines)
             var current: [String] = []
             for line in lines {
-                if line.range(of: #"(def |class |for |while |if |import |curl|bash|sh|gcc|python|let |const )"#, options: .regularExpression) != nil {
+                if line.range(of: #"(def |class |for |while |if |import |curl|bash|sh|gcc|let |const )"#, options: .regularExpression) != nil {
                     current.append(line)
                 } else if current.count >= 2 {
                     blocks.append(current.joined(separator: "\n"))

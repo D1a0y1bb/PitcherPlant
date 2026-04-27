@@ -1,26 +1,18 @@
 .DS_Store
-__pycache__/
-*.py[cod]
 *.log
-.Python
-.venv/
-venv/
-.pytest_cache/
-.mypy_cache/
-.ruff_cache/
 
 .agents/
 .codex/
-.trae/
 !PitcherPlantApp/.codex/
 !PitcherPlantApp/.codex/environments/
 !PitcherPlantApp/.codex/environments/environment.toml
 
-reports/
-!PitcherPlantApp/Sources/PitcherPlantApp/Features/Reports/
-!PitcherPlantApp/Sources/PitcherPlantApp/Features/Reports/**
-PitcherPlant.sqlite
-report.html
-*_PitcherPlant_*.html
-.pitcherplant-web-state.json
+PitcherPlantApp/.build/
+PitcherPlantApp/.pitcherplant-macos/
+PitcherPlantApp/reports/
+PitcherPlant.xcworkspace/xcshareddata/
 .pitcherplant-macos/
+GeneratedReports/
+
+LegacyData/RuntimeArtifacts/
+LegacyData/LegacyImport/reports/

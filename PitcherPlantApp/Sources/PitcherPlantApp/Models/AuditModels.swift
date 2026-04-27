@@ -198,11 +198,9 @@ struct AuditConfiguration: Codable, Hashable, Sendable {
     }
 
     static func defaults(for root: URL) -> AuditConfiguration {
-        let dateDir = root.appendingPathComponent("date").path
-        let reportsDir = root.appendingPathComponent("reports/full").path
         return AuditConfiguration(
-            directoryPath: dateDir,
-            outputDirectoryPath: reportsDir,
+            directoryPath: defaultInputDirectory(for: root).path,
+            outputDirectoryPath: defaultOutputDirectory(for: root).path,
             reportNameTemplate: "{dir}_PitcherPlant_{date}.html",
             textThreshold: 0.75,
             imageThreshold: 5,
@@ -211,6 +209,14 @@ struct AuditConfiguration: Codable, Hashable, Sendable {
             useVisionOCR: true,
             whitelistMode: .mark
         )
+    }
+
+    static func defaultInputDirectory(for root: URL) -> URL {
+        root.appendingPathComponent("Fixtures/WriteupSamples/date", isDirectory: true)
+    }
+
+    static func defaultOutputDirectory(for root: URL) -> URL {
+        root.appendingPathComponent("GeneratedReports/full", isDirectory: true)
     }
 }
 

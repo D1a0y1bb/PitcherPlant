@@ -9,7 +9,7 @@ struct MigrationService {
     }
 
     func runIfNeeded(database: DatabaseStore) async throws -> MigrationSummary {
-        let migrationName = "initial-python-import-v1"
+        let migrationName = "initial-legacy-import-v1"
         if try await database.hasMigration(named: migrationName) {
             return MigrationSummary(
                 importedJobs: 0,
@@ -26,8 +26,10 @@ struct MigrationService {
         var importedWhitelistRules = 0
         var importedLastConfig: AuditConfiguration?
 
-        let webStateURL = workspaceRoot.appendingPathComponent(".pitcherplant-web-state.json")
-        if FileManager.default.fileExists(atPath: webStateURL.path) {
+        if let webStateURL = firstExistingFile([
+            "LegacyData/LegacyImport/.pitcherplant-web-state.json",
+            ".pitcherplant-web-state.json"
+        ]) {
             let state = try LegacyStateImporter.importState(from: webStateURL, workspaceRoot: workspaceRoot)
             importedLastConfig = state.lastConfiguration
             for job in state.jobs {
@@ -42,8 +44,10 @@ struct MigrationService {
             }
         }
 
-        let reportsDirectory = workspaceRoot.appendingPathComponent("reports")
-        if FileManager.default.fileExists(atPath: reportsDirectory.path) {
+        if let reportsDirectory = firstExistingDirectory([
+            "LegacyData/LegacyImport/reports",
+            "reports"
+        ]) {
             let enumerator = FileManager.default.enumerator(at: reportsDirectory, includingPropertiesForKeys: nil)
             while let url = enumerator?.nextObject() as? URL {
                 guard url.pathExtension.lowercased() == "html" else {
@@ -57,8 +61,10 @@ struct MigrationService {
             }
         }
 
-        let oldDBURL = workspaceRoot.appendingPathComponent("PitcherPlant.sqlite")
-        if FileManager.default.fileExists(atPath: oldDBURL.path) {
+        if let oldDBURL = firstExistingFile([
+            "LegacyData/LegacyImport/PitcherPlant.sqlite",
+            "PitcherPlant.sqlite"
+        ]) {
             let importResult = try await importHistoricalDatabase(from: oldDBURL, into: database)
             importedFingerprints += importResult.fingerprints
             importedWhitelistRules += importResult.whitelistRules
@@ -72,6 +78,21 @@ struct MigrationService {
             importedWhitelistRules: importedWhitelistRules,
             lastConfiguration: importedLastConfig
         )
+    }
+
+    private func firstExistingFile(_ relativePaths: [String]) -> URL? {
+        relativePaths
+            .map { workspaceRoot.appendingPathComponent($0) }
+            .first { FileManager.default.fileExists(atPath: $0.path) }
+    }
+
+    private func firstExistingDirectory(_ relativePaths: [String]) -> URL? {
+        var isDirectory: ObjCBool = false
+        return relativePaths
+            .map { workspaceRoot.appendingPathComponent($0, isDirectory: true) }
+            .first {
+                FileManager.default.fileExists(atPath: $0.path, isDirectory: &isDirectory) && isDirectory.boolValue
+            }
     }
 
     private func importHistoricalDatabase(from url: URL, into database: DatabaseStore) async throws -> (fingerprints: Int, whitelistRules: Int) {
@@ -221,8 +242,8 @@ enum LegacyStateImporter {
 
         let lastConfiguration = payload.last_config.map {
             AuditConfiguration(
-                directoryPath: $0.directory ?? workspaceRoot.appendingPathComponent("date").path,
-                outputDirectoryPath: $0.output_dir ?? workspaceRoot.appendingPathComponent("reports/full").path,
+                directoryPath: $0.directory ?? AuditConfiguration.defaultInputDirectory(for: workspaceRoot).path,
+                outputDirectoryPath: $0.output_dir ?? AuditConfiguration.defaultOutputDirectory(for: workspaceRoot).path,
                 reportNameTemplate: $0.name_template ?? "{dir}_PitcherPlant_{date}.html",
                 textThreshold: $0.text_thresh ?? 0.75,
                 imageThreshold: $0.img_thresh ?? 5,
@@ -638,10 +659,10 @@ private enum LegacyDateParser {
         if let iso = iso8601Formatter().date(from: value) {
             return iso
         }
-        return pythonFormatter.date(from: value)
+        return legacyFormatter.date(from: value)
     }
 
-    private static let pythonFormatter: DateFormatter = {
+    private static let legacyFormatter: DateFormatter = {
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
         formatter.locale = Locale(identifier: "en_US_POSIX")

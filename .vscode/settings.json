@@ -1,0 +1,20 @@
+{
+  "files.exclude": {
+    "**/.DS_Store": true,
+    ".git": true,
+    ".agents": true,
+    ".codex": true,
+    ".pitcherplant-macos": true,
+    "PitcherPlantApp/.build": true,
+    "PitcherPlantApp/.pitcherplant-macos": true,
+    "LegacyData/RuntimeArtifacts": true,
+    "LegacyData/LegacyImport/reports": true,
+    "GeneratedReports": true
+  },
+  "search.exclude": {
+    "PitcherPlantApp/.build": true,
+    "LegacyData/RuntimeArtifacts": true,
+    "LegacyData/LegacyImport/reports": true,
+    "GeneratedReports": true
+  }
+}
