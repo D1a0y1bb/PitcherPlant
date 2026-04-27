@@ -301,10 +301,15 @@ struct AuditJob: Codable, Identifiable, Hashable, Sendable {
         return copy
     }
 
-    func completed(reportID: UUID) -> AuditJob {
+    func completed(reportID: UUID, summaryMessage: String? = nil) -> AuditJob {
         var copy = advanced(stage: .done, message: AuditStage.done.displayTitle)
         copy.status = .succeeded
         copy.reportID = reportID
+        if let summaryMessage, !summaryMessage.isEmpty {
+            copy.latestMessage = summaryMessage
+            copy.events.append(AuditJobEvent(message: summaryMessage, progress: AuditStage.done.progress))
+            copy.events = Array(copy.events.suffix(20))
+        }
         return copy
     }
 

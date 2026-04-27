@@ -149,15 +149,19 @@ struct PitcherPlantMenuBarView: View {
 
             HStack(spacing: 8) {
                 Button {
-                    Task {
-                        await appState.startAudit()
+                    if appState.isRunningAudit {
+                        appState.cancelAudit()
+                    } else {
+                        appState.beginAudit()
                         openMainWindow()
                     }
                 } label: {
-                    Label(appState.isRunningAudit ? appState.t("status.running") : appState.t("toolbar.start"), systemImage: "play.fill")
+                    Label(
+                        appState.isRunningAudit ? appState.t("command.cancelAudit") : appState.t("toolbar.start"),
+                        systemImage: appState.isRunningAudit ? "stop.fill" : "play.fill"
+                    )
                         .frame(maxWidth: .infinity)
                 }
-                .disabled(appState.isRunningAudit)
 
                 Button {
                     openMainWindow()

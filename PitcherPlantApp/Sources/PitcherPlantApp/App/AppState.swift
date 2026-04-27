@@ -3,6 +3,19 @@ import Foundation
 import Observation
 import SwiftUI
 
+struct AppNotice: Identifiable, Equatable {
+    enum Tone: String, Equatable {
+        case info
+        case success
+        case error
+    }
+
+    let id = UUID()
+    let title: String
+    let message: String
+    let tone: Tone
+}
+
 @MainActor
 @Observable
 final class AppState {
@@ -31,7 +44,9 @@ final class AppState {
     var latestReport: AuditReport?
     var lastMigrationSummary: MigrationSummary?
     var initializationMessage: String?
+    var notice: AppNotice?
     var isRunningAudit = false
+    private var currentAuditTask: Task<AuditReport?, Never>?
 
     init() {
         let locator = ProjectLocator()
@@ -73,7 +88,7 @@ final class AppState {
             lastMigrationSummary = try await migrationService.runIfNeeded(database: database)
             _ = try await database.markInterruptedJobs()
         } catch {
-            print("PitcherPlant bootstrap error: \(error)")
+            showNotice(title: t("notice.bootstrapFailed"), message: error.localizedDescription, tone: .error)
         }
         await reload()
         if let migratedConfig = lastMigrationSummary?.lastConfiguration {
@@ -103,7 +118,7 @@ final class AppState {
             }
             syncReportSelection()
         } catch {
-            print("PitcherPlant reload error: \(error)")
+            showNotice(title: t("notice.reloadFailed"), message: error.localizedDescription, tone: .error)
         }
     }
 
@@ -174,6 +189,37 @@ final class AppState {
     func startAudit(using preset: AuditConfigurationPreset) async -> AuditReport? {
         applyPreset(preset)
         return await startAudit()
+    }
+
+    func beginAudit() {
+        guard !isRunningAudit, currentAuditTask == nil else {
+            return
+        }
+        currentAuditTask = Task {
+            let report = await startAudit()
+            currentAuditTask = nil
+            return report
+        }
+    }
+
+    func beginAudit(using preset: AuditConfigurationPreset) {
+        applyPreset(preset)
+        beginAudit()
+    }
+
+    func cancelAudit() {
+        guard isRunningAudit else {
+            return
+        }
+        currentAuditTask?.cancel()
+    }
+
+    func toggleAudit() {
+        if isRunningAudit {
+            cancelAudit()
+        } else {
+            beginAudit()
+        }
     }
 
     func selectReport(_ reportID: UUID?) {
@@ -253,7 +299,7 @@ final class AppState {
             try await database.deleteReport(reportID: report.id)
             await reload()
         } catch {
-            print("PitcherPlant delete report error: \(error)")
+            showNotice(title: t("notice.deleteReportFailed"), message: error.localizedDescription, tone: .error)
         }
     }
 
@@ -267,7 +313,7 @@ final class AppState {
             try await database.upsertWhitelistRule(rule)
             await reload()
         } catch {
-            print("PitcherPlant save whitelist error: \(error)")
+            showNotice(title: t("notice.whitelistSaveFailed"), message: error.localizedDescription, tone: .error)
         }
     }
 
@@ -276,7 +322,7 @@ final class AppState {
             try await database.deleteWhitelistRule(id: rule.id)
             await reload()
         } catch {
-            print("PitcherPlant delete whitelist error: \(error)")
+            showNotice(title: t("notice.whitelistDeleteFailed"), message: error.localizedDescription, tone: .error)
         }
     }
 
@@ -291,18 +337,23 @@ final class AppState {
             do {
                 try ReportExporter.exportHTML(report: report, to: url)
                 Task {
-                    try? await database.recordExport(
-                        ExportRecord(
-                            reportID: report.id,
-                            reportTitle: report.title,
-                            format: .html,
-                            destinationPath: url.path
+                    do {
+                        try await database.recordExport(
+                            ExportRecord(
+                                reportID: report.id,
+                                reportTitle: report.title,
+                                format: .html,
+                                destinationPath: url.path
+                            )
                         )
-                    )
-                    await reload()
+                        await reload()
+                        showNotice(title: t("notice.exportSucceeded"), message: url.path, tone: .success)
+                    } catch {
+                        showNotice(title: t("notice.exportRecordFailed"), message: error.localizedDescription, tone: .error)
+                    }
                 }
             } catch {
-                print("PitcherPlant export html error: \(error)")
+                showNotice(title: t("notice.exportFailed"), message: error.localizedDescription, tone: .error)
             }
         }
     }
@@ -318,18 +369,23 @@ final class AppState {
             do {
                 try ReportExporter.exportPDF(report: report, to: url)
                 Task {
-                    try? await database.recordExport(
-                        ExportRecord(
-                            reportID: report.id,
-                            reportTitle: report.title,
-                            format: .pdf,
-                            destinationPath: url.path
+                    do {
+                        try await database.recordExport(
+                            ExportRecord(
+                                reportID: report.id,
+                                reportTitle: report.title,
+                                format: .pdf,
+                                destinationPath: url.path
+                            )
                         )
-                    )
-                    await reload()
+                        await reload()
+                        showNotice(title: t("notice.exportSucceeded"), message: url.path, tone: .success)
+                    } catch {
+                        showNotice(title: t("notice.exportRecordFailed"), message: error.localizedDescription, tone: .error)
+                    }
                 }
             } catch {
-                print("PitcherPlant export pdf error: \(error)")
+                showNotice(title: t("notice.exportFailed"), message: error.localizedDescription, tone: .error)
             }
         }
     }
@@ -345,6 +401,7 @@ final class AppState {
         var job = AuditJob(configuration: draftConfiguration)
         selectedJobID = job.id
         do {
+            try Task.checkCancellation()
             try await database.upsertJob(job)
             await reload()
 
@@ -360,7 +417,7 @@ final class AppState {
                 await self.reload()
             }
 
-            job = job.completed(reportID: result.report.id)
+            job = job.completed(reportID: result.report.id, summaryMessage: Self.auditSummaryMessage(for: result.summary))
             try await database.upsertJob(job)
             try await database.saveReport(result.report)
             if !result.fingerprints.isEmpty {
@@ -372,11 +429,32 @@ final class AppState {
             selectReportForInlineReview(result.report)
             return result.report
         } catch {
-            job = job.failed(error.localizedDescription)
+            job = job.failed(Self.auditFailureMessage(for: error))
             try? await database.upsertJob(job)
             await reload()
+            showNotice(title: error is CancellationError ? t("notice.auditCancelled") : t("notice.auditFailed"), message: job.latestMessage, tone: error is CancellationError ? .info : .error)
             return nil
         }
+    }
+
+    func dismissNotice() {
+        notice = nil
+    }
+
+    func showNotice(title: String, message: String, tone: AppNotice.Tone) {
+        notice = AppNotice(title: title, message: message, tone: tone)
+    }
+
+    nonisolated static func auditFailureMessage(for error: Error) -> String {
+        if error is CancellationError {
+            return "审计已取消。"
+        }
+        return error.localizedDescription
+    }
+
+    nonisolated static func auditSummaryMessage(for summary: AuditRunSummary) -> String {
+        let duration = summary.duration.formatted(.number.precision(.fractionLength(1)))
+        return "完成：\(summary.documentCount) 个文档 / \(summary.imageCount) 张图片 / \(summary.historicalFingerprintCount) 条历史指纹，耗时 \(duration) 秒"
     }
 
     private func selectReportForInlineReview(_ report: AuditReport) {

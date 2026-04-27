@@ -1,0 +1,415 @@
+import SwiftUI
+
+struct ReportSectionsAndEvidenceView: View {
+    @Environment(AppState.self) private var appState
+    var showsReportHeader = true
+    @State private var evidenceQuery = ""
+    @State private var evidenceFilter: ReportEvidenceFilter = .all
+    @State private var evidenceSortOrder: ReportEvidenceSortOrder = .default
+
+    private var selectedSection: ReportSection? {
+        appState.selectedReportSectionModel
+    }
+
+    private var filteredSection: ReportSection? {
+        selectedSection?.filteredCopy(query: evidenceQuery, evidenceFilter: evidenceFilter, sortOrder: evidenceSortOrder)
+    }
+
+    private var rows: [ReportTableRow] {
+        filteredSection?.table?.rows ?? []
+    }
+
+    private var totalRowCount: Int {
+        selectedSection?.table?.rows.count ?? 0
+    }
+
+    var body: some View {
+        if let report = appState.selectedReport {
+            VStack(spacing: 0) {
+                if showsReportHeader {
+                    ReportContentHeader(report: report)
+                    Divider()
+                }
+
+                ReportSectionStrip(report: report)
+                Divider()
+
+                if let section = selectedSection {
+                    if totalRowCount > 0 {
+                        EvidenceToolbar(
+                            evidenceQuery: $evidenceQuery,
+                            evidenceFilter: $evidenceFilter,
+                            evidenceSortOrder: $evidenceSortOrder,
+                            visibleRowCount: rows.count,
+                            totalRowCount: totalRowCount
+                        )
+                        Divider()
+                        EvidenceList(section: section, rows: rows)
+                    } else {
+                        ReportSectionReadingView(section: section, report: report)
+                    }
+                } else {
+                    ContentUnavailableView(appState.t("reports.noSection"), systemImage: "list.bullet.rectangle", description: Text(appState.t("reports.noSectionDescription")))
+                }
+            }
+            .background(Color(nsColor: .textBackgroundColor))
+            .onAppear {
+                if appState.selectedReportSection == nil {
+                    appState.selectReportSection(report.preferredEvidenceSection?.kind)
+                }
+                syncVisibleEvidenceSelection()
+            }
+            .onChange(of: rows.map(\.id)) { _, _ in syncVisibleEvidenceSelection() }
+            .onChange(of: appState.selectedReportSection) { _, _ in syncVisibleEvidenceSelection() }
+            .onChange(of: appState.selectedReportID) { _, _ in
+                evidenceQuery = ""
+                evidenceFilter = .all
+                evidenceSortOrder = .default
+                syncVisibleEvidenceSelection()
+            }
+        } else {
+            ContentUnavailableView(appState.t("reports.noReport"), systemImage: "doc.text", description: Text(appState.t("reports.noReportDescription")))
+        }
+    }
+
+    private func syncVisibleEvidenceSelection() {
+        guard rows.isEmpty == false else {
+            appState.selectedReportRowID = nil
+            return
+        }
+        if let selectedID = appState.selectedReportRowID,
+           rows.contains(where: { $0.id == selectedID }) {
+            return
+        }
+        appState.selectedReportRowID = rows.first?.id
+    }
+}
+
+struct ReportContentHeader: View {
+    @Environment(AppState.self) private var appState
+    let report: AuditReport
+
+    var body: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 12) {
+            VStack(alignment: .leading, spacing: 5) {
+                Text(report.title)
+                    .font(.headline)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+
+                HStack(spacing: 12) {
+                    ForEach(report.metrics.prefix(4), id: \.title) { metric in
+                        Label {
+                            Text(metric.value)
+                                .fontWeight(.medium)
+                        } icon: {
+                            Image(systemName: metric.systemImage)
+                        }
+                        .foregroundStyle(.secondary)
+                    }
+                    Label(URL(fileURLWithPath: report.sourcePath).lastPathComponent, systemImage: "doc")
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                        .foregroundStyle(.secondary)
+                }
+                .font(.caption)
+            }
+
+            Spacer()
+
+            if report.isLegacy && appState.appSettings.showLegacyBadges {
+                Text("Legacy")
+                    .font(.caption.weight(.semibold))
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 4)
+                    .background(Color.orange.opacity(0.12), in: Capsule())
+                    .foregroundStyle(.orange)
+            }
+        }
+        .padding(.horizontal, 20)
+        .padding(.vertical, 12)
+        .background(Color(nsColor: .textBackgroundColor))
+    }
+}
+
+struct ReportSectionStrip: View {
+    @Environment(AppState.self) private var appState
+    let report: AuditReport
+
+    var body: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                ForEach(report.displaySections) { section in
+                    ReportSectionChip(
+                        section: section,
+                        isSelected: appState.selectedReportSection == section.kind
+                    ) {
+                        appState.selectReportSection(section.kind)
+                    }
+                }
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
+        }
+        .background(Color(nsColor: .windowBackgroundColor))
+    }
+}
+
+struct ReportSectionChip: View {
+    @Environment(AppState.self) private var appState
+    let section: ReportSection
+    let isSelected: Bool
+    let action: () -> Void
+
+    private var rowCount: Int {
+        section.table?.rows.count ?? 0
+    }
+
+    var body: some View {
+        Button(action: action) {
+            VStack(spacing: 5) {
+                HStack(spacing: 6) {
+                    Text(appState.title(for: section.kind))
+                        .lineLimit(1)
+                    if rowCount > 0 {
+                        Text("\(rowCount)")
+                            .font(.caption2.weight(.semibold))
+                            .padding(.horizontal, 5)
+                            .padding(.vertical, 1)
+                            .background(Color.secondary.opacity(0.12), in: Capsule())
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                Rectangle()
+                    .fill(isSelected ? Color.accentColor : Color.clear)
+                    .frame(height: 2)
+            }
+            .font(.caption.weight(.medium))
+            .foregroundStyle(isSelected ? Color.accentColor : .primary)
+            .padding(.horizontal, 8)
+            .padding(.top, 6)
+            .padding(.bottom, 3)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+struct ReportSectionReadingView: View {
+    @Environment(AppState.self) private var appState
+    let section: ReportSection
+    let report: AuditReport
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 18) {
+                HStack(alignment: .firstTextBaseline) {
+                    Label(section.title, systemImage: section.kind.systemImage)
+                        .font(.title3.weight(.semibold))
+                    Spacer()
+                    Text(report.isLegacy ? appState.t("reports.legacyHTML") : appState.t("reports.nativeReport"))
+                        .font(.caption.weight(.medium))
+                        .foregroundStyle(.secondary)
+                }
+
+                VStack(alignment: .leading, spacing: 10) {
+                    Text(appState.t("reports.sectionSummary"))
+                        .font(.headline)
+                    Text(section.summary.isEmpty ? appState.t("reports.sectionNoStructuredEvidence") : section.summary)
+                        .foregroundStyle(.secondary)
+                        .textSelection(.enabled)
+                }
+
+                if section.callouts.isEmpty == false {
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text(appState.t("reports.callouts"))
+                            .font(.headline)
+                        ForEach(section.callouts, id: \.self) { callout in
+                            Label(callout, systemImage: "info.circle")
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                }
+
+                VStack(alignment: .leading, spacing: 8) {
+                    Text(appState.t("common.source"))
+                        .font(.headline)
+                    Text(report.sourcePath)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .textSelection(.enabled)
+                }
+            }
+            .padding(24)
+            .frame(maxWidth: 760, alignment: .leading)
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .background(Color(nsColor: .textBackgroundColor))
+    }
+}
+
+struct EvidenceToolbar: View {
+    @Environment(AppState.self) private var appState
+    @Binding var evidenceQuery: String
+    @Binding var evidenceFilter: ReportEvidenceFilter
+    @Binding var evidenceSortOrder: ReportEvidenceSortOrder
+    let visibleRowCount: Int
+    let totalRowCount: Int
+
+    var body: some View {
+        HStack(spacing: 12) {
+            TextField(appState.t("reports.searchEvidence"), text: $evidenceQuery)
+                .textFieldStyle(.roundedBorder)
+                .frame(maxWidth: 260)
+
+            Picker(appState.t("reports.filter"), selection: $evidenceFilter) {
+                ForEach(ReportEvidenceFilter.allCases) { option in
+                    Text(appState.title(for: option)).tag(option)
+                }
+            }
+            .pickerStyle(.segmented)
+            .frame(width: 220)
+
+            Menu {
+                Picker(appState.t("reports.sort"), selection: $evidenceSortOrder) {
+                    ForEach(ReportEvidenceSortOrder.allCases) { option in
+                        Text(appState.title(for: option)).tag(option)
+                    }
+                }
+            } label: {
+                Label(appState.title(for: evidenceSortOrder), systemImage: "arrow.up.arrow.down")
+            }
+            .menuStyle(.borderlessButton)
+
+            Spacer()
+            Text("\(visibleRowCount) / \(totalRowCount) \(appState.t("reports.rows"))")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+        .padding(12)
+        .background(Color(nsColor: .windowBackgroundColor))
+    }
+}
+
+struct EvidenceList: View {
+    @Environment(AppState.self) private var appState
+    let section: ReportSection
+    let rows: [ReportTableRow]
+
+    var body: some View {
+        if rows.isEmpty, section.table != nil {
+            ContentUnavailableView(appState.t("reports.noEvidence"), systemImage: "line.3.horizontal.decrease.circle", description: Text(appState.t("reports.noEvidenceDescription")))
+        } else if section.kind == .overview {
+            OverviewEvidenceList(rows: rows)
+        } else if rows.isEmpty {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 12) {
+                    Text(section.summary)
+                        .foregroundStyle(.secondary)
+                    ForEach(section.callouts, id: \.self) { callout in
+                        Label(callout, systemImage: "sparkles")
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .padding(20)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+        } else {
+            List(selection: Binding(
+                get: { appState.selectedReportRowID },
+                set: { appState.selectedReportRowID = $0 }
+            )) {
+                DenseEvidenceHeader(headers: section.table?.headers ?? [])
+                    .listRowSeparator(.visible)
+                    .listRowInsets(EdgeInsets(top: 4, leading: 12, bottom: 4, trailing: 12))
+
+                ForEach(rows) { row in
+                    EvidenceListRow(row: row)
+                        .tag(row.id)
+                        .listRowInsets(EdgeInsets(top: 3, leading: 12, bottom: 3, trailing: 12))
+                }
+            }
+            .listStyle(.plain)
+        }
+    }
+}
+
+struct DenseEvidenceHeader: View {
+    @Environment(AppState.self) private var appState
+    let headers: [String]
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Text(headers[safe: 0] ?? appState.t("reports.objectA"))
+                .frame(maxWidth: .infinity, alignment: .leading)
+            Text(headers[safe: 1] ?? appState.t("reports.objectB"))
+                .frame(maxWidth: .infinity, alignment: .leading)
+            Text(headers[safe: 2] ?? appState.t("common.score"))
+                .frame(width: 70, alignment: .trailing)
+            Text(headers[safe: 3] ?? appState.t("common.type"))
+                .frame(width: 84, alignment: .leading)
+            Text(appState.t("common.badge"))
+                .frame(width: 92, alignment: .leading)
+        }
+        .font(.caption.weight(.semibold))
+        .foregroundStyle(.secondary)
+    }
+}
+
+struct EvidenceListRow: View {
+    let row: ReportTableRow
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Text(row.columns[safe: 0] ?? row.detailTitle)
+                .lineLimit(1)
+                .truncationMode(.middle)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            Text(row.columns[safe: 1] ?? "")
+                .lineLimit(1)
+                .truncationMode(.middle)
+                .foregroundStyle(.secondary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            Text(row.columns[safe: 2] ?? "")
+                .foregroundStyle(.secondary)
+                .frame(width: 70, alignment: .trailing)
+            Text(row.columns[safe: 3] ?? "")
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+                .frame(width: 84, alignment: .leading)
+            Text(row.badges.first?.title ?? row.columns[safe: 4] ?? "")
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+                .frame(width: 92, alignment: .leading)
+        }
+        .font(.subheadline)
+        .padding(.vertical, 5)
+    }
+}
+
+struct OverviewEvidenceList: View {
+    @Environment(AppState.self) private var appState
+    let rows: [ReportTableRow]
+
+    var body: some View {
+        List(selection: Binding(
+            get: { appState.selectedReportRowID },
+            set: { appState.selectedReportRowID = $0 }
+        )) {
+            ForEach(rows) { row in
+                HStack {
+                    Text(row.detailTitle)
+                        .fontWeight(.medium)
+                        .lineLimit(1)
+                    Spacer()
+                    Text(row.columns[safe: 2] ?? "")
+                        .foregroundStyle(.secondary)
+                }
+                .tag(row.id)
+                .padding(.vertical, 5)
+            }
+        }
+        .listStyle(.plain)
+    }
+}
+

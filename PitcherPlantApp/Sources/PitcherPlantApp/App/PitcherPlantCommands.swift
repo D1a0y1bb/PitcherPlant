@@ -12,14 +12,15 @@ struct PitcherPlantCommands: Commands {
             }
             .keyboardShortcut("1", modifiers: [.command])
 
-            Button(appState.t("command.startAudit")) {
-                Task {
-                    await appState.startAudit()
+            Button(appState.isRunningAudit ? appState.t("command.cancelAudit") : appState.t("command.startAudit")) {
+                if appState.isRunningAudit {
+                    appState.cancelAudit()
+                } else {
+                    appState.beginAudit()
                     showMainWindow()
                 }
             }
             .keyboardShortcut(.return, modifiers: [.command])
-            .disabled(appState.isRunningAudit)
 
             Button(appState.t("command.reloadData")) {
                 Task { await appState.reload() }

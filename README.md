@@ -28,13 +28,17 @@ cd PitcherPlantApp
 
 ## 构建与测试
 
+目标命名说明：SwiftPM executable target/product 使用 `PitcherPlantApp`，Xcode 工程的 app bundle/product 使用 `PitcherPlant`。命令行测试以 SwiftPM 目标名为准，本地启动和进程验证以 app 名 `PitcherPlant` 为准。
+
 ```bash
 cd PitcherPlantApp
 xcodegen generate
-swift test
+swift package clean && swift test
 xcodebuild -project PitcherPlantApp.xcodeproj -scheme PitcherPlantApp -destination 'platform=macOS' build
 xcodebuild -project PitcherPlantApp.xcodeproj -scheme PitcherPlantApp -destination 'platform=macOS' test
 ```
+
+如果项目目录移动后遇到 `.build` 里的 PCH/module cache 路径错误，先执行 `swift package clean`，再重新运行 `swift test`。
 
 ## 目录说明
 
