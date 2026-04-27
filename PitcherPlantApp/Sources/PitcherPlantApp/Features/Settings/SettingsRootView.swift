@@ -383,15 +383,17 @@ private enum SettingsLayout {
     static let sectionIconWidth: CGFloat = 18
     static let sectionTitleSpacing: CGFloat = 8
     static let horizontalPadding: CGFloat = 14
+    static let rowLeadingPadding: CGFloat = horizontalPadding + sectionIconWidth + sectionTitleSpacing
     static let trailingWidth: CGFloat = 360
     static let menuWidth: CGFloat = 220
     static let numberFieldWidth: CGFloat = 58
     static let stepperWidth: CGFloat = 156
-    static let hintWidth: CGFloat = 70
+    static let hintWidth: CGFloat = 94
     static let thresholdControlWidth: CGFloat = stepperWidth + 8 + hintWidth
-    static let pathControlHeight: CGFloat = 30
+    static let pathControlHeight: CGFloat = 32
     static let pathButtonWidth: CGFloat = 96
-    static let compactPathWidth: CGFloat = 360
+    static let compactPathWidth: CGFloat = trailingWidth
+    static let controlCornerRadius: CGFloat = 9
 }
 
 private struct SettingsGroup<Content: View>: View {
@@ -445,24 +447,13 @@ private struct SettingsPathRow: View {
     @Binding var text: String
 
     var body: some View {
-        SettingsPathBlockRow(title: title, subtitle: subtitle) {
-            HStack(spacing: 8) {
-                TextField(title, text: $text)
-                    .textFieldStyle(.roundedBorder)
-                    .font(.system(.caption, design: .monospaced))
-                    .lineLimit(1)
-                    .truncationMode(.middle)
-                    .frame(maxWidth: .infinity, minHeight: SettingsLayout.pathControlHeight, maxHeight: SettingsLayout.pathControlHeight)
-
-                Button {
-                    chooseDirectory()
-                } label: {
-                    Label(appState.t("settings.choose"), systemImage: "folder")
-                        .frame(width: SettingsLayout.pathButtonWidth)
-                }
-                .buttonStyle(.bordered)
-                .controlSize(.small)
-            }
+        SettingsControlRow(title: title, subtitle: subtitle) {
+            SettingsEditablePathControl(
+                title: title,
+                chooseTitle: appState.t("settings.choose"),
+                text: $text,
+                chooseDirectory: chooseDirectory
+            )
         }
     }
 
@@ -477,6 +468,44 @@ private struct SettingsPathRow: View {
         if panel.runModal() == .OK, let url = panel.url {
             text = url.path
         }
+    }
+}
+
+private struct SettingsEditablePathControl: View {
+    let title: String
+    let chooseTitle: String
+    @Binding var text: String
+    let chooseDirectory: () -> Void
+
+    var body: some View {
+        HStack(spacing: 8) {
+            HStack(spacing: 7) {
+                Image(systemName: "folder")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+
+                TextField(title, text: $text)
+                    .textFieldStyle(.plain)
+                    .font(.system(.footnote, design: .monospaced))
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+            }
+            .padding(.horizontal, 9)
+            .frame(maxWidth: .infinity, minHeight: SettingsLayout.pathControlHeight, maxHeight: SettingsLayout.pathControlHeight, alignment: .leading)
+            .settingsControlBackground()
+
+            Button {
+                chooseDirectory()
+            } label: {
+                HStack(spacing: 6) {
+                    Image(systemName: "folder")
+                    Text(chooseTitle)
+                }
+                .frame(width: SettingsLayout.pathButtonWidth, alignment: .center)
+            }
+            .buttonStyle(SettingsPillButtonStyle())
+        }
+        .frame(width: SettingsLayout.trailingWidth, alignment: .trailing)
     }
 }
 
@@ -502,7 +531,7 @@ private struct SettingsPathDisplay: View {
                 .foregroundStyle(.secondary)
 
             Text(value)
-                .font(.system(.caption, design: .monospaced))
+                .font(.system(.footnote, design: .monospaced))
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
                 .truncationMode(.middle)
@@ -510,12 +539,7 @@ private struct SettingsPathDisplay: View {
         }
         .padding(.horizontal, 9)
         .frame(width: SettingsLayout.compactPathWidth, height: SettingsLayout.pathControlHeight, alignment: .leading)
-        .background(Color(nsColor: .textBackgroundColor))
-        .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
-        .overlay {
-            RoundedRectangle(cornerRadius: 6, style: .continuous)
-                .stroke(.separator.opacity(0.14))
-        }
+        .settingsControlBackground()
     }
 }
 
@@ -525,12 +549,25 @@ private struct SettingsTextFieldRow: View {
     @Binding var text: String
 
     var body: some View {
-        SettingsPathBlockRow(title: title, subtitle: subtitle) {
-            TextField(title, text: $text)
-                .textFieldStyle(.roundedBorder)
-                .font(.system(.caption, design: .monospaced))
-                .frame(minHeight: SettingsLayout.pathControlHeight, maxHeight: SettingsLayout.pathControlHeight)
+        SettingsControlRow(title: title, subtitle: subtitle) {
+            SettingsTextControl(title: title, text: $text)
         }
+    }
+}
+
+private struct SettingsTextControl: View {
+    let title: String
+    @Binding var text: String
+
+    var body: some View {
+        TextField(title, text: $text)
+            .textFieldStyle(.plain)
+            .font(.system(.footnote, design: .monospaced))
+            .lineLimit(1)
+            .truncationMode(.middle)
+            .padding(.horizontal, 9)
+            .frame(width: SettingsLayout.trailingWidth, height: SettingsLayout.pathControlHeight, alignment: .leading)
+            .settingsControlBackground()
     }
 }
 
@@ -618,8 +655,7 @@ private struct SettingsButtonGroupRow<Content: View>: View {
             HStack(spacing: 8) {
                 content
             }
-            .buttonStyle(.bordered)
-            .controlSize(.small)
+            .buttonStyle(SettingsPillButtonStyle())
         }
     }
 }
@@ -636,8 +672,7 @@ private struct SettingsActionRow: View {
             Button(action: action) {
                 Label(buttonTitle, systemImage: systemImage)
             }
-            .buttonStyle(.bordered)
-            .controlSize(.small)
+            .buttonStyle(SettingsPillButtonStyle())
         }
     }
 }
@@ -650,16 +685,34 @@ private struct SettingsMenuPicker<Value: Hashable>: View {
     var systemImage: ((Value) -> String)?
 
     var body: some View {
-        Picker("", selection: $selection) {
+        Menu {
             ForEach(options, id: \.self) { option in
-                menuLabel(for: option)
-                    .tag(option)
+                Button {
+                    selection = option
+                } label: {
+                    HStack {
+                        menuLabel(for: option)
+                        if option == selection {
+                            Image(systemName: "checkmark")
+                        }
+                    }
+                }
             }
+        } label: {
+            HStack(spacing: 7) {
+                menuLabel(for: selection)
+
+                Spacer(minLength: 8)
+
+                Image(systemName: "chevron.up.chevron.down")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.secondary)
+            }
+            .settingsPillLabel(width: width, alignment: .leading)
         }
-        .labelsHidden()
-        .pickerStyle(.menu)
-        .controlSize(.small)
-        .frame(width: width, alignment: .trailing)
+        .menuStyle(.button)
+        .buttonStyle(.plain)
+        .fixedSize()
     }
 
     @ViewBuilder
@@ -704,17 +757,17 @@ private struct SettingsNumberStepper: View {
                 .disabled(value >= range.upperBound)
             }
             .frame(width: SettingsLayout.stepperWidth, height: 30)
-            .background(Color(nsColor: .textBackgroundColor).opacity(0.72))
+            .background(Color(nsColor: .textBackgroundColor).opacity(0.86))
             .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
             .overlay {
                 RoundedRectangle(cornerRadius: 7, style: .continuous)
-                    .stroke(.separator.opacity(0.14))
+                    .stroke(Color(nsColor: .separatorColor).opacity(0.30))
             }
 
             Text(hint)
-                .font(.caption)
+                .font(.footnote)
                 .foregroundStyle(.secondary)
-                .frame(width: SettingsLayout.hintWidth, alignment: .leading)
+                .frame(width: SettingsLayout.hintWidth, alignment: .trailing)
         }
         .frame(width: SettingsLayout.thresholdControlWidth, alignment: .trailing)
     }
@@ -763,17 +816,17 @@ private struct SettingsIntegerStepper: View {
                 .disabled(value >= range.upperBound)
             }
             .frame(width: SettingsLayout.stepperWidth, height: 30)
-            .background(Color(nsColor: .textBackgroundColor).opacity(0.72))
+            .background(Color(nsColor: .textBackgroundColor).opacity(0.86))
             .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
             .overlay {
                 RoundedRectangle(cornerRadius: 7, style: .continuous)
-                    .stroke(.separator.opacity(0.14))
+                    .stroke(Color(nsColor: .separatorColor).opacity(0.30))
             }
 
             Text(hint)
-                .font(.caption)
+                .font(.footnote)
                 .foregroundStyle(.secondary)
-                .frame(width: SettingsLayout.hintWidth, alignment: .leading)
+                .frame(width: SettingsLayout.hintWidth, alignment: .trailing)
         }
         .frame(width: SettingsLayout.thresholdControlWidth, alignment: .trailing)
     }
@@ -800,6 +853,48 @@ private struct SettingsStepperButtonStyle: ButtonStyle {
             .frame(width: 28, height: 28)
             .contentShape(Circle())
             .opacity(configuration.isPressed ? 0.6 : 1)
+    }
+}
+
+private struct SettingsPillButtonStyle: ButtonStyle {
+    @Environment(\.isEnabled) private var isEnabled
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .settingsPillLabel(alignment: .center)
+            .opacity(configuration.isPressed ? 0.68 : 1)
+            .opacity(isEnabled ? 1 : 0.48)
+    }
+}
+
+private extension View {
+    @ViewBuilder
+    func settingsPillLabel(width: CGFloat? = nil, alignment: Alignment = .center) -> some View {
+        if let width {
+            self
+                .font(.body.weight(.medium))
+                .lineLimit(1)
+                .padding(.horizontal, 12)
+                .frame(width: width, height: SettingsLayout.pathControlHeight, alignment: alignment)
+                .settingsControlBackground()
+        } else {
+            self
+                .font(.body.weight(.medium))
+                .lineLimit(1)
+                .padding(.horizontal, 12)
+                .frame(height: SettingsLayout.pathControlHeight, alignment: alignment)
+                .settingsControlBackground()
+        }
+    }
+
+    func settingsControlBackground() -> some View {
+        self
+            .background(Color(nsColor: .windowBackgroundColor).opacity(0.92))
+            .clipShape(RoundedRectangle(cornerRadius: SettingsLayout.controlCornerRadius, style: .continuous))
+            .overlay {
+                RoundedRectangle(cornerRadius: SettingsLayout.controlCornerRadius, style: .continuous)
+                    .stroke(Color(nsColor: .separatorColor).opacity(0.46))
+            }
     }
 }
 
@@ -833,38 +928,14 @@ private struct SettingsControlRow<Content: View>: View {
     }
 }
 
-private struct SettingsPathBlockRow<Content: View>: View {
-    @Environment(\.settingsSearchQuery) private var searchQuery
-    let title: String
-    let subtitle: String
-    @ViewBuilder var content: Content
-
-    var body: some View {
-        SettingsRowContainer {
-            VStack(alignment: .leading, spacing: 10) {
-                SettingsRowText(title: title, subtitle: subtitle)
-                content
-                    .controlSize(.small)
-            }
-        }
-        .opacity(searchOpacity)
-    }
-
-    private var searchOpacity: Double {
-        guard !searchQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-            return 1
-        }
-        return settingMatchesSearch(title, subtitle, query: searchQuery) ? 1 : 0.28
-    }
-}
-
 private struct SettingsRowContainer<Content: View>: View {
     @ViewBuilder var content: Content
 
     var body: some View {
         content
             .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.horizontal, SettingsLayout.horizontalPadding)
+            .padding(.leading, SettingsLayout.rowLeadingPadding)
+            .padding(.trailing, SettingsLayout.horizontalPadding)
             .padding(.vertical, 12)
             .frame(minHeight: 54)
     }
@@ -877,9 +948,9 @@ private struct SettingsRowText: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
             Text(title)
-                .fontWeight(.medium)
+                .font(.body.weight(.semibold))
             Text(subtitle)
-                .font(.caption)
+                .font(.footnote)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
         }
@@ -895,7 +966,7 @@ private struct SettingsStatusPill: View {
 
     var body: some View {
         Text(text)
-            .font(.caption)
+            .font(.footnote)
             .foregroundStyle(.secondary)
             .lineLimit(1)
             .truncationMode(.middle)
@@ -912,7 +983,8 @@ private struct SettingsDivider: View {
         Rectangle()
             .fill(Color(nsColor: .separatorColor).opacity(0.42))
             .frame(height: 0.5)
-            .padding(.horizontal, SettingsLayout.horizontalPadding)
+            .padding(.leading, SettingsLayout.rowLeadingPadding)
+            .padding(.trailing, SettingsLayout.horizontalPadding)
     }
 }
 
