@@ -8,9 +8,10 @@ struct PresetTableRow: View {
         HStack(spacing: 12) {
             VStack(alignment: .leading, spacing: 2) {
                 Text(preset.name)
+                    .font(AppTypography.rowPrimary)
                     .fontWeight(.medium)
                 Text(URL(fileURLWithPath: preset.configuration.directoryPath).lastPathComponent)
-                    .font(.caption)
+                    .font(AppTypography.rowSecondary)
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
             }
@@ -38,6 +39,7 @@ struct JobTableRow: View {
         HStack(spacing: 12) {
             StatusDot(status: job.status)
             Text(URL(fileURLWithPath: job.configuration.directoryPath).lastPathComponent)
+                .font(AppTypography.rowPrimary)
                 .fontWeight(.medium)
                 .lineLimit(1)
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -50,7 +52,7 @@ struct JobTableRow: View {
                 .foregroundStyle(.secondary)
                 .frame(width: 128, alignment: .trailing)
         }
-        .font(.subheadline)
+        .font(AppTypography.rowSecondary)
         .padding(.vertical, 7)
     }
 }
@@ -62,6 +64,7 @@ struct AuditReportListRow: View {
     var body: some View {
         HStack(spacing: 12) {
             Text(report.title)
+                .font(AppTypography.rowPrimary)
                 .fontWeight(.medium)
                 .lineLimit(1)
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -80,7 +83,7 @@ struct AuditReportListRow: View {
                 .foregroundStyle(.secondary)
                 .frame(width: 128, alignment: .trailing)
         }
-        .font(.subheadline)
+        .font(AppTypography.rowSecondary)
         .padding(.vertical, 7)
     }
 }
@@ -96,6 +99,7 @@ struct FingerprintTableRow: View {
     var body: some View {
         HStack(spacing: 12) {
             Text(record.filename)
+                .font(AppTypography.rowPrimary)
                 .fontWeight(.medium)
                 .lineLimit(1)
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -111,12 +115,12 @@ struct FingerprintTableRow: View {
                 .lineLimit(1)
                 .frame(width: 150, alignment: .leading)
             Text(record.simhash)
-                .font(.system(.caption, design: .monospaced))
+                .font(AppTypography.smallCode)
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
                 .frame(width: 170, alignment: .trailing)
         }
-        .font(.subheadline)
+        .font(AppTypography.rowSecondary)
         .padding(.vertical, 7)
     }
 }
@@ -128,6 +132,7 @@ struct WhitelistTableRow: View {
     var body: some View {
         HStack(spacing: 12) {
             Text(rule.pattern)
+                .font(AppTypography.rowPrimary)
                 .fontWeight(.medium)
                 .lineLimit(1)
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -144,7 +149,7 @@ struct WhitelistTableRow: View {
             }
             .buttonStyle(.borderless)
         }
-        .font(.subheadline)
+        .font(AppTypography.rowSecondary)
         .padding(.vertical, 7)
     }
 }
@@ -159,9 +164,9 @@ struct TimelineEventRow: View {
                 .frame(width: 7, height: 7)
             VStack(alignment: .leading, spacing: 2) {
                 Text(event.message)
-                    .font(.subheadline)
+                    .font(AppTypography.rowSecondary)
                 Text("\(event.progress)% · \(event.timestamp.formatted(date: .abbreviated, time: .standard))")
-                    .font(.caption)
+                    .font(AppTypography.metadata)
                     .foregroundStyle(.secondary)
             }
             Spacer()

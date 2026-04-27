@@ -21,7 +21,7 @@ struct SettingsGroup<Content: View>: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text(title)
-                .font(.headline)
+                .font(AppTypography.sectionTitle)
 
             HStack(spacing: 0) {
                 VStack(spacing: 0) {
@@ -78,4 +78,3 @@ struct SettingsPathRow: View {
         }
     }
 }
-

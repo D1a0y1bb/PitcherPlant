@@ -11,10 +11,10 @@ struct ReportLibrarySidebar: View {
             VStack(alignment: .leading, spacing: 10) {
                 HStack(alignment: .firstTextBaseline) {
                     Text(appState.t("reports.title"))
-                        .font(.headline)
+                        .font(AppTypography.sectionTitle)
                     Spacer()
                     Text("\(reports.count)")
-                        .font(.caption)
+                        .font(AppTypography.metadata)
                         .foregroundStyle(.secondary)
                 }
                 Picker(appState.t("reports.filter"), selection: $reportFilter) {
@@ -64,12 +64,12 @@ struct ReportLibraryRow: View {
             VStack(alignment: .leading, spacing: 3) {
                 HStack(spacing: 6) {
                     Text(report.title)
-                        .font(.subheadline.weight(.medium))
+                        .font(AppTypography.rowPrimary)
                         .lineLimit(1)
                         .truncationMode(.middle)
                     if report.isLegacy && appState.appSettings.showLegacyBadges {
                         Text("Legacy")
-                            .font(.caption2.weight(.semibold))
+                            .font(AppTypography.badge)
                             .padding(.horizontal, 6)
                             .padding(.vertical, 2)
                             .background(Color.orange.opacity(0.12), in: Capsule())
@@ -77,11 +77,10 @@ struct ReportLibraryRow: View {
                     }
                 }
                 Text(report.createdAt.formatted(date: .abbreviated, time: .shortened))
-                    .font(.caption)
+                    .font(AppTypography.metadata)
                     .foregroundStyle(.secondary)
             }
         }
         .padding(.vertical, 5)
     }
 }
-

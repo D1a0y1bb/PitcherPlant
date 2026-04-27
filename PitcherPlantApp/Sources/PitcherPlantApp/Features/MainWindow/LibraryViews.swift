@@ -80,7 +80,7 @@ struct FingerprintLibraryView: View {
                         .frame(width: 190)
 
                     Text("\(cleanupMatchCount) 条命中")
-                        .font(.caption)
+                        .font(AppTypography.metadata)
                         .foregroundStyle(.secondary)
 
                     Button(role: .destructive) {
@@ -372,14 +372,14 @@ private struct WhitelistSuggestionToolbar: View {
                 Spacer()
 
                 Text("\(pendingCount) 条待处理")
-                    .font(.caption)
+                    .font(AppTypography.metadata)
                     .foregroundStyle(.secondary)
             }
             .buttonStyle(.borderless)
 
             if let message {
                 Text(message)
-                    .font(.caption)
+                    .font(AppTypography.metadata)
                     .foregroundStyle(.secondary)
                     .lineLimit(2)
             }
@@ -399,11 +399,12 @@ private struct WhitelistSuggestionTableRow: View {
         HStack(spacing: 12) {
             VStack(alignment: .leading, spacing: 3) {
                 Text(suggestion.rule.pattern)
+                    .font(AppTypography.rowPrimary)
                     .fontWeight(.medium)
                     .lineLimit(1)
                     .truncationMode(.middle)
                 Text(suggestion.reason)
-                    .font(.caption)
+                    .font(AppTypography.rowSecondary)
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
             }
@@ -433,7 +434,7 @@ private struct WhitelistSuggestionTableRow: View {
             .buttonStyle(.borderless)
             .disabled(suggestion.status == .dismissed)
         }
-        .font(.subheadline)
+        .font(AppTypography.rowSecondary)
         .padding(.vertical, 7)
     }
 
@@ -457,9 +458,9 @@ struct JobInspectorView: View {
                         HStack(alignment: .top) {
                             VStack(alignment: .leading, spacing: 4) {
                                 Text(URL(fileURLWithPath: job.configuration.directoryPath).lastPathComponent)
-                                    .font(.title2.weight(.semibold))
+                                    .font(AppTypography.pageTitle)
                                 Text(job.configuration.directoryPath)
-                                    .font(.caption)
+                                    .font(AppTypography.smallCode)
                                     .foregroundStyle(.secondary)
                                     .lineLimit(1)
                                     .truncationMode(.middle)
@@ -498,7 +499,7 @@ struct JobInspectorView: View {
                                 Spacer()
                                 Text("\(job.progress)%")
                             }
-                            .font(.subheadline)
+                            .font(AppTypography.rowSecondary)
                             .foregroundStyle(.secondary)
                             ProgressView(value: Double(job.progress), total: 100)
                         }

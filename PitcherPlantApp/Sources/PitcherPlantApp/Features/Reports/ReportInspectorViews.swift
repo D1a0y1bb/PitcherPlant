@@ -10,7 +10,7 @@ struct ReportEvidenceInspector: View {
                     VStack(alignment: .leading, spacing: 12) {
                         HStack(alignment: .top) {
                             Text(row.detailTitle)
-                                .font(.title2.weight(.semibold))
+                                .font(AppTypography.pageTitle)
                                 .lineLimit(3)
                             Spacer()
                         }
@@ -28,6 +28,7 @@ struct ReportEvidenceInspector: View {
 
                     InspectorSection(title: appState.t("reports.evidenceDetails")) {
                         Text(row.detailBody)
+                            .font(AppTypography.body)
                             .foregroundStyle(.secondary)
                             .textSelection(.enabled)
                     }
@@ -74,9 +75,9 @@ struct ReportQuickInspector: View {
             VStack(alignment: .leading, spacing: 18) {
                 VStack(alignment: .leading, spacing: 8) {
                     Text(appState.t("reports.reportProperties"))
-                        .font(.title3.weight(.semibold))
+                        .font(AppTypography.sectionTitle)
                     Text(report.title)
-                        .font(.caption)
+                        .font(AppTypography.metadata)
                         .foregroundStyle(.secondary)
                         .lineLimit(2)
                 }
@@ -91,7 +92,7 @@ struct ReportQuickInspector: View {
                                 Text(metric.value)
                                     .fontWeight(.medium)
                             }
-                            .font(.caption)
+                            .font(AppTypography.metadata)
                         }
                     }
                 }
@@ -99,15 +100,15 @@ struct ReportQuickInspector: View {
                 InspectorSection(title: appState.t("common.path")) {
                     VStack(alignment: .leading, spacing: 8) {
                         Text(appState.t("reports.reportFile"))
-                            .font(.caption.weight(.semibold))
+                            .font(AppTypography.tableHeader)
                         Text(report.sourcePath)
-                            .font(.caption)
+                            .font(AppTypography.smallCode)
                             .foregroundStyle(.secondary)
                             .textSelection(.enabled)
                         Text(appState.t("reports.scanDirectory"))
-                            .font(.caption.weight(.semibold))
+                            .font(AppTypography.tableHeader)
                         Text(report.scanDirectoryPath)
-                            .font(.caption)
+                            .font(AppTypography.smallCode)
                             .foregroundStyle(.secondary)
                             .textSelection(.enabled)
                     }
@@ -130,10 +131,10 @@ struct ReportSectionSummaryInspector: View {
             VStack(alignment: .leading, spacing: 18) {
                 VStack(alignment: .leading, spacing: 8) {
                     Label(section.title, systemImage: section.kind.systemImage)
-                        .font(.title3.weight(.semibold))
+                        .font(AppTypography.sectionTitle)
                     if let report {
                         Text(report.title)
-                            .font(.caption)
+                            .font(AppTypography.metadata)
                             .foregroundStyle(.secondary)
                             .lineLimit(2)
                     }
@@ -141,6 +142,7 @@ struct ReportSectionSummaryInspector: View {
 
                 InspectorSection(title: appState.t("reports.sectionSummary")) {
                     Text(section.summary.isEmpty ? appState.t("reports.sectionNoStructuredEvidence") : section.summary)
+                        .font(AppTypography.body)
                         .foregroundStyle(.secondary)
                         .textSelection(.enabled)
                 }
@@ -150,6 +152,7 @@ struct ReportSectionSummaryInspector: View {
                         VStack(alignment: .leading, spacing: 8) {
                             ForEach(section.callouts, id: \.self) { callout in
                                 Label(callout, systemImage: "info.circle")
+                                    .font(AppTypography.body)
                                     .foregroundStyle(.secondary)
                             }
                         }
@@ -159,6 +162,7 @@ struct ReportSectionSummaryInspector: View {
                 if let table = section.table {
                     InspectorSection(title: appState.t("reports.evidenceCount")) {
                         Text("\(table.rows.count) \(appState.t("reports.structuredRecords"))")
+                            .font(AppTypography.body)
                             .foregroundStyle(.secondary)
                     }
                 }
@@ -177,7 +181,7 @@ struct InspectorSection<Content: View>: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text(title)
-                .font(.headline)
+                .font(AppTypography.sectionTitle)
             content
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -232,7 +236,7 @@ struct EvidenceReviewPanel: View {
                 .pickerStyle(.segmented)
 
                 TextEditor(text: $note)
-                    .font(.caption)
+                    .font(AppTypography.body)
                     .frame(minHeight: 72)
                     .overlay(RoundedRectangle(cornerRadius: 6).stroke(.separator.opacity(0.35)))
 
@@ -350,7 +354,7 @@ struct CodeEvidenceComparisonView: View {
                     }
                 }
                 Text(row.detailBody)
-                    .font(.caption)
+                    .font(AppTypography.body)
                     .foregroundStyle(.secondary)
                     .textSelection(.enabled)
             }
@@ -386,7 +390,7 @@ struct AssistantEvidenceExplanationView: View {
                 .buttonStyle(.borderless)
 
                 Text(displayedExplanation)
-                    .font(.caption)
+                    .font(AppTypography.body)
                     .foregroundStyle(phase.isError ? .red : .secondary)
                     .textSelection(.enabled)
             }
@@ -500,7 +504,7 @@ struct ImageEvidenceDetailView: View {
     private var imageComparisonToolbar: some View {
         HStack(spacing: 10) {
             Text("图片 A/B 对比")
-                .font(.caption.weight(.semibold))
+                .font(AppTypography.tableHeader)
                 .foregroundStyle(.secondary)
 
             Spacer()
@@ -514,7 +518,7 @@ struct ImageEvidenceDetailView: View {
                 .disabled(selectedPairIndex == 0)
 
                 Text("\(selectedPairIndex + 1) / \(imagePairs.count)")
-                    .font(.caption)
+                    .font(AppTypography.metadata)
                     .foregroundStyle(.secondary)
 
                 Button {
@@ -579,16 +583,16 @@ private struct EvidenceContextCard: View {
             VStack(alignment: .leading, spacing: 3) {
                 HStack(spacing: 6) {
                     Text(attachment.title)
-                        .font(.caption.weight(.semibold))
+                        .font(AppTypography.rowPrimary)
                         .lineLimit(1)
                     Spacer()
                     Text(metricText)
-                        .font(.caption2.monospacedDigit())
+                        .font(AppTypography.metadata.monospacedDigit())
                         .foregroundStyle(.secondary)
                 }
 
                 Label(attachment.sourceReferenceText, systemImage: "link")
-                    .font(.caption2)
+                    .font(AppTypography.metadata)
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
                     .truncationMode(.middle)
@@ -599,7 +603,7 @@ private struct EvidenceContextCard: View {
                     } label: {
                         Label("打开源文件", systemImage: "arrow.up.right.square")
                     }
-                    .font(.caption2)
+                    .font(AppTypography.metadata)
                     .buttonStyle(.link)
                 }
             }
@@ -607,7 +611,7 @@ private struct EvidenceContextCard: View {
             if style == .code {
                 ScrollView([.horizontal, .vertical]) {
                     Text(EvidenceTextHighlighter.attributed(content, highlights: visibleHighlights))
-                        .font(.system(.caption, design: .monospaced))
+                        .font(AppTypography.code)
                         .textSelection(.enabled)
                         .frame(minWidth: 280, maxWidth: .infinity, alignment: .leading)
                         .padding(2)
@@ -615,7 +619,7 @@ private struct EvidenceContextCard: View {
                 .frame(minHeight: 132, maxHeight: 240)
             } else {
                 Text(EvidenceTextHighlighter.attributed(content, highlights: visibleHighlights))
-                    .font(.system(.caption, design: .serif))
+                    .font(AppTypography.body)
                     .textSelection(.enabled)
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
@@ -648,12 +652,12 @@ private struct EvidenceHighlightNavigator: View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(alignment: .firstTextBaseline, spacing: 8) {
                 Text(title)
-                    .font(.caption.weight(.semibold))
+                    .font(AppTypography.tableHeader)
                     .foregroundStyle(.secondary)
 
                 if tokens.isEmpty {
                     Text("暂无稳定共享片段")
-                        .font(.caption)
+                        .font(AppTypography.metadata)
                         .foregroundStyle(.tertiary)
                 } else {
                     FlowTokenLine(tokens: tokens)
@@ -670,7 +674,7 @@ private struct EvidenceHighlightNavigator: View {
                     .disabled(selectedIndex == 0)
 
                     Text("\(selectedIndex + 1) / \(tokens.count)：\(tokens[safe: selectedIndex] ?? "")")
-                        .font(.caption)
+                        .font(AppTypography.metadata)
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
                         .truncationMode(.middle)
@@ -733,11 +737,11 @@ private struct CodeDiffSummaryView: View {
                 Label("左侧独有 \(leftOnly)", systemImage: "arrow.left.square")
                 Label("右侧独有 \(rightOnly)", systemImage: "arrow.right.square")
             }
-            .font(.caption)
+            .font(AppTypography.metadata)
             .foregroundStyle(.secondary)
 
             Text("最长公共片段：\(fragment)")
-                .font(.caption)
+                .font(AppTypography.metadata)
                 .foregroundStyle(.secondary)
                 .lineLimit(2)
                 .textSelection(.enabled)
@@ -756,7 +760,7 @@ private struct CodeLineDiffView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             Text("逐行 diff")
-                .font(.caption.weight(.semibold))
+                .font(AppTypography.tableHeader)
                 .foregroundStyle(.secondary)
 
             ScrollView([.horizontal, .vertical]) {
@@ -776,7 +780,7 @@ private struct CodeLineDiffView: View {
                             lineNumber(row.rightLineNumber)
                             diffCell(row.rightText, change: row.change, side: .right)
                             Text(row.change.title)
-                                .font(.caption2.weight(.medium))
+                                .font(AppTypography.metadata.weight(.medium))
                                 .foregroundStyle(statusColor(row.change))
                                 .lineLimit(1)
                         }
@@ -797,20 +801,20 @@ private struct CodeLineDiffView: View {
 
     private func diffHeader(_ title: String) -> some View {
         Text(title)
-            .font(.caption2.weight(.semibold))
+            .font(AppTypography.tableHeader)
             .foregroundStyle(.secondary)
     }
 
     private func lineNumber(_ value: Int?) -> some View {
         Text(value.map(String.init) ?? "")
-            .font(.caption2.monospacedDigit())
+            .font(.caption.monospacedDigit())
             .foregroundStyle(.tertiary)
             .frame(width: 32, alignment: .trailing)
     }
 
     private func diffCell(_ value: String, change: CodeLineDiffRow.Change, side: Side) -> some View {
         Text(value.isEmpty ? " " : value)
-            .font(.system(.caption2, design: .monospaced))
+            .font(AppTypography.smallCode)
             .textSelection(.enabled)
             .lineLimit(1)
             .truncationMode(.tail)
@@ -847,7 +851,7 @@ private struct FlowTokenLine: View {
         HStack(spacing: 6) {
             ForEach(tokens.prefix(8), id: \.self) { token in
                 Text(token)
-                    .font(.caption2.weight(.medium))
+                    .font(AppTypography.badge)
                     .lineLimit(1)
                     .truncationMode(.middle)
                     .padding(.horizontal, 6)
@@ -877,7 +881,7 @@ private struct AttachmentSummaryCard: View {
             }
 
             Text(attachment.body)
-                .font(.caption)
+                .font(AppTypography.metadata)
                 .foregroundStyle(.secondary)
                 .textSelection(.enabled)
         }
@@ -898,7 +902,7 @@ private struct ImageComparisonCard: View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 8) {
                 Text(label)
-                    .font(.caption.weight(.bold))
+                    .font(AppTypography.badge)
                     .foregroundStyle(.white)
                     .frame(width: 20, height: 20)
                     .background(Color.accentColor, in: Circle())
@@ -919,7 +923,7 @@ private struct ImageComparisonCard: View {
             }
 
             Text(attachment.body)
-                .font(.caption)
+                .font(AppTypography.metadata)
                 .foregroundStyle(.secondary)
                 .lineLimit(5)
                 .textSelection(.enabled)
@@ -944,10 +948,10 @@ private struct AttachmentHeader: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
             Text(attachment.title)
-                .font(.subheadline.weight(.semibold))
+                .font(AppTypography.rowPrimary)
                 .lineLimit(1)
             Label(attachment.sourceReferenceText, systemImage: "link")
-                .font(.caption)
+                .font(AppTypography.metadata)
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
                 .truncationMode(.middle)
@@ -1109,7 +1113,7 @@ struct ReportBadgeView: View {
 
     var body: some View {
         Text(badge.title)
-            .font(.caption.weight(.semibold))
+            .font(AppTypography.badge)
             .padding(.horizontal, 8)
             .padding(.vertical, 3)
             .background(background, in: Capsule())

@@ -491,7 +491,7 @@ private struct SettingsAssistantTimeoutStepper: View {
                 TextField("秒", value: clampedBinding, format: .number.precision(.fractionLength(0)))
                     .textFieldStyle(.plain)
                     .multilineTextAlignment(.center)
-                    .font(.system(.callout, design: .monospaced).weight(.medium))
+                    .font(AppTypography.code.weight(.medium))
                     .frame(width: SettingsLayout.numberFieldWidth)
 
                 Button {
@@ -507,7 +507,7 @@ private struct SettingsAssistantTimeoutStepper: View {
             .settingsPanelSurface(cornerRadius: 8)
 
             Text("秒")
-                .font(.footnote)
+                .font(AppTypography.metadata)
                 .foregroundStyle(.secondary)
                 .frame(width: SettingsLayout.hintWidth, alignment: .trailing)
         }

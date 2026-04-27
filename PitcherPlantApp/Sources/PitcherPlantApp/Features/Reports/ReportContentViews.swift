@@ -93,7 +93,7 @@ struct ReportContentHeader: View {
         HStack(alignment: .firstTextBaseline, spacing: 12) {
             VStack(alignment: .leading, spacing: 5) {
                 Text(report.title)
-                    .font(.headline)
+                    .font(AppTypography.sectionTitle)
                     .lineLimit(1)
                     .truncationMode(.middle)
 
@@ -112,14 +112,14 @@ struct ReportContentHeader: View {
                         .truncationMode(.middle)
                         .foregroundStyle(.secondary)
                 }
-                .font(.caption)
+                .font(AppTypography.metadata)
             }
 
             Spacer()
 
             if report.isLegacy && appState.appSettings.showLegacyBadges {
                 Text("Legacy")
-                    .font(.caption.weight(.semibold))
+                    .font(AppTypography.badge)
                     .padding(.horizontal, 10)
                     .padding(.vertical, 4)
                     .background(Color.orange.opacity(0.12), in: Capsule())
@@ -173,7 +173,7 @@ struct ReportSectionChip: View {
                         .lineLimit(1)
                     if rowCount > 0 {
                         Text("\(rowCount)")
-                            .font(.caption2.weight(.semibold))
+                            .font(AppTypography.badge)
                             .padding(.horizontal, 5)
                             .padding(.vertical, 1)
                             .background(Color.secondary.opacity(0.12), in: Capsule())
@@ -184,7 +184,7 @@ struct ReportSectionChip: View {
                     .fill(isSelected ? Color.accentColor : Color.clear)
                     .frame(height: 2)
             }
-            .font(.caption.weight(.medium))
+            .font(AppTypography.metadata.weight(.medium))
             .foregroundStyle(isSelected ? Color.accentColor : .primary)
             .padding(.horizontal, 8)
             .padding(.top, 6)
@@ -205,17 +205,18 @@ struct ReportSectionReadingView: View {
             VStack(alignment: .leading, spacing: 18) {
                 HStack(alignment: .firstTextBaseline) {
                     Label(section.title, systemImage: section.kind.systemImage)
-                        .font(.title3.weight(.semibold))
+                        .font(AppTypography.pageTitle)
                     Spacer()
                     Text(report.isLegacy ? appState.t("reports.legacyHTML") : appState.t("reports.nativeReport"))
-                        .font(.caption.weight(.medium))
+                        .font(AppTypography.metadata.weight(.medium))
                         .foregroundStyle(.secondary)
                 }
 
                 VStack(alignment: .leading, spacing: 10) {
                     Text(appState.t("reports.sectionSummary"))
-                        .font(.headline)
+                        .font(AppTypography.sectionTitle)
                     Text(section.summary.isEmpty ? appState.t("reports.sectionNoStructuredEvidence") : section.summary)
+                        .font(AppTypography.body)
                         .foregroundStyle(.secondary)
                         .textSelection(.enabled)
                 }
@@ -223,9 +224,10 @@ struct ReportSectionReadingView: View {
                 if section.callouts.isEmpty == false {
                     VStack(alignment: .leading, spacing: 10) {
                         Text(appState.t("reports.callouts"))
-                            .font(.headline)
+                            .font(AppTypography.sectionTitle)
                         ForEach(section.callouts, id: \.self) { callout in
                             Label(callout, systemImage: "info.circle")
+                                .font(AppTypography.body)
                                 .foregroundStyle(.secondary)
                         }
                     }
@@ -233,9 +235,9 @@ struct ReportSectionReadingView: View {
 
                 VStack(alignment: .leading, spacing: 8) {
                     Text(appState.t("common.source"))
-                        .font(.headline)
+                        .font(AppTypography.sectionTitle)
                     Text(report.sourcePath)
-                        .font(.caption)
+                        .font(AppTypography.smallCode)
                         .foregroundStyle(.secondary)
                         .textSelection(.enabled)
                 }
@@ -283,7 +285,7 @@ struct EvidenceToolbar: View {
 
             Spacer()
             Text("\(visibleRowCount) / \(totalRowCount) \(appState.t("reports.rows"))")
-                .font(.caption)
+                .font(AppTypography.metadata)
                 .foregroundStyle(.secondary)
         }
         .padding(12)
@@ -390,7 +392,7 @@ struct CrossBatchEvidenceBrowser: View {
                     CrossBatchFilterPicker(title: "状态", allTitle: "全部状态", options: graph.statuses, selection: $selectedStatus)
                     Spacer()
                     Text("\(filteredGraph.nodes.count) 节点 / \(filteredGraph.edges.count) 边")
-                        .font(.caption)
+                        .font(AppTypography.metadata)
                         .foregroundStyle(.secondary)
                 } else {
                     Spacer()
@@ -480,7 +482,7 @@ struct CrossBatchHeader: View {
             Text("状态")
                 .frame(width: 110, alignment: .leading)
         }
-        .font(.caption.weight(.semibold))
+        .font(AppTypography.tableHeader)
         .foregroundStyle(.secondary)
     }
 }
@@ -491,6 +493,7 @@ struct CrossBatchListRow: View {
     var body: some View {
         HStack(spacing: 12) {
             Text(row.columns[safe: 0] ?? row.detailTitle)
+                .font(AppTypography.rowPrimary)
                 .lineLimit(1)
                 .truncationMode(.middle)
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -512,7 +515,7 @@ struct CrossBatchListRow: View {
                 .foregroundStyle(statusColor)
                 .frame(width: 110, alignment: .leading)
         }
-        .font(.subheadline)
+        .font(AppTypography.rowSecondary)
         .padding(.vertical, 5)
     }
 
@@ -562,7 +565,7 @@ struct CrossBatchNodeColumn: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("\(title) \(nodes.count)")
-                .font(.caption.weight(.semibold))
+                .font(AppTypography.tableHeader)
                 .foregroundStyle(.secondary)
             ForEach(nodes) { node in
                 CrossBatchNodeView(node: node)
@@ -578,21 +581,21 @@ struct CrossBatchNodeView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 5) {
             Label(node.fileName, systemImage: node.kind.systemImage)
-                .font(.subheadline.weight(.medium))
+                .font(AppTypography.rowPrimary)
                 .lineLimit(1)
                 .truncationMode(.middle)
             Text("\(node.role.title) · \(node.kind.title)")
-                .font(.caption2.weight(.medium))
+                .font(AppTypography.metadata.weight(.medium))
                 .foregroundStyle(.secondary)
             if node.subtitle.isEmpty == false {
                 Text(node.subtitle)
-                    .font(.caption)
+                    .font(AppTypography.metadata)
                     .foregroundStyle(.secondary)
                     .lineLimit(2)
             }
             if node.tags.isEmpty == false {
                 Text(node.tags.prefix(3).joined(separator: " / "))
-                    .font(.caption2)
+                    .font(AppTypography.metadata)
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
             }
@@ -611,7 +614,7 @@ struct CrossBatchEdgeColumn: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("边 \(edges.count)")
-                .font(.caption.weight(.semibold))
+                .font(AppTypography.tableHeader)
                 .foregroundStyle(.secondary)
             ForEach(edges) { edge in
                 Button {
@@ -639,7 +642,7 @@ struct CrossBatchEdgeView: View {
                     .truncationMode(.middle)
                 Spacer(minLength: 8)
                 Text("\(edge.distance)")
-                    .font(.caption.weight(.semibold))
+                    .font(AppTypography.badge)
                     .foregroundStyle(.secondary)
             }
             HStack(spacing: 8) {
@@ -650,7 +653,7 @@ struct CrossBatchEdgeView: View {
                     .foregroundStyle(edge.status.contains("白名单") ? .green : .secondary)
                     .lineLimit(1)
             }
-            .font(.caption)
+            .font(AppTypography.metadata)
             .foregroundStyle(.secondary)
         }
         .padding(10)
@@ -677,7 +680,7 @@ struct DenseEvidenceHeader: View {
             Text(appState.t("common.badge"))
                 .frame(width: 92, alignment: .leading)
         }
-        .font(.caption.weight(.semibold))
+        .font(AppTypography.tableHeader)
         .foregroundStyle(.secondary)
     }
 }
@@ -688,6 +691,7 @@ struct EvidenceListRow: View {
     var body: some View {
         HStack(spacing: 12) {
             Text(row.columns[safe: 0] ?? row.detailTitle)
+                .font(AppTypography.rowPrimary)
                 .lineLimit(1)
                 .truncationMode(.middle)
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -708,7 +712,7 @@ struct EvidenceListRow: View {
                 .lineLimit(1)
                 .frame(width: 92, alignment: .leading)
         }
-        .font(.subheadline)
+        .font(AppTypography.rowSecondary)
         .padding(.vertical, 5)
     }
 }
@@ -725,6 +729,7 @@ struct OverviewEvidenceList: View {
             ForEach(rows) { row in
                 HStack {
                     Text(row.detailTitle)
+                        .font(AppTypography.rowPrimary)
                         .fontWeight(.medium)
                         .lineLimit(1)
                     Spacer()

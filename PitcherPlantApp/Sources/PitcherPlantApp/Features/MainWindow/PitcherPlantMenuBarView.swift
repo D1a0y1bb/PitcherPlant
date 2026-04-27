@@ -121,7 +121,7 @@ struct PitcherPlantMenuBarView: View {
                 .textFieldStyle(.plain)
 
             Text("\(filteredJobs.count + filteredReports.count)")
-                .font(.caption.weight(.semibold))
+                .font(AppTypography.badge)
                 .foregroundStyle(.secondary)
                 .padding(.horizontal, 7)
                 .padding(.vertical, 3)
@@ -220,11 +220,11 @@ private struct MenuBarGlassSection<Content: View>: View {
         VStack(spacing: 0) {
             HStack {
                 Text(title)
-                    .font(.caption.weight(.semibold))
+                    .font(AppTypography.tableHeader)
                     .foregroundStyle(.secondary)
                 Spacer()
                 Text("\(count)")
-                    .font(.caption2.weight(.semibold))
+                    .font(AppTypography.badge)
                     .foregroundStyle(.secondary)
                     .padding(.horizontal, 7)
                     .padding(.vertical, 2)
@@ -301,10 +301,10 @@ private struct CompactJobRow: View {
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(URL(fileURLWithPath: job.configuration.directoryPath).lastPathComponent)
-                        .font(.subheadline.weight(.medium))
+                        .font(AppTypography.rowPrimary)
                         .lineLimit(1)
                     Text("\(appState.title(for: job.status)) · \(job.progress)% · \(job.latestMessage)")
-                        .font(.caption)
+                        .font(AppTypography.metadata)
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
                 }
@@ -312,7 +312,7 @@ private struct CompactJobRow: View {
                 Spacer()
 
                 Text(job.updatedAt.formatted(date: .omitted, time: .shortened))
-                    .font(.caption)
+                    .font(AppTypography.metadata)
                     .foregroundStyle(.secondary)
             }
             .padding(.horizontal, 12)
@@ -337,10 +337,10 @@ private struct CompactReportRow: View {
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(report.title)
-                        .font(.subheadline.weight(.medium))
+                        .font(AppTypography.rowPrimary)
                         .lineLimit(1)
                     Text("\(report.sections.count) \(appState.t("reports.sectionSummary")) · \(report.createdAt.formatted(date: .abbreviated, time: .shortened))")
-                        .font(.caption)
+                        .font(AppTypography.metadata)
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
                 }
@@ -362,9 +362,9 @@ private struct CompactEmptyRow: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
             Text(title)
-                .font(.subheadline.weight(.medium))
+                .font(AppTypography.rowPrimary)
             Text(subtitle)
-                .font(.caption)
+                .font(AppTypography.metadata)
                 .foregroundStyle(.secondary)
         }
         .padding(.horizontal, 12)

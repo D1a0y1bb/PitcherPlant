@@ -14,7 +14,7 @@ struct MetricCard: View {
         VStack(alignment: .leading, spacing: 10) {
             Label(metric.title, systemImage: metric.systemImage)
                 .foregroundStyle(.secondary)
-                .font(.subheadline)
+                .font(AppTypography.supporting)
             Text(metric.value)
                 .font(.title2.weight(.semibold))
         }
@@ -31,7 +31,7 @@ struct StatusBadge: View {
 
     var body: some View {
         Text(appState.title(for: status))
-            .font(.caption.weight(.semibold))
+            .font(AppTypography.badge)
             .padding(.horizontal, 10)
             .padding(.vertical, 5)
             .background(backgroundColor)

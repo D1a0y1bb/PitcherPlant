@@ -140,16 +140,16 @@ private struct ReportsCenterSelectorBar: View {
         HStack(spacing: 12) {
             VStack(alignment: .leading, spacing: 3) {
                 Text(appState.t("reports.title"))
-                    .font(.headline)
+                    .font(AppTypography.sectionTitle)
                 if let report = appState.selectedReport {
                     Text(report.title)
-                        .font(.caption)
+                        .font(AppTypography.metadata)
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
                         .truncationMode(.middle)
                 } else {
                     Text(appState.t("reports.noReport"))
-                        .font(.caption)
+                        .font(AppTypography.metadata)
                         .foregroundStyle(.secondary)
                 }
             }

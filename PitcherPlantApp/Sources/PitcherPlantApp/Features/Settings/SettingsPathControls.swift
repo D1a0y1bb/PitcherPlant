@@ -11,11 +11,11 @@ struct SettingsEditablePathControl: View {
         } label: {
             HStack(spacing: 7) {
                 Image(systemName: "folder")
-                    .font(.caption)
+                    .font(AppTypography.metadata)
                     .foregroundStyle(.secondary)
 
                 Text(text.isEmpty ? title : text)
-                    .font(.system(.footnote, design: .monospaced))
+                    .font(AppTypography.smallCode)
                     .foregroundStyle(text.isEmpty ? .tertiary : .secondary)
                     .lineLimit(1)
                     .truncationMode(.middle)
@@ -50,11 +50,11 @@ struct SettingsPathDisplay: View {
     var body: some View {
         HStack(spacing: 7) {
             Image(systemName: "folder")
-                .font(.caption)
+                .font(AppTypography.metadata)
                 .foregroundStyle(.secondary)
 
             Text(value)
-                .font(.system(.footnote, design: .monospaced))
+                .font(AppTypography.smallCode)
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
                 .truncationMode(.middle)
@@ -65,4 +65,3 @@ struct SettingsPathDisplay: View {
         .settingsControlBackground()
     }
 }
-

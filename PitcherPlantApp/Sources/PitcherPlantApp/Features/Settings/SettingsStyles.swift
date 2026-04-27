@@ -5,7 +5,7 @@ struct SettingsStepperButtonStyle: ButtonStyle {
 
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .font(.caption.weight(.semibold))
+            .font(AppTypography.badge)
             .foregroundStyle(isEnabled ? .secondary : .tertiary)
             .frame(width: 28, height: 28)
             .contentShape(Circle())
@@ -29,14 +29,14 @@ extension View {
     func settingsPillLabel(width: CGFloat? = nil, alignment: Alignment = .center) -> some View {
         if let width {
             self
-                .font(.callout.weight(.medium))
+                .font(AppTypography.supporting.weight(.medium))
                 .lineLimit(1)
                 .padding(.horizontal, 12)
                 .frame(width: width, height: SettingsLayout.pathControlHeight, alignment: alignment)
                 .settingsControlBackground()
         } else {
             self
-                .font(.callout.weight(.medium))
+                .font(AppTypography.supporting.weight(.medium))
                 .lineLimit(1)
                 .padding(.horizontal, 12)
                 .frame(height: SettingsLayout.pathControlHeight, alignment: alignment)
@@ -75,7 +75,6 @@ struct SettingsControlRow<Content: View>: View {
                 Spacer(minLength: 12)
 
                 content
-                    .controlSize(.small)
                     .frame(width: SettingsLayout.trailingWidth, alignment: .trailing)
             }
         }
@@ -110,9 +109,9 @@ struct SettingsRowText: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
             Text(title)
-                .font(.body.weight(.semibold))
+                .font(AppTypography.rowPrimary)
             Text(subtitle)
-                .font(.footnote)
+                .font(AppTypography.supporting)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
         }
@@ -128,7 +127,7 @@ struct SettingsStatusPill: View {
 
     var body: some View {
         Text(text)
-            .font(.footnote)
+            .font(AppTypography.metadata)
             .foregroundStyle(.secondary)
             .lineLimit(1)
             .truncationMode(.middle)

@@ -50,7 +50,7 @@ struct MainStatusBar: View {
     var body: some View {
         HStack(spacing: 10) {
             Text(statusText)
-                .font(.caption)
+                .font(AppTypography.metadata)
                 .foregroundStyle(.secondary)
 
             Spacer()
@@ -62,7 +62,7 @@ struct MainStatusBar: View {
                 } icon: {
                     Image(systemName: noticeIcon(for: notice.tone))
                 }
-                .font(.caption)
+                .font(AppTypography.metadata)
                 .foregroundStyle(noticeColor(for: notice.tone))
 
                 Button {
@@ -76,15 +76,15 @@ struct MainStatusBar: View {
                 ProgressView()
                     .controlSize(.small)
                 Text(appState.t("status.auditing"))
-                    .font(.caption)
+                    .font(AppTypography.metadata)
                     .foregroundStyle(.secondary)
             } else if let latestReport = appState.latestReport {
                 Text("\(appState.t("status.latest")): \(latestReport.createdAt.formatted(date: .abbreviated, time: .shortened))")
-                    .font(.caption)
+                    .font(AppTypography.metadata)
                     .foregroundStyle(.secondary)
             } else {
                 Text(appState.t("status.ready"))
-                    .font(.caption)
+                    .font(AppTypography.metadata)
                     .foregroundStyle(.secondary)
             }
         }
@@ -154,7 +154,7 @@ struct MainSidebarView: View {
                 Spacer()
                 if let count {
                     Text("\(count)")
-                        .font(.caption)
+                        .font(AppTypography.metadata)
                         .foregroundStyle(.secondary)
                         .frame(minWidth: 22, alignment: .trailing)
                 }

@@ -19,7 +19,7 @@ struct SettingsTextControl: View {
     var body: some View {
         TextField(title, text: $text)
             .textFieldStyle(.plain)
-            .font(.system(.footnote, design: .monospaced))
+            .font(AppTypography.smallCode)
             .multilineTextAlignment(.trailing)
             .lineLimit(1)
             .truncationMode(.middle)
@@ -147,7 +147,7 @@ struct SettingsMenuPicker<Value: Hashable>: View {
                 Spacer(minLength: 8)
 
                 Image(systemName: "chevron.up.chevron.down")
-                    .font(.caption.weight(.semibold))
+                    .font(AppTypography.badge)
                     .foregroundStyle(.secondary)
             }
             .settingsPillLabel(width: width, alignment: .leading)
@@ -188,7 +188,7 @@ struct SettingsNumberStepper: View {
                 TextField(hint, value: clampedBinding, format: .number.precision(.fractionLength(2)))
                     .textFieldStyle(.plain)
                     .multilineTextAlignment(.center)
-                    .font(.system(.callout, design: .monospaced).weight(.medium))
+                    .font(AppTypography.code.weight(.medium))
                     .frame(width: SettingsLayout.numberFieldWidth)
 
                 Button {
@@ -204,7 +204,7 @@ struct SettingsNumberStepper: View {
             .settingsPanelSurface(cornerRadius: 8)
 
             Text(hint)
-                .font(.footnote)
+                .font(AppTypography.metadata)
                 .foregroundStyle(.secondary)
                 .frame(width: SettingsLayout.hintWidth, alignment: .trailing)
         }
@@ -244,7 +244,7 @@ struct SettingsIntegerStepper: View {
                 TextField(hint, value: clampedBinding, format: .number)
                     .textFieldStyle(.plain)
                     .multilineTextAlignment(.center)
-                    .font(.system(.callout, design: .monospaced).weight(.medium))
+                    .font(AppTypography.code.weight(.medium))
                     .frame(width: SettingsLayout.numberFieldWidth)
 
                 Button {
@@ -260,7 +260,7 @@ struct SettingsIntegerStepper: View {
             .settingsPanelSurface(cornerRadius: 8)
 
             Text(hint)
-                .font(.footnote)
+                .font(AppTypography.metadata)
                 .foregroundStyle(.secondary)
                 .frame(width: SettingsLayout.hintWidth, alignment: .trailing)
         }
@@ -278,4 +278,3 @@ struct SettingsIntegerStepper: View {
         min(max(candidate, range.lowerBound), range.upperBound)
     }
 }
-

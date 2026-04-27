@@ -24,8 +24,9 @@ struct NativePageHeader<Actions: View>: View {
         HStack(alignment: .firstTextBaseline) {
             VStack(alignment: .leading, spacing: 4) {
                 Text(title)
-                    .font(.title2.weight(.semibold))
+                    .font(AppTypography.pageTitle)
                 Text(subtitle)
+                    .font(AppTypography.supporting)
                     .foregroundStyle(.secondary)
             }
             Spacer()
@@ -45,9 +46,9 @@ struct NativeSection<Content: View>: View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(alignment: .firstTextBaseline) {
                 Text(title)
-                    .font(.headline)
+                    .font(AppTypography.sectionTitle)
                 Text(subtitle)
-                    .font(.caption)
+                    .font(AppTypography.metadata)
                     .foregroundStyle(.secondary)
                 Spacer()
             }
@@ -69,9 +70,9 @@ struct JobInspectorSection<Content: View>: View {
         VStack(alignment: .leading, spacing: 10) {
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)
-                    .font(.headline)
+                    .font(AppTypography.sectionTitle)
                 Text(subtitle)
-                    .font(.caption)
+                    .font(AppTypography.metadata)
                     .foregroundStyle(.secondary)
             }
             content
@@ -90,9 +91,9 @@ struct SearchHeader: View {
         HStack(spacing: 12) {
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)
-                    .font(.headline)
+                    .font(AppTypography.sectionTitle)
                 Text("\(count) \(appState.t("common.countSuffix"))")
-                    .font(.caption)
+                    .font(AppTypography.metadata)
                     .foregroundStyle(.secondary)
             }
             Spacer()
@@ -116,7 +117,7 @@ struct DenseHeader: View {
                     .frame(width: index == 0 ? nil : (index == 1 ? 74 : index == 2 ? 54 : 128), alignment: .trailing)
             }
         }
-        .font(.caption.weight(.semibold))
+        .font(AppTypography.tableHeader)
         .foregroundStyle(.secondary)
         .padding(.vertical, 6)
     }
@@ -144,7 +145,7 @@ struct SummaryStrip: View {
             }
             Spacer()
         }
-        .font(.subheadline)
+        .font(AppTypography.rowSecondary)
     }
 }
 
@@ -155,6 +156,7 @@ struct SettingsTextRow: View {
     var body: some View {
         HStack(spacing: 12) {
             Text(title)
+                .font(AppTypography.rowPrimary)
                 .frame(width: 96, alignment: .leading)
             TextField(title, text: $text)
                 .textFieldStyle(.roundedBorder)
@@ -171,6 +173,7 @@ struct SettingsNumberRow<F: ParseableFormatStyle>: View where F.FormatInput == D
     var body: some View {
         HStack {
             Text(title)
+                .font(AppTypography.rowPrimary)
             Spacer()
             TextField("", value: $value, format: format)
                 .textFieldStyle(.roundedBorder)
@@ -187,6 +190,7 @@ struct SettingsIntegerRow: View {
     var body: some View {
         HStack {
             Text(title)
+                .font(AppTypography.rowPrimary)
             Spacer()
             TextField("", value: $value, format: .number)
                 .textFieldStyle(.roundedBorder)
@@ -221,7 +225,7 @@ struct PillLabel: View {
 
     var body: some View {
         Text(title)
-            .font(.caption.weight(.semibold))
+            .font(AppTypography.badge)
             .padding(.horizontal, 8)
             .padding(.vertical, 3)
             .background(tint.opacity(0.12), in: Capsule())
