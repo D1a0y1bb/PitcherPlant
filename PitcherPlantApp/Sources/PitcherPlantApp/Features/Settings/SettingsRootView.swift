@@ -285,7 +285,9 @@ struct SettingsRootView: View {
                     }
                 }
             }
-            .padding(28)
+            .padding(.leading, 28)
+            .padding(.trailing, 8)
+            .padding(.vertical, 28)
             .frame(maxWidth: .infinity, alignment: .topLeading)
         }
         .background(Color(nsColor: .textBackgroundColor))
@@ -383,7 +385,7 @@ private enum SettingsLayout {
     static let sectionIconWidth: CGFloat = 18
     static let sectionTitleSpacing: CGFloat = 8
     static let horizontalPadding: CGFloat = 14
-    static let rowLeadingPadding: CGFloat = horizontalPadding + sectionIconWidth + sectionTitleSpacing
+    static let rowLeadingPadding: CGFloat = sectionIconWidth + sectionTitleSpacing
     static let trailingWidth: CGFloat = 360
     static let menuWidth: CGFloat = 220
     static let numberFieldWidth: CGFloat = 58
@@ -407,17 +409,24 @@ private struct SettingsGroup<Content: View>: View {
                 Image(systemName: systemImage)
                     .font(.body)
                     .foregroundStyle(.secondary)
-                    .frame(width: SettingsLayout.sectionIconWidth, alignment: .center)
+                    .frame(width: SettingsLayout.sectionIconWidth, alignment: .leading)
 
                 Text(title)
                     .font(.headline)
             }
             .padding(.leading, SettingsLayout.horizontalPadding)
 
-            VStack(spacing: 0) {
-                content
+            HStack(spacing: 0) {
+                Color.clear
+                    .frame(width: SettingsLayout.horizontalPadding)
+
+                VStack(spacing: 0) {
+                    content
+                }
+                .settingsPanelSurface(cornerRadius: 12)
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .settingsGlassSurface(cornerRadius: 12)
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
@@ -744,7 +753,7 @@ private struct SettingsNumberStepper: View {
                 .disabled(value >= range.upperBound)
             }
             .frame(width: SettingsLayout.stepperWidth, height: 30)
-            .settingsGlassSurface(cornerRadius: 8, interactive: true)
+            .settingsPanelSurface(cornerRadius: 8)
 
             Text(hint)
                 .font(.footnote)
@@ -798,7 +807,7 @@ private struct SettingsIntegerStepper: View {
                 .disabled(value >= range.upperBound)
             }
             .frame(width: SettingsLayout.stepperWidth, height: 30)
-            .settingsGlassSurface(cornerRadius: 8, interactive: true)
+            .settingsPanelSurface(cornerRadius: 8)
 
             Text(hint)
                 .font(.footnote)
@@ -866,25 +875,17 @@ private extension View {
 
     func settingsControlBackground() -> some View {
         self
-            .settingsGlassSurface(cornerRadius: SettingsLayout.controlCornerRadius, interactive: true)
+            .settingsPanelSurface(cornerRadius: SettingsLayout.controlCornerRadius)
     }
 
     @ViewBuilder
-    func settingsGlassSurface(cornerRadius: CGFloat, interactive: Bool = false) -> some View {
+    func settingsPanelSurface(cornerRadius: CGFloat) -> some View {
         let shape = RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-        if #available(macOS 26.0, *) {
-            if interactive {
-                self.glassEffect(.regular.interactive(), in: .rect(cornerRadius: cornerRadius))
-            } else {
-                self.glassEffect(.regular, in: .rect(cornerRadius: cornerRadius))
+        self
+            .background(Color(nsColor: .controlBackgroundColor), in: shape)
+            .overlay {
+                shape.stroke(Color(nsColor: .separatorColor).opacity(0.18))
             }
-        } else {
-            self
-                .background(.regularMaterial, in: shape)
-                .overlay {
-                    shape.stroke(.separator.opacity(0.18))
-                }
-        }
     }
 }
 

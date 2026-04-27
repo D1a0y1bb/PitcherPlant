@@ -17,6 +17,7 @@ struct PitcherPlantDesktopApp: App {
     var body: some Scene {
         WindowGroup("PitcherPlant", id: AppWindow.main.rawValue) {
             MainWindowView()
+                .id(appearanceSyncKey)
                 .environment(appState)
                 .environment(\.locale, appState.effectiveLocale ?? .current)
                 .preferredColorScheme(appState.effectiveColorScheme)
@@ -39,6 +40,7 @@ struct PitcherPlantDesktopApp: App {
 
         Settings {
             SettingsRootView()
+                .id(appearanceSyncKey)
                 .environment(appState)
                 .environment(\.locale, appState.effectiveLocale ?? .current)
                 .preferredColorScheme(appState.effectiveColorScheme)
@@ -50,6 +52,7 @@ struct PitcherPlantDesktopApp: App {
 
         MenuBarExtra {
             PitcherPlantMenuBarView(appState: appState)
+                .id(appearanceSyncKey)
                 .environment(appState)
                 .environment(\.locale, appState.effectiveLocale ?? .current)
                 .preferredColorScheme(appState.effectiveColorScheme)
@@ -89,18 +92,6 @@ private struct AppAppearanceSyncModifier: ViewModifier {
         NSApp.windows.forEach { window in
             window.applyPitcherPlantAppearance(nsAppearance)
         }
-        applyDeferredAppearance(nsAppearance)
-    }
-
-    private func applyDeferredAppearance(_ appearance: NSAppearance?) {
-        for delay in [0.05, 0.2, 0.45] {
-            DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
-                NSApp.appearance = appearance
-                NSApp.windows.forEach { window in
-                    window.applyPitcherPlantAppearance(appearance)
-                }
-            }
-        }
     }
 }
 
@@ -123,11 +114,6 @@ private struct WindowAppearanceAccessor: NSViewRepresentable {
                 return
             }
             window.applyPitcherPlantAppearance(appearance.nsAppearance)
-            for delay in [0.05, 0.2, 0.45] {
-                DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
-                    window.applyPitcherPlantAppearance(appearance.nsAppearance)
-                }
-            }
         }
     }
 }
@@ -136,7 +122,7 @@ private extension AppAppearance {
     var nsAppearance: NSAppearance? {
         switch self {
         case .system:
-            return nil
+            return NSAppearance(named: Self.currentSystemColorScheme == .dark ? .darkAqua : .aqua)
         case .light:
             return NSAppearance(named: .aqua)
         case .dark:
@@ -148,20 +134,20 @@ private extension AppAppearance {
 private extension NSWindow {
     func applyPitcherPlantAppearance(_ appearance: NSAppearance?) {
         self.appearance = appearance
-        contentView?.appearance = appearance
-        contentView?.superview?.appearance = appearance
         standardWindowButton(.closeButton)?.superview?.appearance = appearance
-        if let rootView = contentView?.superview {
-            rootView.applyPitcherPlantAppearanceToSubviews(appearance)
-        }
+        contentView?.resetExplicitPitcherPlantAppearance()
+        invalidateShadow()
     }
 }
 
 private extension NSView {
-    func applyPitcherPlantAppearanceToSubviews(_ appearance: NSAppearance?) {
-        self.appearance = appearance
+    func resetExplicitPitcherPlantAppearance() {
+        appearance = nil
+        needsDisplay = true
+        needsLayout = true
+        layer?.setNeedsDisplay()
         subviews.forEach { subview in
-            subview.applyPitcherPlantAppearanceToSubviews(appearance)
+            subview.resetExplicitPitcherPlantAppearance()
         }
     }
 }
