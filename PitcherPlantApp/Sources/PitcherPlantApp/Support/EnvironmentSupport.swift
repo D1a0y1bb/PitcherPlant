@@ -1,13 +1,30 @@
 import Foundation
 
 struct ProjectLocator {
+    private let savedWorkspaceRootKey = "pitcherplant.macos.workspaceRoot"
+    private let defaults: UserDefaults
+
+    init(defaults: UserDefaults = .standard) {
+        self.defaults = defaults
+    }
+
     func workspaceRoot() -> URL {
         let fileManager = FileManager.default
         let environment = ProcessInfo.processInfo.environment
 
         if let explicitRoot = environment["PITCHERPLANT_WORKSPACE_ROOT"], explicitRoot.isEmpty == false {
             let url = URL(fileURLWithPath: explicitRoot)
-            if isWorkspaceRoot(url, fileManager: fileManager) {
+            if isWorkspaceRoot(url, fileManager: fileManager) || isUsableWorkspace(url, fileManager: fileManager) {
+                prepareUserWorkspace(url, fileManager: fileManager)
+                saveWorkspaceRoot(url)
+                return url
+            }
+        }
+
+        if let savedRoot = defaults.string(forKey: savedWorkspaceRootKey), savedRoot.isEmpty == false {
+            let url = URL(fileURLWithPath: savedRoot)
+            if isUsableWorkspace(url, fileManager: fileManager) {
+                prepareUserWorkspace(url, fileManager: fileManager)
                 return url
             }
         }
@@ -21,11 +38,15 @@ struct ProjectLocator {
 
         for start in startingPoints {
             if let root = searchUpward(from: start, fileManager: fileManager) {
+                saveWorkspaceRoot(root)
                 return root
             }
         }
 
-        return URL(fileURLWithPath: fileManager.currentDirectoryPath)
+        let fallback = applicationSupportWorkspace(fileManager: fileManager)
+        prepareUserWorkspace(fallback, fileManager: fileManager)
+        saveWorkspaceRoot(fallback)
+        return fallback
     }
 
     private func searchUpward(from start: URL, fileManager: FileManager) -> URL? {
@@ -50,6 +71,39 @@ struct ProjectLocator {
         }
         return fileManager.fileExists(atPath: url.appendingPathComponent("Package.swift").path)
             && fileManager.fileExists(atPath: url.appendingPathComponent("Sources/PitcherPlantApp").path)
+    }
+
+    private func isUsableWorkspace(_ url: URL, fileManager: FileManager) -> Bool {
+        var isDirectory: ObjCBool = false
+        return fileManager.fileExists(atPath: url.path, isDirectory: &isDirectory) && isDirectory.boolValue
+    }
+
+    private func applicationSupportWorkspace(fileManager: FileManager) -> URL {
+        let support = (try? fileManager.url(
+            for: .applicationSupportDirectory,
+            in: .userDomainMask,
+            appropriateFor: nil,
+            create: true
+        )) ?? fileManager.temporaryDirectory
+
+        return support
+            .appendingPathComponent("PitcherPlant", isDirectory: true)
+            .appendingPathComponent("Workspace", isDirectory: true)
+    }
+
+    private func prepareUserWorkspace(_ url: URL, fileManager: FileManager) {
+        let directories = [
+            url,
+            AuditConfiguration.defaultInputDirectory(for: url),
+            AuditConfiguration.defaultOutputDirectory(for: url)
+        ]
+        for directory in directories {
+            try? fileManager.createDirectory(at: directory, withIntermediateDirectories: true)
+        }
+    }
+
+    private func saveWorkspaceRoot(_ url: URL) {
+        defaults.set(url.path, forKey: savedWorkspaceRootKey)
     }
 }
 

@@ -5,7 +5,6 @@ struct MainWindowView: View {
     @SceneStorage("pitcherplant.inspectorVisible") private var inspectorVisible = true
     @State private var columnVisibility = NavigationSplitViewVisibility.all
     @State private var settingsSearchText = ""
-    @State private var settingsSearchExpanded = false
 
     var body: some View {
         @Bindable var state = appState
@@ -20,6 +19,11 @@ struct MainWindowView: View {
                         MainStatusBar()
                     }
                 }
+                .modifier(SettingsSearchToolbarModifier(
+                    isActive: appState.selectedMainSidebar == .settings,
+                    searchText: $settingsSearchText,
+                    prompt: appState.t("settings.searchPrompt")
+                ))
                 .navigationSplitViewColumnWidth(min: 560, ideal: 760, max: .infinity)
         } detail: {
             Group {
@@ -53,7 +57,6 @@ struct MainWindowView: View {
         .onChange(of: appState.selectedMainSidebar) { _, _ in
             if appState.selectedMainSidebar != .settings {
                 settingsSearchText = ""
-                settingsSearchExpanded = false
             }
             updateColumnVisibility()
         }
@@ -65,17 +68,6 @@ struct MainWindowView: View {
         }
         .toolbar {
             if appState.selectedMainSidebar == .settings {
-                ToolbarItem(placement: .automatic) {
-                    SettingsToolbarSearchControl(
-                        searchText: $settingsSearchText,
-                        isExpanded: $settingsSearchExpanded,
-                        prompt: appState.t("settings.searchPrompt"),
-                        clearTitle: appState.t("common.cancel"),
-                        expandTitle: appState.t("settings.searchPrompt"),
-                        collapseTitle: appState.t("toolbar.hideSearch")
-                    )
-                }
-
                 ToolbarItemGroup(placement: .primaryAction) {
                     Button {
                         Task { await appState.reload() }
@@ -174,82 +166,17 @@ struct MainWindowView: View {
     }
 }
 
-private struct SettingsToolbarSearchControl: View {
+private struct SettingsSearchToolbarModifier: ViewModifier {
+    let isActive: Bool
     @Binding var searchText: String
-    @Binding var isExpanded: Bool
     let prompt: String
-    let clearTitle: String
-    let expandTitle: String
-    let collapseTitle: String
-    @FocusState private var isFocused: Bool
 
-    var body: some View {
-        HStack(spacing: 8) {
-            if isExpanded {
-                HStack(spacing: 7) {
-                    Image(systemName: "magnifyingglass")
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(.secondary)
-
-                    TextField(prompt, text: $searchText)
-                        .textFieldStyle(.plain)
-                        .focused($isFocused)
-                        .font(.callout)
-                        .frame(width: 210)
-
-                    Button {
-                        searchText = ""
-                    } label: {
-                        Image(systemName: "xmark.circle.fill")
-                            .font(.caption.weight(.semibold))
-                            .foregroundStyle(.secondary)
-                    }
-                    .buttonStyle(.plain)
-                    .help(clearTitle)
-                    .opacity(searchText.isEmpty ? 0.35 : 1)
-                    .disabled(searchText.isEmpty)
-                }
-                .padding(.horizontal, 10)
-                .frame(height: 28)
-                .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-                .overlay {
-                    RoundedRectangle(cornerRadius: 8, style: .continuous)
-                        .stroke(Color(nsColor: .separatorColor).opacity(0.22))
-                }
-                .transition(.opacity.combined(with: .move(edge: .trailing)))
-            }
-
-            Button {
-                withAnimation(.easeOut(duration: 0.2)) {
-                    if isExpanded {
-                        searchText = ""
-                        isExpanded = false
-                    } else {
-                        isExpanded = true
-                    }
-                }
-            } label: {
-                Label(
-                    isExpanded ? collapseTitle : expandTitle,
-                    systemImage: isExpanded ? "rectangle.compress.horizontal" : "magnifyingglass"
-                )
-            }
-            .help(isExpanded ? collapseTitle : expandTitle)
-            .onChange(of: isExpanded) { _, expanded in
-                if expanded {
-                    DispatchQueue.main.async {
-                        isFocused = true
-                    }
-                } else {
-                    isFocused = false
-                }
-            }
-        }
-        .animation(.easeOut(duration: 0.2), value: isExpanded)
-        .onAppear {
-            if isExpanded {
-                isFocused = true
-            }
+    func body(content: Content) -> some View {
+        if isActive {
+            content
+                .searchable(text: $searchText, prompt: prompt)
+        } else {
+            content
         }
     }
 }

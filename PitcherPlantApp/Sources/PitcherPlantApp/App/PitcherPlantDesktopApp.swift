@@ -53,27 +53,17 @@ struct PitcherPlantDesktopApp: App {
 
         MenuBarExtra {
             PitcherPlantMenuBarView(appState: appState)
-                .id(appearanceSyncKey)
                 .environment(appState)
                 .environment(\.locale, appState.effectiveLocale ?? .current)
                 .preferredColorScheme(appState.effectiveColorScheme)
-                .modifier(AppAppearanceSyncModifier(appearance: appState.appSettings.appearance, syncKey: appearanceSyncKey))
         } label: {
             if appState.appSettings.showMenuBarExtra {
-                MenuBarAppIcon()
+                Image(systemName: "leaf")
+                    .symbolRenderingMode(.monochrome)
+                    .accessibilityLabel("PitcherPlant")
             }
         }
         .menuBarExtraStyle(.window)
-    }
-}
-
-private struct MenuBarAppIcon: View {
-    var body: some View {
-        Image(systemName: "doc.text.magnifyingglass")
-            .symbolRenderingMode(.hierarchical)
-            .font(.system(size: 15, weight: .regular))
-            .frame(width: 18, height: 18)
-            .accessibilityLabel("PitcherPlant")
     }
 }
 
@@ -97,12 +87,7 @@ private struct AppAppearanceSyncModifier: ViewModifier {
 
     @MainActor
     private func applyAppearance() {
-        let nsAppearance = appearance.nsAppearance
-
-        NSApp.appearance = nsAppearance
-        NSApp.windows.forEach { window in
-            window.applyPitcherPlantAppearance(nsAppearance)
-        }
+        NSApp.appearance = appearance.nsAppearance
     }
 }
 

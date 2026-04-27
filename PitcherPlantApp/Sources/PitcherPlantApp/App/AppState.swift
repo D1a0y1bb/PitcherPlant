@@ -355,11 +355,9 @@ final class AppState {
                 importedFingerprints: historicalFingerprints,
                 whitelistRules: rules
             ) { stage, message in
-                Task { @MainActor in
-                    job = job.advanced(stage: stage, message: message)
-                    try? await self.database.upsertJob(job)
-                    await self.reload()
-                }
+                job = job.advanced(stage: stage, message: message)
+                try await self.database.upsertJob(job)
+                await self.reload()
             }
 
             job = job.completed(reportID: result.report.id)

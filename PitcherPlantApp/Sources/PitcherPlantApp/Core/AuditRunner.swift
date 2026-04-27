@@ -12,27 +12,27 @@ struct AuditRunner {
         configuration: AuditConfiguration,
         importedFingerprints: [FingerprintRecord],
         whitelistRules: [WhitelistRule],
-        progress: @escaping @Sendable (AuditStage, String) -> Void
+        progress: @escaping @MainActor @Sendable (AuditStage, String) async throws -> Void
     ) async throws -> AuditRunResult {
-        progress(.initialize, AuditStage.initialize.displayTitle)
+        try await progress(.initialize, AuditStage.initialize.displayTitle)
 
         let directoryURL = URL(fileURLWithPath: configuration.directoryPath)
         let ingestion = DocumentIngestionService(configuration: configuration)
         let documents = try ingestion.ingestDocuments(in: directoryURL)
-        progress(.parsed, AuditStage.parsed.displayTitle)
+        try await progress(.parsed, AuditStage.parsed.displayTitle)
 
         let textAnalyzer = TextSimilarityAnalyzer()
         let textPairs = textAnalyzer.analyze(documents: documents, threshold: configuration.textThreshold)
-        progress(.text, AuditStage.text.displayTitle)
+        try await progress(.text, AuditStage.text.displayTitle)
 
         let codePairs = CodeSimilarityAnalyzer().analyze(documents: documents)
-        progress(.code, AuditStage.code.displayTitle)
+        try await progress(.code, AuditStage.code.displayTitle)
 
         let imagePairs = ImageReuseAnalyzer().analyze(documents: documents, threshold: configuration.imageThreshold)
-        progress(.image, AuditStage.image.displayTitle)
+        try await progress(.image, AuditStage.image.displayTitle)
 
         let metadataCollisions = MetadataCollisionAnalyzer().analyze(documents: documents)
-        progress(.metadata, AuditStage.metadata.displayTitle)
+        try await progress(.metadata, AuditStage.metadata.displayTitle)
 
         let dedupPairs = DedupAnalyzer().analyze(documents: documents, threshold: configuration.dedupThreshold)
         let currentFingerprints = FingerprintAnalyzer().buildRecords(documents: documents, scanDirectory: directoryURL.lastPathComponent)

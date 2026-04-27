@@ -1,4 +1,5 @@
 import SwiftUI
+import AppKit
 
 struct PitcherPlantMenuBarView: View {
     @Environment(\.openWindow) private var openWindow
@@ -41,12 +42,32 @@ struct PitcherPlantMenuBarView: View {
     }
 
     var body: some View {
+        menuPanelContent
+            .frame(width: 360)
+            .background(MenuBarPanelMaterial())
+            .task {
+                await appState.bootstrapIfNeeded()
+            }
+    }
+
+    @ViewBuilder
+    private var menuPanelContent: some View {
+        if #available(macOS 26.0, *) {
+            GlassEffectContainer(spacing: 12) {
+                panelContent
+            }
+        } else {
+            panelContent
+        }
+    }
+
+    private var panelContent: some View {
         VStack(spacing: 12) {
-            headerCard
+            header
 
             ScrollView(showsIndicators: false) {
                 VStack(spacing: 12) {
-                    MenuBarPanelSection(title: appState.t("menu.recentAudits"), count: filteredJobs.count) {
+                    MenuBarGlassSection(title: appState.t("menu.recentAudits"), count: filteredJobs.count) {
                         if filteredJobs.isEmpty {
                             CompactEmptyRow(title: appState.t("menu.noAudits"), subtitle: appState.t("menu.noAuditsDescription"))
                         } else {
@@ -63,7 +84,7 @@ struct PitcherPlantMenuBarView: View {
                         }
                     }
 
-                    MenuBarPanelSection(title: appState.t("reports.title"), count: filteredReports.count) {
+                    MenuBarGlassSection(title: appState.t("reports.title"), count: filteredReports.count) {
                         if filteredReports.isEmpty {
                             CompactEmptyRow(title: appState.t("menu.noReports"), subtitle: appState.t("menu.noReportsDescription"))
                         } else {
@@ -79,25 +100,15 @@ struct PitcherPlantMenuBarView: View {
                         }
                     }
                 }
-                .padding(.vertical, 1)
             }
-            .frame(height: 290)
+            .frame(height: 300)
 
             actions
         }
         .padding(12)
-        .frame(width: 360)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-        .overlay {
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .stroke(Color(nsColor: .separatorColor).opacity(0.18))
-        }
-        .task {
-            await appState.bootstrapIfNeeded()
-        }
     }
 
-    private var headerCard: some View {
+    private var header: some View {
         HStack(spacing: 10) {
             Image(systemName: "doc.text.magnifyingglass")
                 .foregroundStyle(.secondary)
@@ -113,12 +124,8 @@ struct PitcherPlantMenuBarView: View {
                 .background(Color.secondary.opacity(0.12), in: Capsule())
         }
         .padding(.horizontal, 12)
-        .frame(height: 38)
-        .background(Color(nsColor: .controlBackgroundColor).opacity(0.72), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-        .overlay {
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .stroke(Color(nsColor: .separatorColor).opacity(0.16))
-        }
+        .frame(height: 42)
+        .modifier(MenuBarGlassSurface(radius: 18))
     }
 
     private var actions: some View {
@@ -180,11 +187,7 @@ struct PitcherPlantMenuBarView: View {
         .buttonStyle(.bordered)
         .controlSize(.regular)
         .padding(10)
-        .background(Color(nsColor: .controlBackgroundColor).opacity(0.72), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-        .overlay {
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .stroke(Color(nsColor: .separatorColor).opacity(0.16))
-        }
+        .modifier(MenuBarGlassSurface(radius: 18))
     }
 
     private func openMainWindow() {
@@ -194,7 +197,7 @@ struct PitcherPlantMenuBarView: View {
     }
 }
 
-private struct MenuBarPanelSection<Content: View>: View {
+private struct MenuBarGlassSection<Content: View>: View {
     let title: String
     let count: Int
     let content: Content
@@ -217,7 +220,7 @@ private struct MenuBarPanelSection<Content: View>: View {
                     .foregroundStyle(.secondary)
                     .padding(.horizontal, 7)
                     .padding(.vertical, 2)
-                    .background(Color.secondary.opacity(0.1), in: Capsule())
+                    .background(.secondary.opacity(0.08), in: Capsule())
             }
             .padding(.horizontal, 12)
             .padding(.top, 10)
@@ -229,11 +232,44 @@ private struct MenuBarPanelSection<Content: View>: View {
                 content
             }
         }
-        .background(Color(nsColor: .controlBackgroundColor).opacity(0.72), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-        .overlay {
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .stroke(Color(nsColor: .separatorColor).opacity(0.16))
+        .modifier(MenuBarGlassSurface(radius: 18))
+    }
+}
+
+private struct MenuBarGlassSurface: ViewModifier {
+    let radius: CGFloat
+
+    func body(content: Content) -> some View {
+        let shape = RoundedRectangle(cornerRadius: radius, style: .continuous)
+
+        if #available(macOS 26.0, *) {
+            content
+                .glassEffect(.regular, in: shape)
+        } else {
+            content
+                .background(.ultraThinMaterial, in: shape)
+                .overlay {
+                    shape.stroke(.separator.opacity(0.18))
+                }
         }
+    }
+}
+
+private struct MenuBarPanelMaterial: NSViewRepresentable {
+    func makeNSView(context: Context) -> NSVisualEffectView {
+        let view = NSVisualEffectView()
+        view.material = .popover
+        view.blendingMode = .behindWindow
+        view.state = .active
+        view.isEmphasized = true
+        return view
+    }
+
+    func updateNSView(_ nsView: NSVisualEffectView, context: Context) {
+        nsView.material = .popover
+        nsView.blendingMode = .behindWindow
+        nsView.state = .active
+        nsView.isEmphasized = true
     }
 }
 

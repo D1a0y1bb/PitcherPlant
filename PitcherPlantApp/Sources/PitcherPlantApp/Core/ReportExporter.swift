@@ -47,19 +47,30 @@ enum ReportExporter {
     }
 
     private static func renderSection(_ section: ReportSection) -> String {
-        let callouts = section.callouts.map { "<div class=\"callout\">\(escaped($0))</div>" }.joined()
+        let callouts: String = section.callouts.map { value -> String in
+            "<div class=\"callout\">\(escaped(value))</div>"
+        }.joined()
         let tableHTML: String
         if let table = section.table {
-            let header = table.headers.map { "<th>\(escaped($0))</th>" }.joined()
-            let rows = table.rows.map { row in
-                let badges = row.badges.map { "<span class=\"badge\">\(escaped($0.title))</span>" }.joined()
+            let header: String = table.headers.map { value -> String in
+                "<th>\(escaped(value))</th>"
+            }.joined()
+            let rows: String = table.rows.map { row -> String in
+                let badges: String = row.badges.map { badge -> String in
+                    "<span class=\"badge\">\(escaped(badge.title))</span>"
+                }.joined()
                 let details = "<div class=\"detail\"><strong>\(escaped(row.detailTitle))</strong><br>\(escaped(row.detailBody))</div>"
-                let attachments = row.attachments.map { attachment in
-                    let image = attachment.imageBase64.map { "<img src=\"data:image/jpeg;base64,\($0)\" alt=\"\(escaped(attachment.title))\" />" } ?? ""
+                let attachments: String = row.attachments.map { attachment -> String in
+                    let image: String = attachment.imageBase64
+                        .flatMap(sanitizedImageDataSource)
+                        .map { "<img src=\"\($0)\" alt=\"\(escapedAttribute(attachment.title))\" />" } ?? ""
                     return "<div class=\"attachment\"><strong>\(escaped(attachment.title))</strong><div>\(escaped(attachment.subtitle))</div><div>\(escaped(attachment.body))</div>\(image)</div>"
                 }.joined()
                 let evidenceCell = "<td>\(badges)\(details)\(attachments)</td>"
-                return "<tr>\(row.columns.map { "<td>\(escaped($0))</td>" }.joined())\(evidenceCell)</tr>"
+                let columns: String = row.columns.map { value -> String in
+                    "<td>\(escaped(value))</td>"
+                }.joined()
+                return "<tr>\(columns)\(evidenceCell)</tr>"
             }.joined()
             tableHTML = "<table><thead><tr>\(header)<th>详情</th></tr></thead><tbody>\(rows)</tbody></table>"
         } else {
@@ -80,6 +91,21 @@ enum ReportExporter {
             .replacingOccurrences(of: "&", with: "&amp;")
             .replacingOccurrences(of: "<", with: "&lt;")
             .replacingOccurrences(of: ">", with: "&gt;")
+    }
+
+    private static func escapedAttribute(_ value: String) -> String {
+        escaped(value)
+            .replacingOccurrences(of: "\"", with: "&quot;")
+            .replacingOccurrences(of: "'", with: "&#39;")
+    }
+
+    private static func sanitizedImageDataSource(from base64: String) -> String? {
+        let trimmed = base64.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmed.isEmpty == false,
+              trimmed.range(of: #"^[A-Za-z0-9+/]+={0,2}$"#, options: .regularExpression) != nil else {
+            return nil
+        }
+        return "data:image/jpeg;base64,\(trimmed)"
     }
 }
 

@@ -216,7 +216,11 @@ struct AuditConfiguration: Codable, Hashable, Sendable {
     }
 
     static func defaultInputDirectory(for root: URL) -> URL {
-        root.appendingPathComponent("Fixtures/WriteupSamples/date", isDirectory: true)
+        let bundledFixturePath = root.appendingPathComponent("Fixtures/WriteupSamples/date", isDirectory: true)
+        if FileManager.default.fileExists(atPath: bundledFixturePath.path) {
+            return bundledFixturePath
+        }
+        return root.appendingPathComponent("WriteupSamples", isDirectory: true)
     }
 
     static func defaultOutputDirectory(for root: URL) -> URL {

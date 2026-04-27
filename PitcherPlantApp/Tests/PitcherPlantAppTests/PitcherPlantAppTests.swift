@@ -7,8 +7,24 @@ import Testing
 func configurationDefaultsBuildPaths() {
     let root = URL(fileURLWithPath: "/tmp/pitcherplant")
     let defaults = AuditConfiguration.defaults(for: root)
-    #expect(defaults.directoryPath.contains("/tmp/pitcherplant/Fixtures/WriteupSamples/date"))
+    #expect(defaults.directoryPath.contains("/tmp/pitcherplant/WriteupSamples"))
     #expect(defaults.outputDirectoryPath.contains("/tmp/pitcherplant/GeneratedReports/full"))
+}
+
+@Test
+func projectLocatorUsesSavedWorkspaceAndCreatesDefaultDirectories() throws {
+    let suiteName = "pitcherplant.locator.tests.\(UUID().uuidString)"
+    let defaults = try #require(UserDefaults(suiteName: suiteName))
+    let root = FileManager.default.temporaryDirectory
+        .appendingPathComponent("pitcherplant-workspace-\(UUID().uuidString)", isDirectory: true)
+    try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+    defaults.set(root.path, forKey: "pitcherplant.macos.workspaceRoot")
+
+    let resolved = ProjectLocator(defaults: defaults).workspaceRoot()
+
+    #expect(resolved.path == root.path)
+    #expect(FileManager.default.fileExists(atPath: AuditConfiguration.defaultInputDirectory(for: root).path))
+    #expect(FileManager.default.fileExists(atPath: AuditConfiguration.defaultOutputDirectory(for: root).path))
 }
 
 @Test
@@ -617,6 +633,46 @@ func exportedHTMLIncludesRowDetailsAndAttachments() throws {
     #expect(html.contains("OCR 详情正文"))
     #expect(html.contains("OCR 预览"))
     #expect(html.contains("data:image/jpeg;base64,ZmFrZQ=="))
+}
+
+@Test
+func exportedHTMLEscapesAttributeContentAndRejectsUnsafeImagePayload() throws {
+    let root = FileManager.default.temporaryDirectory
+        .appendingPathComponent("pitcherplant-export-escaping-\(UUID().uuidString)", isDirectory: true)
+    try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+    let report = AuditReport(
+        title: "导出详情",
+        sourcePath: root.appendingPathComponent("report.html").path,
+        scanDirectoryPath: root.path,
+        metrics: [],
+        sections: [
+            ReportSection(
+                kind: .image,
+                title: "图片证据详列",
+                summary: "包含附件",
+                table: ReportTable(
+                    headers: ["A", "B"],
+                    rows: [ReportTableRow(
+                        columns: ["a", "b"],
+                        detailTitle: "详情标题",
+                        detailBody: "OCR 详情正文",
+                        attachments: [
+                            ReportAttachment(title: ##"截图" onerror="alert(1)""##, subtitle: "page 1", body: "OCR 预览", imageBase64: "ZmFrZQ=="),
+                            ReportAttachment(title: "恶意图片", subtitle: "page 2", body: "payload", imageBase64: #"ZmFrZQ==" onerror="alert(1)"#)
+                        ]
+                    )]
+                )
+            )
+        ]
+    )
+
+    let url = root.appendingPathComponent("export.html")
+    try ReportExporter.exportHTML(report: report, to: url)
+    let html = try String(contentsOf: url, encoding: .utf8)
+
+    #expect(html.contains(#"alt="截图&quot; onerror=&quot;alert(1)&quot;""#))
+    #expect(html.contains(#"src="data:image/jpeg;base64,ZmFrZQ==""#))
+    #expect(html.contains(#"src="ZmFrZQ==&quot; onerror=&quot;alert(1)&quot;""#) == false)
 }
 
 @Test
