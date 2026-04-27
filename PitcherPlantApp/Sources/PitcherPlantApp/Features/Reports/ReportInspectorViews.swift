@@ -282,13 +282,19 @@ struct EvidenceSemanticDetailView: View {
 struct TextEvidenceComparisonView: View {
     @Environment(AppState.self) private var appState
     let row: ReportTableRow
+    @State private var selectedHighlightIndex = 0
 
     var body: some View {
         let textAttachments = Array(row.attachments.filter { $0.imageBase64 == nil }.prefix(2))
         let highlights = EvidenceTokenAnalyzer.sharedHighlights(in: textAttachments.map { $0.body }, fallback: row.evidencePreview)
+        let selectedHighlight = highlights[safe: selectedHighlightIndex]
         if textAttachments.isEmpty == false {
             InspectorSection(title: appState.t("reports.textViewer")) {
-                EvidenceSharedTokenStrip(tokens: highlights, title: "共享 token")
+                EvidenceHighlightNavigator(
+                    tokens: highlights,
+                    selectedIndex: $selectedHighlightIndex,
+                    title: "共享 token"
+                )
 
                 HStack(alignment: .top, spacing: 10) {
                     ForEach(Array(textAttachments.enumerated()), id: \.offset) { _, attachment in
@@ -296,10 +302,14 @@ struct TextEvidenceComparisonView: View {
                             attachment: attachment,
                             fallback: row.evidencePreview,
                             style: .text,
-                            highlights: highlights
+                            highlights: highlights,
+                            focusedHighlight: selectedHighlight
                         )
                     }
                 }
+            }
+            .onChange(of: highlights.count) { _, count in
+                selectedHighlightIndex = min(selectedHighlightIndex, max(count - 1, 0))
             }
         }
     }
@@ -308,21 +318,33 @@ struct TextEvidenceComparisonView: View {
 struct CodeEvidenceComparisonView: View {
     @Environment(AppState.self) private var appState
     let row: ReportTableRow
+    @State private var selectedMode: CodeViewerMode = .original
+    @State private var selectedHighlightIndex = 0
 
     var body: some View {
         let codeAttachments = Array(row.attachments.filter { $0.imageBase64 == nil }.prefix(2))
         let highlights = EvidenceTokenAnalyzer.sharedHighlights(in: codeAttachments.map { $0.body }, fallback: row.detailBody)
+        let selectedHighlight = highlights[safe: selectedHighlightIndex]
         if codeAttachments.count == 2 {
             InspectorSection(title: appState.t("reports.codeViewer")) {
-                EvidenceSharedTokenStrip(tokens: highlights, title: "共享标记")
+                Picker("代码视图", selection: $selectedMode) {
+                    ForEach(CodeViewerMode.allCases) { mode in
+                        Text(mode.title).tag(mode)
+                    }
+                }
+                .pickerStyle(.segmented)
+
+                CodeDiffSummaryView(left: codeAttachments[0].body, right: codeAttachments[1].body)
+                EvidenceHighlightNavigator(tokens: highlights, selectedIndex: $selectedHighlightIndex, title: "共享标记")
 
                 HStack(alignment: .top, spacing: 10) {
                     ForEach(Array(codeAttachments.enumerated()), id: \.offset) { _, attachment in
                         EvidenceContextCard(
-                            attachment: attachment,
+                            attachment: attachment.transformedBody(selectedMode.render(attachment.body)),
                             fallback: row.detailBody,
                             style: .code,
-                            highlights: highlights
+                            highlights: highlights,
+                            focusedHighlight: selectedHighlight
                         )
                     }
                 }
@@ -331,6 +353,9 @@ struct CodeEvidenceComparisonView: View {
                     .foregroundStyle(.secondary)
                     .textSelection(.enabled)
             }
+            .onChange(of: highlights.count) { _, count in
+                selectedHighlightIndex = min(selectedHighlightIndex, max(count - 1, 0))
+            }
         }
     }
 }
@@ -338,13 +363,83 @@ struct CodeEvidenceComparisonView: View {
 struct AssistantEvidenceExplanationView: View {
     @Environment(AppState.self) private var appState
     let row: ReportTableRow
+    @State private var phase: AssistantPhase = .idle
+    @State private var cachedExplanation: String?
 
     var body: some View {
         InspectorSection(title: appState.t("reports.assistantExplanation")) {
-            Text(AuditAssistantService().localExplanation(for: row, review: appState.review(for: row)))
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .textSelection(.enabled)
+            VStack(alignment: .leading, spacing: 10) {
+                HStack(spacing: 8) {
+                    Button {
+                        Task { await runAssistant() }
+                    } label: {
+                        Label(buttonTitle, systemImage: "sparkles")
+                    }
+                    .disabled(phase == .loading)
+
+                    if phase == .loading {
+                        ProgressView()
+                            .controlSize(.small)
+                    }
+                }
+                .buttonStyle(.borderless)
+
+                Text(displayedExplanation)
+                    .font(.caption)
+                    .foregroundStyle(phase.isError ? .red : .secondary)
+                    .textSelection(.enabled)
+            }
+        }
+        .onChange(of: row.id) { _, _ in
+            phase = .idle
+            cachedExplanation = nil
+        }
+    }
+
+    private var buttonTitle: String {
+        if cachedExplanation != nil {
+            return "重新生成解释"
+        }
+        return "生成审计解释"
+    }
+
+    private var displayedExplanation: String {
+        switch phase {
+        case .idle:
+            return cachedExplanation ?? AuditAssistantService().localExplanation(for: row, review: appState.review(for: row))
+        case .loading:
+            return cachedExplanation ?? "正在生成解释..."
+        case .loaded(let text):
+            return text
+        case .failed(let message):
+            return message
+        }
+    }
+
+    private func runAssistant() async {
+        phase = .loading
+        do {
+            let text = try await AuditAssistantService().explanation(
+                for: row,
+                review: appState.review(for: row),
+                configuration: appState.appSettings.auditAssistant ?? AuditAssistantConfiguration()
+            )
+            cachedExplanation = text
+            phase = .loaded(text)
+        } catch {
+            phase = .failed(error.localizedDescription)
+        }
+    }
+
+    private enum AssistantPhase: Equatable {
+        case idle
+        case loading
+        case loaded(String)
+        case failed(String)
+
+        var isError: Bool {
+            if case .failed = self { return true }
+            return false
         }
     }
 }
@@ -471,6 +566,7 @@ private struct EvidenceContextCard: View {
     let fallback: String
     let style: EvidenceContextStyle
     let highlights: [String]
+    let focusedHighlight: String?
 
     private var content: String {
         let trimmed = attachment.body.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -495,11 +591,21 @@ private struct EvidenceContextCard: View {
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
                     .truncationMode(.middle)
+
+                if let filePath = attachment.sourceReference?.filePath {
+                    Button {
+                        NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: filePath)])
+                    } label: {
+                        Label("打开源文件", systemImage: "arrow.up.right.square")
+                    }
+                    .font(.caption2)
+                    .buttonStyle(.link)
+                }
             }
 
             if style == .code {
                 ScrollView([.horizontal, .vertical]) {
-                    Text(EvidenceTextHighlighter.attributed(content, highlights: highlights))
+                    Text(EvidenceTextHighlighter.attributed(content, highlights: visibleHighlights))
                         .font(.system(.caption, design: .monospaced))
                         .textSelection(.enabled)
                         .frame(minWidth: 280, maxWidth: .infinity, alignment: .leading)
@@ -507,7 +613,7 @@ private struct EvidenceContextCard: View {
                 }
                 .frame(minHeight: 132, maxHeight: 240)
             } else {
-                Text(EvidenceTextHighlighter.attributed(content, highlights: highlights))
+                Text(EvidenceTextHighlighter.attributed(content, highlights: visibleHighlights))
                     .font(.system(.caption, design: .serif))
                     .textSelection(.enabled)
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -523,25 +629,117 @@ private struct EvidenceContextCard: View {
         let lineCount = max(content.components(separatedBy: .newlines).count, 1)
         return "\(lineCount) 行 · \(content.count) 字"
     }
+
+    private var visibleHighlights: [String] {
+        if let focusedHighlight, focusedHighlight.isEmpty == false {
+            return [focusedHighlight]
+        }
+        return highlights
+    }
 }
 
-private struct EvidenceSharedTokenStrip: View {
+private struct EvidenceHighlightNavigator: View {
     let tokens: [String]
+    @Binding var selectedIndex: Int
     let title: String
 
     var body: some View {
-        HStack(alignment: .firstTextBaseline, spacing: 8) {
-            Text(title)
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(.secondary)
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                Text(title)
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.secondary)
 
-            if tokens.isEmpty {
-                Text("暂无稳定共享片段")
-                    .font(.caption)
-                    .foregroundStyle(.tertiary)
-            } else {
-                FlowTokenLine(tokens: tokens)
+                if tokens.isEmpty {
+                    Text("暂无稳定共享片段")
+                        .font(.caption)
+                        .foregroundStyle(.tertiary)
+                } else {
+                    FlowTokenLine(tokens: tokens)
+                }
             }
+
+            if tokens.isEmpty == false {
+                HStack(spacing: 8) {
+                    Button {
+                        selectedIndex = max(selectedIndex - 1, 0)
+                    } label: {
+                        Image(systemName: "chevron.left")
+                    }
+                    .disabled(selectedIndex == 0)
+
+                    Text("\(selectedIndex + 1) / \(tokens.count)：\(tokens[safe: selectedIndex] ?? "")")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+
+                    Button {
+                        selectedIndex = min(selectedIndex + 1, tokens.count - 1)
+                    } label: {
+                        Image(systemName: "chevron.right")
+                    }
+                    .disabled(selectedIndex >= tokens.count - 1)
+                }
+                .buttonStyle(.borderless)
+            }
+        }
+    }
+}
+
+private enum CodeViewerMode: String, CaseIterable, Identifiable {
+    case original
+    case normalized
+    case structure
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .original: return "原始"
+        case .normalized: return "规范化 token"
+        case .structure: return "结构 token"
+        }
+    }
+
+    func render(_ source: String) -> String {
+        switch self {
+        case .original:
+            return source
+        case .normalized:
+            return EvidenceTokenAnalyzer.tokens(in: source).joined(separator: " ")
+        case .structure:
+            return EvidenceTokenAnalyzer.structureTokens(in: source).joined(separator: " ")
+        }
+    }
+}
+
+private struct CodeDiffSummaryView: View {
+    let left: String
+    let right: String
+
+    var body: some View {
+        let leftTokens = Set(EvidenceTokenAnalyzer.tokens(in: left))
+        let rightTokens = Set(EvidenceTokenAnalyzer.tokens(in: right))
+        let shared = leftTokens.intersection(rightTokens).count
+        let leftOnly = leftTokens.subtracting(rightTokens).count
+        let rightOnly = rightTokens.subtracting(leftTokens).count
+        let fragment = EvidenceTokenAnalyzer.bestSharedFragment(left: left, right: right) ?? "暂无稳定公共片段"
+
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 12) {
+                Label("共享 \(shared)", systemImage: "equal.square")
+                Label("左侧独有 \(leftOnly)", systemImage: "arrow.left.square")
+                Label("右侧独有 \(rightOnly)", systemImage: "arrow.right.square")
+            }
+            .font(.caption)
+            .foregroundStyle(.secondary)
+
+            Text("最长公共片段：\(fragment)")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .lineLimit(2)
+                .textSelection(.enabled)
         }
     }
 }
@@ -692,7 +890,7 @@ private enum EvidenceTokenAnalyzer {
             .map { String($0.prefix(48)) }
     }
 
-    private static func tokens(in text: String) -> [String] {
+    static func tokens(in text: String) -> [String] {
         text.lowercased().split { character in
             !(character.isLetter || character.isNumber || character == "_")
         }
@@ -700,7 +898,29 @@ private enum EvidenceTokenAnalyzer {
         .filter { $0.count >= 3 && $0.count <= 80 }
     }
 
-    private static func bestSharedFragment(left: String, right: String) -> String? {
+    static func structureTokens(in text: String) -> [String] {
+        text.split(separator: "\n").flatMap { line -> [String] in
+            var tokens: [String] = []
+            if line.contains("func ") || line.contains("def ") || line.contains("function ") {
+                tokens.append("function")
+            }
+            if line.contains("if ") || line.contains("if(") {
+                tokens.append("branch")
+            }
+            if line.contains("for ") || line.contains("while ") || line.contains("for(") || line.contains("while(") {
+                tokens.append("loop")
+            }
+            if line.contains("return") {
+                tokens.append("return")
+            }
+            if line.contains("try ") || line.contains("catch") {
+                tokens.append("error")
+            }
+            return tokens.isEmpty ? ["stmt"] : tokens
+        }
+    }
+
+    static func bestSharedFragment(left: String, right: String) -> String? {
         let leftChars = Array(left.prefix(1_600))
         let rightChars = Array(right.prefix(1_600))
         guard leftChars.isEmpty == false, rightChars.isEmpty == false else { return nil }
@@ -745,6 +965,18 @@ private enum EvidenceTokenAnalyzer {
     }
 }
 
+private extension ReportAttachment {
+    func transformedBody(_ body: String) -> ReportAttachment {
+        ReportAttachment(
+            title: title,
+            subtitle: subtitle,
+            body: body,
+            imageBase64: imageBase64,
+            sourceReference: sourceReference
+        )
+    }
+}
+
 private enum EvidenceTextHighlighter {
     static func attributed(_ text: String, highlights: [String]) -> AttributedString {
         var result = AttributedString(text)
@@ -761,41 +993,6 @@ private enum EvidenceTextHighlighter {
             }
         }
         return result
-    }
-}
-
-private extension ReportAttachment {
-    var sourceReferenceText: String {
-        if let reflected = reflectedSourceReference {
-            return reflected
-        }
-        if subtitle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false {
-            return subtitle
-        }
-        return title
-    }
-
-    private var reflectedSourceReference: String? {
-        let labels = ["sourceReference", "source", "sourcePath", "location"]
-        for child in Mirror(reflecting: self).children {
-            guard let label = child.label, labels.contains(label),
-                  let unwrapped = unwrapOptional(child.value) else {
-                continue
-            }
-            let text = String(describing: unwrapped).trimmingCharacters(in: .whitespacesAndNewlines)
-            if text.isEmpty == false {
-                return text
-            }
-        }
-        return nil
-    }
-
-    private func unwrapOptional(_ value: Any) -> Any? {
-        let mirror = Mirror(reflecting: value)
-        guard mirror.displayStyle == .optional else {
-            return value
-        }
-        return mirror.children.first?.value
     }
 }
 

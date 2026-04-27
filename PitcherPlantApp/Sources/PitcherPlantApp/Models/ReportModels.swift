@@ -19,11 +19,154 @@ struct ReportBadge: Codable, Hashable, Sendable {
     }
 }
 
+struct EvidenceTextRange: Codable, Hashable, Sendable {
+    let location: Int
+    let length: Int
+}
+
+struct EvidenceLineRange: Codable, Hashable, Sendable {
+    let start: Int
+    let end: Int
+}
+
+struct EvidenceSourceReference: Codable, Hashable, Sendable {
+    var filePath: String?
+    var pageNumber: Int?
+    var textRange: EvidenceTextRange?
+    var lineRange: EvidenceLineRange?
+    var imageIndex: Int?
+    var hashAnchor: String?
+    var sourceLabel: String?
+
+    init(
+        filePath: String? = nil,
+        pageNumber: Int? = nil,
+        textRange: EvidenceTextRange? = nil,
+        lineRange: EvidenceLineRange? = nil,
+        imageIndex: Int? = nil,
+        hashAnchor: String? = nil,
+        sourceLabel: String? = nil
+    ) {
+        self.filePath = Self.normalized(filePath)
+        self.pageNumber = pageNumber
+        self.textRange = textRange
+        self.lineRange = lineRange
+        self.imageIndex = imageIndex
+        self.hashAnchor = Self.normalized(hashAnchor)
+        self.sourceLabel = Self.normalized(sourceLabel)
+    }
+
+    var displayText: String {
+        var parts: [String] = []
+        if let sourceLabel {
+            parts.append(sourceLabel)
+        }
+        if let pageNumber {
+            parts.append("第 \(pageNumber) 页")
+        }
+        if let lineRange {
+            parts.append("行 \(lineRange.start)-\(lineRange.end)")
+        }
+        if let textRange {
+            parts.append("字符 \(textRange.location)-\(textRange.location + textRange.length)")
+        }
+        if let imageIndex {
+            parts.append("图片 #\(imageIndex)")
+        }
+        if let hashAnchor {
+            parts.append("hash \(hashAnchor)")
+        }
+        if parts.isEmpty, let filePath {
+            parts.append(URL(fileURLWithPath: filePath).lastPathComponent)
+        }
+        return parts.joined(separator: " · ")
+    }
+
+    private static func normalized(_ value: String?) -> String? {
+        let trimmed = value?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        return trimmed.isEmpty ? nil : trimmed
+    }
+}
+
+struct WhitelistEvaluation: Codable, Hashable, Sendable {
+    enum Status: String, Codable, Hashable, Sendable {
+        case clear
+        case marked
+        case hidden
+
+        var title: String {
+            switch self {
+            case .clear: return "未命中白名单"
+            case .marked: return "白名单降权"
+            case .hidden: return "白名单隐藏"
+            }
+        }
+    }
+
+    var status: Status
+    var matchedRuleID: UUID?
+    var matchedRuleType: WhitelistRule.RuleType?
+    var reason: String
+    var scoreMultiplier: Double
+    var hidden: Bool
+
+    init(
+        status: Status = .clear,
+        matchedRuleID: UUID? = nil,
+        matchedRuleType: WhitelistRule.RuleType? = nil,
+        reason: String = "",
+        scoreMultiplier: Double = 1,
+        hidden: Bool = false
+    ) {
+        self.status = status
+        self.matchedRuleID = matchedRuleID
+        self.matchedRuleType = matchedRuleType
+        self.reason = reason
+        self.scoreMultiplier = min(max(scoreMultiplier, 0), 1)
+        self.hidden = hidden
+    }
+
+    var isClear: Bool {
+        status == .clear
+    }
+
+    var exportSummary: String {
+        guard isClear == false else { return "" }
+        let type = matchedRuleType?.rawValue ?? "unknown"
+        return "\(status.title)：\(type)；\(reason)"
+    }
+}
+
 struct ReportAttachment: Codable, Hashable, Sendable {
     let title: String
     let subtitle: String
     let body: String
     let imageBase64: String?
+    let sourceReference: EvidenceSourceReference?
+
+    init(
+        title: String,
+        subtitle: String,
+        body: String,
+        imageBase64: String?,
+        sourceReference: EvidenceSourceReference? = nil
+    ) {
+        self.title = title
+        self.subtitle = subtitle
+        self.body = body
+        self.imageBase64 = imageBase64
+        self.sourceReference = sourceReference
+    }
+
+    var sourceReferenceText: String {
+        if let sourceReference, sourceReference.displayText.isEmpty == false {
+            return sourceReference.displayText
+        }
+        if subtitle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false {
+            return subtitle
+        }
+        return title
+    }
 }
 
 enum ReportSectionKind: String, Codable, CaseIterable, Identifiable, Sendable {
@@ -77,6 +220,7 @@ struct ReportTableRow: Codable, Identifiable, Hashable, Sendable {
     var riskAssessment: RiskAssessment?
     var review: EvidenceReview?
     var metadata: [String: String]?
+    var whitelistStatus: WhitelistEvaluation?
 
     init(
         id: UUID = UUID(),
@@ -89,7 +233,8 @@ struct ReportTableRow: Codable, Identifiable, Hashable, Sendable {
         evidenceType: EvidenceType? = nil,
         riskAssessment: RiskAssessment? = nil,
         review: EvidenceReview? = nil,
-        metadata: [String: String]? = nil
+        metadata: [String: String]? = nil,
+        whitelistStatus: WhitelistEvaluation? = nil
     ) {
         self.id = id
         self.columns = columns
@@ -102,6 +247,7 @@ struct ReportTableRow: Codable, Identifiable, Hashable, Sendable {
         self.riskAssessment = riskAssessment
         self.review = review
         self.metadata = metadata
+        self.whitelistStatus = whitelistStatus
     }
 }
 

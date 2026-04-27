@@ -83,7 +83,8 @@ struct RiskScoringService {
             evidence: pair.evidence,
             detailLines: pair.detailLines,
             attachments: pair.attachments,
-            riskAssessment: RiskAssessment(score: pair.score, reasons: [reason])
+            riskAssessment: RiskAssessment(score: pair.score, reasons: [reason]),
+            whitelistEvaluation: pair.whitelistEvaluation
         )
     }
 
@@ -92,18 +93,23 @@ struct RiskScoringService {
         for collision in collisions {
             for left in collision.files.indices {
                 for right in collision.files.indices where right > left {
+                    let score = 0.70 * (collision.whitelistEvaluation?.scoreMultiplier ?? 1)
                     records.append(
                         EvidenceRecord(
                             type: .metadata,
                             fileA: collision.files[left],
                             fileB: collision.files[right],
-                            score: 0.70,
+                            score: score,
                             evidence: "共同元数据：\(collision.author)",
                             detailLines: [
                                 "作者或最后修改者：\(collision.author)",
                                 "涉及文件数：\(collision.files.count)"
                             ],
-                            riskAssessment: RiskAssessment(score: 0.70, reasons: ["元数据碰撞"])
+                            riskAssessment: RiskAssessment(
+                                score: score,
+                                reasons: ["元数据碰撞"]
+                            ),
+                            whitelistEvaluation: collision.whitelistEvaluation
                         )
                     )
                 }
@@ -114,25 +120,27 @@ struct RiskScoringService {
 
     private func record(from match: CrossBatchMatch) -> EvidenceRecord {
         let score = max(0, 1.0 - (Double(match.distance) / 16.0))
+        let adjustedScore = score * (match.whitelistEvaluation?.scoreMultiplier ?? 1)
         return EvidenceRecord(
             type: .crossBatch,
             fileA: match.currentFile,
             fileB: match.previousFile,
-            score: score,
+            score: adjustedScore,
             evidence: "\(match.previousScan) / \(match.status)",
             detailLines: [
                 "历史批次：\(match.previousScan)",
                 "SimHash 位差：\(match.distance)",
                 "状态：\(match.status)"
             ],
-            riskAssessment: RiskAssessment(score: score, reasons: ["跨批次复用"])
+            riskAssessment: RiskAssessment(score: adjustedScore, reasons: ["跨批次复用"]),
+            whitelistEvaluation: match.whitelistEvaluation
         )
     }
 
     private func normalizedScore(for record: EvidenceRecord) -> Double {
         switch record.type {
         case .metadata:
-            return 1
+            return record.whitelistEvaluation == nil ? 1 : record.score
         case .crossBatch:
             return max(record.score, 0.40)
         default:

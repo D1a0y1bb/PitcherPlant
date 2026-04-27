@@ -23,6 +23,27 @@ struct RecallStats: Hashable, Sendable {
     let evaluatedPairCount: Int
     let indexedBucketCount: Int
     let skippedOversizedBucketCount: Int
+    let elapsedMilliseconds: Double
+
+    init(
+        strategy: Strategy,
+        documentCount: Int,
+        possiblePairCount: Int,
+        candidatePairCount: Int,
+        evaluatedPairCount: Int,
+        indexedBucketCount: Int,
+        skippedOversizedBucketCount: Int,
+        elapsedMilliseconds: Double = 0
+    ) {
+        self.strategy = strategy
+        self.documentCount = documentCount
+        self.possiblePairCount = possiblePairCount
+        self.candidatePairCount = candidatePairCount
+        self.evaluatedPairCount = evaluatedPairCount
+        self.indexedBucketCount = indexedBucketCount
+        self.skippedOversizedBucketCount = skippedOversizedBucketCount
+        self.elapsedMilliseconds = elapsedMilliseconds
+    }
 }
 
 struct CandidateRecallService {
@@ -31,6 +52,7 @@ struct CandidateRecallService {
         case code
         case image
         case dedup
+        case metadata
     }
 
     var fullScanLimit = 80
@@ -99,6 +121,7 @@ struct CandidateRecallService {
         purpose: Purpose,
         possiblePairCount: Int
     ) -> CandidateRecallResult {
+        let started = Date()
         if features.count <= fullScanLimit {
             let pairs = allPairs(count: features.count)
             return CandidateRecallResult(
@@ -110,7 +133,8 @@ struct CandidateRecallService {
                     candidatePairCount: pairs.count,
                     evaluatedPairCount: pairs.count,
                     indexedBucketCount: 0,
-                    skippedOversizedBucketCount: 0
+                    skippedOversizedBucketCount: 0,
+                    elapsedMilliseconds: elapsedMilliseconds(since: started)
                 )
             )
         }
@@ -144,7 +168,8 @@ struct CandidateRecallService {
                 candidatePairCount: sortedPairs.count,
                 evaluatedPairCount: indexed.pairs.count,
                 indexedBucketCount: indexed.bucketCount,
-                skippedOversizedBucketCount: indexed.skippedOversizedBucketCount
+                skippedOversizedBucketCount: indexed.skippedOversizedBucketCount,
+                elapsedMilliseconds: elapsedMilliseconds(since: started)
             )
         )
     }
@@ -201,9 +226,13 @@ struct CandidateRecallService {
         case .text, .dedup:
             return textBucketKeys(for: feature)
         case .code:
-            return textBucketKeys(for: feature) + feature.codeTokenSignature.map { "code:\($0)" }
+            return textBucketKeys(for: feature)
+                + feature.codeTokenSignature.map { "code:\($0)" }
+                + strideBuckets(feature.codeTokenSignature, prefix: "structure", size: 4)
         case .image:
             return feature.imageHashPrefixes.map { "image:\($0)" }
+        case .metadata:
+            return metadataBucketKeys(for: feature)
         }
     }
 
@@ -214,7 +243,24 @@ struct CandidateRecallService {
             keys.append("author:\(author)")
         }
         keys += simhashBandKeys(feature.simhash)
+        keys.append("length:\(max(feature.textLength, 1) / 500)")
         keys += feature.keywordSignature.prefix(18).map { "keyword:\($0.lowercased())" }
+        return keys
+    }
+
+    private func metadataBucketKeys(for feature: DocumentFeature) -> [String] {
+        var keys = simhashBandKeys(feature.simhash)
+        keys += feature.keywordSignature
+            .filter { token in
+                let lowercased = token.lowercased()
+                return ["unique", "topic", "artifact", "filler", "marker", "report"].contains(lowercased) == false
+            }
+            .prefix(12)
+            .map { "metadata-keyword:\($0.lowercased())" }
+        let author = feature.author.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        if author.isEmpty == false {
+            keys.append("metadata-author:\(author)")
+        }
         return keys
     }
 
@@ -242,6 +288,8 @@ struct CandidateRecallService {
                 || Set(left.codeTokenSignature).intersection(right.codeTokenSignature).count >= 8
         case .image:
             return Set(left.imageHashPrefixes).intersection(right.imageHashPrefixes).isEmpty == false
+        case .metadata:
+            return metadataRecall(left: left, right: right)
         }
     }
 
@@ -256,6 +304,57 @@ struct CandidateRecallService {
         let lengthRatio = Double(abs(left.textLength - right.textLength)) / Double(maxLength)
         let sharedKeywords = Set(left.keywordSignature).intersection(right.keywordSignature).count
         return lengthRatio <= 0.35 && sharedKeywords >= 3
+    }
+
+    private func metadataRecall(left: DocumentFeature, right: DocumentFeature) -> Bool {
+        if left.author.isEmpty == false && left.author == right.author {
+            return true
+        }
+        if HashDistance.hamming(left.simhash, right.simhash) <= 12 {
+            return true
+        }
+        let sharedKeywords = Set(left.keywordSignature)
+            .intersection(right.keywordSignature)
+            .filter { ["unique", "topic", "artifact", "filler", "marker", "report"].contains($0.lowercased()) == false }
+            .count
+        return sharedKeywords >= 3
+    }
+
+    private func strideBuckets(_ values: [String], prefix: String, size: Int) -> [String] {
+        guard values.count >= size else { return [] }
+        return (0...(values.count - size)).map { index in
+            "\(prefix):" + values[index..<(index + size)].joined(separator: "|")
+        }
+    }
+
+    private func elapsedMilliseconds(since started: Date) -> Double {
+        max(0, Date().timeIntervalSince(started) * 1_000)
+    }
+}
+
+struct CalibrationMetrics: Hashable, Sendable {
+    let truePositiveCount: Int
+    let falsePositiveCount: Int
+    let falseNegativeCount: Int
+    let trueNegativeCount: Int
+    let precision: Double
+    let recall: Double
+    let f1: Double
+
+    init(expectedPairs: [CandidatePair], detectedPairs: [CandidatePair], totalPairCount: Int) {
+        let expected = Set(expectedPairs)
+        let detected = Set(detectedPairs)
+        self.truePositiveCount = expected.intersection(detected).count
+        self.falsePositiveCount = detected.subtracting(expected).count
+        self.falseNegativeCount = expected.subtracting(detected).count
+        self.trueNegativeCount = max(totalPairCount - truePositiveCount - falsePositiveCount - falseNegativeCount, 0)
+        self.precision = Self.ratio(truePositiveCount, truePositiveCount + falsePositiveCount)
+        self.recall = Self.ratio(truePositiveCount, truePositiveCount + falseNegativeCount)
+        self.f1 = precision + recall == 0 ? 0 : (2 * precision * recall) / (precision + recall)
+    }
+
+    private static func ratio(_ numerator: Int, _ denominator: Int) -> Double {
+        denominator == 0 ? 0 : Double(numerator) / Double(denominator)
     }
 }
 

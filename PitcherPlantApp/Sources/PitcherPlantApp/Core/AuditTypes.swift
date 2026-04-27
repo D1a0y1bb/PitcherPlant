@@ -4,6 +4,7 @@ struct AuditRunResult {
     let report: AuditReport
     let fingerprints: [FingerprintRecord]
     let summary: AuditRunSummary
+    let documentFeatureResult: DocumentFeatureBuildResult?
 }
 
 struct AuditRunSummary: Hashable, Sendable {
@@ -11,6 +12,21 @@ struct AuditRunSummary: Hashable, Sendable {
     let imageCount: Int
     let historicalFingerprintCount: Int
     let duration: TimeInterval
+    let recallStats: [RecallStats]
+
+    init(
+        documentCount: Int,
+        imageCount: Int,
+        historicalFingerprintCount: Int,
+        duration: TimeInterval,
+        recallStats: [RecallStats] = []
+    ) {
+        self.documentCount = documentCount
+        self.imageCount = imageCount
+        self.historicalFingerprintCount = historicalFingerprintCount
+        self.duration = duration
+        self.recallStats = recallStats
+    }
 }
 
 struct AuditRunLimits: Hashable, Sendable {
@@ -91,6 +107,7 @@ struct SuspiciousPair: Hashable, Sendable {
     let evidence: String
     let detailLines: [String]
     let attachments: [ReportAttachment]
+    let whitelistEvaluation: WhitelistEvaluation?
 
     init(
         fileA: String,
@@ -98,7 +115,8 @@ struct SuspiciousPair: Hashable, Sendable {
         score: Double,
         evidence: String,
         detailLines: [String] = [],
-        attachments: [ReportAttachment] = []
+        attachments: [ReportAttachment] = [],
+        whitelistEvaluation: WhitelistEvaluation? = nil
     ) {
         self.fileA = fileA
         self.fileB = fileB
@@ -106,12 +124,36 @@ struct SuspiciousPair: Hashable, Sendable {
         self.evidence = evidence
         self.detailLines = detailLines
         self.attachments = attachments
+        self.whitelistEvaluation = whitelistEvaluation
+    }
+
+    func withWhitelistEvaluation(_ evaluation: WhitelistEvaluation) -> SuspiciousPair {
+        guard evaluation.isClear == false else { return self }
+        return SuspiciousPair(
+            fileA: fileA,
+            fileB: fileB,
+            score: score * evaluation.scoreMultiplier,
+            evidence: evidence,
+            detailLines: detailLines + [
+                "白名单状态：\(evaluation.status.title)",
+                "白名单原因：\(evaluation.reason)"
+            ],
+            attachments: attachments,
+            whitelistEvaluation: evaluation
+        )
     }
 }
 
 struct MetadataCollision: Hashable, Sendable {
     let author: String
     let files: [String]
+    let whitelistEvaluation: WhitelistEvaluation?
+
+    init(author: String, files: [String], whitelistEvaluation: WhitelistEvaluation? = nil) {
+        self.author = author
+        self.files = files
+        self.whitelistEvaluation = whitelistEvaluation
+    }
 }
 
 struct CrossBatchMatch: Hashable, Sendable {
@@ -132,6 +174,7 @@ struct CrossBatchMatch: Hashable, Sendable {
     let currentAuthor: String?
     let historicalAuthor: String?
     let tags: [String]
+    let whitelistEvaluation: WhitelistEvaluation?
 
     init(
         currentFile: String,
@@ -150,7 +193,8 @@ struct CrossBatchMatch: Hashable, Sendable {
         historicalSimhash: String? = nil,
         currentAuthor: String? = nil,
         historicalAuthor: String? = nil,
-        tags: [String] = []
+        tags: [String] = [],
+        whitelistEvaluation: WhitelistEvaluation? = nil
     ) {
         self.currentFile = currentFile
         self.previousFile = previousFile
@@ -169,6 +213,7 @@ struct CrossBatchMatch: Hashable, Sendable {
         self.currentAuthor = Self.normalized(currentAuthor)
         self.historicalAuthor = Self.normalized(historicalAuthor)
         self.tags = Array(Set(tags.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }.filter { $0.isEmpty == false })).sorted()
+        self.whitelistEvaluation = whitelistEvaluation
     }
 
     var displayBatchName: String {

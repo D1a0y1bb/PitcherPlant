@@ -171,7 +171,8 @@ struct ReportAssembler {
                 evidenceID: evidenceID,
                 evidenceType: .crossBatch,
                 riskAssessment: assessment,
-                metadata: crossBatchMetadata(for: match)
+                metadata: crossBatchMetadata(for: match),
+                whitelistStatus: match.whitelistEvaluation ?? record?.whitelistEvaluation
             )
         }
     }
@@ -200,6 +201,9 @@ struct ReportAssembler {
         }
         if assessment.reasons.isEmpty == false {
             lines.append("风险原因：\(assessment.reasons.joined(separator: "、"))")
+        }
+        if let evaluation = match.whitelistEvaluation ?? record?.whitelistEvaluation, evaluation.isClear == false {
+            lines.append("白名单：\(evaluation.exportSummary)")
         }
         if let record, record.detailLines.isEmpty == false {
             lines.append(record.detailLines.joined(separator: "\n"))

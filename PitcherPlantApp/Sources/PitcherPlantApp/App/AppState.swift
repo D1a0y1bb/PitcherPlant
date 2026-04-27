@@ -618,10 +618,14 @@ final class AppState {
 
             let historicalFingerprints = fingerprints
             let rules = whitelistRules
+            let cachedFeatures = try await database.loadDocumentFeatures(batchID: job.batchID)
             let result = try await auditRunner.run(
                 configuration: configuration,
                 importedFingerprints: historicalFingerprints,
-                whitelistRules: rules
+                whitelistRules: rules,
+                cachedDocumentFeatures: cachedFeatures,
+                scanID: job.id,
+                batchID: job.batchID
             ) { stage, message in
                 job = job.advanced(stage: stage, message: message)
                 try await self.database.upsertJob(job)
@@ -639,9 +643,16 @@ final class AppState {
                 )
                 try await database.insertFingerprints(fingerprints)
             }
+            if let featureResult = result.documentFeatureResult {
+                if featureResult.invalidatedFeatureIDs.isEmpty == false {
+                    _ = try await database.deleteDocumentFeatures(ids: featureResult.invalidatedFeatureIDs)
+                }
+                try await database.upsertDocumentFeatures(featureResult.features)
+                if featureResult.orphanedFeatureIDs.isEmpty == false {
+                    _ = try await database.deleteDocumentFeatures(ids: featureResult.orphanedFeatureIDs)
+                }
+            }
             if let documents = try? DocumentIngestionService(configuration: configuration).ingestDocuments(in: URL(fileURLWithPath: configuration.directoryPath)) {
-                let features = DocumentFeatureStore().buildFeatures(for: documents)
-                try? await database.upsertDocumentFeatures(features)
                 refreshWhitelistSuggestions(from: documents)
             }
             if selectCompletedReport {
@@ -681,7 +692,14 @@ final class AppState {
 
     nonisolated static func auditSummaryMessage(for summary: AuditRunSummary) -> String {
         let duration = summary.duration.formatted(.number.precision(.fractionLength(1)))
-        return "完成：\(summary.documentCount) 个文档 / \(summary.imageCount) 张图片 / \(summary.historicalFingerprintCount) 条历史指纹，耗时 \(duration) 秒"
+        let base = "完成：\(summary.documentCount) 个文档 / \(summary.imageCount) 张图片 / \(summary.historicalFingerprintCount) 条历史指纹，耗时 \(duration) 秒"
+        guard summary.recallStats.isEmpty == false else {
+            return base
+        }
+        let candidatePairs = summary.recallStats.reduce(0) { $0 + $1.candidatePairCount }
+        let possiblePairs = summary.recallStats.reduce(0) { $0 + $1.possiblePairCount }
+        let elapsed = summary.recallStats.reduce(0) { $0 + $1.elapsedMilliseconds }
+        return "\(base)；候选召回 \(candidatePairs)/\(possiblePairs) 对，耗时 \(elapsed.formatted(.number.precision(.fractionLength(1))))ms"
     }
 
     nonisolated private static func safeTimestamp() -> String {

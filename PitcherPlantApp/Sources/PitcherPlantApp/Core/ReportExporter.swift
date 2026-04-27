@@ -61,7 +61,7 @@ enum ReportExporter {
     }
 
     static func exportCSV(report: AuditReport, to url: URL) throws {
-        var rows: [[String]] = [["section", "evidence_id", "type", "object_a", "object_b", "score", "decision", "risk", "detail"]]
+        var rows: [[String]] = [["section", "evidence_id", "type", "object_a", "object_b", "score", "decision", "risk", "whitelist_status", "whitelist_rule", "source_references", "detail"]]
         for section in report.sections {
             for row in section.table?.rows ?? [] {
                 rows.append([
@@ -73,6 +73,9 @@ enum ReportExporter {
                     row.columns[safe: 2] ?? "",
                     row.review?.decision.rawValue ?? EvidenceDecision.pending.rawValue,
                     row.riskAssessment?.level.rawValue ?? "",
+                    row.whitelistStatus?.status.rawValue ?? "",
+                    row.whitelistStatus?.matchedRuleType?.rawValue ?? "",
+                    row.attachments.map(\.sourceReferenceText).joined(separator: " | "),
                     row.detailBody,
                 ])
             }
@@ -145,12 +148,14 @@ enum ReportExporter {
                 let badges: String = row.badges.map { badge -> String in
                     "<span class=\"badge\">\(escaped(badge.title))</span>"
                 }.joined()
-                let details = "<div class=\"detail\"><strong>\(escaped(row.detailTitle))</strong><br>\(escaped(row.detailBody))</div>"
+                let whitelist = row.whitelistStatus?.exportSummary ?? ""
+                let whitelistHTML = whitelist.isEmpty ? "" : "<div class=\"detail\"><strong>白名单</strong><br>\(escaped(whitelist))</div>"
+                let details = "<div class=\"detail\"><strong>\(escaped(row.detailTitle))</strong><br>\(escaped(row.detailBody))</div>\(whitelistHTML)"
                 let attachments: String = row.attachments.map { attachment -> String in
                     let image: String = attachment.imageBase64
                         .flatMap(sanitizedImageDataSource)
                         .map { "<img src=\"\($0)\" alt=\"\(escapedAttribute(attachment.title))\" />" } ?? ""
-                    return "<div class=\"attachment\"><strong>\(escaped(attachment.title))</strong><div>\(escaped(attachment.subtitle))</div><div>\(escaped(attachment.body))</div>\(image)</div>"
+                    return "<div class=\"attachment\"><strong>\(escaped(attachment.title))</strong><div>\(escaped(attachment.sourceReferenceText))</div><div>\(escaped(attachment.body))</div>\(image)</div>"
                 }.joined()
                 let evidenceCell = "<td>\(badges)\(details)\(attachments)</td>"
                 let columns: String = row.columns.map { value -> String in
@@ -230,7 +235,7 @@ enum ReportTextFormatter {
                     lines.append(row.detailTitle)
                     lines.append(row.detailBody)
                     for attachment in row.attachments {
-                        lines.append("附件: \(attachment.title) / \(attachment.subtitle)")
+                        lines.append("附件: \(attachment.title) / \(attachment.sourceReferenceText)")
                         lines.append(attachment.body)
                     }
                 }
@@ -259,13 +264,18 @@ enum ReportMarkdownFormatter {
             }
             if let table = section.table {
                 lines.append("")
-                lines.append("| \(table.headers.joined(separator: " | ")) | 复核 | 风险 |")
-                lines.append("| \(Array(repeating: "---", count: table.headers.count + 2).joined(separator: " | ")) |")
+                lines.append("| \(table.headers.joined(separator: " | ")) | 复核 | 风险 | 白名单 |")
+                lines.append("| \(Array(repeating: "---", count: table.headers.count + 3).joined(separator: " | ")) |")
                 for row in table.rows {
                     let columns = row.columns.map(markdownCell)
                     let decision = row.review?.decision.title ?? EvidenceDecision.pending.title
                     let risk = row.riskAssessment?.level.title ?? ""
-                    lines.append("| \((columns + [decision, risk]).joined(separator: " | ")) |")
+                    let whitelist = markdownCell(row.whitelistStatus?.exportSummary ?? "")
+                    lines.append("| \((columns + [decision, risk, whitelist]).joined(separator: " | ")) |")
+                    for attachment in row.attachments where attachment.sourceReference != nil {
+                        lines.append("")
+                        lines.append("- 来源：\(attachment.sourceReferenceText)")
+                    }
                 }
             }
             lines.append("")

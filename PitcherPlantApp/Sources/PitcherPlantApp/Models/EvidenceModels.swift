@@ -189,6 +189,7 @@ struct EvidenceRecord: Codable, Identifiable, Hashable, Sendable {
     let detailLines: [String]
     let attachments: [ReportAttachment]
     let riskAssessment: RiskAssessment
+    let whitelistEvaluation: WhitelistEvaluation?
 
     init(
         id: UUID? = nil,
@@ -199,7 +200,8 @@ struct EvidenceRecord: Codable, Identifiable, Hashable, Sendable {
         evidence: String,
         detailLines: [String] = [],
         attachments: [ReportAttachment] = [],
-        riskAssessment: RiskAssessment? = nil
+        riskAssessment: RiskAssessment? = nil,
+        whitelistEvaluation: WhitelistEvaluation? = nil
     ) {
         self.id = id ?? UUID.pitcherPlantStable(namespace: "evidence", components: [type.rawValue, fileA, fileB, evidence])
         self.type = type
@@ -214,6 +216,7 @@ struct EvidenceRecord: Codable, Identifiable, Hashable, Sendable {
             reasons: [type.title],
             evidenceCount: 1
         )
+        self.whitelistEvaluation = whitelistEvaluation
     }
 
     func reportRow(label: String, extraBadges: [ReportBadge] = []) -> ReportTableRow {
@@ -227,7 +230,8 @@ struct EvidenceRecord: Codable, Identifiable, Hashable, Sendable {
             attachments: attachments,
             evidenceID: id,
             evidenceType: type,
-            riskAssessment: riskAssessment
+            riskAssessment: riskAssessment,
+            whitelistStatus: whitelistEvaluation
         )
     }
 
@@ -238,6 +242,9 @@ struct EvidenceRecord: Codable, Identifiable, Hashable, Sendable {
         }
         if riskAssessment.reasons.isEmpty == false {
             parts.append("风险原因：\(riskAssessment.reasons.joined(separator: "、"))")
+        }
+        if let whitelistEvaluation, whitelistEvaluation.isClear == false {
+            parts.append("白名单：\(whitelistEvaluation.exportSummary)")
         }
         parts.append("证据：\(evidence)")
         return parts.joined(separator: "\n\n")
