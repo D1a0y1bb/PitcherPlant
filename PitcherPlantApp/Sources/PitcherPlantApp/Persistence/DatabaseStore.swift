@@ -105,6 +105,7 @@ actor DatabaseStore {
                 table.column("destination_path", .text).notNull()
                 table.column("created_at", .datetime).notNull().indexed()
             }
+            try createOperationalTables(db)
         }
 
         migrator.registerMigration("normalize-job-events-and-report-sections-v1") { db in
@@ -240,6 +241,10 @@ actor DatabaseStore {
                     ]
                 )
             }
+        }
+
+        migrator.registerMigration("add-review-batch-feature-tables-v1") { db in
+            try createOperationalTables(db)
         }
 
         try migrator.migrate(dbQueue)
@@ -426,6 +431,59 @@ actor DatabaseStore {
         try dbQueue.write { db in
             try db.execute(sql: "DELETE FROM audit_reports WHERE id = ?", arguments: [reportID.uuidString])
             try db.execute(sql: "DELETE FROM report_sections WHERE report_id = ?", arguments: [reportID.uuidString])
+            try db.execute(sql: "DELETE FROM evidence_reviews WHERE report_id = ?", arguments: [reportID.uuidString])
+        }
+    }
+
+    func upsertEvidenceReview(_ review: EvidenceReview) throws {
+        let payload = try JSONEncoder.pitcherPlant.encodeToString(review)
+        try dbQueue.write { db in
+            try db.execute(
+                sql: """
+                INSERT INTO evidence_reviews (id, report_id, evidence_id, evidence_type, decision, severity, reviewer_note, updated_at, payload)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(id) DO UPDATE SET
+                    report_id = excluded.report_id,
+                    evidence_id = excluded.evidence_id,
+                    evidence_type = excluded.evidence_type,
+                    decision = excluded.decision,
+                    severity = excluded.severity,
+                    reviewer_note = excluded.reviewer_note,
+                    updated_at = excluded.updated_at,
+                    payload = excluded.payload
+                """,
+                arguments: [
+                    review.id.uuidString,
+                    review.reportID.uuidString,
+                    review.evidenceID.uuidString,
+                    review.evidenceType.rawValue,
+                    review.decision.rawValue,
+                    review.severity?.rawValue,
+                    review.reviewerNote,
+                    review.updatedAt,
+                    payload
+                ]
+            )
+        }
+    }
+
+    func loadEvidenceReviews(reportID: UUID? = nil) throws -> [EvidenceReview] {
+        try dbQueue.read { db in
+            let rows: [Row]
+            if let reportID {
+                rows = try Row.fetchAll(db, sql: "SELECT payload FROM evidence_reviews WHERE report_id = ? ORDER BY updated_at DESC", arguments: [reportID.uuidString])
+            } else {
+                rows = try Row.fetchAll(db, sql: "SELECT payload FROM evidence_reviews ORDER BY updated_at DESC")
+            }
+            return try rows.map { row in
+                try JSONDecoder.pitcherPlant.decodeString(EvidenceReview.self, from: row["payload"])
+            }
+        }
+    }
+
+    func deleteEvidenceReview(id: UUID) throws {
+        try dbQueue.write { db in
+            try db.execute(sql: "DELETE FROM evidence_reviews WHERE id = ?", arguments: [id.uuidString])
         }
     }
 
@@ -447,12 +505,59 @@ actor DatabaseStore {
         }
     }
 
+    func upsertFingerprintRecords(_ records: [FingerprintRecord]) throws {
+        guard !records.isEmpty else {
+            return
+        }
+        try dbQueue.write { db in
+            for record in records {
+                let payload = try JSONEncoder.pitcherPlant.encodeToString(record)
+                try db.execute(
+                    sql: """
+                    INSERT INTO fingerprints (id, payload, simhash)
+                    VALUES (?, ?, ?)
+                    ON CONFLICT(id) DO UPDATE SET
+                        payload = excluded.payload,
+                        simhash = excluded.simhash
+                    """,
+                    arguments: [record.id.uuidString, payload, record.simhash]
+                )
+            }
+        }
+    }
+
     func loadFingerprintRecords() throws -> [FingerprintRecord] {
         try dbQueue.read { db in
             let rows = try Row.fetchAll(db, sql: "SELECT payload FROM fingerprints")
             return try rows.map { row in
                 try JSONDecoder.pitcherPlant.decodeString(FingerprintRecord.self, from: row["payload"])
             }.sorted(by: { $0.scannedAt > $1.scannedAt })
+        }
+    }
+
+    func deleteFingerprintRecords(tag: String) throws -> Int {
+        let normalizedTag = tag.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !normalizedTag.isEmpty else {
+            return 0
+        }
+
+        return try dbQueue.write { db in
+            let rows = try Row.fetchAll(db, sql: "SELECT id, payload FROM fingerprints")
+            let idsToDelete = try rows.compactMap { row -> String? in
+                let payload: String = row["payload"]
+                let record = try JSONDecoder.pitcherPlant.decodeString(FingerprintRecord.self, from: payload)
+                return record.tags?.contains(normalizedTag) == true ? row["id"] : nil
+            }
+            for id in idsToDelete {
+                try db.execute(sql: "DELETE FROM fingerprints WHERE id = ?", arguments: [id])
+            }
+            return idsToDelete.count
+        }
+    }
+
+    func deleteFingerprintRecord(id: UUID) throws {
+        try dbQueue.write { db in
+            try db.execute(sql: "DELETE FROM fingerprints WHERE id = ?", arguments: [id.uuidString])
         }
     }
 
@@ -482,6 +587,88 @@ actor DatabaseStore {
     func deleteWhitelistRule(id: UUID) throws {
         try dbQueue.write { db in
             try db.execute(sql: "DELETE FROM whitelist_rules WHERE id = ?", arguments: [id.uuidString])
+        }
+    }
+
+    func upsertSubmissionBatch(_ batch: SubmissionBatch, items: [SubmissionItem]) throws {
+        let payload = try JSONEncoder.pitcherPlant.encodeToString(batch)
+        try dbQueue.write { db in
+            try db.execute(
+                sql: """
+                INSERT INTO submission_batches (id, payload, created_at, updated_at, status)
+                VALUES (?, ?, ?, ?, ?)
+                ON CONFLICT(id) DO UPDATE SET
+                    payload = excluded.payload,
+                    updated_at = excluded.updated_at,
+                    status = excluded.status
+                """,
+                arguments: [batch.id.uuidString, payload, batch.createdAt, batch.updatedAt, batch.status.rawValue]
+            )
+            try db.execute(sql: "DELETE FROM submission_items WHERE batch_id = ?", arguments: [batch.id.uuidString])
+            for item in items {
+                let itemPayload = try JSONEncoder.pitcherPlant.encodeToString(item)
+                try db.execute(
+                    sql: """
+                    INSERT INTO submission_items (id, batch_id, team_name, root_path, status, payload)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                    """,
+                    arguments: [item.id.uuidString, batch.id.uuidString, item.teamName, item.rootPath, item.status.rawValue, itemPayload]
+                )
+            }
+        }
+    }
+
+    func loadSubmissionBatches() throws -> [SubmissionBatch] {
+        try dbQueue.read { db in
+            let rows = try Row.fetchAll(db, sql: "SELECT payload FROM submission_batches ORDER BY updated_at DESC")
+            return try rows.map { row in
+                try JSONDecoder.pitcherPlant.decodeString(SubmissionBatch.self, from: row["payload"])
+            }
+        }
+    }
+
+    func loadSubmissionItems(batchID: UUID? = nil) throws -> [SubmissionItem] {
+        try dbQueue.read { db in
+            let rows: [Row]
+            if let batchID {
+                rows = try Row.fetchAll(db, sql: "SELECT payload FROM submission_items WHERE batch_id = ? ORDER BY team_name ASC", arguments: [batchID.uuidString])
+            } else {
+                rows = try Row.fetchAll(db, sql: "SELECT payload FROM submission_items ORDER BY team_name ASC")
+            }
+            return try rows.map { row in
+                try JSONDecoder.pitcherPlant.decodeString(SubmissionItem.self, from: row["payload"])
+            }
+        }
+    }
+
+    func upsertDocumentFeatures(_ features: [DocumentFeature]) throws {
+        guard features.isEmpty == false else { return }
+        try dbQueue.write { db in
+            for feature in features {
+                let payload = try JSONEncoder.pitcherPlant.encodeToString(feature)
+                try db.execute(
+                    sql: """
+                    INSERT INTO document_features (id, document_path, simhash, text_length, updated_at, payload)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                    ON CONFLICT(id) DO UPDATE SET
+                        document_path = excluded.document_path,
+                        simhash = excluded.simhash,
+                        text_length = excluded.text_length,
+                        updated_at = excluded.updated_at,
+                        payload = excluded.payload
+                    """,
+                    arguments: [feature.id.uuidString, feature.documentPath, feature.simhash, feature.textLength, feature.updatedAt, payload]
+                )
+            }
+        }
+    }
+
+    func loadDocumentFeatures() throws -> [DocumentFeature] {
+        try dbQueue.read { db in
+            let rows = try Row.fetchAll(db, sql: "SELECT payload FROM document_features ORDER BY updated_at DESC")
+            return try rows.map { row in
+                try JSONDecoder.pitcherPlant.decodeString(DocumentFeature.self, from: row["payload"])
+            }
         }
     }
 
@@ -614,6 +801,43 @@ private func ensureColumn(_ name: String, in table: String, type: Database.Colum
     }
     try db.alter(table: table) { t in
         t.add(column: name, type)
+    }
+}
+
+private func createOperationalTables(_ db: Database) throws {
+    try db.create(table: "evidence_reviews", ifNotExists: true) { table in
+        table.column("id", .text).primaryKey()
+        table.column("report_id", .text).notNull().indexed()
+        table.column("evidence_id", .text).notNull().indexed()
+        table.column("evidence_type", .text).notNull().indexed()
+        table.column("decision", .text).notNull().indexed()
+        table.column("severity", .text)
+        table.column("reviewer_note", .text).notNull()
+        table.column("updated_at", .datetime).notNull().indexed()
+        table.column("payload", .text).notNull()
+    }
+    try db.create(table: "submission_batches", ifNotExists: true) { table in
+        table.column("id", .text).primaryKey()
+        table.column("payload", .text).notNull()
+        table.column("created_at", .datetime).notNull().indexed()
+        table.column("updated_at", .datetime).notNull().indexed()
+        table.column("status", .text).notNull().indexed()
+    }
+    try db.create(table: "submission_items", ifNotExists: true) { table in
+        table.column("id", .text).primaryKey()
+        table.column("batch_id", .text).notNull().indexed()
+        table.column("team_name", .text).notNull().indexed()
+        table.column("root_path", .text).notNull()
+        table.column("status", .text).notNull().indexed()
+        table.column("payload", .text).notNull()
+    }
+    try db.create(table: "document_features", ifNotExists: true) { table in
+        table.column("id", .text).primaryKey()
+        table.column("document_path", .text).notNull().indexed()
+        table.column("simhash", .text).notNull().indexed()
+        table.column("text_length", .integer).notNull().indexed()
+        table.column("updated_at", .datetime).notNull().indexed()
+        table.column("payload", .text).notNull()
     }
 }
 

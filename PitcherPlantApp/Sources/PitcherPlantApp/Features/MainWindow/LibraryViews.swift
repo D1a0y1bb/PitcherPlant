@@ -31,11 +31,12 @@ struct JobHistoryView: View {
 struct FingerprintLibraryView: View {
     @Environment(AppState.self) private var appState
     @State private var query = ""
+    @State private var cleanupTag = ""
 
     private var filteredRecords: [FingerprintRecord] {
         guard query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false else { return appState.fingerprints }
         return appState.fingerprints.filter { record in
-            [record.filename, record.ext, record.author, record.scanDir, record.simhash]
+            [record.filename, record.ext, record.author, record.scanDir, record.simhash, record.batchName ?? "", record.challengeName ?? "", record.teamName ?? "", (record.tags ?? []).joined(separator: " ")]
                 .joined(separator: " ")
                 .localizedCaseInsensitiveContains(query)
         }
@@ -44,6 +45,38 @@ struct FingerprintLibraryView: View {
     var body: some View {
         VStack(spacing: 0) {
             SearchHeader(title: appState.t("sidebar.fingerprints"), count: filteredRecords.count, query: $query, prompt: appState.t("fingerprints.searchPrompt"))
+            HStack(spacing: 10) {
+                Button {
+                    appState.importFingerprintPackageWithPanel()
+                } label: {
+                    Label(appState.t("fingerprints.importPackage"), systemImage: "square.and.arrow.down")
+                }
+
+                Button {
+                    appState.exportFingerprintPackage(records: filteredRecords)
+                } label: {
+                    Label(appState.t("fingerprints.exportPackage"), systemImage: "square.and.arrow.up")
+                }
+                .disabled(filteredRecords.isEmpty)
+
+                Spacer()
+
+                TextField(appState.t("fingerprints.cleanupTag"), text: $cleanupTag)
+                    .textFieldStyle(.roundedBorder)
+                    .frame(width: 180)
+
+                Button(role: .destructive) {
+                    let tag = cleanupTag
+                    cleanupTag = ""
+                    Task { await appState.deleteFingerprints(tag: tag) }
+                } label: {
+                    Label(appState.t("fingerprints.cleanup"), systemImage: "tag.slash")
+                }
+                .disabled(cleanupTag.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            }
+            .padding(12)
+            .background(Color(nsColor: .windowBackgroundColor))
+
             List(filteredRecords) { record in
                 FingerprintTableRow(record: record)
                     .listRowInsets(EdgeInsets(top: 4, leading: 12, bottom: 4, trailing: 12))
@@ -126,6 +159,24 @@ struct JobInspectorView: View {
                             appState.restoreDraft(from: job)
                         } label: {
                             Label(appState.t("job.restoreParameters"), systemImage: "arrow.counterclockwise")
+                        }
+
+                        HStack(spacing: 8) {
+                            Button {
+                                appState.beginQueuedAudits()
+                            } label: {
+                                Label(appState.t("job.runQueue"), systemImage: "play.fill")
+                            }
+                            .disabled(appState.isRunningAudit || appState.queuedJobCount == 0)
+
+                            if job.status == .failed {
+                                Button {
+                                    Task { await appState.retryJob(job) }
+                                } label: {
+                                    Label(appState.t("job.retry"), systemImage: "arrow.clockwise")
+                                }
+                                .disabled(appState.isRunningAudit)
+                            }
                         }
 
                         VStack(alignment: .leading, spacing: 6) {

@@ -88,6 +88,11 @@ struct AuditReportListRow: View {
 struct FingerprintTableRow: View {
     let record: FingerprintRecord
 
+    private var tagSummary: String {
+        let values = [record.batchName, record.challengeName, record.teamName].compactMap { $0 } + (record.tags ?? [])
+        return values.isEmpty ? "-" : values.joined(separator: " · ")
+    }
+
     var body: some View {
         HStack(spacing: 12) {
             Text(record.filename)
@@ -98,6 +103,10 @@ struct FingerprintTableRow: View {
                 .foregroundStyle(.secondary)
                 .frame(width: 60, alignment: .leading)
             Text(record.scanDir)
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+                .frame(width: 150, alignment: .leading)
+            Text(tagSummary)
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
                 .frame(width: 150, alignment: .leading)

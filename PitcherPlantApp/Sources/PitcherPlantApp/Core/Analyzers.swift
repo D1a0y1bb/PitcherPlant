@@ -4,31 +4,32 @@ struct TextSimilarityAnalyzer {
     func analyze(documents: [ParsedDocument], threshold: Double) -> [SuspiciousPair] {
         guard documents.count > 1 else { return [] }
         let vectorizer = TFIDFVectorizer(documents: documents.map(\.cleanText), wordNGramRange: 1...5, charNGramRange: 3...7, wordWeight: 0.6, charWeight: 0.4)
+        let candidates = CandidateRecallService().candidatePairs(for: documents, purpose: .text)
         var pairs: [SuspiciousPair] = []
 
-        for left in documents.indices {
-            for right in documents.indices where right > left {
-                let score = vectorizer.combinedCosineSimilarity(left: left, right: right)
-                if score >= threshold {
-                    let evidence = TextEvidenceBuilder.build(left: documents[left].content, right: documents[right].content)
-                    pairs.append(
-                        SuspiciousPair(
-                            fileA: documents[left].filename,
-                            fileB: documents[right].filename,
-                            score: score,
-                            evidence: evidence.summary,
-                            detailLines: [
-                                "文本相似度：\(String(format: "%.2f%%", score * 100))",
-                                "最长公共片段：\(evidence.longestCommonLength)",
-                                "AI 洗稿标记：\(score >= threshold && evidence.longestCommonLength < 20 ? "是" : "否")"
-                            ],
-                            attachments: [
-                                ReportAttachment(title: documents[left].filename, subtitle: "上下文 A", body: evidence.leftContext, imageBase64: nil),
-                                ReportAttachment(title: documents[right].filename, subtitle: "上下文 B", body: evidence.rightContext, imageBase64: nil)
-                            ]
-                        )
+        for candidate in candidates {
+            let left = candidate.left
+            let right = candidate.right
+            let score = vectorizer.combinedCosineSimilarity(left: left, right: right)
+            if score >= threshold {
+                let evidence = TextEvidenceBuilder.build(left: documents[left].content, right: documents[right].content)
+                pairs.append(
+                    SuspiciousPair(
+                        fileA: documents[left].filename,
+                        fileB: documents[right].filename,
+                        score: score,
+                        evidence: evidence.summary,
+                        detailLines: [
+                            "文本相似度：\(String(format: "%.2f%%", score * 100))",
+                            "最长公共片段：\(evidence.longestCommonLength)",
+                            "AI 洗稿标记：\(score >= threshold && evidence.longestCommonLength < 20 ? "是" : "否")"
+                        ],
+                        attachments: [
+                            ReportAttachment(title: documents[left].filename, subtitle: "上下文 A", body: evidence.leftContext, imageBase64: nil),
+                            ReportAttachment(title: documents[right].filename, subtitle: "上下文 B", body: evidence.rightContext, imageBase64: nil)
+                        ]
                     )
-                }
+                )
             }
         }
         return pairs.sorted(by: { $0.score > $1.score })
@@ -39,26 +40,27 @@ struct DedupAnalyzer {
     func analyze(documents: [ParsedDocument], threshold: Double) -> [SuspiciousPair] {
         guard documents.count > 1 else { return [] }
         let vectorizer = TFIDFVectorizer(documents: documents.map(\.cleanText), wordNGramRange: 1...3, charNGramRange: 3...5, wordWeight: 0.5, charWeight: 0.5)
+        let candidates = CandidateRecallService().candidatePairs(for: documents, purpose: .dedup)
         var pairs: [SuspiciousPair] = []
-        for left in documents.indices {
-            for right in documents.indices where right > left {
-                let score = vectorizer.combinedCosineSimilarity(left: left, right: right)
-                guard score >= threshold else { continue }
-                let evidence = TextEvidenceBuilder.build(left: documents[left].content, right: documents[right].content)
-                pairs.append(
-                    SuspiciousPair(
-                        fileA: documents[left].filename,
-                        fileB: documents[right].filename,
-                        score: score,
-                        evidence: evidence.summary,
-                        detailLines: ["重复检测相似度：\(String(format: "%.2f%%", score * 100))", "最长公共片段：\(evidence.longestCommonLength)"],
-                        attachments: [
-                            ReportAttachment(title: documents[left].filename, subtitle: "重复上下文 A", body: evidence.leftContext, imageBase64: nil),
-                            ReportAttachment(title: documents[right].filename, subtitle: "重复上下文 B", body: evidence.rightContext, imageBase64: nil)
-                        ]
-                    )
+        for candidate in candidates {
+            let left = candidate.left
+            let right = candidate.right
+            let score = vectorizer.combinedCosineSimilarity(left: left, right: right)
+            guard score >= threshold else { continue }
+            let evidence = TextEvidenceBuilder.build(left: documents[left].content, right: documents[right].content)
+            pairs.append(
+                SuspiciousPair(
+                    fileA: documents[left].filename,
+                    fileB: documents[right].filename,
+                    score: score,
+                    evidence: evidence.summary,
+                    detailLines: ["重复检测相似度：\(String(format: "%.2f%%", score * 100))", "最长公共片段：\(evidence.longestCommonLength)"],
+                    attachments: [
+                        ReportAttachment(title: documents[left].filename, subtitle: "重复上下文 A", body: evidence.leftContext, imageBase64: nil),
+                        ReportAttachment(title: documents[right].filename, subtitle: "重复上下文 B", body: evidence.rightContext, imageBase64: nil)
+                    ]
                 )
-            }
+            )
         }
         return pairs.sorted(by: { $0.score > $1.score })
     }
@@ -67,55 +69,56 @@ struct DedupAnalyzer {
 struct CodeSimilarityAnalyzer {
     func analyze(documents: [ParsedDocument]) -> [SuspiciousPair] {
         guard documents.count > 1 else { return [] }
+        let candidates = CandidateRecallService().candidatePairs(for: documents, purpose: .code)
         var results: [SuspiciousPair] = []
-        for left in documents.indices {
-            for right in documents.indices where right > left {
-                let lhsBlocks = CodeBlockExtractor.candidates(from: documents[left].codeBlocks)
-                let rhsBlocks = CodeBlockExtractor.candidates(from: documents[right].codeBlocks)
-                guard !lhsBlocks.isEmpty, !rhsBlocks.isEmpty else { continue }
+        for candidate in candidates {
+            let left = candidate.left
+            let right = candidate.right
+            let lhsBlocks = CodeBlockExtractor.candidates(from: documents[left].codeBlocks)
+            let rhsBlocks = CodeBlockExtractor.candidates(from: documents[right].codeBlocks)
+            guard !lhsBlocks.isEmpty, !rhsBlocks.isEmpty else { continue }
 
-                guard let bestMatch = bestMatch(left: lhsBlocks, right: rhsBlocks) else {
-                    continue
-                }
+            guard let bestMatch = bestMatch(left: lhsBlocks, right: rhsBlocks) else {
+                continue
+            }
 
-                if bestMatch.score >= 0.60 {
-                    let detailLines = [
-                        "词元相似度：\(String(format: "%.2f%%", bestMatch.lexicalScore * 100))",
-                        "结构相似度：\(String(format: "%.2f%%", bestMatch.structuralScore * 100))",
-                        "共享标记数：\(bestMatch.sharedTokenCount)",
-                        "共享覆盖率：\(String(format: "%.2f%%", bestMatch.sharedTokenRatio * 100))",
-                        "命中片段：\(bestMatch.left.label) ↔ \(bestMatch.right.label)"
-                    ]
-                    results.append(
-                        SuspiciousPair(
-                            fileA: documents[left].filename,
-                            fileB: documents[right].filename,
-                            score: bestMatch.score,
-                            evidence: bestMatch.summary,
-                            detailLines: detailLines,
-                            attachments: [
-                                ReportAttachment(
-                                    title: documents[left].filename,
-                                    subtitle: bestMatch.left.label,
-                                    body: bestMatch.left.preview,
-                                    imageBase64: nil
-                                ),
-                                ReportAttachment(
-                                    title: documents[right].filename,
-                                    subtitle: bestMatch.right.label,
-                                    body: bestMatch.right.preview,
-                                    imageBase64: nil
-                                ),
-                                ReportAttachment(
-                                    title: "评分细节",
-                                    subtitle: "词元 / 结构 / 共享标记",
-                                    body: detailLines.joined(separator: "\n"),
-                                    imageBase64: nil
-                                ),
-                            ]
-                        )
+            if bestMatch.score >= 0.60 {
+                let detailLines = [
+                    "词元相似度：\(String(format: "%.2f%%", bestMatch.lexicalScore * 100))",
+                    "结构相似度：\(String(format: "%.2f%%", bestMatch.structuralScore * 100))",
+                    "共享标记数：\(bestMatch.sharedTokenCount)",
+                    "共享覆盖率：\(String(format: "%.2f%%", bestMatch.sharedTokenRatio * 100))",
+                    "命中片段：\(bestMatch.left.label) ↔ \(bestMatch.right.label)"
+                ]
+                results.append(
+                    SuspiciousPair(
+                        fileA: documents[left].filename,
+                        fileB: documents[right].filename,
+                        score: bestMatch.score,
+                        evidence: bestMatch.summary,
+                        detailLines: detailLines,
+                        attachments: [
+                            ReportAttachment(
+                                title: documents[left].filename,
+                                subtitle: bestMatch.left.label,
+                                body: bestMatch.left.preview,
+                                imageBase64: nil
+                            ),
+                            ReportAttachment(
+                                title: documents[right].filename,
+                                subtitle: bestMatch.right.label,
+                                body: bestMatch.right.preview,
+                                imageBase64: nil
+                            ),
+                            ReportAttachment(
+                                title: "评分细节",
+                                subtitle: "词元 / 结构 / 共享标记",
+                                body: detailLines.joined(separator: "\n"),
+                                imageBase64: nil
+                            ),
+                        ]
                     )
-                }
+                )
             }
         }
         return results.sorted(by: { $0.score > $1.score })
@@ -172,61 +175,62 @@ struct CodeSimilarityAnalyzer {
 
 struct ImageReuseAnalyzer {
     func analyze(documents: [ParsedDocument], threshold: Int) -> [SuspiciousPair] {
+        let candidates = CandidateRecallService().candidatePairs(for: documents, purpose: .image)
         var pairs: [SuspiciousPair] = []
-        for left in documents.indices {
-            for right in documents.indices where right > left {
-                let leftImages = documents[left].images
-                let rightImages = documents[right].images
-                guard !leftImages.isEmpty, !rightImages.isEmpty else { continue }
+        for candidate in candidates {
+            let left = candidate.left
+            let right = candidate.right
+            let leftImages = documents[left].images
+            let rightImages = documents[right].images
+            guard !leftImages.isEmpty, !rightImages.isEmpty else { continue }
 
-                var examples: [(distance: Int, lhs: ParsedImage, rhs: ParsedImage)] = []
-                for lhs in leftImages {
-                    for rhs in rightImages {
-                        let distance = HashDistance.hamming(lhs.perceptualHash, rhs.perceptualHash)
-                            + HashDistance.hamming(lhs.averageHash, rhs.averageHash)
-                            + HashDistance.hamming(lhs.differenceHash, rhs.differenceHash)
-                        if distance <= threshold * 3 {
-                            examples.append((distance, lhs, rhs))
-                        }
+            var examples: [(distance: Int, lhs: ParsedImage, rhs: ParsedImage)] = []
+            for lhs in leftImages {
+                for rhs in rightImages {
+                    let distance = HashDistance.hamming(lhs.perceptualHash, rhs.perceptualHash)
+                        + HashDistance.hamming(lhs.averageHash, rhs.averageHash)
+                        + HashDistance.hamming(lhs.differenceHash, rhs.differenceHash)
+                    if distance <= threshold * 3 {
+                        examples.append((distance, lhs, rhs))
                     }
                 }
-                if examples.isEmpty == false {
-                    let sortedExamples = examples.sorted(by: { $0.distance < $1.distance })
-                    let first = sortedExamples[0]
-                    let bestDistance = first.distance
-                    let normalized = 1.0 - (Double(bestDistance) / Double(max(threshold * 3, 1)))
-                    var attachments: [ReportAttachment] = []
-                    for (index, example) in sortedExamples.prefix(5).enumerated() {
-                        attachments.append(ReportAttachment(
-                            title: "\(documents[left].filename) 示例 \(index + 1)",
-                            subtitle: example.lhs.source,
-                            body: example.lhs.ocrPreview.isEmpty ? "未提取到 OCR 预览" : example.lhs.ocrPreview,
-                            imageBase64: example.lhs.thumbnailBase64.isEmpty ? nil : example.lhs.thumbnailBase64
-                        ))
-                        attachments.append(ReportAttachment(
-                            title: "\(documents[right].filename) 示例 \(index + 1)",
-                            subtitle: example.rhs.source,
-                            body: example.rhs.ocrPreview.isEmpty ? "未提取到 OCR 预览" : example.rhs.ocrPreview,
-                            imageBase64: example.rhs.thumbnailBase64.isEmpty ? nil : example.rhs.thumbnailBase64
-                        ))
-                    }
-                    pairs.append(
-                        SuspiciousPair(
-                            fileA: documents[left].filename,
-                            fileB: documents[right].filename,
-                            score: max(0.0, normalized),
-                            evidence: ["命中图片数：\(examples.count)", first.lhs.source, first.rhs.source, first.lhs.ocrPreview, first.rhs.ocrPreview].filter { !$0.isEmpty }.joined(separator: " | "),
-                            detailLines: [
-                                "命中图片数：\(examples.count)",
-                                "pHash 位差：\(HashDistance.hamming(first.lhs.perceptualHash, first.rhs.perceptualHash))",
-                                "aHash 位差：\(HashDistance.hamming(first.lhs.averageHash, first.rhs.averageHash))",
-                                "dHash 位差：\(HashDistance.hamming(first.lhs.differenceHash, first.rhs.differenceHash))",
-                                "最佳总位差：\(bestDistance)"
-                            ],
-                            attachments: attachments
-                        )
+            }
+            if examples.isEmpty == false {
+                let sortedExamples = examples.sorted(by: { $0.distance < $1.distance })
+                let first = sortedExamples[0]
+                let bestDistance = first.distance
+                let normalized = 1.0 - (Double(bestDistance) / Double(max(threshold * 3, 1)))
+                var attachments: [ReportAttachment] = []
+                for (index, example) in sortedExamples.prefix(5).enumerated() {
+                    attachments.append(ReportAttachment(
+                        title: "\(documents[left].filename) 示例 \(index + 1)",
+                        subtitle: example.lhs.source,
+                        body: example.lhs.ocrPreview.isEmpty ? "未提取到 OCR 预览" : example.lhs.ocrPreview,
+                        imageBase64: example.lhs.thumbnailBase64.isEmpty ? nil : example.lhs.thumbnailBase64
+                    ))
+                    attachments.append(ReportAttachment(
+                        title: "\(documents[right].filename) 示例 \(index + 1)",
+                        subtitle: example.rhs.source,
+                        body: example.rhs.ocrPreview.isEmpty ? "未提取到 OCR 预览" : example.rhs.ocrPreview,
+                        imageBase64: example.rhs.thumbnailBase64.isEmpty ? nil : example.rhs.thumbnailBase64
+                    ))
+                }
+                pairs.append(
+                    SuspiciousPair(
+                        fileA: documents[left].filename,
+                        fileB: documents[right].filename,
+                        score: max(0.0, normalized),
+                        evidence: ["命中图片数：\(examples.count)", first.lhs.source, first.rhs.source, first.lhs.ocrPreview, first.rhs.ocrPreview].filter { !$0.isEmpty }.joined(separator: " | "),
+                        detailLines: [
+                            "命中图片数：\(examples.count)",
+                            "pHash 位差：\(HashDistance.hamming(first.lhs.perceptualHash, first.rhs.perceptualHash))",
+                            "aHash 位差：\(HashDistance.hamming(first.lhs.averageHash, first.rhs.averageHash))",
+                            "dHash 位差：\(HashDistance.hamming(first.lhs.differenceHash, first.rhs.differenceHash))",
+                            "最佳总位差：\(bestDistance)"
+                        ],
+                        attachments: attachments
                     )
-                }
+                )
             }
         }
         return pairs.sorted(by: { $0.score > $1.score })
@@ -313,4 +317,3 @@ struct CrossBatchReuseAnalyzer {
         return "疑似复用"
     }
 }
-

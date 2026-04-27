@@ -10,6 +10,7 @@
 		00286AB6B71F4B8B4B1DF610 /* SettingsLayoutRows.swift in Sources */ = {isa = PBXBuildFile; fileRef = 47C2832C89D8FC39CBD1B9E9 /* SettingsLayoutRows.swift */; };
 		00D8C65F6BC6001356A0C7D1 /* DatabaseStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C2B648C0359BA9D1072C5AB7 /* DatabaseStoreTests.swift */; };
 		045358DDD28C944FD21466C6 /* MigrationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = AEA2F52160967FD69B95CE2E /* MigrationService.swift */; };
+		0A975239F9DE6BA8D276DCB5 /* FeatureCompletionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F1E3A67673DB71739C8CE8D /* FeatureCompletionTests.swift */; };
 		0CAD5DE16AB41D5FEC900BF6 /* TestSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B868185145383AC94AD161F /* TestSupport.swift */; };
 		0F406771B516A94A398EA9AA /* SettingsRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D684506393797F240E731AA /* SettingsRootView.swift */; };
 		10970291DC9FC204BDC30DBB /* AuditTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = AF37FB99D953410663C49E8A /* AuditTypes.swift */; };
@@ -21,22 +22,28 @@
 		20E832FF85AE3A044C5AD3DD /* ReportInspectorViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7C73FC68D60FC392E1AF947 /* ReportInspectorViews.swift */; };
 		226949DD41EEA8D356BA06BA /* AuditRunner.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDB265F6090B7FE8324A83B2 /* AuditRunner.swift */; };
 		22E8AEE623DBC02AA53B1D3B /* PitcherPlantDesktopApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = D8B20F825AD69CF5EE6BF033 /* PitcherPlantDesktopApp.swift */; };
+		24C50850B6CD8930366B420A /* DocumentFeatureServices.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2BF5286158F29340E1E4F13F /* DocumentFeatureServices.swift */; };
 		2745C83C6E25BEB0F88E3D31 /* ConfigurationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2D1598F773B8C1D4DA90933C /* ConfigurationTests.swift */; };
 		29B10A38696C22E14DFF5A2E /* ReportFiltering.swift in Sources */ = {isa = PBXBuildFile; fileRef = 469A6C23D8D6999877D42361 /* ReportFiltering.swift */; };
 		39915228C43CDE97E8DF349B /* GRDB in Frameworks */ = {isa = PBXBuildFile; productRef = 5FDA8BDEA269DDEDB1B90303 /* GRDB */; };
+		3998778E910006CACEEA8015 /* AuditAssistantService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B59D55EEF09CA40FD3B0473 /* AuditAssistantService.swift */; };
 		39F8C94B08952D4D59F36A98 /* ReportModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = E18F48FACAE380029052976A /* ReportModels.swift */; };
 		3A7C68DB36662C6B77BAAA4B /* Analyzers.swift in Sources */ = {isa = PBXBuildFile; fileRef = 46E967429993B20181020800 /* Analyzers.swift */; };
 		3C6D45C86E93BDC203DF4CFD /* SettingsFieldRows.swift in Sources */ = {isa = PBXBuildFile; fileRef = D074674D9EB564CE2FD4A18E /* SettingsFieldRows.swift */; };
+		3DC144FBB9A52B5056215045 /* WhitelistSuggestionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = C79E645A6C7781236050A786 /* WhitelistSuggestionService.swift */; };
 		5ABE317374EE212C9D507DD2 /* ReportExporter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 58D12DF8783F55B02E4AD0E1 /* ReportExporter.swift */; };
 		5CEBD2A6EC8B7AB236074F8B /* MigrationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4DE75C67A1CA3F98A8DAEFB7 /* MigrationTests.swift */; };
 		5EFE25EEC256A6780006F171 /* SettingsStyles.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3C41049ABF3348F1AB4240F0 /* SettingsStyles.swift */; };
 		6470E071E62B237D2C06A4DA /* AppSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = C48B2A6AD8AB4857937A22C1 /* AppSettings.swift */; };
+		7043F8D0CD6A46C9BBA02DFC /* EvidenceModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = A4D24A1F69026B8E6BD26390 /* EvidenceModels.swift */; };
 		71006994939884A238594E43 /* IngestionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6EF4E6E6E579AA134A9F2ECA /* IngestionTests.swift */; };
+		77B4149FC7503861A643DC86 /* SubmissionImportService.swift in Sources */ = {isa = PBXBuildFile; fileRef = F867ABCAB9841702E45A8ED6 /* SubmissionImportService.swift */; };
 		8BD430020DC85D148FE017ED /* AppIcon.icon in Resources */ = {isa = PBXBuildFile; fileRef = 70FC071922DC2A6E2A85216E /* AppIcon.icon */; };
 		98DE64515B06BE1B5C699A83 /* AuditRunnerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3AD2E67D50B0F544A1D66DC5 /* AuditRunnerTests.swift */; };
 		99B21CBE6ADB25B1A6418BC7 /* LibraryViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4AA176FFC61F4E3C6C10B4E3 /* LibraryViews.swift */; };
 		9A750B986ADE1C83E367C40F /* MainWindowComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0CD6CFB7867CA320594D54D0 /* MainWindowComponents.swift */; };
 		9AAB9C491ACC74A03100126A /* LocalizationStrings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 226DC10D014769BA6202F5F1 /* LocalizationStrings.swift */; };
+		AB060F2E927A6B7D3EF93A98 /* FingerprintPackageService.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1F11DC3C1E84F493B744720 /* FingerprintPackageService.swift */; };
 		AB791E8CB46CABA14F0BDF80 /* ReportTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF185EAF13D14CD89DE1EE77 /* ReportTests.swift */; };
 		B22A7F68CB8FDB3A33014F50 /* ReportContentViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1342BBB0BBCB3DD148519EEA /* ReportContentViews.swift */; };
 		B265FE7BFDC6A7FD77963AF7 /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = 66BD2172991DB0803156344E /* Localizable.xcstrings */; };
@@ -54,6 +61,7 @@
 		EBD10FD19F018821B3388B60 /* DocumentIngestionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36C76AC3AE5F9E1383B33A47 /* DocumentIngestionService.swift */; };
 		F0176621EE42DE8D28B7D2B6 /* ZIPFoundation in Frameworks */ = {isa = PBXBuildFile; productRef = 90FE11504ED417A4E3BBAA83 /* ZIPFoundation */; };
 		F0B691414CEE4B6A29F91BF1 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = E02E2A9EBDD61AF8EB8A15FF /* Assets.xcassets */; };
+		F1A878A00C3BEFFEF681EEAA /* RiskScoringService.swift in Sources */ = {isa = PBXBuildFile; fileRef = F7DA4CA8CFCADE5C515DD9F6 /* RiskScoringService.swift */; };
 		FBA74A22AABB1FAACB9DD17D /* AuditUtilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0908B84895674E2537403E7B /* AuditUtilities.swift */; };
 /* End PBXBuildFile section */
 
@@ -69,12 +77,14 @@
 
 /* Begin PBXFileReference section */
 		0908B84895674E2537403E7B /* AuditUtilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuditUtilities.swift; sourceTree = "<group>"; };
+		0B59D55EEF09CA40FD3B0473 /* AuditAssistantService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuditAssistantService.swift; sourceTree = "<group>"; };
 		0CD6CFB7867CA320594D54D0 /* MainWindowComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainWindowComponents.swift; sourceTree = "<group>"; };
 		1342BBB0BBCB3DD148519EEA /* ReportContentViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReportContentViews.swift; sourceTree = "<group>"; };
 		1B868185145383AC94AD161F /* TestSupport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestSupport.swift; sourceTree = "<group>"; };
 		1EC9DF6DC71D33650881A59A /* ReportLibraryViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReportLibraryViews.swift; sourceTree = "<group>"; };
 		2092DD6866F25F2D4AA56877 /* PitcherPlantApp.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = PitcherPlantApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		226DC10D014769BA6202F5F1 /* LocalizationStrings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalizationStrings.swift; sourceTree = "<group>"; };
+		2BF5286158F29340E1E4F13F /* DocumentFeatureServices.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DocumentFeatureServices.swift; sourceTree = "<group>"; };
 		2D1598F773B8C1D4DA90933C /* ConfigurationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConfigurationTests.swift; sourceTree = "<group>"; };
 		360E2A6F9482BC2AE7C2124F /* AppState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppState.swift; sourceTree = "<group>"; };
 		36C76AC3AE5F9E1383B33A47 /* DocumentIngestionService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DocumentIngestionService.swift; sourceTree = "<group>"; };
@@ -91,6 +101,7 @@
 		4DE75C67A1CA3F98A8DAEFB7 /* MigrationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MigrationTests.swift; sourceTree = "<group>"; };
 		58D12DF8783F55B02E4AD0E1 /* ReportExporter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReportExporter.swift; sourceTree = "<group>"; };
 		5D684506393797F240E731AA /* SettingsRootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsRootView.swift; sourceTree = "<group>"; };
+		5F1E3A67673DB71739C8CE8D /* FeatureCompletionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeatureCompletionTests.swift; sourceTree = "<group>"; };
 		66BD2172991DB0803156344E /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
 		6EF4E6E6E579AA134A9F2ECA /* IngestionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IngestionTests.swift; sourceTree = "<group>"; };
 		70FC071922DC2A6E2A85216E /* AppIcon.icon */ = {isa = PBXFileReference; lastKnownFileType = wrapper.icon; path = AppIcon.icon; sourceTree = "<group>"; };
@@ -99,13 +110,16 @@
 		892ED664C219F3B9AD3C6D6D /* AuditModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuditModels.swift; sourceTree = "<group>"; };
 		94E86405322D0D8F372EF4FF /* DatabaseStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DatabaseStore.swift; sourceTree = "<group>"; };
 		A3BD2EB5398BC6FA45FFE4EB /* ReportsWindowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReportsWindowView.swift; sourceTree = "<group>"; };
+		A4D24A1F69026B8E6BD26390 /* EvidenceModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EvidenceModels.swift; sourceTree = "<group>"; };
 		AE04FBF480A6296285FC313E /* PitcherPlantCommands.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PitcherPlantCommands.swift; sourceTree = "<group>"; };
 		AEA2F52160967FD69B95CE2E /* MigrationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MigrationService.swift; sourceTree = "<group>"; };
 		AF37FB99D953410663C49E8A /* AuditTypes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuditTypes.swift; sourceTree = "<group>"; };
 		B1D904B478A4010745FF5C7A /* WorkspaceDashboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceDashboardView.swift; sourceTree = "<group>"; };
+		B1F11DC3C1E84F493B744720 /* FingerprintPackageService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FingerprintPackageService.swift; sourceTree = "<group>"; };
 		B243A89073978EF52F2CE854 /* PitcherPlantAppTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = PitcherPlantAppTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		C2B648C0359BA9D1072C5AB7 /* DatabaseStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DatabaseStoreTests.swift; sourceTree = "<group>"; };
 		C48B2A6AD8AB4857937A22C1 /* AppSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppSettings.swift; sourceTree = "<group>"; };
+		C79E645A6C7781236050A786 /* WhitelistSuggestionService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WhitelistSuggestionService.swift; sourceTree = "<group>"; };
 		CA73A59BEE30962F5D0EECD0 /* MainWindowSupport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainWindowSupport.swift; sourceTree = "<group>"; };
 		D074674D9EB564CE2FD4A18E /* SettingsFieldRows.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsFieldRows.swift; sourceTree = "<group>"; };
 		D7C73FC68D60FC392E1AF947 /* ReportInspectorViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReportInspectorViews.swift; sourceTree = "<group>"; };
@@ -114,6 +128,8 @@
 		E18F48FACAE380029052976A /* ReportModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReportModels.swift; sourceTree = "<group>"; };
 		EB7D836E4BAE584D68A8771F /* EnvironmentSupport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EnvironmentSupport.swift; sourceTree = "<group>"; };
 		EFDDCDC96DC50EA13344FF89 /* ReportAssembler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReportAssembler.swift; sourceTree = "<group>"; };
+		F7DA4CA8CFCADE5C515DD9F6 /* RiskScoringService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RiskScoringService.swift; sourceTree = "<group>"; };
+		F867ABCAB9841702E45A8ED6 /* SubmissionImportService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubmissionImportService.swift; sourceTree = "<group>"; };
 		FDB265F6090B7FE8324A83B2 /* AuditRunner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuditRunner.swift; sourceTree = "<group>"; };
 		FF185EAF13D14CD89DE1EE77 /* ReportTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReportTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -262,6 +278,7 @@
 			children = (
 				C48B2A6AD8AB4857937A22C1 /* AppSettings.swift */,
 				892ED664C219F3B9AD3C6D6D /* AuditModels.swift */,
+				A4D24A1F69026B8E6BD26390 /* EvidenceModels.swift */,
 				E18F48FACAE380029052976A /* ReportModels.swift */,
 			);
 			path = Models;
@@ -271,12 +288,18 @@
 			isa = PBXGroup;
 			children = (
 				46E967429993B20181020800 /* Analyzers.swift */,
+				0B59D55EEF09CA40FD3B0473 /* AuditAssistantService.swift */,
 				FDB265F6090B7FE8324A83B2 /* AuditRunner.swift */,
 				AF37FB99D953410663C49E8A /* AuditTypes.swift */,
 				0908B84895674E2537403E7B /* AuditUtilities.swift */,
+				2BF5286158F29340E1E4F13F /* DocumentFeatureServices.swift */,
 				36C76AC3AE5F9E1383B33A47 /* DocumentIngestionService.swift */,
+				B1F11DC3C1E84F493B744720 /* FingerprintPackageService.swift */,
 				EFDDCDC96DC50EA13344FF89 /* ReportAssembler.swift */,
 				58D12DF8783F55B02E4AD0E1 /* ReportExporter.swift */,
+				F7DA4CA8CFCADE5C515DD9F6 /* RiskScoringService.swift */,
+				F867ABCAB9841702E45A8ED6 /* SubmissionImportService.swift */,
+				C79E645A6C7781236050A786 /* WhitelistSuggestionService.swift */,
 			);
 			path = Core;
 			sourceTree = "<group>";
@@ -288,6 +311,7 @@
 				3AD2E67D50B0F544A1D66DC5 /* AuditRunnerTests.swift */,
 				2D1598F773B8C1D4DA90933C /* ConfigurationTests.swift */,
 				C2B648C0359BA9D1072C5AB7 /* DatabaseStoreTests.swift */,
+				5F1E3A67673DB71739C8CE8D /* FeatureCompletionTests.swift */,
 				6EF4E6E6E579AA134A9F2ECA /* IngestionTests.swift */,
 				4DE75C67A1CA3F98A8DAEFB7 /* MigrationTests.swift */,
 				FF185EAF13D14CD89DE1EE77 /* ReportTests.swift */,
@@ -410,6 +434,7 @@
 				98DE64515B06BE1B5C699A83 /* AuditRunnerTests.swift in Sources */,
 				2745C83C6E25BEB0F88E3D31 /* ConfigurationTests.swift in Sources */,
 				00D8C65F6BC6001356A0C7D1 /* DatabaseStoreTests.swift in Sources */,
+				0A975239F9DE6BA8D276DCB5 /* FeatureCompletionTests.swift in Sources */,
 				71006994939884A238594E43 /* IngestionTests.swift in Sources */,
 				5CEBD2A6EC8B7AB236074F8B /* MigrationTests.swift in Sources */,
 				AB791E8CB46CABA14F0BDF80 /* ReportTests.swift in Sources */,
@@ -424,13 +449,17 @@
 				3A7C68DB36662C6B77BAAA4B /* Analyzers.swift in Sources */,
 				6470E071E62B237D2C06A4DA /* AppSettings.swift in Sources */,
 				B6493DB2EA73BC22433270F0 /* AppState.swift in Sources */,
+				3998778E910006CACEEA8015 /* AuditAssistantService.swift in Sources */,
 				DE268C489FBA6E36A3939F2D /* AuditModels.swift in Sources */,
 				226949DD41EEA8D356BA06BA /* AuditRunner.swift in Sources */,
 				10970291DC9FC204BDC30DBB /* AuditTypes.swift in Sources */,
 				FBA74A22AABB1FAACB9DD17D /* AuditUtilities.swift in Sources */,
 				CDD91EEEA2866EA14573EDF1 /* DatabaseStore.swift in Sources */,
+				24C50850B6CD8930366B420A /* DocumentFeatureServices.swift in Sources */,
 				EBD10FD19F018821B3388B60 /* DocumentIngestionService.swift in Sources */,
 				D176E1EB74E4E9B350B4B40C /* EnvironmentSupport.swift in Sources */,
+				7043F8D0CD6A46C9BBA02DFC /* EvidenceModels.swift in Sources */,
+				AB060F2E927A6B7D3EF93A98 /* FingerprintPackageService.swift in Sources */,
 				99B21CBE6ADB25B1A6418BC7 /* LibraryViews.swift in Sources */,
 				9AAB9C491ACC74A03100126A /* LocalizationStrings.swift in Sources */,
 				9A750B986ADE1C83E367C40F /* MainWindowComponents.swift in Sources */,
@@ -449,12 +478,15 @@
 				C3466F19787FE89261DBBA0E /* ReportLibraryViews.swift in Sources */,
 				39F8C94B08952D4D59F36A98 /* ReportModels.swift in Sources */,
 				138BD38561399E8ADF48CA11 /* ReportsWindowView.swift in Sources */,
+				F1A878A00C3BEFFEF681EEAA /* RiskScoringService.swift in Sources */,
 				3C6D45C86E93BDC203DF4CFD /* SettingsFieldRows.swift in Sources */,
 				00286AB6B71F4B8B4B1DF610 /* SettingsLayoutRows.swift in Sources */,
 				E0968ED079E63D82CBBD2EF8 /* SettingsPathControls.swift in Sources */,
 				0F406771B516A94A398EA9AA /* SettingsRootView.swift in Sources */,
 				5EFE25EEC256A6780006F171 /* SettingsStyles.swift in Sources */,
+				77B4149FC7503861A643DC86 /* SubmissionImportService.swift in Sources */,
 				D0C6CFF3D16216B53B687BE0 /* Theme.swift in Sources */,
+				3DC144FBB9A52B5056215045 /* WhitelistSuggestionService.swift in Sources */,
 				D70398E215333FD0C9432C9F /* WorkspaceDashboardView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

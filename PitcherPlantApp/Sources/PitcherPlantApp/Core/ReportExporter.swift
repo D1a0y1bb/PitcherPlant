@@ -1,9 +1,10 @@
 import AppKit
 import Foundation
+import ZIPFoundation
 
 enum ReportExporter {
-    static func exportHTML(report: AuditReport, to url: URL) throws {
-        let html = """
+    static func htmlString(from report: AuditReport) -> String {
+        """
         <!doctype html>
         <html lang="zh-CN">
         <head>
@@ -13,7 +14,7 @@ enum ReportExporter {
             body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; margin: 32px; color: #18212b; }
             h1 { margin-bottom: 8px; }
             h2 { margin-top: 28px; }
-            .metrics { display: flex; gap: 16px; margin: 20px 0 28px; }
+            .metrics { display: flex; gap: 16px; margin: 20px 0 28px; flex-wrap: wrap; }
             .metric { padding: 16px; border-radius: 12px; background: #eef2f5; min-width: 180px; }
             table { width: 100%; border-collapse: collapse; margin-top: 12px; }
             th, td { border: 1px solid #dde3e8; padding: 10px; text-align: left; vertical-align: top; font-size: 13px; }
@@ -35,15 +36,100 @@ enum ReportExporter {
         </body>
         </html>
         """
-        try html.write(to: url, atomically: true, encoding: .utf8)
+    }
+
+    static func exportHTML(report: AuditReport, to url: URL) throws {
+        try htmlString(from: report).write(to: url, atomically: true, encoding: .utf8)
     }
 
     @MainActor
     static func exportPDF(report: AuditReport, to url: URL) throws {
-        let textView = NSTextView(frame: NSRect(x: 0, y: 0, width: 820, height: 1800))
-        textView.string = ReportTextFormatter.string(from: report)
+        let html = htmlString(from: report)
+        let attributed = try? NSAttributedString(
+            data: Data(html.utf8),
+            options: [.documentType: NSAttributedString.DocumentType.html],
+            documentAttributes: nil
+        )
+        let textView = NSTextView(frame: NSRect(x: 0, y: 0, width: 900, height: 2400))
+        if let attributed {
+            textView.textStorage?.setAttributedString(attributed)
+        } else {
+            textView.string = ReportTextFormatter.string(from: report)
+        }
         let data = textView.dataWithPDF(inside: textView.bounds)
         try data.write(to: url)
+    }
+
+    static func exportCSV(report: AuditReport, to url: URL) throws {
+        var rows: [[String]] = [["section", "evidence_id", "type", "object_a", "object_b", "score", "decision", "risk", "detail"]]
+        for section in report.sections {
+            for row in section.table?.rows ?? [] {
+                rows.append([
+                    section.title,
+                    row.evidenceID?.uuidString ?? row.id.uuidString,
+                    row.evidenceType?.rawValue ?? section.kind.rawValue,
+                    row.columns[safe: 0] ?? "",
+                    row.columns[safe: 1] ?? "",
+                    row.columns[safe: 2] ?? "",
+                    row.review?.decision.rawValue ?? EvidenceDecision.pending.rawValue,
+                    row.riskAssessment?.level.rawValue ?? "",
+                    row.detailBody,
+                ])
+            }
+        }
+        let csv = rows.map { row in
+            row.map(csvEscaped).joined(separator: ",")
+        }.joined(separator: "\n")
+        try csv.write(to: url, atomically: true, encoding: .utf8)
+    }
+
+    static func exportJSON(report: AuditReport, to url: URL) throws {
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        encoder.dateEncodingStrategy = .iso8601
+        try encoder.encode(report).write(to: url, options: .atomic)
+    }
+
+    static func exportMarkdown(report: AuditReport, to url: URL) throws {
+        try ReportMarkdownFormatter.string(from: report).write(to: url, atomically: true, encoding: .utf8)
+    }
+
+    @MainActor
+    static func exportEvidenceBundle(report: AuditReport, to url: URL) throws {
+        try? FileManager.default.removeItem(at: url)
+        let archive = try Archive(url: url, accessMode: .create, pathEncoding: nil)
+        try add(Data(htmlString(from: report).utf8), path: "report.html", to: archive)
+        try add(Data(ReportMarkdownFormatter.string(from: report).utf8), path: "report.md", to: archive)
+
+        let pdfURL = FileManager.default.temporaryDirectory.appendingPathComponent("PitcherPlant-\(UUID().uuidString).pdf")
+        try exportPDF(report: report, to: pdfURL)
+        try add(Data(contentsOf: pdfURL), path: "report.pdf", to: archive)
+        try? FileManager.default.removeItem(at: pdfURL)
+
+        let csvURL = FileManager.default.temporaryDirectory.appendingPathComponent("PitcherPlant-\(UUID().uuidString).csv")
+        try exportCSV(report: report, to: csvURL)
+        try add(Data(contentsOf: csvURL), path: "evidence.csv", to: archive)
+        try? FileManager.default.removeItem(at: csvURL)
+
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        encoder.dateEncodingStrategy = .iso8601
+        try add(try encoder.encode(report), path: "report.json", to: archive)
+
+        var imageIndex = 1
+        for section in report.sections {
+            for row in section.table?.rows ?? [] {
+                for attachment in row.attachments {
+                    guard let base64 = attachment.imageBase64,
+                          let data = Data(base64Encoded: base64) else {
+                        continue
+                    }
+                    let safeName = sanitizedPathComponent("\(section.kind.rawValue)-\(row.id.uuidString)-\(imageIndex).jpg")
+                    try add(data, path: "attachments/\(safeName)", to: archive)
+                    imageIndex += 1
+                }
+            }
+        }
     }
 
     private static func renderSection(_ section: ReportSection) -> String {
@@ -107,6 +193,23 @@ enum ReportExporter {
         }
         return "data:image/jpeg;base64,\(trimmed)"
     }
+
+    private static func csvEscaped(_ value: String) -> String {
+        let escaped = value.replacingOccurrences(of: "\"", with: "\"\"")
+        return "\"\(escaped)\""
+    }
+
+    private static func add(_ data: Data, path: String, to archive: Archive) throws {
+        try archive.addEntry(with: path, type: .file, uncompressedSize: Int64(data.count), compressionMethod: .deflate) { position, size in
+            let start = Int(position)
+            let end = min(start + size, data.count)
+            return data.subdata(in: start..<end)
+        }
+    }
+
+    private static func sanitizedPathComponent(_ value: String) -> String {
+        value.replacingOccurrences(of: #"[^A-Za-z0-9._-]"#, with: "_", options: .regularExpression)
+    }
 }
 
 enum ReportTextFormatter {
@@ -135,5 +238,44 @@ enum ReportTextFormatter {
             lines.append("")
         }
         return lines.joined(separator: "\n")
+    }
+}
+
+enum ReportMarkdownFormatter {
+    static func string(from report: AuditReport) -> String {
+        var lines: [String] = ["# \(report.title)", "", "生成时间：\(report.createdAt.formatted(date: .abbreviated, time: .standard))", ""]
+        for metric in report.metrics {
+            lines.append("- \(metric.title)：\(metric.value)")
+        }
+        lines.append("")
+
+        for section in report.sections {
+            lines.append("## \(section.title)")
+            lines.append("")
+            lines.append(section.summary)
+            lines.append("")
+            for callout in section.callouts {
+                lines.append("- \(callout)")
+            }
+            if let table = section.table {
+                lines.append("")
+                lines.append("| \(table.headers.joined(separator: " | ")) | 复核 | 风险 |")
+                lines.append("| \(Array(repeating: "---", count: table.headers.count + 2).joined(separator: " | ")) |")
+                for row in table.rows {
+                    let columns = row.columns.map(markdownCell)
+                    let decision = row.review?.decision.title ?? EvidenceDecision.pending.title
+                    let risk = row.riskAssessment?.level.title ?? ""
+                    lines.append("| \((columns + [decision, risk]).joined(separator: " | ")) |")
+                }
+            }
+            lines.append("")
+        }
+        return lines.joined(separator: "\n")
+    }
+
+    private static func markdownCell(_ value: String) -> String {
+        value
+            .replacingOccurrences(of: "\n", with: " ")
+            .replacingOccurrences(of: "|", with: "\\|")
     }
 }

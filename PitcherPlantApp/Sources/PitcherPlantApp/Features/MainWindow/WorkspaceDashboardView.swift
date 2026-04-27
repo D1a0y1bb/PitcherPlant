@@ -10,6 +10,12 @@ struct WorkspaceDashboardView: View {
                 subtitle: "\(appState.jobs.count) \(appState.t("status.audits")) · \(appState.reports.count) \(appState.t("status.reports")) · \(appState.fingerprints.count) \(appState.t("status.fingerprints"))",
                 actions: {
                     Button {
+                        appState.importSubmissionPackageWithPanel()
+                    } label: {
+                        Label(appState.t("audit.importSubmissions"), systemImage: "tray.and.arrow.down")
+                    }
+
+                    Button {
                         appState.toggleAudit()
                     } label: {
                         Label(
@@ -105,6 +111,20 @@ struct NewAuditView: View {
                         set: { newValue in appState.updateDraft { $0.reportNameTemplate = newValue } }
                     ))
                 }
+            }
+
+            NativeSection(title: appState.t("audit.batchImport"), subtitle: appState.t("audit.batchImport.subtitle")) {
+                HStack(spacing: 12) {
+                    Label(appState.t("audit.batchImport.description"), systemImage: "archivebox")
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                    Button {
+                        appState.importSubmissionPackageWithPanel()
+                    } label: {
+                        Label(appState.t("audit.importSubmissions"), systemImage: "tray.and.arrow.down")
+                    }
+                }
+                .padding(.vertical, 8)
             }
 
             NativeSection(title: appState.t("audit.parameters"), subtitle: appState.t("audit.parameters.subtitle")) {

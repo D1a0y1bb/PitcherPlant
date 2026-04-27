@@ -2,6 +2,7 @@ import AppKit
 import Foundation
 import Observation
 import SwiftUI
+import UniformTypeIdentifiers
 
 struct AppNotice: Identifiable, Equatable {
     enum Tone: String, Equatable {
@@ -38,6 +39,8 @@ final class AppState {
     var whitelistRules: [WhitelistRule] = []
     var configurationPresets: [AuditConfigurationPreset] = []
     var exportRecords: [ExportRecord] = []
+    var evidenceReviews: [EvidenceReview] = []
+    var submissionBatches: [SubmissionBatch] = []
     var appSettings: AppSettings
 
     var draftConfiguration: AuditConfiguration
@@ -100,11 +103,14 @@ final class AppState {
     func reload() async {
         do {
             jobs = try await database.loadJobs()
-            reports = try await database.loadReports()
+            evidenceReviews = try await database.loadEvidenceReviews()
+            let loadedReports = try await database.loadReports()
+            reports = loadedReports.map(reportWithReviews)
             fingerprints = try await database.loadFingerprintRecords()
             whitelistRules = try await database.loadWhitelistRules()
             configurationPresets = AppPreferences.loadPresets(for: workspaceRoot)
             exportRecords = try await database.loadExportRecords(limit: 20)
+            submissionBatches = try await database.loadSubmissionBatches()
             latestReport = reports.sorted(by: { $0.createdAt > $1.createdAt }).first
 
             if selectedJobID == nil {
@@ -124,6 +130,10 @@ final class AppState {
 
     var selectedJob: AuditJob? {
         jobs.first(where: { $0.id == selectedJobID })
+    }
+
+    var queuedJobCount: Int {
+        jobs.filter { $0.status == .queued }.count
     }
 
     var selectedReport: AuditReport? {
@@ -197,6 +207,17 @@ final class AppState {
         }
         currentAuditTask = Task {
             let report = await startAudit()
+            currentAuditTask = nil
+            return report
+        }
+    }
+
+    func beginQueuedAudits() {
+        guard !isRunningAudit, currentAuditTask == nil, queuedJobCount > 0 else {
+            return
+        }
+        currentAuditTask = Task {
+            let report = await processQueuedAudits()
             currentAuditTask = nil
             return report
         }
@@ -303,6 +324,46 @@ final class AppState {
         }
     }
 
+    func review(for row: ReportTableRow) -> EvidenceReview? {
+        let evidenceID = row.evidenceID ?? row.id
+        return evidenceReviews.first { $0.evidenceID == evidenceID && $0.reportID == selectedReportID }
+            ?? row.review
+    }
+
+    func saveReview(for row: ReportTableRow, decision: EvidenceDecision, severity: RiskLevel?, note: String) async {
+        guard let report = selectedReport else {
+            return
+        }
+        let evidenceID = row.evidenceID ?? row.id
+        let existing = review(for: row)
+        let review = existing?.updated(decision: decision, severity: severity, reviewerNote: note)
+            ?? EvidenceReview(
+                id: UUID.pitcherPlantStable(namespace: "evidence-review", components: [report.id.uuidString, evidenceID.uuidString]),
+                reportID: report.id,
+                evidenceID: evidenceID,
+                evidenceType: row.evidenceType ?? EvidenceType(rawValue: selectedReportSection?.rawValue ?? "") ?? .text,
+                decision: decision,
+                severity: severity,
+                reviewerNote: note
+            )
+        do {
+            try await database.upsertEvidenceReview(review)
+            await reload()
+        } catch {
+            showNotice(title: t("notice.reviewSaveFailed"), message: error.localizedDescription, tone: .error)
+        }
+    }
+
+    func quickReviewSelectedEvidence(_ decision: EvidenceDecision) async {
+        guard let row = selectedReportRow else {
+            return
+        }
+        await saveReview(for: row, decision: decision, severity: row.riskAssessment?.level, note: review(for: row)?.reviewerNote ?? "")
+        if decision == .whitelisted, let pattern = row.columns.first, pattern.isEmpty == false {
+            await addWhitelistRule(pattern: pattern, type: .filename)
+        }
+    }
+
     func addWhitelistRule(pattern: String, type: WhitelistRule.RuleType) async {
         let trimmed = pattern.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else {
@@ -326,23 +387,102 @@ final class AppState {
         }
     }
 
-    func exportSelectedReportAsHTML() {
-        guard let report = selectedReport else {
+    func importFingerprintPackageWithPanel() {
+        let panel = NSOpenPanel()
+        panel.allowsMultipleSelection = false
+        panel.canChooseFiles = true
+        panel.canChooseDirectories = false
+        panel.allowedContentTypes = [.zip, .json]
+        if panel.runModal() == .OK, let url = panel.url {
+            Task { await importFingerprintPackage(at: url) }
+        }
+    }
+
+    func importFingerprintPackage(at url: URL, tags: [String] = []) async {
+        do {
+            let result = try FingerprintPackageService().importPackage(from: url, additionalTags: tags)
+            try await database.upsertFingerprintRecords(result.records)
+            await reload()
+            let skipped = result.skippedCount > 0 ? "，跳过 \(result.skippedCount) 条无效记录" : ""
+            showNotice(title: t("notice.fingerprintImportSucceeded"), message: "导入 \(result.importedCount) 条指纹\(skipped)", tone: .success)
+        } catch {
+            showNotice(title: t("notice.fingerprintImportFailed"), message: error.localizedDescription, tone: .error)
+        }
+    }
+
+    func exportFingerprintPackage(records selectedRecords: [FingerprintRecord]? = nil) {
+        let recordsToExport = selectedRecords ?? fingerprints
+        guard !recordsToExport.isEmpty else {
+            showNotice(title: t("notice.fingerprintExportFailed"), message: t("fingerprints.empty"), tone: .error)
             return
         }
+
         let panel = NSSavePanel()
-        panel.allowedContentTypes = [.html]
-        panel.nameFieldStringValue = "\(report.title).html"
+        panel.allowedContentTypes = [.zip]
+        panel.nameFieldStringValue = "PitcherPlant-Fingerprints-\(Self.safeTimestamp()).zip"
         if panel.runModal() == .OK, let url = panel.url {
             do {
-                try ReportExporter.exportHTML(report: report, to: url)
+                try FingerprintPackageService().exportPackage(
+                    records: recordsToExport,
+                    to: url,
+                    packageName: "PitcherPlant Fingerprints"
+                )
+                showNotice(title: t("notice.fingerprintExportSucceeded"), message: url.path, tone: .success)
+            } catch {
+                showNotice(title: t("notice.fingerprintExportFailed"), message: error.localizedDescription, tone: .error)
+            }
+        }
+    }
+
+    func deleteFingerprints(tag: String) async {
+        do {
+            let deletedCount = try await database.deleteFingerprintRecords(tag: tag)
+            await reload()
+            showNotice(title: t("notice.fingerprintCleanupSucceeded"), message: "清理 \(deletedCount) 条指纹", tone: .success)
+        } catch {
+            showNotice(title: t("notice.fingerprintCleanupFailed"), message: error.localizedDescription, tone: .error)
+        }
+    }
+
+    func exportSelectedReportAsHTML() {
+        exportSelectedReport(format: .html)
+    }
+
+    func exportSelectedReportAsPDF() {
+        exportSelectedReport(format: .pdf)
+    }
+
+    func exportSelectedReportAsCSV() {
+        exportSelectedReport(format: .csv)
+    }
+
+    func exportSelectedReportAsJSON() {
+        exportSelectedReport(format: .json)
+    }
+
+    func exportSelectedReportAsMarkdown() {
+        exportSelectedReport(format: .markdown)
+    }
+
+    func exportSelectedReportAsEvidenceBundle() {
+        exportSelectedReport(format: .bundle)
+    }
+
+    func exportSelectedReport(format: ExportRecord.Format) {
+        guard let report = selectedReport else { return }
+        let panel = NSSavePanel()
+        panel.allowedContentTypes = [contentType(for: format)]
+        panel.nameFieldStringValue = "\(report.title).\(fileExtension(for: format))"
+        if panel.runModal() == .OK, let url = panel.url {
+            do {
+                try export(report: report, format: format, to: url)
                 Task {
                     do {
                         try await database.recordExport(
                             ExportRecord(
                                 reportID: report.id,
                                 reportTitle: report.title,
-                                format: .html,
+                                format: format,
                                 destinationPath: url.path
                             )
                         )
@@ -358,35 +498,38 @@ final class AppState {
         }
     }
 
-    func exportSelectedReportAsPDF() {
-        guard let report = selectedReport else {
-            return
-        }
-        let panel = NSSavePanel()
-        panel.allowedContentTypes = [.pdf]
-        panel.nameFieldStringValue = "\(report.title).pdf"
+    func importSubmissionPackageWithPanel() {
+        let panel = NSOpenPanel()
+        panel.allowsMultipleSelection = false
+        panel.canChooseFiles = true
+        panel.canChooseDirectories = true
+        panel.allowedContentTypes = [.zip, .folder]
         if panel.runModal() == .OK, let url = panel.url {
-            do {
-                try ReportExporter.exportPDF(report: report, to: url)
-                Task {
-                    do {
-                        try await database.recordExport(
-                            ExportRecord(
-                                reportID: report.id,
-                                reportTitle: report.title,
-                                format: .pdf,
-                                destinationPath: url.path
-                            )
-                        )
-                        await reload()
-                        showNotice(title: t("notice.exportSucceeded"), message: url.path, tone: .success)
-                    } catch {
-                        showNotice(title: t("notice.exportRecordFailed"), message: error.localizedDescription, tone: .error)
-                    }
-                }
-            } catch {
-                showNotice(title: t("notice.exportFailed"), message: error.localizedDescription, tone: .error)
+            Task { await importSubmissionPackage(at: url) }
+        }
+    }
+
+    func importSubmissionPackage(at url: URL) async {
+        do {
+            let service = SubmissionImportService()
+            let result = try service.importPackage(
+                at: url,
+                into: database.databaseURL.deletingLastPathComponent()
+            )
+            try await database.upsertSubmissionBatch(result.batch, items: result.items)
+            let jobsToQueue = service.auditJobs(
+                from: result,
+                outputDirectory: URL(fileURLWithPath: draftConfiguration.outputDirectoryPath),
+                template: draftConfiguration.reportNameTemplate
+            )
+            for job in jobsToQueue {
+                try await database.upsertJob(job)
             }
+            await reload()
+            showNotice(title: t("notice.importSucceeded"), message: "\(result.items.count) 个提交已入队", tone: .success)
+            beginQueuedAudits()
+        } catch {
+            showNotice(title: t("notice.importFailed"), message: error.localizedDescription, tone: .error)
         }
     }
 
@@ -398,7 +541,57 @@ final class AppState {
         isRunningAudit = true
         defer { isRunningAudit = false }
 
-        var job = AuditJob(configuration: draftConfiguration)
+        let job = AuditJob(configuration: draftConfiguration)
+        return await performAudit(job: job, saveDraft: true, selectCompletedReport: true)
+    }
+
+    func retryJob(_ job: AuditJob) async {
+        guard job.status == .failed else {
+            return
+        }
+        do {
+            try await database.upsertJob(job.retried())
+            await reload()
+            beginQueuedAudits()
+        } catch {
+            showNotice(title: t("notice.retryFailed"), message: error.localizedDescription, tone: .error)
+        }
+    }
+
+    @discardableResult
+    private func processQueuedAudits() async -> AuditReport? {
+        guard !isRunningAudit else {
+            return nil
+        }
+        isRunningAudit = true
+        defer { isRunningAudit = false }
+
+        var latestReport: AuditReport?
+        while !Task.isCancelled {
+            await reload()
+            guard let queuedJob = jobs
+                .filter({ $0.status == .queued })
+                .sorted(by: { $0.createdAt < $1.createdAt })
+                .first
+            else {
+                break
+            }
+            if let report = await performAudit(job: queuedJob, saveDraft: false, selectCompletedReport: false) {
+                latestReport = report
+            }
+        }
+
+        await reload()
+        if let latestReport, !Task.isCancelled {
+            selectReportForInlineReview(latestReport)
+        }
+        return latestReport
+    }
+
+    @discardableResult
+    private func performAudit(job initialJob: AuditJob, saveDraft: Bool, selectCompletedReport: Bool) async -> AuditReport? {
+        var job = initialJob
+        let configuration = job.configuration
         selectedJobID = job.id
         do {
             try Task.checkCancellation()
@@ -408,7 +601,7 @@ final class AppState {
             let historicalFingerprints = fingerprints
             let rules = whitelistRules
             let result = try await auditRunner.run(
-                configuration: draftConfiguration,
+                configuration: configuration,
                 importedFingerprints: historicalFingerprints,
                 whitelistRules: rules
             ) { stage, message in
@@ -423,10 +616,20 @@ final class AppState {
             if !result.fingerprints.isEmpty {
                 try await database.insertFingerprints(result.fingerprints)
             }
-            selectReportForInlineReview(result.report)
-            AppPreferences.saveDraftConfiguration(draftConfiguration, for: workspaceRoot)
+            if let documents = try? DocumentIngestionService(configuration: configuration).ingestDocuments(in: URL(fileURLWithPath: configuration.directoryPath)) {
+                let features = DocumentFeatureStore().buildFeatures(for: documents)
+                try? await database.upsertDocumentFeatures(features)
+            }
+            if selectCompletedReport {
+                selectReportForInlineReview(result.report)
+            }
+            if saveDraft {
+                AppPreferences.saveDraftConfiguration(configuration, for: workspaceRoot)
+            }
             await reload()
-            selectReportForInlineReview(result.report)
+            if selectCompletedReport {
+                selectReportForInlineReview(result.report)
+            }
             return result.report
         } catch {
             job = job.failed(Self.auditFailureMessage(for: error))
@@ -457,6 +660,12 @@ final class AppState {
         return "完成：\(summary.documentCount) 个文档 / \(summary.imageCount) 张图片 / \(summary.historicalFingerprintCount) 条历史指纹，耗时 \(duration) 秒"
     }
 
+    nonisolated private static func safeTimestamp() -> String {
+        ISO8601DateFormatter()
+            .string(from: Date())
+            .replacingOccurrences(of: ":", with: "-")
+    }
+
     private func selectReportForInlineReview(_ report: AuditReport) {
         latestReport = report
         selectedReportID = report.id
@@ -483,6 +692,89 @@ final class AppState {
             }
         } else {
             selectedReportRowID = nil
+        }
+    }
+
+    private func reportWithReviews(_ report: AuditReport) -> AuditReport {
+        let reviewsByEvidenceID = Dictionary(uniqueKeysWithValues: evidenceReviews
+            .filter { $0.reportID == report.id }
+            .map { ($0.evidenceID, $0) })
+        let sections = report.sections.map { section in
+            var copy = section
+            if let table = section.table {
+                copy.table = ReportTable(
+                    headers: table.headers,
+                    rows: table.rows.map { row in
+                        var rowCopy = row
+                        if let review = reviewsByEvidenceID[row.evidenceID ?? row.id] {
+                            rowCopy.review = review
+                            rowCopy.badges = rowCopy.badges.filter { badge in
+                                EvidenceDecision.allCases.contains(where: { $0.title == badge.title }) == false
+                            } + [ReportBadge(title: review.decision.title, tone: review.decision.badgeTone)]
+                            if let severity = review.severity, let current = rowCopy.riskAssessment {
+                                rowCopy.riskAssessment = RiskAssessment(
+                                    score: current.score,
+                                    level: severity,
+                                    reasons: current.reasons,
+                                    evidenceCount: current.evidenceCount
+                                )
+                            }
+                        }
+                        return rowCopy
+                    }
+                )
+            }
+            return copy
+        }
+        return AuditReport(
+            id: report.id,
+            jobID: report.jobID,
+            title: report.title,
+            sourcePath: report.sourcePath,
+            scanDirectoryPath: report.scanDirectoryPath,
+            createdAt: report.createdAt,
+            isLegacy: report.isLegacy,
+            metrics: report.metrics,
+            sections: sections
+        )
+    }
+
+    private func export(report: AuditReport, format: ExportRecord.Format, to url: URL) throws {
+        switch format {
+        case .html:
+            try ReportExporter.exportHTML(report: report, to: url)
+        case .pdf:
+            try ReportExporter.exportPDF(report: report, to: url)
+        case .csv:
+            try ReportExporter.exportCSV(report: report, to: url)
+        case .json:
+            try ReportExporter.exportJSON(report: report, to: url)
+        case .markdown:
+            try ReportExporter.exportMarkdown(report: report, to: url)
+        case .bundle:
+            try ReportExporter.exportEvidenceBundle(report: report, to: url)
+        }
+    }
+
+    private func contentType(for format: ExportRecord.Format) -> UTType {
+        switch format {
+        case .html: return .html
+        case .pdf: return .pdf
+        case .csv: return .commaSeparatedText
+        case .json: return .json
+        case .markdown: return .text
+        case .bundle: return .zip
+        }
+    }
+
+    private func fileExtension(for format: ExportRecord.Format) -> String {
+        switch format {
+        case .html: return "html"
+        case .pdf: return "pdf"
+        case .csv: return "csv"
+        case .json: return "json"
+        case .markdown: return "md"
+        case .bundle: return "zip"
         }
     }
 }

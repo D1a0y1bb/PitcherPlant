@@ -1,0 +1,141 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Release tag, for example v0.1.0"
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  macos-release:
+    name: Build macOS release
+    runs-on: macos-latest
+    timeout-minutes: 45
+    env:
+      APP_NAME: PitcherPlant
+      APPLE_CERTIFICATE_BASE64: ${{ secrets.APPLE_CERTIFICATE_BASE64 }}
+      APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+      APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+      APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+      APPLE_ID: ${{ secrets.APPLE_ID }}
+      APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+      KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Resolve release tag
+        id: release
+        run: |
+          TAG_NAME="${{ github.event.inputs.version }}"
+          if [ -z "$TAG_NAME" ]; then
+            TAG_NAME="${GITHUB_REF_NAME}"
+          fi
+          echo "tag_name=$TAG_NAME" >> "$GITHUB_OUTPUT"
+
+      - name: Install XcodeGen
+        run: |
+          if ! command -v xcodegen >/dev/null 2>&1; then
+            brew install xcodegen
+          fi
+
+      - name: Generate Xcode project
+        working-directory: PitcherPlantApp
+        run: xcodegen generate
+
+      - name: Import signing certificate
+        if: env.APPLE_CERTIFICATE_BASE64 != '' && env.APPLE_SIGNING_IDENTITY != '' && env.APPLE_TEAM_ID != ''
+        run: |
+          CERTIFICATE_PATH="$RUNNER_TEMP/signing_certificate.p12"
+          KEYCHAIN_PATH="$RUNNER_TEMP/app-signing.keychain-db"
+          KEYCHAIN_PASSWORD="${KEYCHAIN_PASSWORD:-temporary-keychain-password}"
+
+          echo "$APPLE_CERTIFICATE_BASE64" | base64 --decode > "$CERTIFICATE_PATH"
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security import "$CERTIFICATE_PATH" -P "$APPLE_CERTIFICATE_PASSWORD" -A -t cert -f pkcs12 -k "$KEYCHAIN_PATH"
+          security list-keychain -d user -s "$KEYCHAIN_PATH"
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+
+      - name: Build release app
+        working-directory: PitcherPlantApp
+        run: |
+          mkdir -p build/release
+          if [ -n "$APPLE_SIGNING_IDENTITY" ] && [ -n "$APPLE_TEAM_ID" ]; then
+            xcodebuild \
+              -project PitcherPlantApp.xcodeproj \
+              -scheme PitcherPlantApp \
+              -configuration Release \
+              -derivedDataPath build/xcode \
+              CODE_SIGN_STYLE=Manual \
+              DEVELOPMENT_TEAM="$APPLE_TEAM_ID" \
+              CODE_SIGN_IDENTITY="$APPLE_SIGNING_IDENTITY" \
+              OTHER_CODE_SIGN_FLAGS="--timestamp" \
+              build
+          else
+            xcodebuild \
+              -project PitcherPlantApp.xcodeproj \
+              -scheme PitcherPlantApp \
+              -configuration Release \
+              -derivedDataPath build/xcode \
+              CODE_SIGN_STYLE=Manual \
+              CODE_SIGN_IDENTITY="-" \
+              build
+          fi
+
+      - name: Package ZIP and DMG
+        working-directory: PitcherPlantApp
+        run: |
+          APP_BUNDLE="build/xcode/Build/Products/Release/$APP_NAME.app"
+          DIST_DIR="build/dist"
+          STAGING_DIR="build/dmg"
+
+          mkdir -p "$DIST_DIR" "$STAGING_DIR"
+          ditto -c -k --keepParent "$APP_BUNDLE" "$DIST_DIR/${APP_NAME}-macOS.zip"
+          rm -rf "$STAGING_DIR"/*
+          cp -R "$APP_BUNDLE" "$STAGING_DIR/"
+          hdiutil create \
+            -volname "$APP_NAME" \
+            -srcfolder "$STAGING_DIR" \
+            -ov \
+            -format UDZO \
+            "$DIST_DIR/${APP_NAME}-macOS.dmg"
+
+      - name: Notarize DMG
+        if: env.APPLE_ID != '' && env.APPLE_APP_SPECIFIC_PASSWORD != '' && env.APPLE_TEAM_ID != '' && env.APPLE_SIGNING_IDENTITY != ''
+        working-directory: PitcherPlantApp
+        run: |
+          xcrun notarytool submit "build/dist/${APP_NAME}-macOS.dmg" \
+            --apple-id "$APPLE_ID" \
+            --password "$APPLE_APP_SPECIFIC_PASSWORD" \
+            --team-id "$APPLE_TEAM_ID" \
+            --wait
+          xcrun stapler staple "build/dist/${APP_NAME}-macOS.dmg"
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: PitcherPlant-macOS
+          path: |
+            PitcherPlantApp/build/dist/PitcherPlant-macOS.zip
+            PitcherPlantApp/build/dist/PitcherPlant-macOS.dmg
+
+      - name: Publish GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${{ steps.release.outputs.tag_name }}" \
+            PitcherPlantApp/build/dist/PitcherPlant-macOS.zip \
+            PitcherPlantApp/build/dist/PitcherPlant-macOS.dmg \
+            --target "$GITHUB_SHA" \
+            --title "${{ steps.release.outputs.tag_name }}" \
+            --generate-notes

@@ -47,7 +47,7 @@ enum ReportEvidenceFilter: String, CaseIterable, Identifiable, Sendable {
         case .all:
             return true
         case .highRisk:
-            return row.badges.contains(where: { $0.tone == .danger })
+            return row.riskAssessment?.level == .high || row.badges.contains(where: { $0.tone == .danger })
         case .withAttachments:
             return row.attachments.isEmpty == false
         }
@@ -152,7 +152,11 @@ extension ReportTableRow {
     }
 
     fileprivate var severityRank: Int {
-        badges.map(\.tone.priority).max() ?? 0
+        max(rowRiskPriority, badges.map(\.tone.priority).max() ?? 0)
+    }
+
+    private var rowRiskPriority: Int {
+        riskAssessment?.level.priority ?? 0
     }
 }
 

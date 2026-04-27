@@ -276,6 +276,9 @@ struct AuditJob: Codable, Identifiable, Hashable, Sendable {
     var reportID: UUID?
     var errorMessage: String?
     var events: [AuditJobEvent]
+    var attempt: Int?
+    var batchID: UUID?
+    var submissionItemID: UUID?
 
     init(id: UUID = UUID(), configuration: AuditConfiguration) {
         self.id = id
@@ -287,6 +290,7 @@ struct AuditJob: Codable, Identifiable, Hashable, Sendable {
         self.createdAt = .now
         self.updatedAt = .now
         self.events = [AuditJobEvent(message: "任务已创建", progress: 0)]
+        self.attempt = 1
     }
 
     func advanced(stage: AuditStage, message: String) -> AuditJob {
@@ -320,6 +324,20 @@ struct AuditJob: Codable, Identifiable, Hashable, Sendable {
         copy.latestMessage = message
         copy.updatedAt = .now
         copy.events.append(AuditJobEvent(message: "任务失败: \(message)", progress: progress))
+        copy.events = Array(copy.events.suffix(20))
+        return copy
+    }
+
+    func retried() -> AuditJob {
+        var copy = self
+        copy.status = .queued
+        copy.stage = .queued
+        copy.progress = 0
+        copy.errorMessage = nil
+        copy.latestMessage = "任务已重新排队"
+        copy.updatedAt = .now
+        copy.attempt = (attempt ?? 1) + 1
+        copy.events.append(AuditJobEvent(message: "第 \(copy.attempt ?? 1) 次尝试已排队", progress: 0))
         copy.events = Array(copy.events.suffix(20))
         return copy
     }

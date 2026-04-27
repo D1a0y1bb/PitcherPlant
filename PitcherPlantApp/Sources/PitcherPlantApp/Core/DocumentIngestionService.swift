@@ -4,18 +4,24 @@ import Foundation
 import PDFKit
 import ZIPFoundation
 
+protocol DocumentParser {
+    var supportedExtensions: Set<String> { get }
+    func parse(_ url: URL, configuration: AuditConfiguration) throws -> ParsedDocument?
+}
+
 struct DocumentIngestionService {
     let configuration: AuditConfiguration
 
     func ingestDocuments(in directory: URL) throws -> [ParsedDocument] {
         let enumerator = FileManager.default.enumerator(at: directory, includingPropertiesForKeys: nil)
         var documents: [ParsedDocument] = []
+        let supportedExtensions = Self.supportedExtensions
 
         while let url = enumerator?.nextObject() as? URL {
             guard url.lastPathComponent.hasPrefix("~$") == false else {
                 continue
             }
-            guard ["pdf", "docx", "md", "txt"].contains(url.pathExtension.lowercased()) else {
+            guard supportedExtensions.contains(url.pathExtension.lowercased()) else {
                 continue
             }
             do {
@@ -40,6 +46,12 @@ struct DocumentIngestionService {
         case "md", "txt":
             let content = try Self.readLossyText(at: url)
             return buildDocument(url: url, ext: ext, content: content, author: "", images: [])
+        case "html", "htm":
+            let content = HTMLTextExtractor.plainText(from: try Self.readLossyText(at: url))
+            return buildDocument(url: url, ext: ext, content: content, author: "", images: [])
+        case "rtf":
+            let content = Self.readRTFText(at: url)
+            return buildDocument(url: url, ext: ext, content: content, author: "", images: [])
         case "pdf":
             guard let document = PDFDocument(url: url) else { return nil }
             let content = document.string ?? ""
@@ -48,13 +60,20 @@ struct DocumentIngestionService {
             return buildDocument(url: url, ext: ext, content: content, author: author, images: images)
         case "docx":
             return try parseDocx(at: url)
+        case "pptx":
+            return try parsePptx(at: url)
+        case let imageExt where Self.imageExtensions.contains(imageExt):
+            return parseStandaloneImage(at: url, ext: imageExt)
+        case let sourceExt where Self.sourceCodeExtensions.contains(sourceExt):
+            let content = try Self.readLossyText(at: url)
+            return buildDocument(url: url, ext: sourceExt, content: content, author: "", images: [], codeBlocks: [content])
         default:
             return nil
         }
     }
 
     private func parseDocx(at url: URL) throws -> ParsedDocument? {
-        let archive = try Archive(url: url, accessMode: .read)
+        let archive = try Archive(url: url, accessMode: .read, pathEncoding: nil)
         var content = ""
         var author = ""
         var lastModifiedBy = ""
@@ -97,6 +116,44 @@ struct DocumentIngestionService {
         return buildDocument(url: url, ext: "docx", content: content, author: author, lastModifiedBy: lastModifiedBy, images: images)
     }
 
+    private func parsePptx(at url: URL) throws -> ParsedDocument? {
+        let archive = try Archive(url: url, accessMode: .read, pathEncoding: nil)
+        var slideTexts: [(String, String)] = []
+        var images: [ParsedImage] = []
+
+        for entry in archive {
+            if entry.path.hasPrefix("ppt/slides/"), entry.path.hasSuffix(".xml") {
+                var data = Data()
+                _ = try? archive.extract(entry) { part in data.append(part) }
+                let text = XMLTextExtractor.plainText(from: data)
+                if text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false {
+                    slideTexts.append((entry.path, text))
+                }
+            } else if entry.path.hasPrefix("ppt/media/") {
+                var data = Data()
+                guard (try? archive.extract(entry) { part in data.append(part) }) != nil else {
+                    continue
+                }
+                images.append(parsedImage(source: entry.path, data: data))
+            }
+        }
+
+        let content = slideTexts
+            .sorted { $0.0.localizedStandardCompare($1.0) == .orderedAscending }
+            .map { "\($0.0)\n\($0.1)" }
+            .joined(separator: "\n\n")
+        return buildDocument(url: url, ext: "pptx", content: content, author: "", images: images)
+    }
+
+    private func parseStandaloneImage(at url: URL, ext: String) -> ParsedDocument? {
+        guard let data = try? Data(contentsOf: url) else {
+            return nil
+        }
+        let image = parsedImage(source: url.lastPathComponent, data: data)
+        let content = image.ocrPreview.isEmpty ? url.deletingPathExtension().lastPathComponent : image.ocrPreview
+        return buildDocument(url: url, ext: ext, content: content, author: "", images: [image])
+    }
+
     private func parseMislabeledTextDocument(at url: URL, error: Error) -> ParsedDocument? {
         guard url.pathExtension.lowercased() == "docx",
               let data = try? Data(contentsOf: url),
@@ -107,15 +164,25 @@ struct DocumentIngestionService {
         return buildDocument(url: url, ext: "docx", content: content, author: "", images: [])
     }
 
-    private func buildDocument(url: URL, ext: String, content: String, author: String, lastModifiedBy: String = "", images: [ParsedImage]) -> ParsedDocument {
+    private func buildDocument(
+        url: URL,
+        ext: String,
+        content: String,
+        author: String,
+        lastModifiedBy: String = "",
+        images: [ParsedImage],
+        codeBlocks explicitCodeBlocks: [String]? = nil
+    ) -> ParsedDocument {
         let normalized = content.replacingOccurrences(of: #"\s+"#, with: " ", options: .regularExpression).trimmingCharacters(in: .whitespacesAndNewlines)
+        let extractedCode = CodeBlockExtractor.extract(from: content)
+        let codeBlocks = (explicitCodeBlocks ?? []) + extractedCode
         return ParsedDocument(
             url: url,
             filename: url.lastPathComponent,
             ext: ext,
             content: content,
             cleanText: TextNormalizer.clean(normalized),
-            codeBlocks: CodeBlockExtractor.extract(from: content),
+            codeBlocks: Array(NSOrderedSet(array: codeBlocks).compactMap { $0 as? String }),
             author: author,
             lastModifiedBy: lastModifiedBy,
             images: images
@@ -135,6 +202,18 @@ struct DocumentIngestionService {
             return content
         }
         return String(decoding: data, as: UTF8.self)
+    }
+
+    private static func readRTFText(at url: URL) -> String {
+        guard let data = try? Data(contentsOf: url),
+              let attributed = try? NSAttributedString(
+                data: data,
+                options: [.documentType: NSAttributedString.DocumentType.rtf],
+                documentAttributes: nil
+              ) else {
+            return (try? readLossyText(at: url)) ?? ""
+        }
+        return attributed.string
     }
 
     private static func isLikelyPlainText(_ data: Data) -> Bool {
@@ -175,6 +254,47 @@ struct DocumentIngestionService {
             )
         }
         return images
+    }
+
+    private func parsedImage(source: String, data: Data) -> ParsedImage {
+        ParsedImage(
+            source: source,
+            perceptualHash: ImageHashing.perceptualHash(for: data),
+            averageHash: ImageHashing.averageHash(for: data),
+            differenceHash: ImageHashing.differenceHash(for: data),
+            ocrPreview: configuration.useVisionOCR ? ImageOCRService.previewText(from: data) : "",
+            thumbnailBase64: ImageHashing.thumbnailBase64(for: data)
+        )
+    }
+
+    static let sourceCodeExtensions: Set<String> = [
+        "py", "c", "cc", "cpp", "h", "hpp", "java", "go", "js", "jsx", "ts", "tsx",
+        "swift", "sh", "bash", "zsh", "rb", "rs", "php", "cs", "kt", "sql", "m", "mm"
+    ]
+
+    static let imageExtensions: Set<String> = ["png", "jpg", "jpeg", "gif", "bmp", "tiff", "webp"]
+
+    static let supportedExtensions: Set<String> = Set([
+        "pdf", "docx", "md", "txt", "html", "htm", "rtf", "pptx"
+    ]).union(sourceCodeExtensions).union(imageExtensions)
+}
+
+enum HTMLTextExtractor {
+    static func plainText(from html: String) -> String {
+        html
+            .replacingOccurrences(of: #"<script[\s\S]*?</script>"#, with: " ", options: [.regularExpression, .caseInsensitive])
+            .replacingOccurrences(of: #"<style[\s\S]*?</style>"#, with: " ", options: [.regularExpression, .caseInsensitive])
+            .replacingOccurrences(of: #"<br\s*/?>"#, with: "\n", options: [.regularExpression, .caseInsensitive])
+            .replacingOccurrences(of: #"</(p|div|li|h[1-6]|tr)>"#, with: "\n", options: [.regularExpression, .caseInsensitive])
+            .replacingOccurrences(of: #"<[^>]+>"#, with: " ", options: .regularExpression)
+            .replacingOccurrences(of: "&nbsp;", with: " ")
+            .replacingOccurrences(of: "&amp;", with: "&")
+            .replacingOccurrences(of: "&lt;", with: "<")
+            .replacingOccurrences(of: "&gt;", with: ">")
+            .replacingOccurrences(of: "&quot;", with: "\"")
+            .replacingOccurrences(of: #"[\t ]+"#, with: " ", options: .regularExpression)
+            .replacingOccurrences(of: #"\n{3,}"#, with: "\n\n", options: .regularExpression)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
     }
 }
 
@@ -467,4 +587,3 @@ private func pdfStream(from object: CGPDFObjectRef) -> CGPDFStreamRef? {
     }
     return stream
 }
-

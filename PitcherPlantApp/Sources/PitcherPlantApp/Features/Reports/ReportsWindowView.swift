@@ -33,16 +33,27 @@ struct ReportsWindowView: View {
         .onChange(of: appState.reports.map(\.id)) { _, _ in syncVisibleReportSelection() }
         .toolbar {
             ToolbarItemGroup(placement: .primaryAction) {
-                Button {
-                    appState.exportSelectedReportAsPDF()
+                Menu {
+                    Button { appState.exportSelectedReportAsHTML() } label: {
+                        Label("HTML", systemImage: "chevron.left.forwardslash.chevron.right")
+                    }
+                    Button { appState.exportSelectedReportAsPDF() } label: {
+                        Label("PDF", systemImage: "doc.richtext")
+                    }
+                    Button { appState.exportSelectedReportAsCSV() } label: {
+                        Label("CSV", systemImage: "tablecells")
+                    }
+                    Button { appState.exportSelectedReportAsJSON() } label: {
+                        Label("JSON", systemImage: "curlybraces")
+                    }
+                    Button { appState.exportSelectedReportAsMarkdown() } label: {
+                        Label("Markdown", systemImage: "doc.plaintext")
+                    }
+                    Button { appState.exportSelectedReportAsEvidenceBundle() } label: {
+                        Label(appState.t("settings.exportBundle"), systemImage: "archivebox")
+                    }
                 } label: {
-                    Label(appState.t("settings.exportPDF"), systemImage: "doc.richtext")
-                }
-
-                Button {
-                    appState.exportSelectedReportAsHTML()
-                } label: {
-                    Label(appState.t("settings.exportHTML"), systemImage: "chevron.left.forwardslash.chevron.right")
+                    Label(appState.t("settings.exportReport"), systemImage: "square.and.arrow.up")
                 }
 
                 Button {
@@ -174,17 +185,15 @@ private struct ReportsCenterSelectorBar: View {
             }
             .menuStyle(.borderlessButton)
 
-            Button {
-                appState.exportSelectedReportAsPDF()
+            Menu {
+                Button { appState.exportSelectedReportAsHTML() } label: { Label("HTML", systemImage: "chevron.left.forwardslash.chevron.right") }
+                Button { appState.exportSelectedReportAsPDF() } label: { Label("PDF", systemImage: "doc.richtext") }
+                Button { appState.exportSelectedReportAsCSV() } label: { Label("CSV", systemImage: "tablecells") }
+                Button { appState.exportSelectedReportAsJSON() } label: { Label("JSON", systemImage: "curlybraces") }
+                Button { appState.exportSelectedReportAsMarkdown() } label: { Label("Markdown", systemImage: "doc.plaintext") }
+                Button { appState.exportSelectedReportAsEvidenceBundle() } label: { Label(appState.t("settings.exportBundle"), systemImage: "archivebox") }
             } label: {
-                Label("PDF", systemImage: "doc.richtext")
-            }
-            .disabled(appState.selectedReport == nil)
-
-            Button {
-                appState.exportSelectedReportAsHTML()
-            } label: {
-                Label("HTML", systemImage: "chevron.left.forwardslash.chevron.right")
+                Label(appState.t("settings.exportReport"), systemImage: "square.and.arrow.up")
             }
             .disabled(appState.selectedReport == nil)
         }

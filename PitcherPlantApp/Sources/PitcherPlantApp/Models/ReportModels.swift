@@ -72,6 +72,10 @@ struct ReportTableRow: Codable, Identifiable, Hashable, Sendable {
     var detailBody: String
     var badges: [ReportBadge]
     var attachments: [ReportAttachment]
+    var evidenceID: UUID?
+    var evidenceType: EvidenceType?
+    var riskAssessment: RiskAssessment?
+    var review: EvidenceReview?
 
     init(
         id: UUID = UUID(),
@@ -79,7 +83,11 @@ struct ReportTableRow: Codable, Identifiable, Hashable, Sendable {
         detailTitle: String,
         detailBody: String,
         badges: [ReportBadge] = [],
-        attachments: [ReportAttachment] = []
+        attachments: [ReportAttachment] = [],
+        evidenceID: UUID? = nil,
+        evidenceType: EvidenceType? = nil,
+        riskAssessment: RiskAssessment? = nil,
+        review: EvidenceReview? = nil
     ) {
         self.id = id
         self.columns = columns
@@ -87,6 +95,10 @@ struct ReportTableRow: Codable, Identifiable, Hashable, Sendable {
         self.detailBody = detailBody
         self.badges = badges
         self.attachments = attachments
+        self.evidenceID = evidenceID
+        self.evidenceType = evidenceType
+        self.riskAssessment = riskAssessment
+        self.review = review
     }
 }
 
@@ -221,6 +233,11 @@ struct FingerprintRecord: Codable, Identifiable, Hashable, Sendable {
     let simhash: String
     let scanDir: String
     let scannedAt: Date
+    var tags: [String]?
+    var sourceReportID: UUID?
+    var batchName: String?
+    var challengeName: String?
+    var teamName: String?
 
     init(
         id: UUID = UUID(),
@@ -230,7 +247,12 @@ struct FingerprintRecord: Codable, Identifiable, Hashable, Sendable {
         size: Int,
         simhash: String,
         scanDir: String,
-        scannedAt: Date = .now
+        scannedAt: Date = .now,
+        tags: [String]? = nil,
+        sourceReportID: UUID? = nil,
+        batchName: String? = nil,
+        challengeName: String? = nil,
+        teamName: String? = nil
     ) {
         self.id = id
         self.filename = filename
@@ -240,6 +262,11 @@ struct FingerprintRecord: Codable, Identifiable, Hashable, Sendable {
         self.simhash = simhash
         self.scanDir = scanDir
         self.scannedAt = scannedAt
+        self.tags = tags
+        self.sourceReportID = sourceReportID
+        self.batchName = batchName
+        self.challengeName = challengeName
+        self.teamName = teamName
     }
 }
 
@@ -247,9 +274,20 @@ struct ExportRecord: Codable, Identifiable, Hashable, Sendable {
     enum Format: String, Codable, CaseIterable, Sendable {
         case html
         case pdf
+        case csv
+        case json
+        case markdown
+        case bundle
 
         var displayTitle: String {
-            rawValue.uppercased()
+            switch self {
+            case .html, .pdf, .csv, .json:
+                return rawValue.uppercased()
+            case .markdown:
+                return "Markdown"
+            case .bundle:
+                return "Evidence Bundle"
+            }
         }
     }
 
@@ -282,12 +320,22 @@ struct WhitelistRule: Codable, Identifiable, Hashable, Sendable {
         case author
         case filename
         case simhash
+        case textSnippet
+        case codeTemplate
+        case imageHash
+        case metadata
+        case pathPattern
 
         var displayTitle: String {
             switch self {
             case .author: return "作者"
             case .filename: return "文件名"
             case .simhash: return "SimHash"
+            case .textSnippet: return "文本片段"
+            case .codeTemplate: return "代码模板"
+            case .imageHash: return "图片 Hash"
+            case .metadata: return "元数据"
+            case .pathPattern: return "路径规则"
             }
         }
 
@@ -296,6 +344,11 @@ struct WhitelistRule: Codable, Identifiable, Hashable, Sendable {
             case .author: return "whitelist.author"
             case .filename: return "whitelist.filename"
             case .simhash: return "SimHash"
+            case .textSnippet: return "whitelist.textSnippet"
+            case .codeTemplate: return "whitelist.codeTemplate"
+            case .imageHash: return "whitelist.imageHash"
+            case .metadata: return "whitelist.metadata"
+            case .pathPattern: return "whitelist.pathPattern"
             }
         }
     }

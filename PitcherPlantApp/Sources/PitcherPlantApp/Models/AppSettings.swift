@@ -43,6 +43,7 @@ struct AppSettings: Codable, Hashable, Sendable {
     var defaultExportFormat: ExportRecord.Format
     var showLegacyBadges: Bool
     var showAttachmentPreviews: Bool
+    var auditAssistant: AuditAssistantConfiguration? = AuditAssistantConfiguration()
 
     static let defaults = AppSettings(
         language: .system,
@@ -53,6 +54,7 @@ struct AppSettings: Codable, Hashable, Sendable {
         preferInAppReports: true,
         defaultExportFormat: .html,
         showLegacyBadges: true,
-        showAttachmentPreviews: true
+        showAttachmentPreviews: true,
+        auditAssistant: AuditAssistantConfiguration()
     )
 }

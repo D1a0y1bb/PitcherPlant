@@ -24,11 +24,15 @@ struct ReportEvidenceInspector: View {
                         }
                     }
 
+                    EvidenceReviewPanel(row: row)
+
                     InspectorSection(title: appState.t("reports.evidenceDetails")) {
                         Text(row.detailBody)
                             .foregroundStyle(.secondary)
                             .textSelection(.enabled)
                     }
+
+                    EvidenceSemanticDetailView(row: row)
 
                     if !row.attachments.isEmpty {
                         InspectorSection(title: appState.t("reports.attachments")) {
@@ -184,6 +188,173 @@ struct InspectorSection<Content: View>: View {
     }
 }
 
+struct EvidenceReviewPanel: View {
+    @Environment(AppState.self) private var appState
+    let row: ReportTableRow
+    @State private var decision: EvidenceDecision = .pending
+    @State private var severity: RiskLevel = .none
+    @State private var note = ""
+
+    var body: some View {
+        InspectorSection(title: appState.t("reports.review")) {
+            VStack(alignment: .leading, spacing: 10) {
+                HStack(spacing: 8) {
+                    Button {
+                        Task { await appState.quickReviewSelectedEvidence(.confirmed) }
+                    } label: {
+                        Label(appState.t("review.confirm"), systemImage: "checkmark.seal")
+                    }
+                    Button {
+                        Task { await appState.quickReviewSelectedEvidence(.falsePositive) }
+                    } label: {
+                        Label(appState.t("review.falsePositive"), systemImage: "xmark.seal")
+                    }
+                    Button {
+                        Task { await appState.quickReviewSelectedEvidence(.whitelisted) }
+                    } label: {
+                        Label(appState.t("review.whitelist"), systemImage: "checkmark.shield")
+                    }
+                }
+                .buttonStyle(.borderless)
+
+                Picker(appState.t("review.decision"), selection: $decision) {
+                    ForEach(EvidenceDecision.allCases) { option in
+                        Text(option.title).tag(option)
+                    }
+                }
+                .pickerStyle(.menu)
+
+                Picker(appState.t("review.severity"), selection: $severity) {
+                    ForEach(RiskLevel.allCases) { option in
+                        Text(option.title).tag(option)
+                    }
+                }
+                .pickerStyle(.segmented)
+
+                TextEditor(text: $note)
+                    .font(.caption)
+                    .frame(minHeight: 72)
+                    .overlay(RoundedRectangle(cornerRadius: 6).stroke(.separator.opacity(0.35)))
+
+                Button {
+                    Task {
+                        await appState.saveReview(
+                            for: row,
+                            decision: decision,
+                            severity: severity == .none ? nil : severity,
+                            note: note
+                        )
+                    }
+                } label: {
+                    Label(appState.t("review.save"), systemImage: "square.and.arrow.down")
+                }
+            }
+        }
+        .onAppear(perform: syncFromState)
+        .onChange(of: row.id) { _, _ in syncFromState() }
+    }
+
+    private func syncFromState() {
+        let review = appState.review(for: row)
+        decision = review?.decision ?? .pending
+        severity = review?.severity ?? row.riskAssessment?.level ?? .none
+        note = review?.reviewerNote ?? ""
+    }
+}
+
+struct EvidenceSemanticDetailView: View {
+    let row: ReportTableRow
+
+    var body: some View {
+        switch row.evidenceType {
+        case .text, .dedup:
+            TextEvidenceComparisonView(row: row)
+        case .code:
+            CodeEvidenceComparisonView(row: row)
+        case .metadata, .crossBatch, nil:
+            AssistantEvidenceExplanationView(row: row)
+        case .image:
+            EmptyView()
+        }
+    }
+}
+
+struct TextEvidenceComparisonView: View {
+    @Environment(AppState.self) private var appState
+    let row: ReportTableRow
+
+    var body: some View {
+        let textAttachments = Array(row.attachments.filter { $0.imageBase64 == nil }.prefix(2))
+        if textAttachments.count == 2 {
+            InspectorSection(title: appState.t("reports.textViewer")) {
+                HStack(alignment: .top, spacing: 10) {
+                    ForEach(Array(textAttachments.enumerated()), id: \.offset) { _, attachment in
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text(attachment.title)
+                                .font(.caption.weight(.semibold))
+                            Text(attachment.body.isEmpty ? row.evidencePreview : attachment.body)
+                                .font(.system(.caption, design: .serif))
+                                .textSelection(.enabled)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                        }
+                        .padding(8)
+                        .background(Color(nsColor: .windowBackgroundColor))
+                        .overlay(RoundedRectangle(cornerRadius: 8).stroke(.separator.opacity(0.25)))
+                    }
+                }
+            }
+        }
+    }
+}
+
+struct CodeEvidenceComparisonView: View {
+    @Environment(AppState.self) private var appState
+    let row: ReportTableRow
+
+    var body: some View {
+        let codeAttachments = Array(row.attachments.filter { $0.imageBase64 == nil }.prefix(2))
+        if codeAttachments.count == 2 {
+            InspectorSection(title: appState.t("reports.codeViewer")) {
+                HStack(alignment: .top, spacing: 10) {
+                    ForEach(Array(codeAttachments.enumerated()), id: \.offset) { _, attachment in
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text(attachment.subtitle)
+                                .font(.caption.weight(.semibold))
+                            ScrollView(.horizontal) {
+                                Text(attachment.body)
+                                    .font(.system(.caption, design: .monospaced))
+                                    .textSelection(.enabled)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                            }
+                        }
+                        .padding(8)
+                        .background(Color(nsColor: .windowBackgroundColor))
+                        .overlay(RoundedRectangle(cornerRadius: 8).stroke(.separator.opacity(0.25)))
+                    }
+                }
+                Text(row.detailBody)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .textSelection(.enabled)
+            }
+        }
+    }
+}
+
+struct AssistantEvidenceExplanationView: View {
+    @Environment(AppState.self) private var appState
+    let row: ReportTableRow
+
+    var body: some View {
+        InspectorSection(title: appState.t("reports.assistantExplanation")) {
+            Text(AuditAssistantService().localExplanation(for: row, review: appState.review(for: row)))
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .textSelection(.enabled)
+        }
+    }
+}
+
 struct ImageEvidenceDetailView: View {
     let attachments: [ReportAttachment]
     let showsPreviews: Bool
@@ -234,6 +405,12 @@ struct ImageEvidenceDetailView: View {
 extension Collection {
     subscript(safe index: Index) -> Element? {
         indices.contains(index) ? self[index] : nil
+    }
+}
+
+private extension ReportTableRow {
+    var evidencePreview: String {
+        columns[safe: 3] ?? detailBody
     }
 }
 
