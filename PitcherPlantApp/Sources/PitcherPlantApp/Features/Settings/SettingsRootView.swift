@@ -6,21 +6,17 @@ struct SettingsRootView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 28) {
-                SettingsPageHeader()
-
                 SettingsGroup(title: appState.t("settings.general"), systemImage: "gearshape") {
                     SettingsPickerRow(
                         title: appState.t("settings.language"),
                         subtitle: appState.t("settings.languageDescription")
                     ) {
-                        Picker(appState.t("settings.language"), selection: settingsBinding(\.language)) {
-                            ForEach(AppLanguage.allCases) { language in
-                                Text(language.displayName).tag(language)
-                            }
-                        }
-                        .labelsHidden()
-                        .controlSize(.small)
-                        .frame(width: SettingsLayout.pickerWidth)
+                        SettingsMenuPicker(
+                            selection: settingsBinding(\.language),
+                            options: AppLanguage.allCases,
+                            width: SettingsLayout.menuWidth,
+                            title: { $0.displayName }
+                        )
                     }
 
                     SettingsDivider()
@@ -29,14 +25,13 @@ struct SettingsRootView: View {
                         title: appState.t("settings.defaultPage"),
                         subtitle: appState.t("settings.defaultPageDescription")
                     ) {
-                        Picker(appState.t("settings.defaultPage"), selection: settingsBinding(\.defaultSidebarItem)) {
-                            ForEach(MainSidebarItem.allCases) { item in
-                                Label(appState.title(for: item), systemImage: item.systemImage).tag(item)
-                            }
-                        }
-                        .labelsHidden()
-                        .controlSize(.small)
-                        .frame(width: SettingsLayout.pickerWidth)
+                        SettingsMenuPicker(
+                            selection: settingsBinding(\.defaultSidebarItem),
+                            options: MainSidebarItem.allCases,
+                            width: SettingsLayout.menuWidth,
+                            title: { appState.title(for: $0) },
+                            systemImage: { $0.systemImage }
+                        )
                     }
 
                     SettingsDivider()
@@ -61,15 +56,17 @@ struct SettingsRootView: View {
                         title: appState.t("settings.theme"),
                         subtitle: appState.t("settings.themeDescription")
                     ) {
-                        Picker(appState.t("settings.theme"), selection: settingsBinding(\.appearance)) {
-                            Text(appState.t("common.followSystem")).tag(AppAppearance.system)
-                            Text(appState.t("common.light")).tag(AppAppearance.light)
-                            Text(appState.t("common.dark")).tag(AppAppearance.dark)
-                        }
-                        .pickerStyle(.segmented)
-                        .labelsHidden()
-                        .controlSize(.small)
-                        .frame(width: SettingsLayout.segmentedWidth)
+                        SettingsChoicePicker(
+                            selection: settingsBinding(\.appearance),
+                            options: AppAppearance.allCases,
+                            title: { appearance in
+                                switch appearance {
+                                case .system: appState.t("common.followSystem")
+                                case .light: appState.t("common.light")
+                                case .dark: appState.t("common.dark")
+                                }
+                            }
+                        )
                     }
 
                     SettingsDivider()
@@ -162,15 +159,11 @@ struct SettingsRootView: View {
                         title: appState.t("audit.whitelistMode"),
                         subtitle: appState.t("settings.whitelistModeDescription")
                     ) {
-                        Picker(appState.t("audit.whitelistMode"), selection: draftWhitelistModeBinding()) {
-                            ForEach(AuditConfiguration.WhitelistMode.allCases, id: \.self) { mode in
-                                Text(appState.title(for: mode)).tag(mode)
-                            }
-                        }
-                        .pickerStyle(.segmented)
-                        .labelsHidden()
-                        .controlSize(.small)
-                        .frame(width: SettingsLayout.shortSegmentedWidth)
+                        SettingsChoicePicker(
+                            selection: draftWhitelistModeBinding(),
+                            options: AuditConfiguration.WhitelistMode.allCases,
+                            title: { appState.title(for: $0) }
+                        )
                     }
                 }
 
@@ -187,15 +180,11 @@ struct SettingsRootView: View {
                         title: appState.t("settings.defaultExportFormat"),
                         subtitle: appState.t("settings.defaultExportFormatDescription")
                     ) {
-                        Picker(appState.t("settings.defaultExportFormat"), selection: settingsBinding(\.defaultExportFormat)) {
-                            ForEach(ExportRecord.Format.allCases, id: \.self) { format in
-                                Text(format.displayTitle).tag(format)
-                            }
-                        }
-                        .pickerStyle(.segmented)
-                        .labelsHidden()
-                        .controlSize(.small)
-                        .frame(width: SettingsLayout.shortSegmentedWidth)
+                        SettingsChoicePicker(
+                            selection: settingsBinding(\.defaultExportFormat),
+                            options: ExportRecord.Format.allCases,
+                            title: { $0.displayTitle }
+                        )
                     }
 
                     SettingsDivider()
@@ -372,26 +361,10 @@ struct SettingsRootView: View {
     }
 }
 
-private struct SettingsPageHeader: View {
-    @Environment(AppState.self) private var appState
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(appState.t("settings.title"))
-                .font(.title2.weight(.semibold))
-            Text("PitcherPlant · macOS")
-                .font(.callout)
-                .foregroundStyle(.secondary)
-        }
-    }
-}
-
 private enum SettingsLayout {
     static let contentWidth: CGFloat = 820
     static let horizontalPadding: CGFloat = 14
-    static let pickerWidth: CGFloat = 200
-    static let segmentedWidth: CGFloat = 230
-    static let shortSegmentedWidth: CGFloat = 142
+    static let menuWidth: CGFloat = 220
     static let numberFieldWidth: CGFloat = 74
 
     static var dividerLeadingPadding: CGFloat {
@@ -597,7 +570,7 @@ private struct SettingsButtonGroupRow<Content: View>: View {
             HStack(spacing: 8) {
                 content
             }
-            .buttonStyle(.bordered)
+            .buttonStyle(SettingsRoundedButtonStyle())
             .controlSize(.small)
         }
     }
@@ -615,9 +588,144 @@ private struct SettingsActionRow: View {
             Button(action: action) {
                 Label(buttonTitle, systemImage: systemImage)
             }
-            .buttonStyle(.borderedProminent)
+            .buttonStyle(SettingsRoundedButtonStyle())
             .controlSize(.small)
         }
+    }
+}
+
+private struct SettingsMenuPicker<Value: Hashable>: View {
+    @Binding var selection: Value
+    let options: [Value]
+    let width: CGFloat
+    let title: (Value) -> String
+    var systemImage: ((Value) -> String)?
+
+    var body: some View {
+        Menu {
+            ForEach(options, id: \.self) { option in
+                Button {
+                    selection = option
+                } label: {
+                    HStack {
+                        menuLabel(for: option)
+                        if option == selection {
+                            Image(systemName: "checkmark")
+                        }
+                    }
+                }
+            }
+        } label: {
+            HStack(spacing: 7) {
+                menuLabel(for: selection)
+
+                Spacer(minLength: 8)
+
+                Image(systemName: "chevron.up.chevron.down")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.secondary)
+            }
+            .font(.callout.weight(.medium))
+            .lineLimit(1)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 7)
+            .frame(width: width, alignment: .leading)
+            .background(Color(nsColor: .controlBackgroundColor).opacity(0.88))
+            .clipShape(Capsule(style: .continuous))
+            .overlay {
+                Capsule(style: .continuous)
+                    .stroke(.separator.opacity(0.12))
+            }
+        }
+        .menuStyle(.button)
+        .buttonStyle(.plain)
+        .fixedSize()
+    }
+
+    @ViewBuilder
+    private func menuLabel(for option: Value) -> some View {
+        if let systemImage {
+            Label(title(option), systemImage: systemImage(option))
+        } else {
+            Text(title(option))
+        }
+    }
+}
+
+private struct SettingsChoicePicker<Value: Hashable>: View {
+    @Binding var selection: Value
+    let options: [Value]
+    let title: (Value) -> String
+
+    var body: some View {
+        HStack(spacing: 6) {
+            ForEach(options, id: \.self) { option in
+                Button {
+                    selection = option
+                } label: {
+                    Text(title(option))
+                        .frame(minWidth: 54)
+                }
+                .buttonStyle(SettingsChoiceButtonStyle(isSelected: option == selection))
+            }
+        }
+    }
+}
+
+private struct SettingsRoundedButtonStyle: ButtonStyle {
+    @Environment(\.isEnabled) private var isEnabled
+    var prominent = false
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.callout.weight(.medium))
+            .foregroundStyle(foregroundStyle)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 6)
+            .background(backgroundStyle)
+            .clipShape(Capsule(style: .continuous))
+            .overlay {
+                Capsule(style: .continuous)
+                    .stroke(borderStyle)
+            }
+            .opacity(configuration.isPressed ? 0.72 : 1)
+    }
+
+    private var foregroundStyle: Color {
+        if !isEnabled {
+            return .secondary
+        }
+        return prominent ? .white : .primary
+    }
+
+    private var backgroundStyle: Color {
+        if !isEnabled {
+            return Color(nsColor: .controlBackgroundColor).opacity(0.38)
+        }
+        return prominent ? .accentColor : Color(nsColor: .controlBackgroundColor).opacity(0.88)
+    }
+
+    private var borderStyle: Color {
+        prominent || !isEnabled ? .clear : Color.secondary.opacity(0.12)
+    }
+}
+
+private struct SettingsChoiceButtonStyle: ButtonStyle {
+    var isSelected: Bool
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.callout.weight(.semibold))
+            .foregroundStyle(isSelected ? .white : .primary)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 6)
+            .background(isSelected ? Color.accentColor : Color(nsColor: .controlBackgroundColor).opacity(0.88))
+            .clipShape(Capsule(style: .continuous))
+            .overlay {
+                Capsule(style: .continuous)
+                    .stroke(isSelected ? Color.clear : Color.secondary.opacity(0.12))
+            }
+            .opacity(configuration.isPressed ? 0.72 : 1)
     }
 }
 
@@ -636,6 +744,7 @@ private struct SettingsControlRow<Content: View>: View {
 
                 content
                     .controlSize(.small)
+                    .fixedSize(horizontal: true, vertical: false)
             }
         }
     }
