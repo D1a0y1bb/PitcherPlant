@@ -63,7 +63,7 @@ struct MainStatusBar: View {
                     Image(systemName: noticeIcon(for: notice.tone))
                 }
                 .font(AppTypography.metadata)
-                .foregroundStyle(noticeColor(for: notice.tone))
+                .foregroundStyle(.secondary)
 
                 Button {
                     appState.dismissNotice()
@@ -102,9 +102,6 @@ struct MainStatusBar: View {
         }
     }
 
-    private func noticeColor(for tone: AppNotice.Tone) -> Color {
-        .secondary
-    }
 }
 
 struct MainSidebarView: View {

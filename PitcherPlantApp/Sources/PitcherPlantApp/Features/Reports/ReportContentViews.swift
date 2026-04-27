@@ -528,15 +528,11 @@ struct CrossBatchListRow: View {
                 .frame(width: 54, alignment: .trailing)
             Text(row.columns[safe: 4] ?? "")
                 .lineLimit(1)
-                .foregroundStyle(statusColor)
+                .foregroundStyle(.secondary)
                 .frame(width: 110, alignment: .leading)
         }
         .font(AppTypography.rowSecondary)
         .padding(.vertical, 7)
-    }
-
-    private var statusColor: Color {
-        .secondary
     }
 }
 

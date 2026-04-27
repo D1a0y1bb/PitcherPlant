@@ -361,13 +361,9 @@ private struct CompactEmptyRow: View {
 private struct MenuBarStatusDot: View {
     let status: AuditJobStatus
 
-    private var color: Color {
-        .secondary
-    }
-
     var body: some View {
         Image(systemName: systemImage)
-            .foregroundStyle(color)
+            .foregroundStyle(.secondary)
             .frame(width: 14)
     }
 

@@ -178,12 +178,8 @@ struct StatusDot: View {
 
     var body: some View {
         Image(systemName: systemImage)
-            .foregroundStyle(color)
+            .foregroundStyle(.secondary)
             .frame(width: 16)
-    }
-
-    private var color: Color {
-        .secondary
     }
 
     private var systemImage: String {

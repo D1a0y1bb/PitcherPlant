@@ -395,7 +395,7 @@ struct AssistantEvidenceExplanationView: View {
 
                 Text(displayedExplanation)
                     .font(AppTypography.body)
-                    .foregroundStyle(phase.isError ? .red : .secondary)
+                    .foregroundStyle(.secondary)
                     .textSelection(.enabled)
             }
         }
@@ -790,10 +790,10 @@ private struct CodeLineDiffView: View {
                                 diffCell(row.leftText, change: row.change, side: .left)
                                 lineNumber(row.rightLineNumber)
                                 diffCell(row.rightText, change: row.change, side: .right)
-                                Text(row.change.title)
-                                    .font(AppTypography.metadata.weight(.medium))
-                                    .foregroundStyle(statusColor(row.change))
-                                    .lineLimit(1)
+                            Text(row.change.title)
+                                .font(AppTypography.metadata.weight(.medium))
+                                .foregroundStyle(.secondary)
+                                .lineLimit(1)
                             }
                         }
                     }
@@ -834,9 +834,6 @@ private struct CodeLineDiffView: View {
             .frame(minWidth: 240, alignment: .leading)
     }
 
-    private func statusColor(_ change: CodeLineDiffRow.Change) -> Color {
-        .secondary
-    }
 }
 
 private struct FlowTokenLine: View {

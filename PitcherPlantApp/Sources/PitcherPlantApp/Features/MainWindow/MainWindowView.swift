@@ -28,7 +28,7 @@ struct MainWindowView: View {
         } detail: {
             Group {
                 if !isInspectorColumnVisible {
-                    Color.clear
+                    EmptyView()
                 } else if appState.selectedMainSidebar.usesReportInspector {
                     ReportEvidenceInspectorHost()
                 } else {
