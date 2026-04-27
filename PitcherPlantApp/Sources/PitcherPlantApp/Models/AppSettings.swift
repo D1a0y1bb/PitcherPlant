@@ -26,14 +26,10 @@ enum AppAppearance: String, Codable, CaseIterable, Identifiable, Sendable {
 
     var colorScheme: ColorScheme? {
         switch self {
-        case .system: return Self.currentSystemColorScheme
+        case .system: return nil
         case .light: return .light
         case .dark: return .dark
         }
-    }
-
-    static var currentSystemColorScheme: ColorScheme {
-        UserDefaults.standard.string(forKey: "AppleInterfaceStyle") == "Dark" ? .dark : .light
     }
 }
 

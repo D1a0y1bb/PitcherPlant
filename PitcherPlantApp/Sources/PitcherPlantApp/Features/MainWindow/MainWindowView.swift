@@ -53,6 +53,7 @@ struct MainWindowView: View {
         .onChange(of: appState.selectedMainSidebar) { _, _ in
             if appState.selectedMainSidebar != .settings {
                 settingsSearchText = ""
+                settingsSearchExpanded = false
             }
             updateColumnVisibility()
         }
@@ -220,7 +221,12 @@ private struct SettingsToolbarSearchControl: View {
 
             Button {
                 withAnimation(.easeOut(duration: 0.2)) {
-                    isExpanded.toggle()
+                    if isExpanded {
+                        searchText = ""
+                        isExpanded = false
+                    } else {
+                        isExpanded = true
+                    }
                 }
             } label: {
                 Label(

@@ -133,7 +133,7 @@ private extension AppAppearance {
     var nsAppearance: NSAppearance? {
         switch self {
         case .system:
-            return NSAppearance(named: Self.currentSystemColorScheme == .dark ? .darkAqua : .aqua)
+            return nil
         case .light:
             return NSAppearance(named: .aqua)
         case .dark:

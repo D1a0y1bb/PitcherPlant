@@ -34,6 +34,36 @@ func presetStorageRoundTripsByWorkspaceRoot() throws {
 }
 
 @Test
+func appSettingsRoundTripPreservesEnumSelections() throws {
+    let suiteName = "pitcherplant.tests.settings.\(UUID().uuidString)"
+    guard let defaults = UserDefaults(suiteName: suiteName) else {
+        Issue.record("无法创建测试专用 UserDefaults")
+        return
+    }
+
+    let settings = AppSettings(
+        language: .english,
+        appearance: .dark,
+        showInspectorByDefault: false,
+        compactRows: false,
+        showMenuBarExtra: true,
+        preferInAppReports: false,
+        defaultExportFormat: .pdf,
+        showLegacyBadges: false,
+        showAttachmentPreviews: true
+    )
+    AppPreferences.saveAppSettings(settings, defaults: defaults)
+
+    let loaded = AppPreferences.loadAppSettings(defaults: defaults)
+    #expect(loaded == settings)
+}
+
+@Test
+func systemAppearanceLeavesColorSchemeUnspecified() {
+    #expect(AppAppearance.system.colorScheme == nil)
+}
+
+@Test
 func databaseStorePersistsStructuredJobEventsAndReportSections() async throws {
     let root = FileManager.default.temporaryDirectory
         .appendingPathComponent("pitcherplant-db-\(UUID().uuidString)", isDirectory: true)

@@ -147,8 +147,11 @@ struct SettingsRootView: View {
                             value: appState.title(for: appState.draftConfiguration.whitelistMode)
                         )
                     ) {
-                        SettingsMappedToggle(
-                            isOn: draftWhitelistHideBinding()
+                        SettingsMenuPicker(
+                            selection: draftBinding(\.whitelistMode),
+                            options: AuditConfiguration.WhitelistMode.allCases,
+                            width: SettingsLayout.menuWidth,
+                            title: { appState.title(for: $0) }
                         )
                     }
                 }
@@ -169,8 +172,11 @@ struct SettingsRootView: View {
                             value: appState.appSettings.defaultExportFormat.displayTitle
                         )
                     ) {
-                        SettingsMappedToggle(
-                            isOn: exportPDFBinding()
+                        SettingsMenuPicker(
+                            selection: settingsBinding(\.defaultExportFormat),
+                            options: ExportRecord.Format.allCases,
+                            width: SettingsLayout.menuWidth,
+                            title: { $0.displayTitle }
                         )
                     }
 
@@ -314,7 +320,7 @@ struct SettingsRootView: View {
         )
     }
 
-    private func draftBinding(_ keyPath: WritableKeyPath<AuditConfiguration, String>) -> Binding<String> {
+    private func draftBinding<Value>(_ keyPath: WritableKeyPath<AuditConfiguration, Value>) -> Binding<Value> {
         Binding(
             get: { appState.draftConfiguration[keyPath: keyPath] },
             set: { value in appState.updateDraft { $0[keyPath: keyPath] = value } }
@@ -339,24 +345,6 @@ struct SettingsRootView: View {
         Binding(
             get: { appState.draftConfiguration[keyPath: keyPath] },
             set: { value in appState.updateDraft { $0[keyPath: keyPath] = value } }
-        )
-    }
-
-    private func draftWhitelistHideBinding() -> Binding<Bool> {
-        Binding(
-            get: { appState.draftConfiguration.whitelistMode == .hide },
-            set: { enabled in
-                appState.updateDraft { $0.whitelistMode = enabled ? .hide : .mark }
-            }
-        )
-    }
-
-    private func exportPDFBinding() -> Binding<Bool> {
-        Binding(
-            get: { appState.appSettings.defaultExportFormat == .pdf },
-            set: { enabled in
-                appState.updateSettings { $0.defaultExportFormat = enabled ? .pdf : .html }
-            }
         )
     }
 
@@ -603,17 +591,6 @@ private struct SettingsToggleRow: View {
                 .toggleStyle(.switch)
                 .controlSize(.small)
         }
-    }
-}
-
-private struct SettingsMappedToggle: View {
-    @Binding var isOn: Bool
-
-    var body: some View {
-        Toggle("", isOn: $isOn)
-            .labelsHidden()
-            .toggleStyle(.switch)
-            .controlSize(.small)
     }
 }
 
