@@ -305,7 +305,8 @@ xcodebuild -project PitcherPlantApp.xcodeproj -scheme PitcherPlantApp -destinati
 ## 当前进度
 
 - 已落地：批量提交包导入、队列串行执行、失败任务重试、证据复核持久化、证据级风险聚合、扩展输入解析、扩展导出、白名单建议、候选召回、指纹包导入导出、标签清理、可选审计辅助解释、CI 和发布 workflow。
-- 待完善：证据查看器高亮与跳转、代码 diff 视图、图片左右对比、跨批次复用图谱、校准 fixture 和性能指标归档。
+- 已补齐：证据查看器高亮与跳转、代码逐行 diff、图片证据来源展示、跨批次复用图谱、校准 fixture、性能指标基线和 ad-hoc 发布打包验证。
+- 发布说明：当前 Release workflow 默认生成 ad-hoc 签名 ZIP/DMG，不依赖 Apple Developer 付费账号；后续如配置 Developer ID 证书和公证 secrets，可切换到 `developer-id` 分发模式。详见 [Docs/RELEASE.md](Docs/RELEASE.md)。
 
 ## License
 

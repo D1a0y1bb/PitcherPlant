@@ -8,6 +8,7 @@
 !PitcherPlantApp/.codex/environments/environment.toml
 
 PitcherPlantApp/.build/
+PitcherPlantApp/build/
 PitcherPlantApp/.pitcherplant-macos/
 PitcherPlantApp/reports/
 PitcherPlant.xcworkspace/xcshareddata/

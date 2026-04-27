@@ -14,6 +14,14 @@ on:
         type: boolean
         required: false
         default: true
+      distribution:
+        description: "Artifact signing mode"
+        type: choice
+        required: false
+        default: ad-hoc
+        options:
+          - ad-hoc
+          - developer-id
 
 permissions:
   contents: write
@@ -57,38 +65,71 @@ jobs:
         run: |
           TAG_NAME="${{ github.event.inputs.version }}"
           DRY_RUN="${{ github.event.inputs.dry_run }}"
+          DISTRIBUTION="${{ github.event.inputs.distribution }}"
 
           if [ -z "$TAG_NAME" ]; then
             TAG_NAME="${GITHUB_REF_NAME}"
           fi
+
+          if [ -z "$DISTRIBUTION" ]; then
+            DISTRIBUTION="ad-hoc"
+          fi
+
+          case "$DISTRIBUTION" in
+            ad-hoc|developer-id)
+              ;;
+            *)
+              echo "Unsupported distribution: $DISTRIBUTION"
+              exit 2
+              ;;
+          esac
 
           if [ "${{ github.event_name }}" = "push" ]; then
             DRY_RUN="false"
           fi
 
           if [ "$DRY_RUN" = "true" ]; then
-            FORMAL_RELEASE="false"
+            PUBLISH_RELEASE="false"
             RELEASE_NAME="dry-run-${GITHUB_RUN_ID}"
           else
-            FORMAL_RELEASE="true"
+            PUBLISH_RELEASE="true"
             RELEASE_NAME="$TAG_NAME"
+          fi
+
+          if [ "$DISTRIBUTION" = "developer-id" ]; then
+            SIGNED_RELEASE="true"
+          else
+            SIGNED_RELEASE="false"
           fi
 
           echo "tag_name=$TAG_NAME" >> "$GITHUB_OUTPUT"
           echo "dry_run=$DRY_RUN" >> "$GITHUB_OUTPUT"
-          echo "formal_release=$FORMAL_RELEASE" >> "$GITHUB_OUTPUT"
+          echo "distribution=$DISTRIBUTION" >> "$GITHUB_OUTPUT"
+          echo "publish_release=$PUBLISH_RELEASE" >> "$GITHUB_OUTPUT"
+          echo "signed_release=$SIGNED_RELEASE" >> "$GITHUB_OUTPUT"
           echo "release_name=$RELEASE_NAME" >> "$GITHUB_OUTPUT"
 
       - name: Preflight release inputs and secrets
         run: |
           missing=0
 
-          if [ "${{ steps.release.outputs.formal_release }}" = "true" ]; then
+          if [ "${{ steps.release.outputs.publish_release }}" = "true" ]; then
             if [ -z "${{ steps.release.outputs.tag_name }}" ]; then
               echo "Missing release tag. Provide workflow_dispatch input 'version' or push a v* tag."
               missing=1
             fi
 
+            case "${{ steps.release.outputs.tag_name }}" in
+              v*)
+                ;;
+              *)
+                echo "Release tag must start with v, got: ${{ steps.release.outputs.tag_name }}"
+                missing=1
+                ;;
+            esac
+          fi
+
+          if [ "${{ steps.release.outputs.signed_release }}" = "true" ]; then
             for name in \
               APPLE_CERTIFICATE_BASE64 \
               APPLE_CERTIFICATE_PASSWORD \
@@ -108,7 +149,7 @@ jobs:
             exit 1
           fi
 
-          echo "Release mode: formal=${{ steps.release.outputs.formal_release }}, dry_run=${{ steps.release.outputs.dry_run }}"
+          echo "Release mode: publish=${{ steps.release.outputs.publish_release }}, distribution=${{ steps.release.outputs.distribution }}, dry_run=${{ steps.release.outputs.dry_run }}"
 
       - name: Install XcodeGen
         run: |
@@ -128,7 +169,7 @@ jobs:
           }
 
       - name: Import signing certificate
-        if: steps.release.outputs.formal_release == 'true'
+        if: steps.release.outputs.signed_release == 'true'
         run: |
           CERTIFICATE_PATH="$RUNNER_TEMP/signing_certificate.p12"
           KEYCHAIN_PATH="$RUNNER_TEMP/app-signing.keychain-db"
@@ -162,7 +203,7 @@ jobs:
       - name: Release configuration build
         working-directory: PitcherPlantApp
         run: |
-          if [ "${{ steps.release.outputs.formal_release }}" = "true" ]; then
+          if [ "${{ steps.release.outputs.signed_release }}" = "true" ]; then
             xcodebuild \
               -project PitcherPlantApp.xcodeproj \
               -scheme PitcherPlantApp \
@@ -184,174 +225,14 @@ jobs:
               build
           fi
 
-      - name: Archive app
+      - name: Archive, package, and verify artifacts
         working-directory: PitcherPlantApp
         run: |
-          rm -rf build/archive build/export build/dist build/checks
-          mkdir -p build/archive build/export build/dist build/checks
-
-          if [ "${{ steps.release.outputs.formal_release }}" = "true" ]; then
-            xcodebuild archive \
-              -project PitcherPlantApp.xcodeproj \
-              -scheme PitcherPlantApp \
-              -configuration Release \
-              -archivePath "build/archive/${APP_NAME}.xcarchive" \
-              DEVELOPMENT_TEAM="$APPLE_TEAM_ID" \
-              CODE_SIGN_STYLE=Manual \
-              CODE_SIGN_IDENTITY="$APPLE_SIGNING_IDENTITY" \
-              OTHER_CODE_SIGN_FLAGS="--timestamp"
-
-            {
-              printf '%s\n' '<?xml version="1.0" encoding="UTF-8"?>'
-              printf '%s\n' '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "https://www.apple.com/DTDs/PropertyList-1.0.dtd">'
-              printf '%s\n' '<plist version="1.0">'
-              printf '%s\n' '<dict>'
-              printf '%s\n' '  <key>destination</key>'
-              printf '%s\n' '  <string>export</string>'
-              printf '%s\n' '  <key>method</key>'
-              printf '%s\n' '  <string>developer-id</string>'
-              printf '%s\n' '  <key>signingCertificate</key>'
-              printf '%s\n' "  <string>${APPLE_SIGNING_IDENTITY}</string>"
-              printf '%s\n' '  <key>signingStyle</key>'
-              printf '%s\n' '  <string>manual</string>'
-              printf '%s\n' '  <key>stripSwiftSymbols</key>'
-              printf '%s\n' '  <true/>'
-              printf '%s\n' '  <key>teamID</key>'
-              printf '%s\n' "  <string>${APPLE_TEAM_ID}</string>"
-              printf '%s\n' '</dict>'
-              printf '%s\n' '</plist>'
-            } > build/exportOptions.plist
-
-            xcodebuild -exportArchive \
-              -archivePath "build/archive/${APP_NAME}.xcarchive" \
-              -exportPath build/export \
-              -exportOptionsPlist build/exportOptions.plist
+          if [ "${{ steps.release.outputs.signed_release }}" = "true" ]; then
+            ./script/package_release.sh --distribution developer-id --notarize
           else
-            xcodebuild archive \
-              -project PitcherPlantApp.xcodeproj \
-              -scheme PitcherPlantApp \
-              -configuration Release \
-              -archivePath "build/archive/${APP_NAME}.xcarchive" \
-              CODE_SIGN_STYLE=Manual \
-              CODE_SIGN_IDENTITY="-"
-
-            ditto "build/archive/${APP_NAME}.xcarchive/Products/Applications/${APP_NAME}.app" "build/export/${APP_NAME}.app"
+            ./script/package_release.sh --distribution ad-hoc
           fi
-
-      - name: Package archive and dSYMs
-        working-directory: PitcherPlantApp
-        run: |
-          ditto -c -k --keepParent \
-            "build/archive/${APP_NAME}.xcarchive" \
-            "build/dist/${APP_NAME}.xcarchive.zip"
-
-          if [ -d "build/archive/${APP_NAME}.xcarchive/dSYMs" ]; then
-            ditto -c -k --keepParent \
-              "build/archive/${APP_NAME}.xcarchive/dSYMs" \
-              "build/dist/${APP_NAME}-dSYMs.zip"
-          else
-            mkdir -p build/empty-dSYMs
-            ditto -c -k --keepParent \
-              build/empty-dSYMs \
-              "build/dist/${APP_NAME}-dSYMs.zip"
-          fi
-
-      - name: Verify app signature before notarization
-        if: steps.release.outputs.formal_release == 'true'
-        working-directory: PitcherPlantApp
-        run: |
-          codesign --verify --deep --strict --verbose=2 "build/export/${APP_NAME}.app"
-
-      - name: Notarize and staple app
-        if: steps.release.outputs.formal_release == 'true'
-        working-directory: PitcherPlantApp
-        run: |
-          APP_NOTARY_ZIP="build/dist/${APP_NAME}-app-notary.zip"
-          ditto -c -k --keepParent "build/export/${APP_NAME}.app" "$APP_NOTARY_ZIP"
-          xcrun notarytool submit "$APP_NOTARY_ZIP" \
-            --apple-id "$APPLE_ID" \
-            --password "$APPLE_APP_SPECIFIC_PASSWORD" \
-            --team-id "$APPLE_TEAM_ID" \
-            --wait
-          xcrun stapler staple "build/export/${APP_NAME}.app"
-          xcrun stapler validate "build/export/${APP_NAME}.app"
-          rm -f "$APP_NOTARY_ZIP"
-
-      - name: Package ZIP and DMG
-        working-directory: PitcherPlantApp
-        run: |
-          APP_BUNDLE="build/export/${APP_NAME}.app"
-          DIST_DIR="build/dist"
-          STAGING_DIR="build/dmg"
-
-          test -d "$APP_BUNDLE"
-          mkdir -p "$DIST_DIR" "$STAGING_DIR"
-          ditto -c -k --keepParent "$APP_BUNDLE" "$DIST_DIR/${APP_NAME}-macOS.zip"
-          rm -rf "$STAGING_DIR"/*
-          cp -R "$APP_BUNDLE" "$STAGING_DIR/"
-          hdiutil create \
-            -volname "$APP_NAME" \
-            -srcfolder "$STAGING_DIR" \
-            -ov \
-            -format UDZO \
-            "$DIST_DIR/${APP_NAME}-macOS.dmg"
-
-      - name: Notarize and staple DMG
-        if: steps.release.outputs.formal_release == 'true'
-        working-directory: PitcherPlantApp
-        run: |
-          xcrun notarytool submit "build/dist/${APP_NAME}-macOS.dmg" \
-            --apple-id "$APPLE_ID" \
-            --password "$APPLE_APP_SPECIFIC_PASSWORD" \
-            --team-id "$APPLE_TEAM_ID" \
-            --wait
-          xcrun stapler staple "build/dist/${APP_NAME}-macOS.dmg"
-          xcrun stapler validate "build/dist/${APP_NAME}-macOS.dmg"
-
-      - name: Verify packaged artifacts
-        working-directory: PitcherPlantApp
-        run: |
-          APP_BUNDLE="build/export/${APP_NAME}.app"
-          ZIP_PATH="build/dist/${APP_NAME}-macOS.zip"
-          DMG_PATH="build/dist/${APP_NAME}-macOS.dmg"
-          ZIP_CHECK_DIR="build/checks/zip"
-          DMG_MOUNT_ROOT="build/checks/dmg-mount"
-
-          hdiutil verify "$DMG_PATH"
-
-          rm -rf "$ZIP_CHECK_DIR" "$DMG_MOUNT_ROOT"
-          mkdir -p "$ZIP_CHECK_DIR" "$DMG_MOUNT_ROOT"
-          ditto -x -k "$ZIP_PATH" "$ZIP_CHECK_DIR"
-          test -d "$ZIP_CHECK_DIR/${APP_NAME}.app"
-
-          MOUNT_OUTPUT=$(hdiutil attach "$DMG_PATH" -readonly -nobrowse -mountroot "$DMG_MOUNT_ROOT")
-          MOUNT_POINT=$(printf '%s\n' "$MOUNT_OUTPUT" | awk '/Apple_HFS/ {print $NF; exit}')
-          test -n "$MOUNT_POINT"
-          test -d "$MOUNT_POINT/${APP_NAME}.app"
-          hdiutil detach "$MOUNT_POINT"
-
-          if [ "${{ steps.release.outputs.formal_release }}" = "true" ]; then
-            codesign --verify --deep --strict --verbose=2 "$APP_BUNDLE"
-            codesign --verify --deep --strict --verbose=2 "$ZIP_CHECK_DIR/${APP_NAME}.app"
-            xcrun stapler validate "$APP_BUNDLE"
-            xcrun stapler validate "$ZIP_CHECK_DIR/${APP_NAME}.app"
-            spctl --assess --type execute --verbose=4 "$APP_BUNDLE"
-            spctl --assess --type execute --verbose=4 "$ZIP_CHECK_DIR/${APP_NAME}.app"
-            spctl --assess --type open --verbose=4 "$DMG_PATH"
-          fi
-
-      - name: Generate checksums
-        working-directory: PitcherPlantApp
-        run: |
-          files=(
-            "build/dist/${APP_NAME}-macOS.zip"
-            "build/dist/${APP_NAME}-macOS.dmg"
-            "build/dist/${APP_NAME}.xcarchive.zip"
-          )
-          if [ -f "build/dist/${APP_NAME}-dSYMs.zip" ]; then
-            files+=("build/dist/${APP_NAME}-dSYMs.zip")
-          fi
-          shasum -a 256 "${files[@]}" > "build/dist/${APP_NAME}-macOS-checksums.txt"
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v5
@@ -364,9 +245,10 @@ jobs:
             PitcherPlantApp/build/dist/PitcherPlant.xcarchive.zip
             PitcherPlantApp/build/dist/PitcherPlant-dSYMs.zip
             PitcherPlantApp/build/dist/PitcherPlant-macOS-checksums.txt
+            PitcherPlantApp/build/dist/release-notes.md
 
       - name: Publish GitHub release
-        if: steps.release.outputs.formal_release == 'true'
+        if: steps.release.outputs.publish_release == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -378,4 +260,4 @@ jobs:
             PitcherPlantApp/build/dist/PitcherPlant-macOS-checksums.txt \
             --target "$GITHUB_SHA" \
             --title "${{ steps.release.outputs.tag_name }}" \
-            --generate-notes
+            --notes-file PitcherPlantApp/build/dist/release-notes.md
