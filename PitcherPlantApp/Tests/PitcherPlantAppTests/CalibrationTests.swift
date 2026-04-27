@@ -9,35 +9,52 @@ func calibrationManifestThresholdsCoverCoreEvidenceTypes() throws {
     for calibrationCase in manifest.cases {
         switch calibrationCase.kind {
         case .text:
+            let documents = calibrationCase.parsedDocuments()
             let results = TextSimilarityAnalyzer().analyze(
-                documents: calibrationCase.parsedDocuments(),
+                documents: documents,
                 threshold: calibrationCase.threshold ?? 0.75
             )
             try assertExpectedPairs(calibrationCase.expectedPairs, in: results, minimumScore: calibrationCase.minimumScore)
+            try assertQuality(calibrationCase, detectedPairs: candidatePairs(from: results, lookup: lookup(for: documents)), totalPairCount: pairCount(for: documents.count), lookup: lookup(for: documents))
         case .code:
-            let results = CodeSimilarityAnalyzer().analyze(documents: calibrationCase.parsedDocuments())
+            let documents = calibrationCase.parsedDocuments()
+            let results = CodeSimilarityAnalyzer().analyze(documents: documents)
             try assertExpectedPairs(calibrationCase.expectedPairs, in: results, minimumScore: calibrationCase.minimumScore)
+            try assertQuality(calibrationCase, detectedPairs: candidatePairs(from: results, lookup: lookup(for: documents)), totalPairCount: pairCount(for: documents.count), lookup: lookup(for: documents))
         case .image:
+            let documents = calibrationCase.parsedDocuments()
             let results = ImageReuseAnalyzer().analyze(
-                documents: calibrationCase.parsedDocuments(),
+                documents: documents,
                 threshold: calibrationCase.imageThreshold ?? 5
             )
             try assertExpectedPairs(calibrationCase.expectedPairs, in: results, minimumScore: calibrationCase.minimumScore)
+            try assertQuality(calibrationCase, detectedPairs: candidatePairs(from: results, lookup: lookup(for: documents)), totalPairCount: pairCount(for: documents.count), lookup: lookup(for: documents))
         case .dedup:
+            let documents = calibrationCase.parsedDocuments()
             let results = DedupAnalyzer().analyze(
-                documents: calibrationCase.parsedDocuments(),
+                documents: documents,
                 threshold: calibrationCase.threshold ?? 0.85
             )
             try assertExpectedPairs(calibrationCase.expectedPairs, in: results, minimumScore: calibrationCase.minimumScore)
+            try assertQuality(calibrationCase, detectedPairs: candidatePairs(from: results, lookup: lookup(for: documents)), totalPairCount: pairCount(for: documents.count), lookup: lookup(for: documents))
         case .crossBatch:
+            let current = calibrationCase.currentFingerprintRecords()
+            let historical = calibrationCase.historicalFingerprintRecords()
             let results = CrossBatchReuseAnalyzer().analyze(
-                current: calibrationCase.currentFingerprintRecords(),
-                historical: calibrationCase.historicalFingerprintRecords(),
+                current: current,
+                historical: historical,
                 whitelistRules: [],
                 whitelistMode: .mark,
                 threshold: calibrationCase.simhashThreshold ?? 4
             )
             try assertExpectedCrossBatchPairs(calibrationCase.expectedPairs, in: results)
+            let lookup = lookup(for: current + historical)
+            try assertQuality(
+                calibrationCase,
+                detectedPairs: candidatePairs(from: results, lookup: lookup),
+                totalPairCount: current.count * historical.count,
+                lookup: lookup
+            )
         }
     }
 }
@@ -113,6 +130,70 @@ private func assertExpectedCrossBatchPairs(_ expectedPairs: [[String]], in resul
     }
 }
 
+private func assertQuality(
+    _ calibrationCase: CalibrationCase,
+    detectedPairs: [CandidatePair],
+    totalPairCount: Int,
+    lookup: [String: Int]
+) throws {
+    let expectedPairs = try candidatePairs(from: calibrationCase.expectedPairs, lookup: lookup)
+    let rejectedPairs = try candidatePairs(from: calibrationCase.rejectedPairs ?? [], lookup: lookup)
+    let metrics = CalibrationMetrics(
+        expectedPairs: expectedPairs,
+        detectedPairs: detectedPairs,
+        totalPairCount: totalPairCount
+    )
+
+    print("Calibration \(calibrationCase.id): precision=\(metrics.precision), recall=\(metrics.recall), f1=\(metrics.f1), TP=\(metrics.truePositiveCount), FP=\(metrics.falsePositiveCount), FN=\(metrics.falseNegativeCount)")
+
+    #expect(metrics.precision >= (calibrationCase.minimumPrecision ?? 0.85))
+    #expect(metrics.recall >= (calibrationCase.minimumRecall ?? 1.0))
+    #expect(metrics.f1 >= (calibrationCase.minimumF1 ?? 0.85))
+
+    let detected = Set(detectedPairs)
+    for rejectedPair in rejectedPairs {
+        #expect(detected.contains(rejectedPair) == false)
+    }
+}
+
+private func candidatePairs(from results: [SuspiciousPair], lookup: [String: Int]) throws -> [CandidatePair] {
+    try results.map { result in
+        try candidatePair(left: result.fileA, right: result.fileB, lookup: lookup)
+    }
+}
+
+private func candidatePairs(from results: [CrossBatchMatch], lookup: [String: Int]) throws -> [CandidatePair] {
+    try results.map { result in
+        try candidatePair(left: result.currentFile, right: result.previousFile, lookup: lookup)
+    }
+}
+
+private func candidatePairs(from pairs: [[String]], lookup: [String: Int]) throws -> [CandidatePair] {
+    try pairs.map { pair in
+        let left = try #require(pair.first)
+        let right = try #require(pair.dropFirst().first)
+        return try candidatePair(left: left, right: right, lookup: lookup)
+    }
+}
+
+private func candidatePair(left: String, right: String, lookup: [String: Int]) throws -> CandidatePair {
+    let leftIndex = try #require(lookup[left])
+    let rightIndex = try #require(lookup[right])
+    return CandidatePair(left: min(leftIndex, rightIndex), right: max(leftIndex, rightIndex))
+}
+
+private func lookup(for documents: [ParsedDocument]) -> [String: Int] {
+    Dictionary(uniqueKeysWithValues: documents.enumerated().map { ($0.element.filename, $0.offset) })
+}
+
+private func lookup(for records: [FingerprintRecord]) -> [String: Int] {
+    Dictionary(uniqueKeysWithValues: records.enumerated().map { ($0.element.filename, $0.offset) })
+}
+
+private func pairCount(for count: Int) -> Int {
+    count * max(count - 1, 0) / 2
+}
+
 private func parsedDocument(url: URL, content: String) -> ParsedDocument {
     ParsedDocument(
         url: url,
@@ -146,7 +227,11 @@ private struct CalibrationCase: Decodable {
     let imageThreshold: Int?
     let simhashThreshold: Int?
     let minimumScore: Double?
+    let minimumPrecision: Double?
+    let minimumRecall: Double?
+    let minimumF1: Double?
     let expectedPairs: [[String]]
+    let rejectedPairs: [[String]]?
     let documents: [CalibrationDocument]?
     let currentFingerprints: [CalibrationFingerprint]?
     let historicalFingerprints: [CalibrationFingerprint]?

@@ -335,6 +335,7 @@ struct CodeEvidenceComparisonView: View {
                 .pickerStyle(.segmented)
 
                 CodeDiffSummaryView(left: codeAttachments[0].body, right: codeAttachments[1].body)
+                CodeLineDiffView(left: codeAttachments[0].body, right: codeAttachments[1].body)
                 EvidenceHighlightNavigator(tokens: highlights, selectedIndex: $selectedHighlightIndex, title: "共享标记")
 
                 HStack(alignment: .top, spacing: 10) {
@@ -740,6 +741,101 @@ private struct CodeDiffSummaryView: View {
                 .foregroundStyle(.secondary)
                 .lineLimit(2)
                 .textSelection(.enabled)
+        }
+    }
+}
+
+private struct CodeLineDiffView: View {
+    let left: String
+    let right: String
+
+    private var rows: [CodeLineDiffRow] {
+        CodeLineDiffBuilder.rows(left: left, right: right)
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("逐行 diff")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.secondary)
+
+            ScrollView([.horizontal, .vertical]) {
+                Grid(alignment: .leading, horizontalSpacing: 8, verticalSpacing: 2) {
+                    GridRow {
+                        diffHeader("L")
+                        diffHeader("左侧")
+                        diffHeader("R")
+                        diffHeader("右侧")
+                        diffHeader("状态")
+                    }
+
+                    ForEach(Array(rows.enumerated()), id: \.offset) { _, row in
+                        GridRow {
+                            lineNumber(row.leftLineNumber)
+                            diffCell(row.leftText, change: row.change, side: .left)
+                            lineNumber(row.rightLineNumber)
+                            diffCell(row.rightText, change: row.change, side: .right)
+                            Text(row.change.title)
+                                .font(.caption2.weight(.medium))
+                                .foregroundStyle(statusColor(row.change))
+                                .lineLimit(1)
+                        }
+                    }
+                }
+                .padding(8)
+            }
+            .frame(minHeight: 120, maxHeight: 220)
+            .background(Color(nsColor: .textBackgroundColor), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).stroke(.separator.opacity(0.24)))
+        }
+    }
+
+    private enum Side {
+        case left
+        case right
+    }
+
+    private func diffHeader(_ title: String) -> some View {
+        Text(title)
+            .font(.caption2.weight(.semibold))
+            .foregroundStyle(.secondary)
+    }
+
+    private func lineNumber(_ value: Int?) -> some View {
+        Text(value.map(String.init) ?? "")
+            .font(.caption2.monospacedDigit())
+            .foregroundStyle(.tertiary)
+            .frame(width: 32, alignment: .trailing)
+    }
+
+    private func diffCell(_ value: String, change: CodeLineDiffRow.Change, side: Side) -> some View {
+        Text(value.isEmpty ? " " : value)
+            .font(.system(.caption2, design: .monospaced))
+            .textSelection(.enabled)
+            .lineLimit(1)
+            .truncationMode(.tail)
+            .padding(.horizontal, 5)
+            .padding(.vertical, 2)
+            .frame(minWidth: 240, alignment: .leading)
+            .background(backgroundColor(change, side: side), in: RoundedRectangle(cornerRadius: 4, style: .continuous))
+    }
+
+    private func backgroundColor(_ change: CodeLineDiffRow.Change, side: Side) -> Color {
+        switch (change, side) {
+        case (.deleted, .left), (.modified, .left):
+            return Color.red.opacity(0.10)
+        case (.inserted, .right), (.modified, .right):
+            return Color.green.opacity(0.10)
+        default:
+            return Color.clear
+        }
+    }
+
+    private func statusColor(_ change: CodeLineDiffRow.Change) -> Color {
+        switch change {
+        case .unchanged: return .secondary
+        case .deleted, .modified: return .orange
+        case .inserted: return .green
         }
     }
 }

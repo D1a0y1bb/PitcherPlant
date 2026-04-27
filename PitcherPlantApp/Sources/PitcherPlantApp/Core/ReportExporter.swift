@@ -61,16 +61,36 @@ enum ReportExporter {
     }
 
     static func exportCSV(report: AuditReport, to url: URL) throws {
-        var rows: [[String]] = [["section", "evidence_id", "type", "object_a", "object_b", "score", "decision", "risk", "whitelist_status", "whitelist_rule", "source_references", "detail"]]
+        var rows: [[String]] = [[
+            "section",
+            "evidence_id",
+            "type",
+            "object_a",
+            "object_b",
+            "score",
+            "cross_batch_batch",
+            "cross_batch_distance",
+            "cross_batch_status",
+            "decision",
+            "risk",
+            "whitelist_status",
+            "whitelist_rule",
+            "source_references",
+            "detail"
+        ]]
         for section in report.sections {
             for row in section.table?.rows ?? [] {
+                let crossBatchFields = crossBatchCSVFields(for: row, in: section)
                 rows.append([
                     section.title,
                     row.evidenceID?.uuidString ?? row.id.uuidString,
                     row.evidenceType?.rawValue ?? section.kind.rawValue,
                     row.columns[safe: 0] ?? "",
                     row.columns[safe: 1] ?? "",
-                    row.columns[safe: 2] ?? "",
+                    scoreCSVValue(for: row, in: section),
+                    crossBatchFields.batch,
+                    crossBatchFields.distance,
+                    crossBatchFields.status,
                     row.review?.decision.rawValue ?? EvidenceDecision.pending.rawValue,
                     row.riskAssessment?.level.rawValue ?? "",
                     row.whitelistStatus?.status.rawValue ?? "",
@@ -84,6 +104,28 @@ enum ReportExporter {
             row.map(csvEscaped).joined(separator: ",")
         }.joined(separator: "\n")
         try csv.write(to: url, atomically: true, encoding: .utf8)
+    }
+
+    private static func scoreCSVValue(for row: ReportTableRow, in section: ReportSection) -> String {
+        if section.kind == .crossBatch || row.evidenceType == .crossBatch {
+            if let assessment = row.riskAssessment {
+                return "\(assessment.formattedScore)%"
+            }
+            return ""
+        }
+        return row.columns[safe: 2] ?? row.riskAssessment.map { "\($0.formattedScore)%" } ?? ""
+    }
+
+    private static func crossBatchCSVFields(for row: ReportTableRow, in section: ReportSection) -> (batch: String, distance: String, status: String) {
+        guard section.kind == .crossBatch || row.evidenceType == .crossBatch else {
+            return ("", "", "")
+        }
+        let metadata = row.metadata ?? [:]
+        return (
+            metadata[CrossBatchGraphMetadataKey.batchName] ?? row.columns[safe: 2] ?? "",
+            metadata[CrossBatchGraphMetadataKey.distance] ?? row.columns[safe: 3] ?? "",
+            metadata[CrossBatchGraphMetadataKey.status] ?? row.columns[safe: 4] ?? ""
+        )
     }
 
     static func exportJSON(report: AuditReport, to url: URL) throws {

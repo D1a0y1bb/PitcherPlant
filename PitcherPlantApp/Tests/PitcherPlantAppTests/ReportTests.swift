@@ -217,3 +217,77 @@ func exportedHTMLEscapesAttributeContentAndRejectsUnsafeImagePayload() throws {
     #expect(html.contains(#"src="data:image/jpeg;base64,ZmFrZQ==""#))
     #expect(html.contains(#"src="ZmFrZQ==&quot; onerror=&quot;alert(1)&quot;""#) == false)
 }
+
+@Test
+func exportedCSVUsesDedicatedCrossBatchColumns() throws {
+    let root = FileManager.default.temporaryDirectory
+        .appendingPathComponent("pitcherplant-cross-batch-csv-\(UUID().uuidString)", isDirectory: true)
+    try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+    let row = ReportTableRow(
+        columns: ["current.md", "history.md", "spring-2026", "2", "疑似复用"],
+        detailTitle: "current.md ↔ history.md",
+        detailBody: "跨批次复用",
+        evidenceID: UUID(),
+        evidenceType: .crossBatch,
+        riskAssessment: RiskAssessment(score: 0.875, reasons: ["跨批次复用"]),
+        metadata: [
+            CrossBatchGraphMetadataKey.batchName: "spring-2026",
+            CrossBatchGraphMetadataKey.distance: "2",
+            CrossBatchGraphMetadataKey.status: "疑似复用",
+        ]
+    )
+    let report = AuditReport(
+        title: "跨批次 CSV",
+        sourcePath: root.appendingPathComponent("report.html").path,
+        scanDirectoryPath: root.path,
+        metrics: [],
+        sections: [
+            ReportSection(
+                kind: .crossBatch,
+                title: "跨批次",
+                summary: "导出测试",
+                table: ReportTable(headers: ["当前文件", "历史文件", "批次", "位差", "状态"], rows: [row])
+            )
+        ]
+    )
+
+    let csvURL = root.appendingPathComponent("report.csv")
+    try ReportExporter.exportCSV(report: report, to: csvURL)
+    let lines = try String(contentsOf: csvURL, encoding: .utf8).components(separatedBy: .newlines)
+
+    #expect(lines.first?.contains("cross_batch_batch") == true)
+    #expect(lines.first?.contains("cross_batch_distance") == true)
+    #expect(lines.first?.contains("cross_batch_status") == true)
+    #expect(lines.dropFirst().first?.contains(#""88%","spring-2026","2","疑似复用""#) == true)
+}
+
+@Test
+func codeLineDiffBuilderPairsModifiedInsertedAndDeletedLines() {
+    let rows = CodeLineDiffBuilder.rows(
+        left: """
+        let token = fetch()
+        if token.isEmpty { return }
+        print(token)
+        """,
+        right: """
+        let token = fetch()
+        if token.count == 0 { return }
+        audit(token)
+        print(token)
+        """,
+        contextRadius: 10
+    )
+
+    #expect(rows.contains { $0.change == .modified && $0.leftLineNumber == 2 && $0.rightLineNumber == 2 })
+    #expect(rows.contains { $0.change == .inserted && $0.leftLineNumber == nil && $0.rightText.contains("audit") })
+    #expect(rows.contains { $0.change == .unchanged && $0.leftText.contains("print") && $0.rightText.contains("print") })
+}
+
+@Test
+func documentIngestionRegistryCoversExtendedParserFamilies() {
+    let supported = DocumentIngestionService.supportedExtensions
+
+    #expect(["pdf", "docx", "md", "txt", "html", "htm", "rtf", "pptx"].allSatisfy { supported.contains($0) })
+    #expect(["png", "jpg", "webp"].allSatisfy { supported.contains($0) })
+    #expect(["py", "swift", "go", "js", "sh"].allSatisfy { supported.contains($0) })
+}

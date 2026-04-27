@@ -292,6 +292,164 @@ struct CodeMatch: Hashable, Sendable {
     let right: CodeBlockCandidate
 }
 
+struct CodeLineDiffRow: Hashable, Sendable {
+    enum Change: String, Hashable, Sendable {
+        case unchanged
+        case inserted
+        case deleted
+        case modified
+
+        var title: String {
+            switch self {
+            case .unchanged: return "相同"
+            case .inserted: return "右侧新增"
+            case .deleted: return "左侧删除"
+            case .modified: return "变更"
+            }
+        }
+    }
+
+    let leftLineNumber: Int?
+    let rightLineNumber: Int?
+    let leftText: String
+    let rightText: String
+    let change: Change
+}
+
+enum CodeLineDiffBuilder {
+    static func rows(left: String, right: String, contextRadius: Int = 3) -> [CodeLineDiffRow] {
+        let leftLines = left.components(separatedBy: .newlines)
+        let rightLines = right.components(separatedBy: .newlines)
+        let operations = diffOperations(left: leftLines, right: rightLines)
+        let merged = mergeAdjacentEdits(operations, left: leftLines, right: rightLines)
+        guard contextRadius >= 0 else { return merged }
+        return compactRows(merged, contextRadius: contextRadius)
+    }
+
+    private enum Operation: Hashable {
+        case equal(Int, Int)
+        case delete(Int)
+        case insert(Int)
+    }
+
+    private static func diffOperations(left: [String], right: [String]) -> [Operation] {
+        let leftCount = left.count
+        let rightCount = right.count
+        var table = Array(repeating: Array(repeating: 0, count: rightCount + 1), count: leftCount + 1)
+
+        if leftCount > 0, rightCount > 0 {
+            for leftIndex in stride(from: leftCount - 1, through: 0, by: -1) {
+                for rightIndex in stride(from: rightCount - 1, through: 0, by: -1) {
+                    if normalizedLine(left[leftIndex]) == normalizedLine(right[rightIndex]) {
+                        table[leftIndex][rightIndex] = table[leftIndex + 1][rightIndex + 1] + 1
+                    } else {
+                        table[leftIndex][rightIndex] = max(table[leftIndex + 1][rightIndex], table[leftIndex][rightIndex + 1])
+                    }
+                }
+            }
+        }
+
+        var operations: [Operation] = []
+        var leftIndex = 0
+        var rightIndex = 0
+        while leftIndex < leftCount, rightIndex < rightCount {
+            if normalizedLine(left[leftIndex]) == normalizedLine(right[rightIndex]) {
+                operations.append(.equal(leftIndex, rightIndex))
+                leftIndex += 1
+                rightIndex += 1
+            } else if table[leftIndex + 1][rightIndex] >= table[leftIndex][rightIndex + 1] {
+                operations.append(.delete(leftIndex))
+                leftIndex += 1
+            } else {
+                operations.append(.insert(rightIndex))
+                rightIndex += 1
+            }
+        }
+        while leftIndex < leftCount {
+            operations.append(.delete(leftIndex))
+            leftIndex += 1
+        }
+        while rightIndex < rightCount {
+            operations.append(.insert(rightIndex))
+            rightIndex += 1
+        }
+        return operations
+    }
+
+    private static func mergeAdjacentEdits(_ operations: [Operation], left: [String], right: [String]) -> [CodeLineDiffRow] {
+        var rows: [CodeLineDiffRow] = []
+        var pendingDeletes: [Int] = []
+        var pendingInserts: [Int] = []
+
+        func flushEdits() {
+            let count = max(pendingDeletes.count, pendingInserts.count)
+            guard count > 0 else { return }
+            for index in 0..<count {
+                let leftIndex = pendingDeletes[safe: index]
+                let rightIndex = pendingInserts[safe: index]
+                let change: CodeLineDiffRow.Change
+                if leftIndex != nil, rightIndex != nil {
+                    change = .modified
+                } else if leftIndex != nil {
+                    change = .deleted
+                } else {
+                    change = .inserted
+                }
+                rows.append(CodeLineDiffRow(
+                    leftLineNumber: leftIndex.map { $0 + 1 },
+                    rightLineNumber: rightIndex.map { $0 + 1 },
+                    leftText: leftIndex.map { left[$0] } ?? "",
+                    rightText: rightIndex.map { right[$0] } ?? "",
+                    change: change
+                ))
+            }
+            pendingDeletes.removeAll()
+            pendingInserts.removeAll()
+        }
+
+        for operation in operations {
+            switch operation {
+            case .equal(let leftIndex, let rightIndex):
+                flushEdits()
+                rows.append(CodeLineDiffRow(
+                    leftLineNumber: leftIndex + 1,
+                    rightLineNumber: rightIndex + 1,
+                    leftText: left[leftIndex],
+                    rightText: right[rightIndex],
+                    change: .unchanged
+                ))
+            case .delete(let leftIndex):
+                pendingDeletes.append(leftIndex)
+            case .insert(let rightIndex):
+                pendingInserts.append(rightIndex)
+            }
+        }
+        flushEdits()
+        return rows
+    }
+
+    private static func compactRows(_ rows: [CodeLineDiffRow], contextRadius: Int) -> [CodeLineDiffRow] {
+        guard rows.count > (contextRadius * 2) else { return rows }
+        let changedIndices = rows.indices.filter { rows[$0].change != .unchanged }
+        guard changedIndices.isEmpty == false else {
+            return Array(rows.prefix(min(rows.count, contextRadius * 2 + 1)))
+        }
+        var kept = Set<Int>()
+        for index in changedIndices {
+            let lower = max(rows.startIndex, index - contextRadius)
+            let upper = min(rows.index(before: rows.endIndex), index + contextRadius)
+            for keptIndex in lower...upper {
+                kept.insert(keptIndex)
+            }
+        }
+        return rows.indices.filter { kept.contains($0) }.map { rows[$0] }
+    }
+
+    private static func normalizedLine(_ value: String) -> String {
+        value.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+}
+
 struct TextEvidence: Hashable, Sendable {
     let summary: String
     let leftContext: String

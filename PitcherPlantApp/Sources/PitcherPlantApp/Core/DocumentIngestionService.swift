@@ -4,13 +4,66 @@ import Foundation
 import PDFKit
 import ZIPFoundation
 
-protocol DocumentParser {
+protocol DocumentParser: Sendable {
     var supportedExtensions: Set<String> { get }
     func parse(_ url: URL, configuration: AuditConfiguration) throws -> ParsedDocument?
 }
 
+private struct ClosureDocumentParser: DocumentParser, Sendable {
+    let supportedExtensions: Set<String>
+    let parseDocument: @Sendable (URL, AuditConfiguration) throws -> ParsedDocument?
+
+    func parse(_ url: URL, configuration: AuditConfiguration) throws -> ParsedDocument? {
+        try parseDocument(url, configuration)
+    }
+}
+
 struct DocumentIngestionService {
     let configuration: AuditConfiguration
+
+    private static let parserRegistry: [any DocumentParser] = [
+        ClosureDocumentParser(supportedExtensions: ["md", "txt"]) { url, configuration in
+            let ext = url.pathExtension.lowercased()
+            let content = try readLossyText(at: url)
+            return DocumentIngestionService(configuration: configuration)
+                .buildDocument(url: url, ext: ext, content: content, author: "", images: [])
+        },
+        ClosureDocumentParser(supportedExtensions: ["html", "htm"]) { url, configuration in
+            let ext = url.pathExtension.lowercased()
+            let content = HTMLTextExtractor.plainText(from: try readLossyText(at: url))
+            return DocumentIngestionService(configuration: configuration)
+                .buildDocument(url: url, ext: ext, content: content, author: "", images: [])
+        },
+        ClosureDocumentParser(supportedExtensions: ["rtf"]) { url, configuration in
+            let content = readRTFText(at: url)
+            return DocumentIngestionService(configuration: configuration)
+                .buildDocument(url: url, ext: "rtf", content: content, author: "", images: [])
+        },
+        ClosureDocumentParser(supportedExtensions: ["pdf"]) { url, configuration in
+            let service = DocumentIngestionService(configuration: configuration)
+            guard let document = PDFDocument(url: url) else { return nil }
+            let content = document.string ?? ""
+            let author = (document.documentAttributes?[PDFDocumentAttribute.authorAttribute] as? String) ?? ""
+            let images = service.parsePDFImages(document: document, sourceURL: url)
+            return service.buildDocument(url: url, ext: "pdf", content: content, author: author, images: images)
+        },
+        ClosureDocumentParser(supportedExtensions: ["docx"]) { url, configuration in
+            try DocumentIngestionService(configuration: configuration).parseDocx(at: url)
+        },
+        ClosureDocumentParser(supportedExtensions: ["pptx"]) { url, configuration in
+            try DocumentIngestionService(configuration: configuration).parsePptx(at: url)
+        },
+        ClosureDocumentParser(supportedExtensions: imageExtensions) { url, configuration in
+            DocumentIngestionService(configuration: configuration)
+                .parseStandaloneImage(at: url, ext: url.pathExtension.lowercased())
+        },
+        ClosureDocumentParser(supportedExtensions: sourceCodeExtensions) { url, configuration in
+            let ext = url.pathExtension.lowercased()
+            let content = try readLossyText(at: url)
+            return DocumentIngestionService(configuration: configuration)
+                .buildDocument(url: url, ext: ext, content: content, author: "", images: [], codeBlocks: [content])
+        },
+    ]
 
     func ingestDocuments(in directory: URL) throws -> [ParsedDocument] {
         let enumerator = FileManager.default.enumerator(at: directory, includingPropertiesForKeys: nil)
@@ -42,34 +95,10 @@ struct DocumentIngestionService {
 
     private func parseDocument(at url: URL) throws -> ParsedDocument? {
         let ext = url.pathExtension.lowercased()
-        switch ext {
-        case "md", "txt":
-            let content = try Self.readLossyText(at: url)
-            return buildDocument(url: url, ext: ext, content: content, author: "", images: [])
-        case "html", "htm":
-            let content = HTMLTextExtractor.plainText(from: try Self.readLossyText(at: url))
-            return buildDocument(url: url, ext: ext, content: content, author: "", images: [])
-        case "rtf":
-            let content = Self.readRTFText(at: url)
-            return buildDocument(url: url, ext: ext, content: content, author: "", images: [])
-        case "pdf":
-            guard let document = PDFDocument(url: url) else { return nil }
-            let content = document.string ?? ""
-            let author = (document.documentAttributes?[PDFDocumentAttribute.authorAttribute] as? String) ?? ""
-            let images = parsePDFImages(document: document, sourceURL: url)
-            return buildDocument(url: url, ext: ext, content: content, author: author, images: images)
-        case "docx":
-            return try parseDocx(at: url)
-        case "pptx":
-            return try parsePptx(at: url)
-        case let imageExt where Self.imageExtensions.contains(imageExt):
-            return parseStandaloneImage(at: url, ext: imageExt)
-        case let sourceExt where Self.sourceCodeExtensions.contains(sourceExt):
-            let content = try Self.readLossyText(at: url)
-            return buildDocument(url: url, ext: sourceExt, content: content, author: "", images: [], codeBlocks: [content])
-        default:
+        guard let parser = Self.parserRegistry.first(where: { $0.supportedExtensions.contains(ext) }) else {
             return nil
         }
+        return try parser.parse(url, configuration: configuration)
     }
 
     private func parseDocx(at url: URL) throws -> ParsedDocument? {
@@ -274,9 +303,7 @@ struct DocumentIngestionService {
 
     static let imageExtensions: Set<String> = ["png", "jpg", "jpeg", "gif", "bmp", "tiff", "webp"]
 
-    static let supportedExtensions: Set<String> = Set([
-        "pdf", "docx", "md", "txt", "html", "htm", "rtf", "pptx"
-    ]).union(sourceCodeExtensions).union(imageExtensions)
+    static let supportedExtensions: Set<String> = Set(parserRegistry.flatMap(\.supportedExtensions))
 }
 
 enum HTMLTextExtractor {

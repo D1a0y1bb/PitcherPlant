@@ -1,12 +1,19 @@
 {
-  "version": 1,
+  "version": 2,
   "cases": [
     {
-      "id": "text-paraphrase",
+      "id": "text-paraphrase-boundary",
       "kind": "text",
       "threshold": 0.55,
       "minimumScore": 0.55,
+      "minimumPrecision": 1.0,
+      "minimumRecall": 1.0,
+      "minimumF1": 1.0,
       "expectedPairs": [["text-alpha.md", "text-beta.md"]],
+      "rejectedPairs": [
+        ["text-alpha.md", "text-gamma.md"],
+        ["text-beta.md", "text-gamma.md"]
+      ],
       "documents": [
         {
           "filename": "text-alpha.md",
@@ -19,14 +26,27 @@
           "ext": "md",
           "content": "metadata endpoint ssrf token reuse evidence curl request temporary credential exfiltration notes",
           "cleanText": "metadata endpoint ssrf token reuse evidence curl request temporary credential exfiltration notes"
+        },
+        {
+          "filename": "text-gamma.md",
+          "ext": "md",
+          "content": "reverse engineering stack canary relocation table objdump symbols breakpoint register trace",
+          "cleanText": "reverse engineering stack canary relocation table objdump symbols breakpoint register trace"
         }
       ]
     },
     {
-      "id": "code-structure",
+      "id": "code-structure-positive-negative",
       "kind": "code",
       "minimumScore": 0.6,
+      "minimumPrecision": 1.0,
+      "minimumRecall": 1.0,
+      "minimumF1": 1.0,
       "expectedPairs": [["code-alpha.swift", "code-beta.swift"]],
+      "rejectedPairs": [
+        ["code-alpha.swift", "code-gamma.swift"],
+        ["code-beta.swift", "code-gamma.swift"]
+      ],
       "documents": [
         {
           "filename": "code-alpha.swift",
@@ -41,15 +61,29 @@
           "content": "func normalizeAccount(_ raw: String) -> String { let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines); if trimmed.isEmpty { return \"empty\" }; return trimmed.lowercased() }",
           "cleanText": "",
           "codeBlocks": ["func normalizeAccount(_ raw: String) -> String { let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines); if trimmed.isEmpty { return \"empty\" }; return trimmed.lowercased() }"]
+        },
+        {
+          "filename": "code-gamma.swift",
+          "ext": "swift",
+          "content": "let bytes = [0xde, 0xad, 0xbe, 0xef]; let digest = bytes.map { String($0, radix: 16) }.joined(separator: \":\"); print(digest)",
+          "cleanText": "",
+          "codeBlocks": ["let bytes = [0xde, 0xad, 0xbe, 0xef]; let digest = bytes.map { String($0, radix: 16) }.joined(separator: \":\"); print(digest)"]
         }
       ]
     },
     {
-      "id": "image-reuse",
+      "id": "image-reuse-positive-negative",
       "kind": "image",
       "imageThreshold": 2,
       "minimumScore": 0.0,
+      "minimumPrecision": 1.0,
+      "minimumRecall": 1.0,
+      "minimumF1": 1.0,
       "expectedPairs": [["image-alpha.docx", "image-beta.pdf"]],
+      "rejectedPairs": [
+        ["image-alpha.docx", "image-gamma.png"],
+        ["image-beta.pdf", "image-gamma.png"]
+      ],
       "documents": [
         {
           "filename": "image-alpha.docx",
@@ -73,22 +107,44 @@
           "cleanText": "",
           "images": [
             {
-              "source": "pdf page 1",
+              "source": "pdf-page-1",
               "perceptualHash": "0000000000000001",
               "averageHash": "fffffffffffffffe",
               "differenceHash": "aaaaaaaaaaaaaaab",
               "ocrPreview": "login screenshot copy"
             }
           ]
+        },
+        {
+          "filename": "image-gamma.png",
+          "ext": "png",
+          "content": "",
+          "cleanText": "",
+          "images": [
+            {
+              "source": "standalone-chart.png",
+              "perceptualHash": "ffffffffffffffff",
+              "averageHash": "0000000000000000",
+              "differenceHash": "5555555555555555",
+              "ocrPreview": "scoreboard chart"
+            }
+          ]
         }
       ]
     },
     {
-      "id": "dedup-exact",
+      "id": "dedup-exact-positive-negative",
       "kind": "dedup",
       "threshold": 0.85,
       "minimumScore": 0.85,
+      "minimumPrecision": 1.0,
+      "minimumRecall": 1.0,
+      "minimumF1": 1.0,
       "expectedPairs": [["dedup-alpha.md", "dedup-beta.md"]],
+      "rejectedPairs": [
+        ["dedup-alpha.md", "dedup-gamma.md"],
+        ["dedup-beta.md", "dedup-gamma.md"]
+      ],
       "documents": [
         {
           "filename": "dedup-alpha.md",
@@ -101,14 +157,28 @@
           "ext": "md",
           "content": "identical exploit path with request replay proof and final credential extraction",
           "cleanText": "identical exploit path with request replay proof and final credential extraction"
+        },
+        {
+          "filename": "dedup-gamma.md",
+          "ext": "md",
+          "content": "forensics packet carving with gzip stream recovery and timeline correlation",
+          "cleanText": "forensics packet carving with gzip stream recovery and timeline correlation"
         }
       ]
     },
     {
-      "id": "cross-batch-simhash",
+      "id": "cross-batch-simhash-positive-negative",
       "kind": "crossBatch",
       "simhashThreshold": 4,
+      "minimumPrecision": 1.0,
+      "minimumRecall": 1.0,
+      "minimumF1": 1.0,
       "expectedPairs": [["current-alpha.md", "history-alpha.md"]],
+      "rejectedPairs": [
+        ["current-alpha.md", "history-beta.md"],
+        ["current-beta.md", "history-alpha.md"],
+        ["current-beta.md", "history-beta.md"]
+      ],
       "currentFingerprints": [
         {
           "filename": "current-alpha.md",
@@ -116,6 +186,14 @@
           "author": "Alpha",
           "size": 128,
           "simhash": "0000000000000000",
+          "scanDir": "current"
+        },
+        {
+          "filename": "current-beta.md",
+          "ext": "md",
+          "author": "Beta",
+          "size": 96,
+          "simhash": "ffffffffffffffff",
           "scanDir": "current"
         }
       ],
@@ -126,6 +204,14 @@
           "author": "Alpha",
           "size": 126,
           "simhash": "0000000000000003",
+          "scanDir": "previous"
+        },
+        {
+          "filename": "history-beta.md",
+          "ext": "md",
+          "author": "Beta",
+          "size": 98,
+          "simhash": "aaaaaaaaaaaaaaaa",
           "scanDir": "previous"
         }
       ]
