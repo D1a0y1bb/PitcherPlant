@@ -4,6 +4,7 @@ struct MainWindowView: View {
     @Environment(AppState.self) private var appState
     @SceneStorage("pitcherplant.inspectorVisible") private var inspectorVisible = true
     @State private var columnVisibility = NavigationSplitViewVisibility.all
+    @State private var settingsSearchText = ""
 
     var body: some View {
         @Bindable var state = appState
@@ -49,6 +50,9 @@ struct MainWindowView: View {
             updateColumnVisibility()
         }
         .onChange(of: appState.selectedMainSidebar) { _, _ in
+            if appState.selectedMainSidebar != .settings {
+                settingsSearchText = ""
+            }
             updateColumnVisibility()
         }
         .onChange(of: appState.appSettings.showInspectorByDefault) { _, visible in
@@ -59,42 +63,65 @@ struct MainWindowView: View {
         }
         .toolbar {
             ToolbarItemGroup(placement: .primaryAction) {
-                if appState.selectedMainSidebar.allowsInspector {
+                if appState.selectedMainSidebar == .settings {
                     Button {
-                        inspectorVisible.toggle()
+                        Task { await appState.reload() }
                     } label: {
-                        Label(
-                            inspectorVisible ? appState.t("toolbar.hideInspector") : appState.t("toolbar.showInspector"),
-                            systemImage: inspectorVisible ? "sidebar.right" : "sidebar.trailing"
-                        )
+                        Label(appState.t("toolbar.reload"), systemImage: "arrow.clockwise")
                     }
-                    .help(inspectorVisible ? appState.t("toolbar.hideInspector") : appState.t("toolbar.showInspector"))
-                }
+                    .keyboardShortcut("r", modifiers: .command)
+                    .help(appState.t("command.reloadData"))
 
-                Button {
-                    Task { await appState.reload() }
-                } label: {
-                    Label(appState.t("toolbar.reload"), systemImage: "arrow.clockwise")
-                }
-                .keyboardShortcut("r", modifiers: .command)
-                .help(appState.t("command.reloadData"))
+                    Button {
+                        appState.selectedMainSidebar = .settings
+                    } label: {
+                        Label(appState.t("toolbar.settings"), systemImage: "gear")
+                    }
+                    .keyboardShortcut(",", modifiers: .command)
+                    .help(appState.t("toolbar.settings"))
 
-                Button {
-                    Task { await runAuditAndOpenReport() }
-                } label: {
-                    Label(appState.t("toolbar.start"), systemImage: "play.fill")
-                }
-                .keyboardShortcut(.return, modifiers: .command)
-                .disabled(appState.isRunningAudit)
-                .help(appState.t("command.startAudit"))
+                    TextField(appState.t("settings.searchPrompt"), text: $settingsSearchText)
+                        .textFieldStyle(.roundedBorder)
+                        .controlSize(.small)
+                        .frame(width: 240)
+                } else {
+                    if appState.selectedMainSidebar.allowsInspector {
+                        Button {
+                            inspectorVisible.toggle()
+                        } label: {
+                            Label(
+                                inspectorVisible ? appState.t("toolbar.hideInspector") : appState.t("toolbar.showInspector"),
+                                systemImage: inspectorVisible ? "sidebar.right" : "sidebar.trailing"
+                            )
+                        }
+                        .help(inspectorVisible ? appState.t("toolbar.hideInspector") : appState.t("toolbar.showInspector"))
+                    }
 
-                Button {
-                    appState.selectedMainSidebar = .settings
-                } label: {
-                    Label(appState.t("toolbar.settings"), systemImage: "gear")
+                    Button {
+                        Task { await appState.reload() }
+                    } label: {
+                        Label(appState.t("toolbar.reload"), systemImage: "arrow.clockwise")
+                    }
+                    .keyboardShortcut("r", modifiers: .command)
+                    .help(appState.t("command.reloadData"))
+
+                    Button {
+                        Task { await runAuditAndOpenReport() }
+                    } label: {
+                        Label(appState.t("toolbar.start"), systemImage: "play.fill")
+                    }
+                    .keyboardShortcut(.return, modifiers: .command)
+                    .disabled(appState.isRunningAudit)
+                    .help(appState.t("command.startAudit"))
+
+                    Button {
+                        appState.selectedMainSidebar = .settings
+                    } label: {
+                        Label(appState.t("toolbar.settings"), systemImage: "gear")
+                    }
+                    .keyboardShortcut(",", modifiers: .command)
+                    .help(appState.t("toolbar.settings"))
                 }
-                .keyboardShortcut(",", modifiers: .command)
-                .help(appState.t("toolbar.settings"))
             }
         }
         .environment(\.locale, appState.effectiveLocale ?? .current)
@@ -131,7 +158,7 @@ struct MainWindowView: View {
         case .whitelist:
             WhitelistLibraryView()
         case .settings:
-            SettingsRootView()
+            SettingsRootView(searchText: $settingsSearchText)
         }
     }
 }

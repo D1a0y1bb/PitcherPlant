@@ -2,6 +2,11 @@ import SwiftUI
 
 struct SettingsRootView: View {
     @Environment(AppState.self) private var appState
+    @Binding private var searchText: String
+
+    init(searchText: Binding<String> = .constant("")) {
+        _searchText = searchText
+    }
 
     var body: some View {
         ScrollView {
@@ -299,10 +304,10 @@ struct SettingsRootView: View {
                 }
             }
             .padding(28)
-            .frame(maxWidth: SettingsLayout.contentWidth, alignment: .topLeading)
             .frame(maxWidth: .infinity, alignment: .topLeading)
         }
         .background(Color(nsColor: .textBackgroundColor))
+        .environment(\.settingsSearchQuery, searchText)
     }
 
     private var summaryText: String {
@@ -362,7 +367,6 @@ struct SettingsRootView: View {
 }
 
 private enum SettingsLayout {
-    static let contentWidth: CGFloat = 820
     static let horizontalPadding: CGFloat = 14
     static let menuWidth: CGFloat = 220
     static let numberFieldWidth: CGFloat = 74
@@ -398,6 +402,7 @@ private struct SettingsGroup<Content: View>: View {
                     .stroke(.separator.opacity(0.12))
             }
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 
@@ -730,6 +735,7 @@ private struct SettingsChoiceButtonStyle: ButtonStyle {
 }
 
 private struct SettingsControlRow<Content: View>: View {
+    @Environment(\.settingsSearchQuery) private var searchQuery
     let title: String
     let subtitle: String
     @ViewBuilder var content: Content
@@ -747,10 +753,19 @@ private struct SettingsControlRow<Content: View>: View {
                     .fixedSize(horizontal: true, vertical: false)
             }
         }
+        .opacity(searchOpacity)
+    }
+
+    private var searchOpacity: Double {
+        guard !searchQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            return 1
+        }
+        return settingMatchesSearch(title, subtitle, query: searchQuery) ? 1 : 0.28
     }
 }
 
 private struct SettingsPathBlockRow<Content: View>: View {
+    @Environment(\.settingsSearchQuery) private var searchQuery
     let title: String
     let subtitle: String
     @ViewBuilder var content: Content
@@ -763,6 +778,14 @@ private struct SettingsPathBlockRow<Content: View>: View {
                     .controlSize(.small)
             }
         }
+        .opacity(searchOpacity)
+    }
+
+    private var searchOpacity: Double {
+        guard !searchQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            return 1
+        }
+        return settingMatchesSearch(title, subtitle, query: searchQuery) ? 1 : 0.28
     }
 }
 
@@ -820,4 +843,17 @@ private struct SettingsDivider: View {
         Divider()
             .padding(.leading, SettingsLayout.dividerLeadingPadding)
     }
+}
+
+private func settingMatchesSearch(_ title: String, _ subtitle: String, query: String) -> Bool {
+    let trimmedQuery = query.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard !trimmedQuery.isEmpty else {
+        return true
+    }
+    return title.localizedCaseInsensitiveContains(trimmedQuery)
+        || subtitle.localizedCaseInsensitiveContains(trimmedQuery)
+}
+
+private extension EnvironmentValues {
+    @Entry var settingsSearchQuery = ""
 }
