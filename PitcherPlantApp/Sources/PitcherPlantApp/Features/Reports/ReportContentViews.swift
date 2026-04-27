@@ -94,42 +94,43 @@ struct ReportContentHeader: View {
     let report: AuditReport
 
     var body: some View {
-        HStack(alignment: .firstTextBaseline, spacing: 12) {
-            VStack(alignment: .leading, spacing: 5) {
-                Text(report.title)
-                    .font(AppTypography.sectionTitle)
-                    .lineLimit(1)
-                    .truncationMode(.middle)
-
-                HStack(spacing: 12) {
-                    ForEach(report.metrics.prefix(4), id: \.title) { metric in
-                        Label {
-                            Text(metric.value)
-                                .fontWeight(.medium)
-                        } icon: {
-                            Image(systemName: metric.systemImage)
-                        }
-                        .foregroundStyle(.secondary)
-                    }
-                    Label(URL(fileURLWithPath: report.sourcePath).lastPathComponent, systemImage: "doc")
+        GroupBox {
+            HStack(alignment: .firstTextBaseline, spacing: 12) {
+                VStack(alignment: .leading, spacing: 5) {
+                    Text(report.title)
+                        .font(AppTypography.sectionTitle)
                         .lineLimit(1)
                         .truncationMode(.middle)
+
+                    HStack(spacing: 12) {
+                        ForEach(report.metrics.prefix(4), id: \.title) { metric in
+                            Label {
+                                Text(metric.value)
+                                    .fontWeight(.medium)
+                            } icon: {
+                                Image(systemName: metric.systemImage)
+                            }
+                            .foregroundStyle(.secondary)
+                        }
+                        Label(URL(fileURLWithPath: report.sourcePath).lastPathComponent, systemImage: "doc")
+                            .lineLimit(1)
+                            .truncationMode(.middle)
+                            .foregroundStyle(.secondary)
+                    }
+                    .font(AppTypography.metadata)
+                }
+
+                Spacer()
+
+                if report.isLegacy && appState.appSettings.showLegacyBadges {
+                    Text("Legacy")
+                        .font(AppTypography.badge)
                         .foregroundStyle(.secondary)
                 }
-                .font(AppTypography.metadata)
             }
-
-            Spacer()
-
-            if report.isLegacy && appState.appSettings.showLegacyBadges {
-                Text("Legacy")
-                    .font(AppTypography.badge)
-                    .foregroundStyle(.secondary)
-            }
+            .padding(8)
         }
-        .padding(.horizontal, 20)
-        .padding(.vertical, 12)
-        .appPanelSurface(glass: true)
+        .groupBoxStyle(.automatic)
     }
 }
 
@@ -212,41 +213,50 @@ struct ReportSectionReadingView: View {
                         .foregroundStyle(.secondary)
                 }
 
-                VStack(alignment: .leading, spacing: 10) {
-                    Text(appState.t("reports.sectionSummary"))
-                        .font(AppTypography.sectionTitle)
-                    Text(section.summary.isEmpty ? appState.t("reports.sectionNoStructuredEvidence") : section.summary)
-                        .font(AppTypography.body)
-                        .foregroundStyle(.secondary)
-                        .textSelection(.enabled)
+                GroupBox {
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text(appState.t("reports.sectionSummary"))
+                            .font(AppTypography.sectionTitle)
+                        Text(section.summary.isEmpty ? appState.t("reports.sectionNoStructuredEvidence") : section.summary)
+                            .font(AppTypography.body)
+                            .foregroundStyle(.secondary)
+                            .textSelection(.enabled)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(4)
                 }
-                .padding(12)
-                .appPanelSurface()
+                .groupBoxStyle(.automatic)
 
                 if section.callouts.isEmpty == false {
-                    VStack(alignment: .leading, spacing: 10) {
-                        Text(appState.t("reports.callouts"))
-                            .font(AppTypography.sectionTitle)
-                        ForEach(section.callouts, id: \.self) { callout in
-                            Label(callout, systemImage: "info.circle")
-                                .font(AppTypography.body)
-                                .foregroundStyle(.secondary)
+                    GroupBox {
+                        VStack(alignment: .leading, spacing: 10) {
+                            Text(appState.t("reports.callouts"))
+                                .font(AppTypography.sectionTitle)
+                            ForEach(section.callouts, id: \.self) { callout in
+                                Label(callout, systemImage: "info.circle")
+                                    .font(AppTypography.body)
+                                    .foregroundStyle(.secondary)
+                            }
                         }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(4)
                     }
-                    .padding(12)
-                    .appPanelSurface()
+                    .groupBoxStyle(.automatic)
                 }
 
-                VStack(alignment: .leading, spacing: 8) {
-                    Text(appState.t("common.source"))
-                        .font(AppTypography.sectionTitle)
-                    Text(report.sourcePath)
-                        .font(AppTypography.smallCode)
-                        .foregroundStyle(.secondary)
-                        .textSelection(.enabled)
+                GroupBox {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text(appState.t("common.source"))
+                            .font(AppTypography.sectionTitle)
+                        Text(report.sourcePath)
+                            .font(AppTypography.smallCode)
+                            .foregroundStyle(.secondary)
+                            .textSelection(.enabled)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(4)
                 }
-                .padding(12)
-                .appPanelSurface()
+                .groupBoxStyle(.automatic)
             }
             .padding(24)
             .frame(maxWidth: 760, alignment: .leading)
@@ -584,30 +594,32 @@ struct CrossBatchNodeView: View {
     let node: CrossBatchGraphNode
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 5) {
-            Label(node.fileName, systemImage: node.kind.systemImage)
-                .font(AppTypography.rowPrimary)
-                .lineLimit(1)
-                .truncationMode(.middle)
-            Text("\(node.role.title) · \(node.kind.title)")
-                .font(AppTypography.metadata.weight(.medium))
-                .foregroundStyle(.secondary)
-            if node.subtitle.isEmpty == false {
-                Text(node.subtitle)
-                    .font(AppTypography.metadata)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(2)
-            }
-            if node.tags.isEmpty == false {
-                Text(node.tags.prefix(3).joined(separator: " / "))
-                    .font(AppTypography.metadata)
-                    .foregroundStyle(.secondary)
+        GroupBox {
+            VStack(alignment: .leading, spacing: 5) {
+                Label(node.fileName, systemImage: node.kind.systemImage)
+                    .font(AppTypography.rowPrimary)
                     .lineLimit(1)
+                    .truncationMode(.middle)
+                Text("\(node.role.title) · \(node.kind.title)")
+                    .font(AppTypography.metadata.weight(.medium))
+                    .foregroundStyle(.secondary)
+                if node.subtitle.isEmpty == false {
+                    Text(node.subtitle)
+                        .font(AppTypography.metadata)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(2)
+                }
+                if node.tags.isEmpty == false {
+                    Text(node.tags.prefix(3).joined(separator: " / "))
+                        .font(AppTypography.metadata)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(4)
         }
-        .padding(10)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .appPanelSurface()
+        .groupBoxStyle(.automatic)
     }
 }
 
@@ -637,32 +649,34 @@ struct CrossBatchEdgeView: View {
     let edge: CrossBatchGraphEdge
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 7) {
-            HStack(spacing: 8) {
-                Image(systemName: "arrow.left.and.right")
-                    .foregroundStyle(.secondary)
-                Text("\(edge.currentFile) → \(edge.historicalFile)")
-                    .lineLimit(1)
-                    .truncationMode(.middle)
-                Spacer(minLength: 8)
-                Text("\(edge.distance)")
-                    .font(AppTypography.badge)
-                    .foregroundStyle(.secondary)
+        GroupBox {
+            VStack(alignment: .leading, spacing: 7) {
+                HStack(spacing: 8) {
+                    Image(systemName: "arrow.left.and.right")
+                        .foregroundStyle(.secondary)
+                    Text("\(edge.currentFile) → \(edge.historicalFile)")
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                    Spacer(minLength: 8)
+                    Text("\(edge.distance)")
+                        .font(AppTypography.badge)
+                        .foregroundStyle(.secondary)
+                }
+                HStack(spacing: 8) {
+                    Text(edge.displayBatchName)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                    Text(edge.status)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
+                .font(AppTypography.metadata)
+                .foregroundStyle(.secondary)
             }
-            HStack(spacing: 8) {
-                Text(edge.displayBatchName)
-                    .lineLimit(1)
-                    .truncationMode(.middle)
-                Text(edge.status)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-            }
-            .font(AppTypography.metadata)
-            .foregroundStyle(.secondary)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(4)
         }
-        .padding(10)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .appPanelSurface()
+        .groupBoxStyle(.automatic)
     }
 }
 

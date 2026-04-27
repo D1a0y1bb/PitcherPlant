@@ -4,16 +4,18 @@ struct MetricCard: View {
     let metric: ReportMetric
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Label(metric.title, systemImage: metric.systemImage)
-                .foregroundStyle(.secondary)
-                .font(AppTypography.supporting)
-            Text(metric.value)
-                .font(.title2.weight(.semibold))
+        GroupBox {
+            VStack(alignment: .leading, spacing: 10) {
+                Label(metric.title, systemImage: metric.systemImage)
+                    .foregroundStyle(.secondary)
+                    .font(AppTypography.supporting)
+                Text(metric.value)
+                    .font(.title2.weight(.semibold))
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(8)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(18)
-        .appPanelSurface(glass: true)
+        .groupBoxStyle(.automatic)
     }
 }
 

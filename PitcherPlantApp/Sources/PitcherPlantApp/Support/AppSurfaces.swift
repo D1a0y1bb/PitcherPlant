@@ -52,7 +52,6 @@ struct AppSectionPanel<Content: View>: View {
 }
 
 struct AppToolbarBand<Content: View>: View {
-    var glass: Bool = true
     var padding: EdgeInsets = EdgeInsets(top: 12, leading: 12, bottom: 12, trailing: 12)
     @ViewBuilder var content: Content
 
@@ -165,36 +164,5 @@ struct AppControlRow<Content: View>: View {
         .padding(.horizontal, AppLayout.rowHorizontalPadding)
         .padding(.vertical, AppLayout.rowVerticalPadding)
         .frame(minHeight: AppLayout.rowMinHeight)
-    }
-}
-
-struct AppPanelSurfaceModifier: ViewModifier {
-    var glass: Bool = false
-
-    @ViewBuilder
-    func body(content: Content) -> some View {
-        #if compiler(>=6.2)
-        if glass, #available(macOS 26.0, *) {
-            content
-                .glassEffect(.regular)
-        } else {
-            fallback(content: content)
-        }
-        #else
-        fallback(content: content)
-        #endif
-    }
-
-    private func fallback(content: Content) -> some View {
-        GroupBox {
-            content
-        }
-        .groupBoxStyle(.automatic)
-    }
-}
-
-extension View {
-    func appPanelSurface(glass: Bool = false) -> some View {
-        modifier(AppPanelSurfaceModifier(glass: glass))
     }
 }

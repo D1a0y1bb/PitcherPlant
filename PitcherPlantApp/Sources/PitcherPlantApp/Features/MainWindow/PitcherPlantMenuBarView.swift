@@ -111,7 +111,21 @@ struct PitcherPlantMenuBarView: View {
         .padding(12)
     }
 
+    @ViewBuilder
     private var header: some View {
+        #if compiler(>=6.2)
+        if #available(macOS 26.0, *) {
+            headerContent
+                .glassEffect(.regular)
+        } else {
+            headerContent
+        }
+        #else
+        headerContent
+        #endif
+    }
+
+    private var headerContent: some View {
         HStack(spacing: 10) {
             Image(systemName: "doc.text.magnifyingglass")
                 .foregroundStyle(.secondary)
@@ -125,10 +139,23 @@ struct PitcherPlantMenuBarView: View {
         }
         .padding(.horizontal, 12)
         .frame(height: 42)
-        .modifier(MenuBarGlassSurface())
     }
 
+    @ViewBuilder
     private var actions: some View {
+        #if compiler(>=6.2)
+        if #available(macOS 26.0, *) {
+            actionsContent
+                .glassEffect(.regular)
+        } else {
+            actionsContent
+        }
+        #else
+        actionsContent
+        #endif
+    }
+
+    private var actionsContent: some View {
         VStack(spacing: 8) {
             HStack(spacing: 8) {
                 Button {
@@ -191,7 +218,6 @@ struct PitcherPlantMenuBarView: View {
         .buttonStyle(.bordered)
         .controlSize(.regular)
         .padding(10)
-        .modifier(MenuBarGlassSurface())
     }
 
     private func openMainWindow() {
@@ -212,7 +238,21 @@ private struct MenuBarGlassSection<Content: View>: View {
         self.content = content()
     }
 
+    @ViewBuilder
     var body: some View {
+        #if compiler(>=6.2)
+        if #available(macOS 26.0, *) {
+            sectionContent
+                .glassEffect(.regular)
+        } else {
+            sectionContent
+        }
+        #else
+        sectionContent
+        #endif
+    }
+
+    private var sectionContent: some View {
         VStack(spacing: 0) {
             HStack {
                 Text(title)
@@ -233,22 +273,6 @@ private struct MenuBarGlassSection<Content: View>: View {
                 content
             }
         }
-        .modifier(MenuBarGlassSurface())
-    }
-}
-
-private struct MenuBarGlassSurface: ViewModifier {
-    func body(content: Content) -> some View {
-        #if compiler(>=6.2)
-        if #available(macOS 26.0, *) {
-            content
-                .glassEffect(.regular)
-        } else {
-            content
-        }
-        #else
-        content
-        #endif
     }
 }
 

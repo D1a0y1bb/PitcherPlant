@@ -90,7 +90,6 @@ struct MainStatusBar: View {
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 7)
-        .appPanelSurface(glass: true)
         .padding(.horizontal, 14)
         .padding(.vertical, 8)
     }
