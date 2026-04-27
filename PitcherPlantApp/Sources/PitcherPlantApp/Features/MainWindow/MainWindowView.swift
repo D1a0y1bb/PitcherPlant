@@ -42,7 +42,6 @@ struct MainWindowView: View {
             )
         }
         .navigationSplitViewStyle(.balanced)
-        .toolbarBackground(Color(nsColor: .textBackgroundColor), for: .windowToolbar)
         .onAppear {
             NSApp.setActivationPolicy(.regular)
             NSApp.activate(ignoringOtherApps: true)

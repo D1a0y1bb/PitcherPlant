@@ -391,7 +391,7 @@ private enum SettingsLayout {
     static let hintWidth: CGFloat = 94
     static let thresholdControlWidth: CGFloat = stepperWidth + 8 + hintWidth
     static let pathControlHeight: CGFloat = 32
-    static let pathButtonWidth: CGFloat = 96
+    static let pathButtonWidth: CGFloat = 78
     static let compactPathWidth: CGFloat = trailingWidth
     static let controlCornerRadius: CGFloat = 9
 }
@@ -417,12 +417,7 @@ private struct SettingsGroup<Content: View>: View {
             VStack(spacing: 0) {
                 content
             }
-            .background(Color(nsColor: .controlBackgroundColor))
-            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-            .overlay {
-                RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .stroke(.separator.opacity(0.12))
-            }
+            .settingsGlassSurface(cornerRadius: 12)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
@@ -497,11 +492,8 @@ private struct SettingsEditablePathControl: View {
             Button {
                 chooseDirectory()
             } label: {
-                HStack(spacing: 6) {
-                    Image(systemName: "folder")
-                    Text(chooseTitle)
-                }
-                .frame(width: SettingsLayout.pathButtonWidth, alignment: .center)
+                Text(chooseTitle)
+                    .frame(width: SettingsLayout.pathButtonWidth, alignment: .center)
             }
             .buttonStyle(SettingsPillButtonStyle())
         }
@@ -690,12 +682,7 @@ private struct SettingsMenuPicker<Value: Hashable>: View {
                 Button {
                     selection = option
                 } label: {
-                    HStack {
-                        menuLabel(for: option)
-                        if option == selection {
-                            Image(systemName: "checkmark")
-                        }
-                    }
+                    menuLabel(for: option)
                 }
             }
         } label: {
@@ -757,12 +744,7 @@ private struct SettingsNumberStepper: View {
                 .disabled(value >= range.upperBound)
             }
             .frame(width: SettingsLayout.stepperWidth, height: 30)
-            .background(Color(nsColor: .textBackgroundColor).opacity(0.86))
-            .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
-            .overlay {
-                RoundedRectangle(cornerRadius: 7, style: .continuous)
-                    .stroke(Color(nsColor: .separatorColor).opacity(0.30))
-            }
+            .settingsGlassSurface(cornerRadius: 8, interactive: true)
 
             Text(hint)
                 .font(.footnote)
@@ -816,12 +798,7 @@ private struct SettingsIntegerStepper: View {
                 .disabled(value >= range.upperBound)
             }
             .frame(width: SettingsLayout.stepperWidth, height: 30)
-            .background(Color(nsColor: .textBackgroundColor).opacity(0.86))
-            .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
-            .overlay {
-                RoundedRectangle(cornerRadius: 7, style: .continuous)
-                    .stroke(Color(nsColor: .separatorColor).opacity(0.30))
-            }
+            .settingsGlassSurface(cornerRadius: 8, interactive: true)
 
             Text(hint)
                 .font(.footnote)
@@ -872,14 +849,14 @@ private extension View {
     func settingsPillLabel(width: CGFloat? = nil, alignment: Alignment = .center) -> some View {
         if let width {
             self
-                .font(.body.weight(.medium))
+                .font(.callout.weight(.medium))
                 .lineLimit(1)
                 .padding(.horizontal, 12)
                 .frame(width: width, height: SettingsLayout.pathControlHeight, alignment: alignment)
                 .settingsControlBackground()
         } else {
             self
-                .font(.body.weight(.medium))
+                .font(.callout.weight(.medium))
                 .lineLimit(1)
                 .padding(.horizontal, 12)
                 .frame(height: SettingsLayout.pathControlHeight, alignment: alignment)
@@ -889,12 +866,25 @@ private extension View {
 
     func settingsControlBackground() -> some View {
         self
-            .background(Color(nsColor: .windowBackgroundColor).opacity(0.92))
-            .clipShape(RoundedRectangle(cornerRadius: SettingsLayout.controlCornerRadius, style: .continuous))
-            .overlay {
-                RoundedRectangle(cornerRadius: SettingsLayout.controlCornerRadius, style: .continuous)
-                    .stroke(Color(nsColor: .separatorColor).opacity(0.46))
+            .settingsGlassSurface(cornerRadius: SettingsLayout.controlCornerRadius, interactive: true)
+    }
+
+    @ViewBuilder
+    func settingsGlassSurface(cornerRadius: CGFloat, interactive: Bool = false) -> some View {
+        let shape = RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+        if #available(macOS 26.0, *) {
+            if interactive {
+                self.glassEffect(.regular.interactive(), in: .rect(cornerRadius: cornerRadius))
+            } else {
+                self.glassEffect(.regular, in: .rect(cornerRadius: cornerRadius))
             }
+        } else {
+            self
+                .background(.regularMaterial, in: shape)
+                .overlay {
+                    shape.stroke(.separator.opacity(0.18))
+                }
+        }
     }
 }
 
