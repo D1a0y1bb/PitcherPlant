@@ -19,6 +19,34 @@ enum CrossBatchGraphMetadataKey {
 }
 
 struct CrossBatchGraphNode: Codable, Identifiable, Hashable, Sendable {
+    enum Kind: String, Codable, Hashable, Sendable {
+        case document
+        case team
+        case batch
+        case challenge
+        case fingerprint
+
+        var title: String {
+            switch self {
+            case .document: return "文档"
+            case .team: return "队伍"
+            case .batch: return "批次"
+            case .challenge: return "题目"
+            case .fingerprint: return "指纹"
+            }
+        }
+
+        var systemImage: String {
+            switch self {
+            case .document: return "doc.text"
+            case .team: return "person.2"
+            case .batch: return "archivebox"
+            case .challenge: return "flag"
+            case .fingerprint: return "number"
+            }
+        }
+    }
+
     enum Role: String, Codable, Hashable, Sendable {
         case current
         case historical
@@ -32,6 +60,7 @@ struct CrossBatchGraphNode: Codable, Identifiable, Hashable, Sendable {
     }
 
     let id: String
+    let kind: Kind
     let fileName: String
     let role: Role
     let batchName: String?
@@ -41,6 +70,19 @@ struct CrossBatchGraphNode: Codable, Identifiable, Hashable, Sendable {
     let author: String?
     let tags: [String]
 
+    enum CodingKeys: String, CodingKey {
+        case id
+        case kind
+        case fileName
+        case role
+        case batchName
+        case teamName
+        case challengeName
+        case simhash
+        case author
+        case tags
+    }
+
     var subtitle: String {
         [batchName, teamName, challengeName]
             .compactMap { normalized($0) }
@@ -49,6 +91,7 @@ struct CrossBatchGraphNode: Codable, Identifiable, Hashable, Sendable {
 
     init(
         id: String,
+        kind: Kind = .document,
         fileName: String,
         role: Role,
         batchName: String? = nil,
@@ -59,6 +102,7 @@ struct CrossBatchGraphNode: Codable, Identifiable, Hashable, Sendable {
         tags: [String] = []
     ) {
         self.id = id
+        self.kind = kind
         self.fileName = fileName
         self.role = role
         self.batchName = normalized(batchName)
@@ -67,6 +111,22 @@ struct CrossBatchGraphNode: Codable, Identifiable, Hashable, Sendable {
         self.simhash = normalized(simhash)
         self.author = normalized(author)
         self.tags = normalizedTags(tags)
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.init(
+            id: try container.decode(String.self, forKey: .id),
+            kind: try container.decodeIfPresent(Kind.self, forKey: .kind) ?? .document,
+            fileName: try container.decode(String.self, forKey: .fileName),
+            role: try container.decode(Role.self, forKey: .role),
+            batchName: try container.decodeIfPresent(String.self, forKey: .batchName),
+            teamName: try container.decodeIfPresent(String.self, forKey: .teamName),
+            challengeName: try container.decodeIfPresent(String.self, forKey: .challengeName),
+            simhash: try container.decodeIfPresent(String.self, forKey: .simhash),
+            author: try container.decodeIfPresent(String.self, forKey: .author),
+            tags: try container.decodeIfPresent([String].self, forKey: .tags) ?? []
+        )
     }
 }
 
@@ -84,6 +144,8 @@ struct CrossBatchGraphEdge: Codable, Identifiable, Hashable, Sendable {
     let currentChallengeName: String?
     let status: String
     let distance: Int
+    let currentSimhash: String?
+    let historicalSimhash: String?
     let tags: [String]
     let riskScore: Double?
     let evidenceID: UUID?
@@ -125,8 +187,11 @@ struct CrossBatchGraph: Codable, Hashable, Sendable {
                 && matches(status, value: edge.status)
         }
         let nodeIDs = Set(filteredEdges.flatMap { [$0.sourceID, $0.targetID] })
+        let contextNodes = nodes.filter { node in
+            node.kind != .document && filteredEdges.contains { edge in node.matches(edge: edge) }
+        }
         return CrossBatchGraph(
-            nodes: nodes.filter { nodeIDs.contains($0.id) },
+            nodes: nodes.filter { nodeIDs.contains($0.id) } + contextNodes.filter { nodeIDs.contains($0.id) == false },
             edges: filteredEdges
         )
     }
@@ -163,6 +228,7 @@ struct CrossBatchGraphBuilder {
             ])
             nodesByID[currentID] = CrossBatchGraphNode(
                 id: currentID,
+                kind: .document,
                 fileName: match.currentFile,
                 role: .current,
                 batchName: match.currentBatchName,
@@ -174,6 +240,7 @@ struct CrossBatchGraphBuilder {
             )
             nodesByID[historicalID] = CrossBatchGraphNode(
                 id: historicalID,
+                kind: .document,
                 fileName: match.previousFile,
                 role: .historical,
                 batchName: match.displayBatchName,
@@ -197,10 +264,32 @@ struct CrossBatchGraphBuilder {
                 currentChallengeName: match.currentChallengeName,
                 status: match.status,
                 distance: match.distance,
+                currentSimhash: match.currentSimhash,
+                historicalSimhash: match.historicalSimhash,
                 tags: match.tags,
                 riskScore: nil,
                 evidenceID: nil
             ))
+            upsertContextNodes(
+                role: .current,
+                batchName: match.currentBatchName,
+                teamName: match.currentTeamName,
+                challengeName: match.currentChallengeName,
+                simhash: match.currentSimhash,
+                author: match.currentAuthor,
+                tags: match.tags,
+                nodesByID: &nodesByID
+            )
+            upsertContextNodes(
+                role: .historical,
+                batchName: match.displayBatchName,
+                teamName: match.teamName,
+                challengeName: match.challengeName,
+                simhash: match.historicalSimhash,
+                author: match.historicalAuthor,
+                tags: match.tags,
+                nodesByID: &nodesByID
+            )
         }
 
         return CrossBatchGraph(nodes: sorted(nodesByID.values), edges: sorted(edges))
@@ -242,6 +331,7 @@ struct CrossBatchGraphBuilder {
 
             nodesByID[currentID] = CrossBatchGraphNode(
                 id: currentID,
+                kind: .document,
                 fileName: currentFile,
                 role: .current,
                 batchName: currentBatchName,
@@ -253,6 +343,7 @@ struct CrossBatchGraphBuilder {
             )
             nodesByID[historicalID] = CrossBatchGraphNode(
                 id: historicalID,
+                kind: .document,
                 fileName: historicalFile,
                 role: .historical,
                 batchName: batchName,
@@ -277,10 +368,32 @@ struct CrossBatchGraphBuilder {
                 currentChallengeName: currentChallengeName,
                 status: status,
                 distance: distance,
+                currentSimhash: currentSimhash,
+                historicalSimhash: historicalSimhash,
                 tags: tags,
                 riskScore: row.riskAssessment?.score,
                 evidenceID: row.evidenceID ?? row.id
             ))
+            upsertContextNodes(
+                role: .current,
+                batchName: currentBatchName,
+                teamName: currentTeamName,
+                challengeName: currentChallengeName,
+                simhash: currentSimhash,
+                author: metadata[CrossBatchGraphMetadataKey.currentAuthor],
+                tags: tags,
+                nodesByID: &nodesByID
+            )
+            upsertContextNodes(
+                role: .historical,
+                batchName: batchName,
+                teamName: teamName,
+                challengeName: challengeName,
+                simhash: historicalSimhash,
+                author: metadata[CrossBatchGraphMetadataKey.historicalAuthor],
+                tags: tags,
+                nodesByID: &nodesByID
+            )
         }
 
         return CrossBatchGraph(nodes: sorted(nodesByID.values), edges: sorted(edges))
@@ -298,12 +411,64 @@ struct CrossBatchGraphBuilder {
         ).uuidString
     }
 
+    private func upsertContextNodes(
+        role: CrossBatchGraphNode.Role,
+        batchName: String?,
+        teamName: String?,
+        challengeName: String?,
+        simhash: String?,
+        author: String?,
+        tags: [String],
+        nodesByID: inout [String: CrossBatchGraphNode]
+    ) {
+        upsertContextNode(kind: .batch, role: role, name: batchName, batchName: batchName, teamName: nil, challengeName: nil, simhash: nil, author: nil, tags: tags, nodesByID: &nodesByID)
+        upsertContextNode(kind: .team, role: role, name: teamName, batchName: batchName, teamName: teamName, challengeName: nil, simhash: nil, author: author, tags: tags, nodesByID: &nodesByID)
+        upsertContextNode(kind: .challenge, role: role, name: challengeName, batchName: batchName, teamName: teamName, challengeName: challengeName, simhash: nil, author: nil, tags: tags, nodesByID: &nodesByID)
+        upsertContextNode(kind: .fingerprint, role: role, name: simhash, batchName: batchName, teamName: teamName, challengeName: challengeName, simhash: simhash, author: author, tags: tags, nodesByID: &nodesByID)
+    }
+
+    private func upsertContextNode(
+        kind: CrossBatchGraphNode.Kind,
+        role: CrossBatchGraphNode.Role,
+        name: String?,
+        batchName: String?,
+        teamName: String?,
+        challengeName: String?,
+        simhash: String?,
+        author: String?,
+        tags: [String],
+        nodesByID: inout [String: CrossBatchGraphNode]
+    ) {
+        guard let name = normalized(name) else { return }
+        let id = nodeID(role: role, fileName: "\(kind.rawValue):\(name)", components: [
+            batchName,
+            teamName,
+            challengeName,
+            simhash,
+        ])
+        nodesByID[id] = CrossBatchGraphNode(
+            id: id,
+            kind: kind,
+            fileName: name,
+            role: role,
+            batchName: batchName,
+            teamName: teamName,
+            challengeName: challengeName,
+            simhash: simhash,
+            author: author,
+            tags: tags
+        )
+    }
+
     private func tags(from value: String?) -> [String] {
         normalizedTags(value?.split(separator: ",").map(String.init) ?? [])
     }
 
     private func sorted(_ nodes: Dictionary<String, CrossBatchGraphNode>.Values) -> [CrossBatchGraphNode] {
         nodes.sorted {
+            if $0.kind != $1.kind {
+                return $0.kind.rawValue < $1.kind.rawValue
+            }
             if $0.role == $1.role {
                 return $0.fileName.localizedStandardCompare($1.fileName) == .orderedAscending
             }
@@ -332,6 +497,47 @@ private func normalizedTags(_ values: [String]) -> [String] {
 
 private func uniqueSorted(_ values: [String]) -> [String] {
     normalizedTags(values)
+}
+
+private extension CrossBatchGraphNode {
+    func matches(edge: CrossBatchGraphEdge) -> Bool {
+        switch role {
+        case .current:
+            return matchesCurrent(edge)
+        case .historical:
+            return matchesHistorical(edge)
+        }
+    }
+
+    private func matchesCurrent(_ edge: CrossBatchGraphEdge) -> Bool {
+        switch kind {
+        case .document:
+            return id == edge.sourceID
+        case .batch:
+            return normalized(batchName) == normalized(edge.currentBatchName)
+        case .team:
+            return normalized(teamName) == normalized(edge.currentTeamName)
+        case .challenge:
+            return normalized(challengeName) == normalized(edge.currentChallengeName)
+        case .fingerprint:
+            return normalized(simhash) == normalized(edge.currentSimhash)
+        }
+    }
+
+    private func matchesHistorical(_ edge: CrossBatchGraphEdge) -> Bool {
+        switch kind {
+        case .document:
+            return id == edge.targetID
+        case .batch:
+            return normalized(batchName) == normalized(edge.batchName)
+        case .team:
+            return normalized(teamName) == normalized(edge.teamName)
+        case .challenge:
+            return normalized(challengeName) == normalized(edge.challengeName)
+        case .fingerprint:
+            return normalized(simhash) == normalized(edge.historicalSimhash)
+        }
+    }
 }
 
 private extension Array {

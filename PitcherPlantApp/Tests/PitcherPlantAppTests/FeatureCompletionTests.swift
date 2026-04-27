@@ -318,6 +318,11 @@ func fingerprintPackageRoundTripsAndCleanupByTag() async throws {
     let imported = try service.importPackage(from: packageURL, additionalTags: ["imported"])
 
     #expect(imported.manifest.packageName == "Spring Round")
+    #expect(imported.manifest.importedAt != nil)
+    #expect(imported.manifest.source == packageURL.path)
+    #expect(imported.manifest.recordCount == 2)
+    #expect(imported.manifest.tags.contains("archive"))
+    #expect(imported.manifest.tags.contains("imported"))
     #expect(imported.importedCount == 2)
     #expect(imported.skippedCount == 1)
     #expect(imported.records.allSatisfy { $0.tags?.contains("archive") == true })

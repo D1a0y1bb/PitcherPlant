@@ -525,11 +525,15 @@ struct CrossBatchGraphPanel: View {
     let graph: CrossBatchGraph
 
     private var currentNodes: [CrossBatchGraphNode] {
-        graph.nodes.filter { $0.role == .current }
+        graph.nodes.filter { $0.kind == .document && $0.role == .current }
     }
 
     private var historicalNodes: [CrossBatchGraphNode] {
-        graph.nodes.filter { $0.role == .historical }
+        graph.nodes.filter { $0.kind == .document && $0.role == .historical }
+    }
+
+    private var contextNodes: [CrossBatchGraphNode] {
+        graph.nodes.filter { $0.kind != .document }
     }
 
     var body: some View {
@@ -541,6 +545,7 @@ struct CrossBatchGraphPanel: View {
                     CrossBatchNodeColumn(title: "当前节点", nodes: currentNodes)
                     CrossBatchEdgeColumn(edges: graph.edges)
                     CrossBatchNodeColumn(title: "历史节点", nodes: historicalNodes)
+                    CrossBatchNodeColumn(title: "上下文节点", nodes: contextNodes)
                 }
                 .padding(16)
                 .frame(maxWidth: .infinity, alignment: .topLeading)
@@ -572,10 +577,13 @@ struct CrossBatchNodeView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 5) {
-            Label(node.fileName, systemImage: node.role == .current ? "doc.text" : "archivebox")
+            Label(node.fileName, systemImage: node.kind.systemImage)
                 .font(.subheadline.weight(.medium))
                 .lineLimit(1)
                 .truncationMode(.middle)
+            Text("\(node.role.title) · \(node.kind.title)")
+                .font(.caption2.weight(.medium))
+                .foregroundStyle(.secondary)
             if node.subtitle.isEmpty == false {
                 Text(node.subtitle)
                     .font(.caption)

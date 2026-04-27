@@ -98,6 +98,12 @@ jobs:
             CODE_SIGN_IDENTITY="-" \
             build
 
+      - name: UI launch smoke
+        working-directory: PitcherPlantApp
+        run: |
+          trap 'pkill -x PitcherPlant >/dev/null 2>&1 || true' EXIT
+          ./script/build_and_run.sh --verify
+
       - name: Lightweight integration and performance smoke
         working-directory: PitcherPlantApp
         env:

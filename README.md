@@ -6,10 +6,10 @@
 <p align="center">
   <strong>macOS 原生 WriteUP 审计工作台</strong>
 </p>
-
 <p align="center">
-  面向 CTF 与安全竞赛提交材料复核，解析文档、图片、代码片段与历史指纹，生成结构化相似性证据报告。
+  面向 CTF 与网络安全竞赛 WriteUP 复核，解析文档、图片、代码片段与历史指纹，生成结构化相似性证据报告，让竞赛审计更透明、更公平。
 </p>
+
 
 <p align="center">
   <img alt="macOS 15+" src="https://img.shields.io/badge/macOS-15%2B-111827?logo=apple&logoColor=white">
@@ -29,9 +29,9 @@
 
 ---
 
-## 概览
+## 猪笼草
 
-PitcherPlant（猪笼草） 是一款本地运行的 macOS 审计应用。它读取比赛 WriteUP 目录，提取正文、代码片段、Office/PDF 元数据、嵌入图片和 SimHash 指纹，帮助审计人员定位疑似复用、改写和跨批次重复提交。
+PitcherPlant（猪笼草）是一款本地运行的 macOS 审计应用。它读取比赛 WriteUP 目录，提取正文、代码片段、Office/PDF 元数据、嵌入图片和 SimHash 指纹，帮助审计人员定位疑似复用、改写和跨批次重复提交。项目源于大规模 WriteUP 人工审计场景，核心目标是把证据复核、批量审计、白名单降噪和跨批次追踪沉淀成可复用的本地工作台。
 
 <table>
   <tr>
@@ -39,10 +39,11 @@ PitcherPlant（猪笼草） 是一款本地运行的 macOS 审计应用。它读
     <td><strong>面向 WriteUP</strong><br>围绕 CTF/安全竞赛提交材料复核组织审计流程。</td>
   </tr>
   <tr>
-    <td><strong>多证据链</strong><br>文本、代码、图片、元数据、重复提交、历史指纹统一进报告。</td>
+    <td><strong>多证据链</strong><br>文本、代码、图片、元数据、重复提交和历史指纹统一进入报告。</td>
     <td><strong>可追溯</strong><br>报告、任务、指纹、白名单和迁移记录持久化保存。</td>
   </tr>
 </table>
+
 
 ## 功能亮点
 

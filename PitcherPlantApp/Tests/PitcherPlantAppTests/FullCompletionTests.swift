@@ -210,6 +210,46 @@ func recallStatsAndCalibrationMetricsExposeQualitySignals() throws {
     #expect(metrics.f1 >= 0.85)
 }
 
+@Test
+func crossBatchGraphCarriesContextNodesAndEvidenceSelection() throws {
+    let evidenceID = UUID()
+    let row = ReportTableRow(
+        id: UUID(),
+        columns: ["alpha.md", "archive-alpha.md", "spring-2026", "2", "疑似复用"],
+        detailTitle: "alpha.md ↔ archive-alpha.md",
+        detailBody: "跨批次复用",
+        evidenceID: evidenceID,
+        evidenceType: .crossBatch,
+        riskAssessment: RiskAssessment(score: 0.82, reasons: ["跨批次复用"]),
+        metadata: [
+            CrossBatchGraphMetadataKey.batchName: "spring-2026",
+            CrossBatchGraphMetadataKey.currentBatchName: "final-2026",
+            CrossBatchGraphMetadataKey.teamName: "ArchiveTeam",
+            CrossBatchGraphMetadataKey.currentTeamName: "Alpha",
+            CrossBatchGraphMetadataKey.challengeName: "web-old",
+            CrossBatchGraphMetadataKey.currentChallengeName: "web",
+            CrossBatchGraphMetadataKey.currentSimhash: "1111111111111111",
+            CrossBatchGraphMetadataKey.historicalSimhash: "1111111111111113",
+            CrossBatchGraphMetadataKey.tags: "course-2026,web",
+            CrossBatchGraphMetadataKey.status: "疑似复用",
+            CrossBatchGraphMetadataKey.distance: "2",
+        ]
+    )
+
+    let graph = CrossBatchGraphBuilder().build(rows: [row])
+    let kinds = Set(graph.nodes.map(\.kind))
+    let edge = try #require(graph.edges.first)
+    let filtered = graph.filtered(batch: "spring-2026", team: "ArchiveTeam", tag: "web", status: "疑似复用")
+
+    #expect(kinds == [.document, .team, .batch, .challenge, .fingerprint])
+    #expect(edge.evidenceID == evidenceID)
+    #expect(edge.riskScore == 0.82)
+    #expect(edge.currentSimhash == "1111111111111111")
+    #expect(edge.historicalSimhash == "1111111111111113")
+    #expect(filtered.edges.count == 1)
+    #expect(filtered.nodes.contains { $0.kind == .fingerprint && $0.simhash == "1111111111111113" })
+}
+
 private extension JSONEncoder {
     static var pitcherPlantTest: JSONEncoder {
         let encoder = JSONEncoder()

@@ -141,6 +141,8 @@ jobs:
           security import "$CERTIFICATE_PATH" -P "$APPLE_CERTIFICATE_PASSWORD" -A -t cert -f pkcs12 -k "$KEYCHAIN_PATH"
           security list-keychain -d user -s "$KEYCHAIN_PATH"
           security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security find-identity -v -p codesigning "$KEYCHAIN_PATH"
+          security find-identity -v -p codesigning "$KEYCHAIN_PATH" | grep -F "$APPLE_SIGNING_IDENTITY"
 
       - name: SwiftPM tests
         working-directory: PitcherPlantApp
@@ -236,6 +238,45 @@ jobs:
             ditto "build/archive/${APP_NAME}.xcarchive/Products/Applications/${APP_NAME}.app" "build/export/${APP_NAME}.app"
           fi
 
+      - name: Package archive and dSYMs
+        working-directory: PitcherPlantApp
+        run: |
+          ditto -c -k --keepParent \
+            "build/archive/${APP_NAME}.xcarchive" \
+            "build/dist/${APP_NAME}.xcarchive.zip"
+
+          if [ -d "build/archive/${APP_NAME}.xcarchive/dSYMs" ]; then
+            ditto -c -k --keepParent \
+              "build/archive/${APP_NAME}.xcarchive/dSYMs" \
+              "build/dist/${APP_NAME}-dSYMs.zip"
+          else
+            mkdir -p build/empty-dSYMs
+            ditto -c -k --keepParent \
+              build/empty-dSYMs \
+              "build/dist/${APP_NAME}-dSYMs.zip"
+          fi
+
+      - name: Verify app signature before notarization
+        if: steps.release.outputs.formal_release == 'true'
+        working-directory: PitcherPlantApp
+        run: |
+          codesign --verify --deep --strict --verbose=2 "build/export/${APP_NAME}.app"
+
+      - name: Notarize and staple app
+        if: steps.release.outputs.formal_release == 'true'
+        working-directory: PitcherPlantApp
+        run: |
+          APP_NOTARY_ZIP="build/dist/${APP_NAME}-app-notary.zip"
+          ditto -c -k --keepParent "build/export/${APP_NAME}.app" "$APP_NOTARY_ZIP"
+          xcrun notarytool submit "$APP_NOTARY_ZIP" \
+            --apple-id "$APPLE_ID" \
+            --password "$APPLE_APP_SPECIFIC_PASSWORD" \
+            --team-id "$APPLE_TEAM_ID" \
+            --wait
+          xcrun stapler staple "build/export/${APP_NAME}.app"
+          xcrun stapler validate "build/export/${APP_NAME}.app"
+          rm -f "$APP_NOTARY_ZIP"
+
       - name: Package ZIP and DMG
         working-directory: PitcherPlantApp
         run: |
@@ -254,12 +295,6 @@ jobs:
             -ov \
             -format UDZO \
             "$DIST_DIR/${APP_NAME}-macOS.dmg"
-
-      - name: Verify app signature before notarization
-        if: steps.release.outputs.formal_release == 'true'
-        working-directory: PitcherPlantApp
-        run: |
-          codesign --verify --deep --strict --verbose=2 "build/export/${APP_NAME}.app"
 
       - name: Notarize and staple DMG
         if: steps.release.outputs.formal_release == 'true'
@@ -298,16 +333,25 @@ jobs:
           if [ "${{ steps.release.outputs.formal_release }}" = "true" ]; then
             codesign --verify --deep --strict --verbose=2 "$APP_BUNDLE"
             codesign --verify --deep --strict --verbose=2 "$ZIP_CHECK_DIR/${APP_NAME}.app"
+            xcrun stapler validate "$APP_BUNDLE"
+            xcrun stapler validate "$ZIP_CHECK_DIR/${APP_NAME}.app"
+            spctl --assess --type execute --verbose=4 "$APP_BUNDLE"
+            spctl --assess --type execute --verbose=4 "$ZIP_CHECK_DIR/${APP_NAME}.app"
             spctl --assess --type open --verbose=4 "$DMG_PATH"
           fi
 
       - name: Generate checksums
         working-directory: PitcherPlantApp
         run: |
-          shasum -a 256 \
-            "build/dist/${APP_NAME}-macOS.zip" \
-            "build/dist/${APP_NAME}-macOS.dmg" \
-            > "build/dist/${APP_NAME}-macOS-checksums.txt"
+          files=(
+            "build/dist/${APP_NAME}-macOS.zip"
+            "build/dist/${APP_NAME}-macOS.dmg"
+            "build/dist/${APP_NAME}.xcarchive.zip"
+          )
+          if [ -f "build/dist/${APP_NAME}-dSYMs.zip" ]; then
+            files+=("build/dist/${APP_NAME}-dSYMs.zip")
+          fi
+          shasum -a 256 "${files[@]}" > "build/dist/${APP_NAME}-macOS-checksums.txt"
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v5
@@ -317,6 +361,8 @@ jobs:
             PitcherPlantApp/build/export/PitcherPlant.app
             PitcherPlantApp/build/dist/PitcherPlant-macOS.zip
             PitcherPlantApp/build/dist/PitcherPlant-macOS.dmg
+            PitcherPlantApp/build/dist/PitcherPlant.xcarchive.zip
+            PitcherPlantApp/build/dist/PitcherPlant-dSYMs.zip
             PitcherPlantApp/build/dist/PitcherPlant-macOS-checksums.txt
 
       - name: Publish GitHub release
@@ -327,6 +373,8 @@ jobs:
           gh release create "${{ steps.release.outputs.tag_name }}" \
             PitcherPlantApp/build/dist/PitcherPlant-macOS.zip \
             PitcherPlantApp/build/dist/PitcherPlant-macOS.dmg \
+            PitcherPlantApp/build/dist/PitcherPlant.xcarchive.zip \
+            PitcherPlantApp/build/dist/PitcherPlant-dSYMs.zip \
             PitcherPlantApp/build/dist/PitcherPlant-macOS-checksums.txt \
             --target "$GITHUB_SHA" \
             --title "${{ steps.release.outputs.tag_name }}" \

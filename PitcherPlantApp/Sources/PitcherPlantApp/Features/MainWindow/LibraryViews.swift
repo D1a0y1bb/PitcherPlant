@@ -1,4 +1,5 @@
 import SwiftUI
+import AppKit
 
 struct JobHistoryView: View {
     @Environment(AppState.self) private var appState
@@ -32,6 +33,8 @@ struct FingerprintLibraryView: View {
     @Environment(AppState.self) private var appState
     @State private var query = ""
     @State private var cleanupTag = ""
+    @State private var importTags = ""
+    @State private var exportTags = ""
 
     private var filteredRecords: [FingerprintRecord] {
         guard query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false else { return appState.fingerprints }
@@ -45,34 +48,50 @@ struct FingerprintLibraryView: View {
     var body: some View {
         VStack(spacing: 0) {
             SearchHeader(title: appState.t("sidebar.fingerprints"), count: filteredRecords.count, query: $query, prompt: appState.t("fingerprints.searchPrompt"))
-            HStack(spacing: 10) {
-                Button {
-                    appState.importFingerprintPackageWithPanel()
-                } label: {
-                    Label(appState.t("fingerprints.importPackage"), systemImage: "square.and.arrow.down")
+            VStack(spacing: 8) {
+                HStack(spacing: 10) {
+                    TextField("导入标签，逗号分隔", text: $importTags)
+                        .textFieldStyle(.roundedBorder)
+                        .frame(width: 190)
+
+                    Button {
+                        appState.importFingerprintPackageWithPanel(tags: parsedTags(importTags))
+                    } label: {
+                        Label(appState.t("fingerprints.importPackage"), systemImage: "square.and.arrow.down")
+                    }
+
+                    TextField("导出包标签，逗号分隔", text: $exportTags)
+                        .textFieldStyle(.roundedBorder)
+                        .frame(width: 190)
+
+                    Button {
+                        appState.exportFingerprintPackage(records: filteredRecords, tags: parsedTags(exportTags))
+                    } label: {
+                        Label(appState.t("fingerprints.exportPackage"), systemImage: "square.and.arrow.up")
+                    }
+                    .disabled(filteredRecords.isEmpty)
+
+                    Spacer()
                 }
 
-                Button {
-                    appState.exportFingerprintPackage(records: filteredRecords)
-                } label: {
-                    Label(appState.t("fingerprints.exportPackage"), systemImage: "square.and.arrow.up")
+                HStack(spacing: 10) {
+                    TextField(appState.t("fingerprints.cleanupTag"), text: $cleanupTag)
+                        .textFieldStyle(.roundedBorder)
+                        .frame(width: 190)
+
+                    Text("\(cleanupMatchCount) 条命中")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+
+                    Button(role: .destructive) {
+                        confirmAndDeleteFingerprints(tag: cleanupTag, matchCount: cleanupMatchCount)
+                    } label: {
+                        Label(appState.t("fingerprints.cleanup"), systemImage: "tag.slash")
+                    }
+                    .disabled(cleanupTag.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || cleanupMatchCount == 0)
+
+                    Spacer()
                 }
-                .disabled(filteredRecords.isEmpty)
-
-                Spacer()
-
-                TextField(appState.t("fingerprints.cleanupTag"), text: $cleanupTag)
-                    .textFieldStyle(.roundedBorder)
-                    .frame(width: 180)
-
-                Button(role: .destructive) {
-                    let tag = cleanupTag
-                    cleanupTag = ""
-                    Task { await appState.deleteFingerprints(tag: tag) }
-                } label: {
-                    Label(appState.t("fingerprints.cleanup"), systemImage: "tag.slash")
-                }
-                .disabled(cleanupTag.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             }
             .padding(12)
             .background(Color(nsColor: .windowBackgroundColor))
@@ -83,6 +102,35 @@ struct FingerprintLibraryView: View {
             }
             .listStyle(.plain)
         }
+    }
+
+    private var cleanupMatchCount: Int {
+        let tag = cleanupTag.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard tag.isEmpty == false else { return 0 }
+        return appState.fingerprints.filter { record in
+            record.tags?.contains(where: { $0.caseInsensitiveCompare(tag) == .orderedSame }) == true
+        }.count
+    }
+
+    private func parsedTags(_ value: String) -> [String] {
+        value
+            .split(separator: ",")
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { $0.isEmpty == false }
+    }
+
+    private func confirmAndDeleteFingerprints(tag: String, matchCount: Int) {
+        let trimmed = tag.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmed.isEmpty == false, matchCount > 0 else { return }
+        let alert = NSAlert()
+        alert.alertStyle = .warning
+        alert.messageText = "确认清理指纹标签"
+        alert.informativeText = "标签 \(trimmed) 当前命中 \(matchCount) 条指纹。清理后会从本地指纹库移除这些记录。"
+        alert.addButton(withTitle: "清理")
+        alert.addButton(withTitle: "取消")
+        guard alert.runModal() == .alertFirstButtonReturn else { return }
+        cleanupTag = ""
+        Task { await appState.deleteFingerprints(tag: trimmed) }
     }
 }
 

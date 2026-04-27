@@ -150,7 +150,7 @@ final class AppState {
     var selectedReportRow: ReportTableRow? {
         guard let rows = selectedReportSectionModel?.table?.rows else { return nil }
         if let selectedReportRowID {
-            return rows.first(where: { $0.id == selectedReportRowID }) ?? rows.first
+            return rows.first(where: { $0.matchesSelection(selectedReportRowID) }) ?? rows.first
         }
         return rows.first
     }
@@ -405,14 +405,14 @@ final class AppState {
         }
     }
 
-    func importFingerprintPackageWithPanel() {
+    func importFingerprintPackageWithPanel(tags: [String] = []) {
         let panel = NSOpenPanel()
         panel.allowsMultipleSelection = false
         panel.canChooseFiles = true
         panel.canChooseDirectories = false
         panel.allowedContentTypes = [.zip, .json]
         if panel.runModal() == .OK, let url = panel.url {
-            Task { await importFingerprintPackage(at: url) }
+            Task { await importFingerprintPackage(at: url, tags: tags) }
         }
     }
 
@@ -428,7 +428,7 @@ final class AppState {
         }
     }
 
-    func exportFingerprintPackage(records selectedRecords: [FingerprintRecord]? = nil) {
+    func exportFingerprintPackage(records selectedRecords: [FingerprintRecord]? = nil, tags: [String] = []) {
         let recordsToExport = selectedRecords ?? fingerprints
         guard !recordsToExport.isEmpty else {
             showNotice(title: t("notice.fingerprintExportFailed"), message: t("fingerprints.empty"), tone: .error)
@@ -443,7 +443,9 @@ final class AppState {
                 try FingerprintPackageService().exportPackage(
                     records: recordsToExport,
                     to: url,
-                    packageName: "PitcherPlant Fingerprints"
+                    packageName: "PitcherPlant Fingerprints",
+                    tags: tags,
+                    source: "PitcherPlant macOS"
                 )
                 showNotice(title: t("notice.fingerprintExportSucceeded"), message: url.path, tone: .success)
             } catch {
@@ -729,7 +731,7 @@ final class AppState {
             selectedReportSection = report.preferredEvidenceSection?.kind
         }
         if let section = selectedReportSectionModel, let rows = section.table?.rows, !rows.isEmpty {
-            if selectedReportRowID == nil || rows.contains(where: { $0.id == selectedReportRowID }) == false {
+            if selectedReportRowID == nil || rows.contains(where: { $0.matchesSelection(selectedReportRowID) }) == false {
                 selectedReportRowID = rows.first?.id
             }
         } else {
@@ -936,5 +938,12 @@ final class AppState {
         case .markdown: return "md"
         case .bundle: return "zip"
         }
+    }
+}
+
+private extension ReportTableRow {
+    func matchesSelection(_ selection: UUID?) -> Bool {
+        guard let selection else { return false }
+        return id == selection || evidenceID == selection
     }
 }
