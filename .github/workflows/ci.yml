@@ -16,7 +16,12 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
+
+      - name: Print toolchain versions
+        run: |
+          swift --version
+          xcodebuild -version
 
       - name: Install XcodeGen
         run: |

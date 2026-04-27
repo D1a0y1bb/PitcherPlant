@@ -30,7 +30,12 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
+
+      - name: Print toolchain versions
+        run: |
+          swift --version
+          xcodebuild -version
 
       - name: Resolve release tag
         id: release
@@ -122,7 +127,7 @@ jobs:
           xcrun stapler staple "build/dist/${APP_NAME}-macOS.dmg"
 
       - name: Upload artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: PitcherPlant-macOS
           path: |

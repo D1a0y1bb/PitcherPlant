@@ -13,7 +13,7 @@
 
 <p align="center">
   <img alt="macOS 15+" src="https://img.shields.io/badge/macOS-15%2B-111827?logo=apple&logoColor=white">
-  <img alt="Swift 6.2" src="https://img.shields.io/badge/Swift-6.2-F05138?logo=swift&logoColor=white">
+  <img alt="Swift 6.1+" src="https://img.shields.io/badge/Swift-6.1%2B-F05138?logo=swift&logoColor=white">
   <img alt="SwiftUI" src="https://img.shields.io/badge/UI-SwiftUI-0A84FF">
   <img alt="SQLite GRDB" src="https://img.shields.io/badge/SQLite-GRDB-2F6F9F">
   <img alt="XcodeGen" src="https://img.shields.io/badge/Project-XcodeGen-5E5CE6">
