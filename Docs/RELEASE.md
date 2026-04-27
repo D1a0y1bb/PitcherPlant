@@ -43,7 +43,7 @@ xattr -dr com.apple.quarantine /Applications/PitcherPlant.app
 
 ## GitHub Actions 发布
 
-推送 `v*` tag 会触发 `.github/workflows/release.yml`，默认走 `macos-26` runner 上可用的最高版本 Xcode 和 `ad-hoc` 分发并创建 GitHub Release：
+推送 `v*` tag 会触发 `.github/workflows/release.yml`，默认走 `macos-26` runner 的 Xcode 26.3 和 `ad-hoc` 分发并创建 GitHub Release：
 
 ```bash
 git tag v0.1.0-rc.1
@@ -56,7 +56,7 @@ git push origin v0.1.0-rc.1
 - `dry_run=false`：创建 GitHub Release。
 - `distribution=ad-hoc`：默认，无需 Apple Developer 账号。
 - `distribution=developer-id`：启用 Developer ID 签名和公证。
-- `xcode_path`：可选，手动指定 Xcode.app 路径；留空时自动选择 runner 上可用的最高版本 Xcode，便于发布产物跟随最新 macOS SDK。
+- `xcode_path`：可选，手动指定 Xcode.app 路径；留空时使用 `/Applications/Xcode_26.3.app`，缺失时自动选择 runner 上可用的最高版本 Xcode。
 
 ## Developer ID 可选配置
 
