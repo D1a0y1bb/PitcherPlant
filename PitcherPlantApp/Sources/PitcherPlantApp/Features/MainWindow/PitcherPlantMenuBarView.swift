@@ -52,6 +52,7 @@ struct PitcherPlantMenuBarView: View {
 
     @ViewBuilder
     private var menuPanelContent: some View {
+        #if compiler(>=6.2)
         if #available(macOS 26.0, *) {
             GlassEffectContainer(spacing: 12) {
                 panelContent
@@ -59,6 +60,9 @@ struct PitcherPlantMenuBarView: View {
         } else {
             panelContent
         }
+        #else
+        panelContent
+        #endif
     }
 
     private var panelContent: some View {
@@ -246,6 +250,7 @@ private struct MenuBarGlassSurface: ViewModifier {
     func body(content: Content) -> some View {
         let shape = RoundedRectangle(cornerRadius: radius, style: .continuous)
 
+        #if compiler(>=6.2)
         if #available(macOS 26.0, *) {
             content
                 .glassEffect(.regular, in: shape)
@@ -256,6 +261,13 @@ private struct MenuBarGlassSurface: ViewModifier {
                     shape.stroke(.separator.opacity(0.18))
                 }
         }
+        #else
+        content
+            .background(.ultraThinMaterial, in: shape)
+            .overlay {
+                shape.stroke(.separator.opacity(0.18))
+            }
+        #endif
     }
 }
 
