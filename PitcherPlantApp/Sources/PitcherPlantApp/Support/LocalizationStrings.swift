@@ -317,7 +317,7 @@ enum LocalizationStrings {
         "section.fingerprints": "指纹",
         "section.crossBatch": "跨批次",
         "about.menuTitle": "关于 PitcherPlant",
-        "about.credits": "macOS 原生 WriteUP 审计工作台。",
+        "about.credits": "吊椅宝宝的竞赛 WriteUP 审计工具",
         "menu.recentAudits": "最近审计",
         "menu.noAudits": "暂无审计",
         "menu.noAuditsDescription": "从主窗口开始一次审计",

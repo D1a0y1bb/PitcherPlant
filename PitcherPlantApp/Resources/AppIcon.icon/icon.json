@@ -1,14 +1,89 @@
 {
-  "fill" : {
-    "automatic-gradient" : "extended-srgb:0.00000,0.53333,1.00000,1.00000"
-  },
+  "color-space-for-untagged-svg-colors" : "display-p3",
+  "fill-specializations" : [
+    {
+      "value" : {
+        "solid" : "extended-srgb:1.00000,0.80000,0.00000,1.00000"
+      }
+    },
+    {
+      "appearance" : "dark",
+      "value" : {
+        "solid" : "extended-gray:0.00000,1.00000"
+      }
+    }
+  ],
   "groups" : [
     {
       "layers" : [
         {
-          "image-name" : "icon_512x512@2x.png",
-          "name" : "icon_512x512@2x"
+          "blend-mode" : "normal",
+          "fill-specializations" : [
+            {
+              "value" : "none"
+            },
+            {
+              "appearance" : "tinted",
+              "value" : "none"
+            }
+          ],
+          "glass" : true,
+          "hidden" : false,
+          "image-name" : "face_with_open_eyes_and_hand_over_mouth_color.svg",
+          "name" : "face_with_open_eyes_and_hand_over_mouth_color",
+          "position" : {
+            "scale" : 1,
+            "translation-in-points" : [
+              266.2109375,
+              110.84375
+            ]
+          }
         }
+      ],
+      "shadow" : {
+        "kind" : "neutral",
+        "opacity" : 0.5
+      },
+      "translucency" : {
+        "enabled" : true,
+        "value" : 0.5
+      }
+    },
+    {
+      "layers" : [
+        {
+          "blend-mode-specializations" : [
+            {
+              "appearance" : "tinted",
+              "value" : "normal"
+            }
+          ],
+          "fill" : "automatic",
+          "glass" : false,
+          "image-name" : "face_exhaling_color.svg",
+          "name" : "face_exhaling_color",
+          "opacity" : 1,
+          "position" : {
+            "scale" : 1,
+            "translation-in-points" : [
+              -166.98823750000008,
+              -131.0546875
+            ]
+          }
+        }
+      ],
+      "shadow" : {
+        "kind" : "neutral",
+        "opacity" : 0.5
+      },
+      "translucency" : {
+        "enabled" : true,
+        "value" : 0.5
+      }
+    },
+    {
+      "layers" : [
+
       ],
       "shadow" : {
         "kind" : "neutral",
