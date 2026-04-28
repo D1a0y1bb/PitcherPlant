@@ -609,7 +609,7 @@ enum LocalizationStrings {
         "section.fingerprints": "Fingerprints",
         "section.crossBatch": "Cross Batch",
         "about.menuTitle": "About PitcherPlant",
-        "about.credits": "Native macOS WriteUP audit workbench.",
+        "about.credits": "D1a0y1bb's Competition WriteUP Audit Tool",
         "menu.recentAudits": "Recent Audits",
         "menu.noAudits": "No Audits",
         "menu.noAuditsDescription": "Start an audit from the main window",
