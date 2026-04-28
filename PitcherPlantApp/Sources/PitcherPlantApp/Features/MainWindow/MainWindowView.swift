@@ -3,53 +3,53 @@ import SwiftUI
 struct MainWindowView: View {
     @Environment(AppState.self) private var appState
     @SceneStorage("pitcherplant.inspectorVisible") private var inspectorVisible = true
-    @State private var columnVisibility = NavigationSplitViewVisibility.all
     @State private var settingsSearchText = ""
 
     var body: some View {
         @Bindable var state = appState
 
-        Group {
-            if isInspectorColumnVisible {
-                NavigationSplitView(columnVisibility: $columnVisibility) {
+        GeometryReader { geometry in
+            HStack(spacing: 0) {
+                NavigationSplitView {
                     sidebar(selection: $state.selectedMainSidebar)
-                } content: {
-                    contentColumn
                 } detail: {
-                    inspectorColumn
+                    contentColumn
                 }
-            } else {
-                NavigationSplitView(columnVisibility: $columnVisibility) {
-                    sidebar(selection: $state.selectedMainSidebar)
-                } detail: {
-                    contentColumn
+                .navigationSplitViewStyle(.balanced)
+                .layoutPriority(1)
+
+                if isInspectorColumnVisible {
+                    inspectorColumn(width: inspectorWidth(for: geometry.size.width))
+                        .transition(.move(edge: .trailing).combined(with: .opacity))
                 }
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
-        .navigationSplitViewStyle(.balanced)
+        .animation(.snappy(duration: 0.18), value: isInspectorColumnVisible)
         .onAppear {
             NSApp.setActivationPolicy(.regular)
             NSApp.activate(ignoringOtherApps: true)
             inspectorVisible = appState.appSettings.showInspectorByDefault
-            updateColumnVisibility()
         }
         .onChange(of: inspectorVisible) { _, visible in
             if appState.selectedMainSidebar.allowsInspector {
                 appState.updateSettings { $0.showInspectorByDefault = visible }
             }
-            updateColumnVisibility()
         }
         .onChange(of: appState.selectedMainSidebar) { _, _ in
             if appState.selectedMainSidebar != .settings {
                 settingsSearchText = ""
             }
-            updateColumnVisibility()
         }
         .onChange(of: appState.appSettings.showInspectorByDefault) { _, visible in
             if !appState.selectedMainSidebar.allowsInspector {
                 inspectorVisible = visible
             }
-            updateColumnVisibility()
+        }
+        .onChange(of: appState.inspectorRequestID) { _, _ in
+            if appState.selectedMainSidebar.allowsInspector {
+                inspectorVisible = true
+            }
         }
         .toolbar {
             mainToolbarItems
@@ -83,22 +83,26 @@ struct MainWindowView: View {
         appState.selectedMainSidebar.allowsInspector && inspectorVisible
     }
 
-    private func updateColumnVisibility() {
-        columnVisibility = isInspectorColumnVisible ? .all : .doubleColumn
-    }
-
     private func sidebar(selection: Binding<MainSidebarItem>) -> some View {
         MainSidebarView(selection: selection)
-            .navigationSplitViewColumnWidth(min: 270, ideal: 300, max: 320)
+            .navigationSplitViewColumnWidth(
+                min: AppLayout.sidebarMinWidth,
+                ideal: AppLayout.sidebarIdealWidth,
+                max: AppLayout.sidebarMaxWidth
+            )
     }
 
     private var contentColumn: some View {
         mainContent
-            .navigationSplitViewColumnWidth(min: 560, ideal: 820, max: .infinity)
+            .navigationSplitViewColumnWidth(
+                min: AppLayout.contentMinWidth,
+                ideal: AppLayout.contentIdealWidth,
+                max: .infinity
+            )
     }
 
     @ViewBuilder
-    private var inspectorColumn: some View {
+    private func inspectorColumn(width: CGFloat) -> some View {
         Group {
             if appState.selectedMainSidebar.usesReportInspector {
                 ReportEvidenceInspectorHost()
@@ -106,7 +110,18 @@ struct MainWindowView: View {
                 JobInspectorView()
             }
         }
-        .navigationSplitViewColumnWidth(min: 360, ideal: 420, max: 520)
+        .frame(width: width, alignment: .topLeading)
+        .frame(maxHeight: .infinity, alignment: .topLeading)
+        .background(.regularMaterial)
+        .overlay(alignment: .leading) {
+            Divider()
+        }
+        .shadow(color: .black.opacity(0.18), radius: 18, x: -8, y: 0)
+    }
+
+    private func inspectorWidth(for windowWidth: CGFloat) -> CGFloat {
+        let proportionalWidth = windowWidth * 0.28
+        return min(AppLayout.inspectorMaxWidth, max(AppLayout.inspectorMinWidth, proportionalWidth))
     }
 
     @ToolbarContentBuilder
@@ -118,12 +133,12 @@ struct MainWindowView: View {
                 inspectorVisible.toggle()
             } label: {
                 Label(
-                    inspectorVisible ? appState.t("toolbar.hideInspector") : appState.t("toolbar.showInspector"),
-                    systemImage: inspectorVisible ? "sidebar.right" : "sidebar.trailing"
+                    isInspectorColumnVisible ? appState.t("toolbar.hideInspector") : appState.t("toolbar.showInspector"),
+                    systemImage: isInspectorColumnVisible ? "sidebar.right" : "sidebar.trailing"
                 )
             }
             .disabled(!appState.selectedMainSidebar.allowsInspector)
-            .help(inspectorVisible ? appState.t("toolbar.hideInspector") : appState.t("toolbar.showInspector"))
+            .help(isInspectorColumnVisible ? appState.t("toolbar.hideInspector") : appState.t("toolbar.showInspector"))
 
             Button {
                 Task { await appState.reload() }

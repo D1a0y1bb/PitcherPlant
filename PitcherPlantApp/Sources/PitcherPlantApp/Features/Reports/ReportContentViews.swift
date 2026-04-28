@@ -45,6 +45,7 @@ struct ReportSectionsAndEvidenceView: View {
                                 )
                                 EvidenceList(section: section, rows: rows)
                             }
+                            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
                         }
                     } else {
                         ReportSectionReadingView(section: section, report: report)
@@ -72,6 +73,7 @@ struct ReportSectionsAndEvidenceView: View {
         } else {
             AppEmptyPanel(title: appState.t("reports.noReport"), subtitle: appState.t("reports.noReportDescription"), systemImage: "doc.text")
                 .padding(AppLayout.pagePadding)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         }
     }
 
@@ -239,6 +241,7 @@ struct ReportSectionReadingView: View {
             .frame(maxWidth: 760, alignment: .leading)
             .frame(maxWidth: .infinity, alignment: .leading)
         }
+        .frame(minHeight: AppLayout.reportListMinHeight, maxHeight: .infinity)
     }
 }
 
@@ -391,6 +394,7 @@ struct EvidenceCollectionView: View {
     private func select(_ item: EvidenceCollectionItem) {
         selectedItemID = item.id
         appState.selectEvidence(item)
+        appState.requestInspector()
     }
 }
 
@@ -499,6 +503,7 @@ struct EvidenceList: View {
     var body: some View {
         if rows.isEmpty, section.table != nil {
             ContentUnavailableView(appState.t("reports.noEvidence"), systemImage: "line.3.horizontal.decrease.circle", description: Text(appState.t("reports.noEvidenceDescription")))
+                .frame(minHeight: AppLayout.reportListMinHeight, maxHeight: .infinity)
         } else if section.kind == .overview {
             OverviewEvidenceList(rows: rows)
         } else if section.kind == .crossBatch {
@@ -516,20 +521,31 @@ struct EvidenceList: View {
                 .padding(20)
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
+            .frame(minHeight: AppLayout.reportListMinHeight, maxHeight: .infinity)
         } else {
             VStack(alignment: .leading, spacing: 6) {
                 EvidenceListHeader(headers: section.table?.headers ?? [])
                 List(rows, selection: Binding(
                     get: { appState.selectedReportRowID },
-                    set: { appState.selectedReportRowID = $0 }
+                    set: { selectedID in
+                        appState.selectedReportRowID = selectedID
+                        if selectedID != nil {
+                            appState.requestInspector()
+                        }
+                    }
                 )) { row in
                     AdaptiveEvidenceListRow(row: row)
                         .tag(row.id)
                         .listRowInsets(EdgeInsets(top: 4, leading: 0, bottom: 4, trailing: 0))
                 }
                 .listStyle(.plain)
-                .frame(height: reportListHeight(rowCount: rows.count))
+                .frame(
+                    minHeight: AppLayout.reportListMinHeight,
+                    idealHeight: reportListIdealHeight(rowCount: rows.count),
+                    maxHeight: .infinity
+                )
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         }
     }
 }
@@ -692,31 +708,30 @@ struct CrossBatchEvidenceBrowser: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            HStack(spacing: 12) {
-                Picker("视图", selection: $mode) {
-                    ForEach(CrossBatchEvidenceMode.allCases) { option in
-                        Text(option.title).tag(option)
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 12) {
+                    Picker("视图", selection: $mode) {
+                        ForEach(CrossBatchEvidenceMode.allCases) { option in
+                            Text(option.title).tag(option)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                    .labelsHidden()
+                    .frame(width: 140)
+
+                    if mode == .graph {
+                        CrossBatchFilterPicker(title: "批次", allTitle: "全部批次", options: graph.batches, selection: $selectedBatch)
+                        CrossBatchFilterPicker(title: "队伍", allTitle: "全部队伍", options: graph.teams, selection: $selectedTeam)
+                        CrossBatchFilterPicker(title: "标签", allTitle: "全部标签", options: graph.tags, selection: $selectedTag)
+                        CrossBatchFilterPicker(title: "状态", allTitle: "全部状态", options: graph.statuses, selection: $selectedStatus)
+                        Text("\(filteredGraph.nodes.count) 节点 / \(filteredGraph.edges.count) 边")
+                            .font(AppTypography.metadata)
+                            .foregroundStyle(.secondary)
                     }
                 }
-                .pickerStyle(.segmented)
-                .labelsHidden()
-                .frame(width: 140)
-
-                if mode == .graph {
-                    CrossBatchFilterPicker(title: "批次", allTitle: "全部批次", options: graph.batches, selection: $selectedBatch)
-                    CrossBatchFilterPicker(title: "队伍", allTitle: "全部队伍", options: graph.teams, selection: $selectedTeam)
-                    CrossBatchFilterPicker(title: "标签", allTitle: "全部标签", options: graph.tags, selection: $selectedTag)
-                    CrossBatchFilterPicker(title: "状态", allTitle: "全部状态", options: graph.statuses, selection: $selectedStatus)
-                    Spacer()
-                    Text("\(filteredGraph.nodes.count) 节点 / \(filteredGraph.edges.count) 边")
-                        .font(AppTypography.metadata)
-                        .foregroundStyle(.secondary)
-                } else {
-                    Spacer()
-                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
             }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 8)
 
             switch mode {
             case .list:
@@ -725,6 +740,7 @@ struct CrossBatchEvidenceBrowser: View {
                 CrossBatchGraphPanel(graph: filteredGraph)
             }
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .onChange(of: rows.map(\.id)) { _, _ in
             selectedBatch = CrossBatchFilter.all
             selectedTeam = CrossBatchFilter.all
@@ -768,15 +784,25 @@ struct CrossBatchList: View {
             EvidenceListHeader(headers: ["当前文件", "历史文件", "位差"])
             List(rows, selection: Binding(
                 get: { appState.selectedReportRowID },
-                set: { appState.selectedReportRowID = $0 }
+                set: { selectedID in
+                    appState.selectedReportRowID = selectedID
+                    if selectedID != nil {
+                        appState.requestInspector()
+                    }
+                }
             )) { row in
                 AdaptiveEvidenceListRow(row: row)
                     .tag(row.id)
                     .listRowInsets(EdgeInsets(top: 4, leading: 0, bottom: 4, trailing: 0))
             }
             .listStyle(.plain)
-            .frame(height: reportListHeight(rowCount: rows.count))
+            .frame(
+                minHeight: AppLayout.reportListMinHeight,
+                idealHeight: reportListIdealHeight(rowCount: rows.count),
+                maxHeight: .infinity
+            )
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
 }
 
@@ -850,8 +876,9 @@ struct CrossBatchGraphPanel: View {
     var body: some View {
         if graph.edges.isEmpty {
             ContentUnavailableView("无匹配边", systemImage: "arrow.triangle.branch", description: Text("调整批次、队伍、标签或状态过滤条件"))
+                .frame(minHeight: AppLayout.reportListMinHeight, maxHeight: .infinity)
         } else {
-            ScrollView {
+            ScrollView([.horizontal, .vertical]) {
                 HStack(alignment: .top, spacing: 14) {
                     CrossBatchNodeColumn(title: "当前节点", nodes: currentNodes)
                     CrossBatchEdgeColumn(edges: graph.edges)
@@ -861,6 +888,7 @@ struct CrossBatchGraphPanel: View {
                 .padding(16)
                 .frame(maxWidth: .infinity, alignment: .topLeading)
             }
+            .frame(minHeight: AppLayout.reportListMinHeight, maxHeight: .infinity)
         }
     }
 }
@@ -924,6 +952,7 @@ struct CrossBatchEdgeColumn: View {
             ForEach(edges) { edge in
                 Button {
                     appState.selectedReportRowID = edge.evidenceID
+                    appState.requestInspector()
                 } label: {
                     CrossBatchEdgeView(edge: edge)
                 }
@@ -1029,18 +1058,28 @@ struct OverviewEvidenceList: View {
             EvidenceListHeader(headers: ["证据", "", appState.t("common.score")])
             List(rows, selection: Binding(
                 get: { appState.selectedReportRowID },
-                set: { appState.selectedReportRowID = $0 }
+                set: { selectedID in
+                    appState.selectedReportRowID = selectedID
+                    if selectedID != nil {
+                        appState.requestInspector()
+                    }
+                }
             )) { row in
                 AdaptiveEvidenceListRow(row: row)
                     .tag(row.id)
                     .listRowInsets(EdgeInsets(top: 4, leading: 0, bottom: 4, trailing: 0))
             }
             .listStyle(.plain)
-            .frame(height: reportListHeight(rowCount: rows.count))
+            .frame(
+                minHeight: AppLayout.reportListMinHeight,
+                idealHeight: reportListIdealHeight(rowCount: rows.count),
+                maxHeight: .infinity
+            )
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
 }
 
-private func reportListHeight(rowCount: Int) -> CGFloat {
-    min(max(CGFloat(rowCount) * 50 + 12, 82), 520)
+private func reportListIdealHeight(rowCount: Int) -> CGFloat {
+    min(max(CGFloat(rowCount) * 50 + 12, AppLayout.reportListMinHeight), AppLayout.reportListIdealMaxHeight)
 }

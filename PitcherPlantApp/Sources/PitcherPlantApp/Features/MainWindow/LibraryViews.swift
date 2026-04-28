@@ -19,7 +19,15 @@ struct JobHistoryView: View {
             SearchHeader(title: appState.t("sidebar.history"), count: filteredJobs.count, query: $query, prompt: appState.t("history.searchPrompt"))
 
             AppTablePanel {
-                Table(filteredJobs, selection: Binding(get: { appState.selectedJobID }, set: { appState.selectedJobID = $0 })) {
+                Table(filteredJobs, selection: Binding(
+                    get: { appState.selectedJobID },
+                    set: { selectedID in
+                        appState.selectedJobID = selectedID
+                        if selectedID != nil {
+                            appState.requestInspector()
+                        }
+                    }
+                )) {
                     TableColumn(appState.t("audit.directory")) { job in
                         Label(URL(fileURLWithPath: job.configuration.directoryPath).lastPathComponent, systemImage: job.status.systemImage)
                             .lineLimit(1)
@@ -42,7 +50,11 @@ struct JobHistoryView: View {
                     }
                     .width(min: 150, ideal: 180)
                 }
-                .frame(height: nativeTableHeight(rowCount: filteredJobs.count, maxHeight: 520))
+                .frame(
+                    minHeight: 120,
+                    idealHeight: nativeTableIdealHeight(rowCount: filteredJobs.count, minHeight: 160, maxHeight: 360),
+                    maxHeight: .infinity
+                )
             }
         }
         .padding(AppLayout.pagePadding)
@@ -90,7 +102,11 @@ struct FingerprintLibraryView: View {
                     .listRowInsets(EdgeInsets(top: 4, leading: 0, bottom: 4, trailing: 0))
                 }
                 .listStyle(.plain)
-                .frame(height: nativeTableHeight(rowCount: filteredRecords.count, minHeight: 260, maxHeight: 620))
+                .frame(
+                    minHeight: 180,
+                    idealHeight: nativeTableIdealHeight(rowCount: filteredRecords.count, minHeight: 220, maxHeight: 360),
+                    maxHeight: .infinity
+                )
             }
         }
         .padding(AppLayout.pagePadding)
@@ -537,7 +553,11 @@ private struct WhitelistSuggestionsSection: View {
                         .listRowInsets(EdgeInsets(top: 4, leading: 0, bottom: 4, trailing: 0))
                     }
                     .listStyle(.plain)
-                    .frame(height: nativeTableHeight(rowCount: suggestions.count, minHeight: 220, maxHeight: 360))
+                    .frame(
+                        minHeight: 120,
+                        idealHeight: nativeTableIdealHeight(rowCount: suggestions.count, minHeight: 160, maxHeight: 260),
+                        maxHeight: .infinity
+                    )
                 }
             }
         }
@@ -587,7 +607,11 @@ private struct WhitelistRulesSection: View {
                             .listRowInsets(EdgeInsets(top: 4, leading: 0, bottom: 4, trailing: 0))
                     }
                     .listStyle(.plain)
-                    .frame(height: nativeTableHeight(rowCount: rules.count, minHeight: 70, maxHeight: 260))
+                    .frame(
+                        minHeight: 70,
+                        idealHeight: nativeTableIdealHeight(rowCount: rules.count, minHeight: 100, maxHeight: 220),
+                        maxHeight: .infinity
+                    )
                 }
             }
         }
@@ -612,7 +636,7 @@ private struct WhitelistRuleHeader: View {
     }
 }
 
-private func nativeTableHeight(rowCount: Int, minHeight: CGFloat = 86, maxHeight: CGFloat = 480) -> CGFloat {
+private func nativeTableIdealHeight(rowCount: Int, minHeight: CGFloat = 86, maxHeight: CGFloat = 480) -> CGFloat {
     min(max(CGFloat(rowCount) * 28 + 42, minHeight), maxHeight)
 }
 
@@ -782,21 +806,18 @@ struct JobInspectorView: View {
                             Label(appState.t("job.restoreParameters"), systemImage: "arrow.counterclockwise")
                         }
 
-                        HStack(spacing: 8) {
-                            Button {
-                                appState.beginQueuedAudits()
-                            } label: {
-                                Label(appState.t("job.runQueue"), systemImage: "play.fill")
-                            }
-                            .disabled(appState.isRunningAudit || appState.queuedJobCount == 0)
-
-                            if job.status == .failed {
-                                Button {
-                                    Task { await appState.retryJob(job) }
-                                } label: {
-                                    Label(appState.t("job.retry"), systemImage: "arrow.clockwise")
+                        ViewThatFits(in: .horizontal) {
+                            HStack(spacing: 8) {
+                                jobRunQueueButton
+                                if job.status == .failed {
+                                    jobRetryButton(job)
                                 }
-                                .disabled(appState.isRunningAudit)
+                            }
+                            VStack(alignment: .leading, spacing: 8) {
+                                jobRunQueueButton
+                                if job.status == .failed {
+                                    jobRetryButton(job)
+                                }
                             }
                         }
 
@@ -826,5 +847,23 @@ struct JobInspectorView: View {
         } else {
             ContentUnavailableView(appState.t("job.noSelection"), systemImage: "clock.badge.questionmark", description: Text(appState.t("job.noSelectionDescription")))
         }
+    }
+
+    private var jobRunQueueButton: some View {
+        Button {
+            appState.beginQueuedAudits()
+        } label: {
+            Label(appState.t("job.runQueue"), systemImage: "play.fill")
+        }
+        .disabled(appState.isRunningAudit || appState.queuedJobCount == 0)
+    }
+
+    private func jobRetryButton(_ job: AuditJob) -> some View {
+        Button {
+            Task { await appState.retryJob(job) }
+        } label: {
+            Label(appState.t("job.retry"), systemImage: "arrow.clockwise")
+        }
+        .disabled(appState.isRunningAudit)
     }
 }

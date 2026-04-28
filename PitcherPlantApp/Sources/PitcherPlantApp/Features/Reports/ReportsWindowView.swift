@@ -14,13 +14,25 @@ struct ReportsWindowView: View {
                 reports: filteredReports,
                 reportQuery: $reportQuery
             )
-            .navigationSplitViewColumnWidth(min: 260, ideal: 300, max: 360)
+            .navigationSplitViewColumnWidth(
+                min: AppLayout.sidebarMinWidth,
+                ideal: AppLayout.sidebarIdealWidth,
+                max: AppLayout.sidebarMaxWidth
+            )
         } content: {
             ReportSectionsAndEvidenceView()
-                .navigationSplitViewColumnWidth(min: 520, ideal: 720, max: .infinity)
+                .navigationSplitViewColumnWidth(
+                    min: AppLayout.contentMinWidth,
+                    ideal: AppLayout.contentIdealWidth,
+                    max: .infinity
+                )
         } detail: {
             ReportEvidenceInspector()
-                .navigationSplitViewColumnWidth(min: 360, ideal: 440, max: 560)
+                .navigationSplitViewColumnWidth(
+                    min: AppLayout.inspectorMinWidth,
+                    ideal: AppLayout.inspectorIdealWidth,
+                    max: AppLayout.inspectorMaxWidth
+                )
         }
         .navigationSplitViewStyle(.balanced)
         .searchable(text: $reportQuery, placement: .toolbar, prompt: appState.t("reports.searchPrompt"))
@@ -118,6 +130,7 @@ struct ReportsInlineView: View {
         .onChange(of: reportQuery) { _, _ in syncVisibleReportSelection() }
         .onChange(of: appState.reports.map(\.id)) { _, _ in syncVisibleReportSelection() }
         .searchable(text: $reportQuery, placement: .toolbar, prompt: appState.t("reports.searchPrompt"))
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
 
     private func syncVisibleReportSelection() {

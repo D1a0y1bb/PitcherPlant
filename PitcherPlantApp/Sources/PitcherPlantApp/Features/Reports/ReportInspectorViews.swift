@@ -4,65 +4,69 @@ struct ReportEvidenceInspector: View {
     @Environment(AppState.self) private var appState
 
     var body: some View {
-        if let row = appState.selectedReportRow {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 18) {
-                    VStack(alignment: .leading, spacing: 12) {
-                        HStack(alignment: .top) {
-                            Text(row.detailTitle)
-                                .font(AppTypography.pageTitle)
-                                .lineLimit(3)
-                            Spacer()
-                        }
+        Group {
+            if let row = appState.selectedReportRow {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 18) {
+                        VStack(alignment: .leading, spacing: 12) {
+                            HStack(alignment: .top) {
+                                Text(row.detailTitle)
+                                    .font(AppTypography.pageTitle)
+                                    .lineLimit(3)
+                                Spacer()
+                            }
 
-                        if !row.badges.isEmpty {
-                            HStack(spacing: 8) {
-                                ForEach(row.badges, id: \.title) { badge in
-                                    ReportBadgeView(badge: badge)
+                            if !row.badges.isEmpty {
+                                HStack(spacing: 8) {
+                                    ForEach(row.badges, id: \.title) { badge in
+                                        ReportBadgeView(badge: badge)
+                                    }
                                 }
                             }
                         }
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                        .frame(maxWidth: .infinity, alignment: .leading)
 
-                    EvidenceReviewPanel(row: row)
+                        EvidenceReviewPanel(row: row)
 
-                    InspectorSection(title: appState.t("reports.evidenceDetails")) {
-                        Text(row.detailBody)
-                            .font(AppTypography.body)
-                            .foregroundStyle(.secondary)
-                            .textSelection(.enabled)
-                    }
+                        InspectorSection(title: appState.t("reports.evidenceDetails")) {
+                            Text(row.detailBody)
+                                .font(AppTypography.body)
+                                .foregroundStyle(.secondary)
+                                .textSelection(.enabled)
+                        }
 
-                    EvidenceSemanticDetailView(row: row)
+                        EvidenceSemanticDetailView(row: row)
 
-                    if !row.attachments.isEmpty {
-                        InspectorSection(title: appState.t("reports.attachments")) {
-                            ImageEvidenceDetailView(
-                                attachments: row.attachments,
-                                showsPreviews: appState.appSettings.showAttachmentPreviews
-                            )
+                        if !row.attachments.isEmpty {
+                            InspectorSection(title: appState.t("reports.attachments")) {
+                                ImageEvidenceDetailView(
+                                    attachments: row.attachments,
+                                    showsPreviews: appState.appSettings.showAttachmentPreviews
+                                )
+                            }
                         }
                     }
+                    .padding(20)
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 }
-                .padding(20)
-                .frame(maxWidth: .infinity, alignment: .leading)
-            }
-        } else if let section = appState.selectedReportSectionModel {
-            if section.table?.rows.isEmpty == false {
-                ReportSectionSummaryInspector(section: section, report: appState.selectedReport)
-            } else if let report = appState.selectedReport {
-                ReportQuickInspector(report: report)
+            } else if let section = appState.selectedReportSectionModel {
+                if section.table?.rows.isEmpty == false {
+                    ReportSectionSummaryInspector(section: section, report: appState.selectedReport)
+                } else if let report = appState.selectedReport {
+                    ReportQuickInspector(report: report)
+                } else {
+                    ReportSectionSummaryInspector(section: section, report: appState.selectedReport)
+                }
             } else {
-                ReportSectionSummaryInspector(section: section, report: appState.selectedReport)
-            }
-        } else {
-            ContentUnavailableView {
-                Label(appState.t("reports.noEvidenceSelection"), systemImage: "doc.text.magnifyingglass")
-            } description: {
-                Text(appState.t("reports.noEvidenceSelectionDescription"))
+                ContentUnavailableView {
+                    Label(appState.t("reports.noEvidenceSelection"), systemImage: "doc.text.magnifyingglass")
+                } description: {
+                    Text(appState.t("reports.noEvidenceSelectionDescription"))
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
 }
 
@@ -118,6 +122,7 @@ struct ReportQuickInspector: View {
             .padding(20)
             .frame(maxWidth: .infinity, alignment: .leading)
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
 }
 
@@ -171,9 +176,9 @@ struct ReportSectionSummaryInspector: View {
             .padding(20)
             .frame(maxWidth: .infinity, alignment: .leading)
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
 }
-
 struct InspectorSection<Content: View>: View {
     let title: String
     @ViewBuilder var content: Content
@@ -195,8 +200,8 @@ struct EvidenceReviewPanel: View {
     var body: some View {
         InspectorSection(title: appState.t("reports.review")) {
             VStack(alignment: .leading, spacing: 12) {
-                Grid(alignment: .leading, horizontalSpacing: 12, verticalSpacing: 10) {
-                    GridRow {
+                VStack(alignment: .leading, spacing: 10) {
+                    VStack(alignment: .leading, spacing: 6) {
                         reviewLabel("快捷")
                         ViewThatFits(in: .horizontal) {
                             HStack(spacing: 8) { quickReviewButtons }
@@ -204,7 +209,7 @@ struct EvidenceReviewPanel: View {
                         }
                     }
 
-                    GridRow {
+                    VStack(alignment: .leading, spacing: 6) {
                         reviewLabel(appState.t("review.decision"))
                         Picker(appState.t("review.decision"), selection: $decision) {
                             ForEach(EvidenceDecision.allCases) { option in
@@ -213,10 +218,10 @@ struct EvidenceReviewPanel: View {
                         }
                         .pickerStyle(.menu)
                         .labelsHidden()
-                        .frame(width: 160, alignment: .leading)
+                        .frame(maxWidth: .infinity, alignment: .leading)
                     }
 
-                    GridRow {
+                    VStack(alignment: .leading, spacing: 6) {
                         reviewLabel(appState.t("review.severity"))
                         Picker(appState.t("review.severity"), selection: $severity) {
                             ForEach(RiskLevel.allCases) { option in
@@ -225,7 +230,7 @@ struct EvidenceReviewPanel: View {
                         }
                         .pickerStyle(.segmented)
                         .labelsHidden()
-                        .frame(maxWidth: 260)
+                        .frame(maxWidth: .infinity)
                     }
                 }
                 .buttonStyle(.borderless)
@@ -269,7 +274,6 @@ struct EvidenceReviewPanel: View {
         Text(title)
             .font(AppTypography.tableHeader)
             .foregroundStyle(.secondary)
-            .frame(width: 70, alignment: .leading)
     }
 
     private var quickReviewButtons: some View {

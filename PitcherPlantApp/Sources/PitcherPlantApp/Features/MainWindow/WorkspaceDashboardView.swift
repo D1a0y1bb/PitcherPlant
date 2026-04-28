@@ -95,6 +95,7 @@ private struct RecentJobsTable: View {
                     Button {
                         appState.selectedJobID = job.id
                         appState.selectedMainSidebar = .history
+                        appState.requestInspector()
                     } label: {
                         Label(URL(fileURLWithPath: job.configuration.directoryPath).lastPathComponent, systemImage: job.status.systemImage)
                             .lineLimit(1)

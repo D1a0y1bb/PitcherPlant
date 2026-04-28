@@ -17,6 +17,7 @@ struct PitcherPlantDesktopApp: App {
     var body: some Scene {
         WindowGroup("PitcherPlant", id: AppWindow.main.rawValue) {
             MainWindowView()
+                .stableMainWindowFrame()
                 .id(appearanceSyncKey)
                 .environment(appState)
                 .environment(\.locale, appState.effectiveLocale ?? .current)
@@ -26,7 +27,8 @@ struct PitcherPlantDesktopApp: App {
                     await appState.bootstrapIfNeeded()
                 }
         }
-        .defaultSize(width: 1220, height: 780)
+        .defaultSize(width: AppLayout.mainWindowDefaultWidth, height: AppLayout.mainWindowDefaultHeight)
+        .windowResizability(.contentMinSize)
         .defaultLaunchBehavior(.presented)
         .commands {
             CommandGroup(replacing: .appInfo) {

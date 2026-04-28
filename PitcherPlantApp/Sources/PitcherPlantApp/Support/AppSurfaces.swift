@@ -1,6 +1,22 @@
 import SwiftUI
 
 enum AppLayout {
+    static let mainWindowMinWidth: CGFloat = 820
+    static let mainWindowMinHeight: CGFloat = 560
+    static let mainWindowChromeHeightReserve: CGFloat = 52
+    static let mainWindowContentMinHeight: CGFloat = mainWindowMinHeight - mainWindowChromeHeightReserve
+    static let mainWindowDefaultWidth: CGFloat = 1220
+    static let mainWindowDefaultHeight: CGFloat = 780
+    static let sidebarMinWidth: CGFloat = 230
+    static let sidebarIdealWidth: CGFloat = 260
+    static let sidebarMaxWidth: CGFloat = 300
+    static let contentMinWidth: CGFloat = 280
+    static let contentIdealWidth: CGFloat = 760
+    static let inspectorMinWidth: CGFloat = 300
+    static let inspectorIdealWidth: CGFloat = 360
+    static let inspectorMaxWidth: CGFloat = 460
+    static let reportListMinHeight: CGFloat = 180
+    static let reportListIdealMaxHeight: CGFloat = 420
     static let pagePadding: CGFloat = 24
     static let rowHorizontalPadding: CGFloat = 14
     static let rowVerticalPadding: CGFloat = 11
@@ -23,6 +39,18 @@ struct LiquidGlassSurface<Content: View>: View {
                 isInteractive ? .regular.interactive() : .regular,
                 in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
             )
+    }
+}
+
+extension View {
+    func stableMainWindowFrame() -> some View {
+        frame(
+            minWidth: AppLayout.mainWindowMinWidth,
+            maxWidth: .infinity,
+            minHeight: AppLayout.mainWindowContentMinHeight,
+            maxHeight: .infinity,
+            alignment: .topLeading
+        )
     }
 }
 

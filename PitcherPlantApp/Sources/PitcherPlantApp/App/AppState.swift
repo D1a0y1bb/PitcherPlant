@@ -67,6 +67,7 @@ final class AppState {
     var selectedReportID: UUID?
     var selectedReportSection: ReportSectionKind?
     var selectedReportRowID: UUID?
+    var inspectorRequestID = UUID()
 
     var jobs: [AuditJob] = []
     var reports: [AuditReport] = []
@@ -204,6 +205,10 @@ final class AppState {
     func updateSettings(_ transform: (inout AppSettings) -> Void) {
         transform(&appSettings)
         AppPreferences.saveAppSettings(appSettings)
+    }
+
+    func requestInspector() {
+        inspectorRequestID = UUID()
     }
 
     var effectiveLocale: Locale? {
