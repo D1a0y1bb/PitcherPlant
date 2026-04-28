@@ -239,7 +239,6 @@ struct WhitelistLibraryView: View {
                                 accept: { acceptSuggestion(suggestion) },
                                 dismiss: { dismissSuggestion(suggestion) }
                             )
-                            AppDivider()
                         }
                     }
                 }
@@ -250,7 +249,6 @@ struct WhitelistLibraryView: View {
                         } else {
                             ForEach(filteredRules) { rule in
                                 WhitelistTableRow(rule: rule)
-                                AppDivider()
                             }
                         }
                     }
@@ -494,67 +492,62 @@ struct JobInspectorView: View {
         if let job = appState.selectedJob {
             ScrollView {
                 VStack(alignment: .leading, spacing: 18) {
-                    GroupBox {
-                        VStack(alignment: .leading, spacing: 12) {
-                            HStack(alignment: .top) {
-                                VStack(alignment: .leading, spacing: 4) {
-                                    Text(URL(fileURLWithPath: job.configuration.directoryPath).lastPathComponent)
-                                        .font(AppTypography.pageTitle)
-                                    Text(job.configuration.directoryPath)
-                                        .font(AppTypography.smallCode)
-                                        .foregroundStyle(.secondary)
-                                        .lineLimit(1)
-                                        .truncationMode(.middle)
-                                }
-                                Spacer()
-                                StatusBadge(status: job.status)
+                    VStack(alignment: .leading, spacing: 12) {
+                        HStack(alignment: .top) {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(URL(fileURLWithPath: job.configuration.directoryPath).lastPathComponent)
+                                    .font(AppTypography.pageTitle)
+                                Text(job.configuration.directoryPath)
+                                    .font(AppTypography.smallCode)
+                                    .foregroundStyle(.secondary)
+                                    .lineLimit(1)
+                                    .truncationMode(.middle)
                             }
+                            Spacer()
+                            StatusBadge(status: job.status)
+                        }
 
+                        Button {
+                            appState.restoreDraft(from: job)
+                        } label: {
+                            Label(appState.t("job.restoreParameters"), systemImage: "arrow.counterclockwise")
+                        }
+
+                        HStack(spacing: 8) {
                             Button {
-                                appState.restoreDraft(from: job)
+                                appState.beginQueuedAudits()
                             } label: {
-                                Label(appState.t("job.restoreParameters"), systemImage: "arrow.counterclockwise")
+                                Label(appState.t("job.runQueue"), systemImage: "play.fill")
                             }
+                            .disabled(appState.isRunningAudit || appState.queuedJobCount == 0)
 
-                            HStack(spacing: 8) {
+                            if job.status == .failed {
                                 Button {
-                                    appState.beginQueuedAudits()
+                                    Task { await appState.retryJob(job) }
                                 } label: {
-                                    Label(appState.t("job.runQueue"), systemImage: "play.fill")
+                                    Label(appState.t("job.retry"), systemImage: "arrow.clockwise")
                                 }
-                                .disabled(appState.isRunningAudit || appState.queuedJobCount == 0)
-
-                                if job.status == .failed {
-                                    Button {
-                                        Task { await appState.retryJob(job) }
-                                    } label: {
-                                        Label(appState.t("job.retry"), systemImage: "arrow.clockwise")
-                                    }
-                                    .disabled(appState.isRunningAudit)
-                                }
-                            }
-
-                            VStack(alignment: .leading, spacing: 6) {
-                                HStack {
-                                    Text(job.latestMessage)
-                                    Spacer()
-                                    Text("\(job.progress)%")
-                                }
-                                .font(AppTypography.rowSecondary)
-                                .foregroundStyle(.secondary)
-                                ProgressView(value: Double(job.progress), total: 100)
+                                .disabled(appState.isRunningAudit)
                             }
                         }
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(4)
+
+                        VStack(alignment: .leading, spacing: 6) {
+                            HStack {
+                                Text(job.latestMessage)
+                                Spacer()
+                                Text("\(job.progress)%")
+                            }
+                            .font(AppTypography.rowSecondary)
+                            .foregroundStyle(.secondary)
+                            ProgressView(value: Double(job.progress), total: 100)
+                        }
                     }
-                    .groupBoxStyle(.automatic)
+                    .frame(maxWidth: .infinity, alignment: .leading)
 
                     JobInspectorSection(title: appState.t("job.timeline"), subtitle: "\(job.events.count) \(appState.t("common.countSuffix"))") {
                         VStack(alignment: .leading, spacing: 0) {
                             ForEach(Array(job.events.reversed())) { event in
                                 TimelineEventRow(event: event)
-                                AppDivider()
                             }
                         }
                     }

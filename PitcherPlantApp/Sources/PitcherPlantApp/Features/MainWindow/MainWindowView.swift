@@ -54,8 +54,27 @@ struct MainWindowView: View {
         .toolbar {
             mainToolbarItems
         }
+        .alert(item: noticeBinding) { notice in
+            Alert(
+                title: Text(notice.title),
+                message: Text(notice.message),
+                dismissButton: .default(Text("OK")) {
+                    appState.dismissNotice()
+                }
+            )
+        }
         .environment(\.locale, appState.effectiveLocale ?? .current)
         .preferredColorScheme(appState.effectiveColorScheme)
+    }
+
+    private var noticeBinding: Binding<AppNotice?> {
+        Binding {
+            appState.notice
+        } set: { notice in
+            if notice == nil {
+                appState.dismissNotice()
+            }
+        }
     }
 
     private var isInspectorColumnVisible: Bool {
@@ -73,11 +92,6 @@ struct MainWindowView: View {
 
     private var contentColumn: some View {
         mainContent
-            .safeAreaInset(edge: .bottom, spacing: 0) {
-                if appState.selectedMainSidebar != .settings {
-                    MainStatusBar()
-                }
-            }
             .navigationSplitViewColumnWidth(min: 560, ideal: 820, max: .infinity)
     }
 

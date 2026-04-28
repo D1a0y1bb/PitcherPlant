@@ -31,11 +31,7 @@ struct AppSectionPanel<Content: View>: View {
     @ViewBuilder var content: Content
 
     var body: some View {
-        GroupBox {
-            content
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(contentPadding)
-        } label: {
+        VStack(alignment: .leading, spacing: 10) {
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)
                     .font(AppTypography.sectionTitle)
@@ -46,8 +42,12 @@ struct AppSectionPanel<Content: View>: View {
                         .lineLimit(1)
                 }
             }
+
+            content
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(contentPadding)
         }
-        .groupBoxStyle(.automatic)
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 
@@ -56,12 +56,9 @@ struct AppToolbarBand<Content: View>: View {
     @ViewBuilder var content: Content
 
     var body: some View {
-        GroupBox {
-            content
-                .padding(padding)
-                .frame(maxWidth: .infinity, alignment: .leading)
-        }
-        .groupBoxStyle(.automatic)
+        content
+            .padding(padding)
+            .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 
@@ -71,10 +68,7 @@ struct AppInspectorPanel<Content: View>: View {
     @ViewBuilder var content: Content
 
     var body: some View {
-        GroupBox {
-            content
-                .frame(maxWidth: .infinity, alignment: .leading)
-        } label: {
+        VStack(alignment: .leading, spacing: 10) {
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)
                     .font(AppTypography.sectionTitle)
@@ -85,9 +79,11 @@ struct AppInspectorPanel<Content: View>: View {
                         .lineLimit(2)
                 }
             }
+
+            content
+                .frame(maxWidth: .infinity, alignment: .leading)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .groupBoxStyle(.automatic)
     }
 }
 
@@ -95,11 +91,8 @@ struct AppTablePanel<Content: View>: View {
     @ViewBuilder var content: Content
 
     var body: some View {
-        GroupBox {
-            content
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        }
-        .groupBoxStyle(.automatic)
+        content
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
 }
 
@@ -109,30 +102,12 @@ struct AppEmptyPanel: View {
     let systemImage: String
 
     var body: some View {
-        GroupBox {
-            VStack(spacing: 8) {
-                Image(systemName: systemImage)
-                    .font(.title2)
-                    .foregroundStyle(.secondary)
-                Text(title)
-                    .font(AppTypography.rowPrimary)
-                Text(subtitle)
-                    .font(AppTypography.supporting)
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
-            }
-            .frame(maxWidth: .infinity, minHeight: 160)
-            .padding(18)
-        }
-        .groupBoxStyle(.automatic)
-    }
-}
-
-struct AppDivider: View {
-    var body: some View {
-        Divider()
-            .padding(.leading, AppLayout.rowHorizontalPadding)
-            .padding(.trailing, AppLayout.rowHorizontalPadding)
+        ContentUnavailableView(
+            title,
+            systemImage: systemImage,
+            description: Text(subtitle)
+        )
+        .frame(maxWidth: .infinity, minHeight: 160)
     }
 }
 

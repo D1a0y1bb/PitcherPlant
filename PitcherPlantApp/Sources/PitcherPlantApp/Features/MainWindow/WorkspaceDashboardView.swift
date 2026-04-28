@@ -53,7 +53,6 @@ struct WorkspaceDashboardView: View {
                                 JobTableRow(job: job)
                             }
                             .buttonStyle(.plain)
-                            AppDivider()
                         }
                     }
                 }
@@ -72,7 +71,6 @@ struct WorkspaceDashboardView: View {
                                 AuditReportListRow(report: report)
                             }
                             .buttonStyle(.plain)
-                            AppDivider()
                         }
                     }
                 }
@@ -108,12 +106,10 @@ struct NewAuditView: View {
                         get: { appState.draftConfiguration.directoryPath },
                         set: { newValue in appState.updateDraft { $0.directoryPath = newValue } }
                     ))
-                    AppDivider()
                     SettingsTextRow(title: appState.t("audit.outputDirectory"), text: Binding(
                         get: { appState.draftConfiguration.outputDirectoryPath },
                         set: { newValue in appState.updateDraft { $0.outputDirectoryPath = newValue } }
                     ))
-                    AppDivider()
                     SettingsTextRow(title: appState.t("audit.fileNameTemplate"), text: Binding(
                         get: { appState.draftConfiguration.reportNameTemplate },
                         set: { newValue in appState.updateDraft { $0.reportNameTemplate = newValue } }
@@ -137,22 +133,18 @@ struct NewAuditView: View {
                         get: { appState.draftConfiguration.textThreshold },
                         set: { newValue in appState.updateDraft { $0.textThreshold = newValue } }
                     ), format: .number.precision(.fractionLength(2)))
-                    AppDivider()
                     SettingsNumberRow(title: appState.t("audit.dedupThreshold"), value: Binding(
                         get: { appState.draftConfiguration.dedupThreshold },
                         set: { newValue in appState.updateDraft { $0.dedupThreshold = newValue } }
                     ), format: .number.precision(.fractionLength(2)))
-                    AppDivider()
                     SettingsIntegerRow(title: appState.t("audit.imageThreshold"), value: Binding(
                         get: { appState.draftConfiguration.imageThreshold },
                         set: { newValue in appState.updateDraft { $0.imageThreshold = newValue } }
                     ))
-                    AppDivider()
                     SettingsIntegerRow(title: appState.t("audit.simhashThreshold"), value: Binding(
                         get: { appState.draftConfiguration.simhashThreshold },
                         set: { newValue in appState.updateDraft { $0.simhashThreshold = newValue } }
                     ))
-                    AppDivider()
                     AppControlRow(title: appState.t("audit.visionOCR"), trailingWidth: 80) {
                         Toggle("", isOn: Binding(
                             get: { appState.draftConfiguration.useVisionOCR },
@@ -160,7 +152,6 @@ struct NewAuditView: View {
                         ))
                         .labelsHidden()
                     }
-                    AppDivider()
                     AppControlRow(title: appState.t("audit.whitelistMode"), trailingWidth: 180) {
                         Picker("", selection: Binding(
                             get: { appState.draftConfiguration.whitelistMode },
@@ -192,13 +183,10 @@ struct NewAuditView: View {
                     .padding(.vertical, AppLayout.rowVerticalPadding)
 
                     if appState.configurationPresets.isEmpty {
-                        AppDivider()
                         EmptyInlineRow(title: appState.t("audit.emptyPreset"), subtitle: appState.t("audit.preset.subtitle"), systemImage: "slider.horizontal.3")
                     } else {
-                        AppDivider()
                         ForEach(appState.configurationPresets) { preset in
                             PresetTableRow(preset: preset)
-                            AppDivider()
                         }
                     }
                 }

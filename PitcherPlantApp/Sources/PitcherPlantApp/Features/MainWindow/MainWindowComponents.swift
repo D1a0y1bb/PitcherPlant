@@ -113,24 +113,21 @@ struct SummaryStrip: View {
     var body: some View {
         LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 12), count: min(max(items.count, 1), 4)), spacing: 12) {
             ForEach(items) { item in
-                GroupBox {
-                    HStack(spacing: 10) {
-                        Image(systemName: item.systemImage)
+                HStack(spacing: 10) {
+                    Image(systemName: item.systemImage)
+                        .foregroundStyle(.secondary)
+                        .frame(width: 20)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(item.value)
+                            .font(.title2.weight(.semibold))
+                        Text(item.title)
+                            .font(AppTypography.supporting)
                             .foregroundStyle(.secondary)
-                            .frame(width: 20)
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(item.value)
-                                .font(.title2.weight(.semibold))
-                            Text(item.title)
-                                .font(AppTypography.supporting)
-                                .foregroundStyle(.secondary)
-                        }
-                        Spacer(minLength: 0)
                     }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(4)
+                    Spacer(minLength: 0)
                 }
-                .groupBoxStyle(.automatic)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.vertical, 4)
             }
         }
     }

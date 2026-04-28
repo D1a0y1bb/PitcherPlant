@@ -7,27 +7,23 @@ struct ReportEvidenceInspector: View {
         if let row = appState.selectedReportRow {
             ScrollView {
                 VStack(alignment: .leading, spacing: 18) {
-                    GroupBox {
-                        VStack(alignment: .leading, spacing: 12) {
-                            HStack(alignment: .top) {
-                                Text(row.detailTitle)
-                                    .font(AppTypography.pageTitle)
-                                    .lineLimit(3)
-                                Spacer()
-                            }
+                    VStack(alignment: .leading, spacing: 12) {
+                        HStack(alignment: .top) {
+                            Text(row.detailTitle)
+                                .font(AppTypography.pageTitle)
+                                .lineLimit(3)
+                            Spacer()
+                        }
 
-                            if !row.badges.isEmpty {
-                                HStack(spacing: 8) {
-                                    ForEach(row.badges, id: \.title) { badge in
-                                        ReportBadgeView(badge: badge)
-                                    }
+                        if !row.badges.isEmpty {
+                            HStack(spacing: 8) {
+                                ForEach(row.badges, id: \.title) { badge in
+                                    ReportBadgeView(badge: badge)
                                 }
                             }
                         }
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(4)
                     }
-                    .groupBoxStyle(.automatic)
+                    .frame(maxWidth: .infinity, alignment: .leading)
 
                     EvidenceReviewPanel(row: row)
 
@@ -77,19 +73,15 @@ struct ReportQuickInspector: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
-                GroupBox {
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text(appState.t("reports.reportProperties"))
-                            .font(AppTypography.sectionTitle)
-                        Text(report.title)
-                            .font(AppTypography.metadata)
-                            .foregroundStyle(.secondary)
-                            .lineLimit(2)
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(4)
+                VStack(alignment: .leading, spacing: 8) {
+                    Text(appState.t("reports.reportProperties"))
+                        .font(AppTypography.sectionTitle)
+                    Text(report.title)
+                        .font(AppTypography.metadata)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(2)
                 }
-                .groupBoxStyle(.automatic)
+                .frame(maxWidth: .infinity, alignment: .leading)
 
                 InspectorSection(title: appState.t("reports.metrics")) {
                     VStack(alignment: .leading, spacing: 8) {
@@ -137,21 +129,17 @@ struct ReportSectionSummaryInspector: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
-                GroupBox {
-                    VStack(alignment: .leading, spacing: 8) {
-                        Label(section.title, systemImage: section.kind.systemImage)
-                            .font(AppTypography.sectionTitle)
-                        if let report {
-                            Text(report.title)
-                                .font(AppTypography.metadata)
-                                .foregroundStyle(.secondary)
-                            .lineLimit(2)
-                        }
+                VStack(alignment: .leading, spacing: 8) {
+                    Label(section.title, systemImage: section.kind.systemImage)
+                        .font(AppTypography.sectionTitle)
+                    if let report {
+                        Text(report.title)
+                            .font(AppTypography.metadata)
+                            .foregroundStyle(.secondary)
+                        .lineLimit(2)
                     }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(4)
                 }
-                .groupBoxStyle(.automatic)
+                .frame(maxWidth: .infinity, alignment: .leading)
 
                 InspectorSection(title: appState.t("reports.sectionSummary")) {
                     Text(section.summary.isEmpty ? appState.t("reports.sectionNoStructuredEvidence") : section.summary)
@@ -583,56 +571,52 @@ private struct EvidenceContextCard: View {
     }
 
     var body: some View {
-        GroupBox {
-            VStack(alignment: .leading, spacing: 8) {
-                VStack(alignment: .leading, spacing: 3) {
-                    HStack(spacing: 6) {
-                        Text(attachment.title)
-                            .font(AppTypography.rowPrimary)
-                            .lineLimit(1)
-                        Spacer()
-                        Text(metricText)
-                            .font(AppTypography.metadata.monospacedDigit())
-                            .foregroundStyle(.secondary)
-                    }
-
-                    Label(attachment.sourceReferenceText, systemImage: "link")
-                        .font(AppTypography.metadata)
-                        .foregroundStyle(.secondary)
+        VStack(alignment: .leading, spacing: 8) {
+            VStack(alignment: .leading, spacing: 3) {
+                HStack(spacing: 6) {
+                    Text(attachment.title)
+                        .font(AppTypography.rowPrimary)
                         .lineLimit(1)
-                        .truncationMode(.middle)
-
-                    if let filePath = attachment.sourceReference?.filePath {
-                        Button {
-                            NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: filePath)])
-                        } label: {
-                            Label("打开源文件", systemImage: "arrow.up.right.square")
-                        }
-                        .font(AppTypography.metadata)
-                        .buttonStyle(.link)
-                    }
+                    Spacer()
+                    Text(metricText)
+                        .font(AppTypography.metadata.monospacedDigit())
+                        .foregroundStyle(.secondary)
                 }
 
-                if style == .code {
-                    ScrollView([.horizontal, .vertical]) {
-                        Text(EvidenceTextHighlighter.attributed(content, highlights: visibleHighlights))
-                            .font(AppTypography.code)
-                            .textSelection(.enabled)
-                            .frame(minWidth: 280, maxWidth: .infinity, alignment: .leading)
-                            .padding(2)
+                Label(attachment.sourceReferenceText, systemImage: "link")
+                    .font(AppTypography.metadata)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+
+                if let filePath = attachment.sourceReference?.filePath {
+                    Button {
+                        NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: filePath)])
+                    } label: {
+                        Label("打开源文件", systemImage: "arrow.up.right.square")
                     }
-                    .frame(minHeight: 132, maxHeight: 240)
-                } else {
-                    Text(EvidenceTextHighlighter.attributed(content, highlights: visibleHighlights))
-                        .font(AppTypography.body)
-                        .textSelection(.enabled)
-                        .frame(maxWidth: .infinity, alignment: .leading)
+                    .font(AppTypography.metadata)
+                    .buttonStyle(.link)
                 }
             }
-            .frame(maxWidth: .infinity, alignment: .topLeading)
-            .padding(4)
+
+            if style == .code {
+                ScrollView([.horizontal, .vertical]) {
+                    Text(EvidenceTextHighlighter.attributed(content, highlights: visibleHighlights))
+                        .font(AppTypography.code)
+                        .textSelection(.enabled)
+                        .frame(minWidth: 280, maxWidth: .infinity, alignment: .leading)
+                        .padding(2)
+                }
+                .frame(minHeight: 132, maxHeight: 240)
+            } else {
+                Text(EvidenceTextHighlighter.attributed(content, highlights: visibleHighlights))
+                    .font(AppTypography.body)
+                    .textSelection(.enabled)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
         }
-        .groupBoxStyle(.automatic)
+        .frame(maxWidth: .infinity, alignment: .topLeading)
     }
 
     private var metricText: String {
@@ -736,26 +720,22 @@ private struct CodeDiffSummaryView: View {
         let rightOnly = rightTokens.subtracting(leftTokens).count
         let fragment = EvidenceTokenAnalyzer.bestSharedFragment(left: left, right: right) ?? "暂无稳定公共片段"
 
-        GroupBox {
-            VStack(alignment: .leading, spacing: 6) {
-                HStack(spacing: 12) {
-                    Label("共享 \(shared)", systemImage: "equal.square")
-                    Label("左侧独有 \(leftOnly)", systemImage: "arrow.left.square")
-                    Label("右侧独有 \(rightOnly)", systemImage: "arrow.right.square")
-                }
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 12) {
+                Label("共享 \(shared)", systemImage: "equal.square")
+                Label("左侧独有 \(leftOnly)", systemImage: "arrow.left.square")
+                Label("右侧独有 \(rightOnly)", systemImage: "arrow.right.square")
+            }
+            .font(AppTypography.metadata)
+            .foregroundStyle(.secondary)
+
+            Text("最长公共片段：\(fragment)")
                 .font(AppTypography.metadata)
                 .foregroundStyle(.secondary)
-
-                Text("最长公共片段：\(fragment)")
-                    .font(AppTypography.metadata)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(2)
-                    .textSelection(.enabled)
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(4)
+                .lineLimit(2)
+                .textSelection(.enabled)
         }
-        .groupBoxStyle(.automatic)
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 
@@ -773,35 +753,32 @@ private struct CodeLineDiffView: View {
                 .font(AppTypography.tableHeader)
                 .foregroundStyle(.secondary)
 
-            GroupBox {
-                ScrollView([.horizontal, .vertical]) {
-                    Grid(alignment: .leading, horizontalSpacing: 8, verticalSpacing: 2) {
-                        GridRow {
-                            diffHeader("L")
-                            diffHeader("左侧")
-                            diffHeader("R")
-                            diffHeader("右侧")
-                            diffHeader("状态")
-                        }
+            ScrollView([.horizontal, .vertical]) {
+                Grid(alignment: .leading, horizontalSpacing: 8, verticalSpacing: 2) {
+                    GridRow {
+                        diffHeader("L")
+                        diffHeader("左侧")
+                        diffHeader("R")
+                        diffHeader("右侧")
+                        diffHeader("状态")
+                    }
 
-                        ForEach(Array(rows.enumerated()), id: \.offset) { _, row in
-                            GridRow {
-                                lineNumber(row.leftLineNumber)
-                                diffCell(row.leftText, change: row.change, side: .left)
-                                lineNumber(row.rightLineNumber)
-                                diffCell(row.rightText, change: row.change, side: .right)
+                    ForEach(Array(rows.enumerated()), id: \.offset) { _, row in
+                        GridRow {
+                            lineNumber(row.leftLineNumber)
+                            diffCell(row.leftText, change: row.change, side: .left)
+                            lineNumber(row.rightLineNumber)
+                            diffCell(row.rightText, change: row.change, side: .right)
                             Text(row.change.title)
                                 .font(AppTypography.metadata.weight(.medium))
                                 .foregroundStyle(.secondary)
                                 .lineLimit(1)
-                            }
                         }
                     }
-                    .padding(8)
                 }
-                .frame(minHeight: 120, maxHeight: 220)
+                .padding(8)
             }
-            .groupBoxStyle(.automatic)
+            .frame(minHeight: 120, maxHeight: 220)
         }
     }
 
@@ -858,26 +835,22 @@ private struct AttachmentSummaryCard: View {
     let decodedImage: (String) -> NSImage?
 
     var body: some View {
-        GroupBox {
-            VStack(alignment: .leading, spacing: 8) {
-                AttachmentHeader(attachment: attachment)
+        VStack(alignment: .leading, spacing: 8) {
+            AttachmentHeader(attachment: attachment)
 
-                if showsPreview, let image = attachment.imageBase64.flatMap(decodedImage) {
-                    Image(nsImage: image)
-                        .resizable()
-                        .aspectRatio(contentMode: .fit)
-                        .frame(maxWidth: .infinity, minHeight: 120, maxHeight: 200)
-                }
-
-                Text(attachment.body)
-                    .font(AppTypography.metadata)
-                    .foregroundStyle(.secondary)
-                    .textSelection(.enabled)
+            if showsPreview, let image = attachment.imageBase64.flatMap(decodedImage) {
+                Image(nsImage: image)
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+                    .frame(maxWidth: .infinity, minHeight: 120, maxHeight: 200)
             }
-            .frame(maxWidth: .infinity, alignment: .topLeading)
-            .padding(4)
+
+            Text(attachment.body)
+                .font(AppTypography.metadata)
+                .foregroundStyle(.secondary)
+                .textSelection(.enabled)
         }
-        .groupBoxStyle(.automatic)
+        .frame(maxWidth: .infinity, alignment: .topLeading)
     }
 }
 
@@ -889,37 +862,33 @@ private struct ImageComparisonCard: View {
     let decodedImage: (String) -> NSImage?
 
     var body: some View {
-        GroupBox {
-            VStack(alignment: .leading, spacing: 8) {
-                HStack(spacing: 8) {
-                    Text(label)
-                        .font(AppTypography.badge)
-                        .foregroundStyle(.secondary)
-                        .frame(width: 20, height: 20)
-
-                    AttachmentHeader(attachment: attachment)
-                }
-
-                if showsPreview, let image = attachment.imageBase64.flatMap(decodedImage) {
-                    ScrollView([.horizontal, .vertical]) {
-                        Image(nsImage: image)
-                            .resizable()
-                            .aspectRatio(contentMode: .fit)
-                            .frame(width: displaySize(for: image).width, height: displaySize(for: image).height)
-                    }
-                    .frame(maxWidth: .infinity, minHeight: 180, maxHeight: 260)
-                }
-
-                Text(attachment.body)
-                    .font(AppTypography.metadata)
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 8) {
+                Text(label)
+                    .font(AppTypography.badge)
                     .foregroundStyle(.secondary)
-                    .lineLimit(5)
-                    .textSelection(.enabled)
+                    .frame(width: 20, height: 20)
+
+                AttachmentHeader(attachment: attachment)
             }
-            .frame(maxWidth: .infinity, alignment: .topLeading)
-            .padding(4)
+
+            if showsPreview, let image = attachment.imageBase64.flatMap(decodedImage) {
+                ScrollView([.horizontal, .vertical]) {
+                    Image(nsImage: image)
+                        .resizable()
+                        .aspectRatio(contentMode: .fit)
+                        .frame(width: displaySize(for: image).width, height: displaySize(for: image).height)
+                }
+                .frame(maxWidth: .infinity, minHeight: 180, maxHeight: 260)
+            }
+
+            Text(attachment.body)
+                .font(AppTypography.metadata)
+                .foregroundStyle(.secondary)
+                .lineLimit(5)
+                .textSelection(.enabled)
         }
-        .groupBoxStyle(.automatic)
+        .frame(maxWidth: .infinity, alignment: .topLeading)
     }
 
     private func displaySize(for image: NSImage) -> CGSize {
