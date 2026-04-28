@@ -32,7 +32,7 @@ struct MainSidebarView: View {
     var body: some View {
         // Adapted from PortKiller's MIT-licensed SidebarView/FavoriteWatchButtons patterns.
         List(selection: $selection) {
-            Section {
+            Section(appState.t("sidebar.categories")) {
                 sidebarRow(.workspace)
                 sidebarRow(.newAudit)
                 sidebarRow(.history)
