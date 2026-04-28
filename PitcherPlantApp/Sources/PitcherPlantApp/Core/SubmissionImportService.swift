@@ -3,6 +3,10 @@ import ZIPFoundation
 
 struct SubmissionImportOptions: Hashable, Sendable {
     var maxNestedZipDepth: Int = 2
+    var maxEntryCount: Int = 10_000
+    var maxSingleFileBytes: Int64 = 256 * 1024 * 1024
+    var maxTotalExpandedBytes: Int64 = 2 * 1024 * 1024 * 1024
+    var maxScannedFileCount: Int = 20_000
     var ignoredNames: Set<String> = [".DS_Store", "__MACOSX"]
     var allowedExtensions: Set<String> = DocumentIngestionService.supportedExtensions.union(["zip"])
 }
@@ -24,7 +28,7 @@ struct SubmissionImportResult: Hashable, Sendable {
     let issues: [SubmissionImportIssue]
 }
 
-struct SubmissionImportService {
+struct SubmissionImportService: Sendable {
     func importPackage(
         at sourceURL: URL,
         into supportDirectory: URL,
@@ -42,7 +46,8 @@ struct SubmissionImportService {
         if sourceURL.pathExtension.lowercased() == "zip" {
             importRoot = destination.appendingPathComponent("expanded", isDirectory: true)
             try FileManager.default.createDirectory(at: importRoot, withIntermediateDirectories: true)
-            try extractZip(sourceURL, to: importRoot, depth: 0, options: options, issues: &issues)
+            var tracker = ZipImportTracker()
+            try extractZip(sourceURL, to: importRoot, depth: 0, options: options, tracker: &tracker, issues: &issues)
         } else {
             importRoot = sourceURL
         }
@@ -77,6 +82,7 @@ struct SubmissionImportService {
         to destination: URL,
         depth: Int,
         options: SubmissionImportOptions,
+        tracker: inout ZipImportTracker,
         issues: inout [SubmissionImportIssue]
     ) throws {
         guard depth <= options.maxNestedZipDepth else {
@@ -85,6 +91,9 @@ struct SubmissionImportService {
         }
         let archive = try Archive(url: url, accessMode: .read, pathEncoding: nil)
         for entry in archive {
+            guard tracker.registerEntry(path: entry.path, options: options, issues: &issues) else {
+                continue
+            }
             guard shouldKeep(entry.path, options: options) else {
                 continue
             }
@@ -97,14 +106,18 @@ struct SubmissionImportService {
             case .directory:
                 try FileManager.default.createDirectory(at: targetURL, withIntermediateDirectories: true)
             case .file:
+                guard tracker.reserveBytes(entry.uncompressedSize, path: entry.path, options: options, issues: &issues) else {
+                    continue
+                }
                 try FileManager.default.createDirectory(at: targetURL.deletingLastPathComponent(), withIntermediateDirectories: true)
-                var data = Data()
-                _ = try archive.extract(entry) { part in data.append(part) }
-                try data.write(to: targetURL, options: .atomic)
+                if FileManager.default.fileExists(atPath: targetURL.path) {
+                    try FileManager.default.removeItem(at: targetURL)
+                }
+                _ = try archive.extract(entry, to: targetURL)
                 if targetURL.pathExtension.lowercased() == "zip" {
                     let nestedDestination = targetURL.deletingPathExtension()
                     try FileManager.default.createDirectory(at: nestedDestination, withIntermediateDirectories: true)
-                    try extractZip(targetURL, to: nestedDestination, depth: depth + 1, options: options, issues: &issues)
+                    try extractZip(targetURL, to: nestedDestination, depth: depth + 1, options: options, tracker: &tracker, issues: &issues)
                 }
             case .symlink:
                 issues.append(SubmissionImportIssue(path: entry.path, severity: .warning, message: "符号链接已跳过"))
@@ -125,9 +138,10 @@ struct SubmissionImportService {
                 && options.ignoredNames.contains(url.lastPathComponent) == false
         }
         let roots = directoryChildren.isEmpty ? [importRoot] : directoryChildren
+        var scanTracker = FileScanTracker()
 
         return roots.map { root in
-            let files = collectFiles(in: root, options: options)
+            let files = collectFiles(in: root, options: options, tracker: &scanTracker, issues: &issues)
             let ignoredCount = files.ignored
             if files.accepted.isEmpty {
                 issues.append(SubmissionImportIssue(path: root.path, severity: .warning, message: "未发现可审计文件"))
@@ -143,13 +157,36 @@ struct SubmissionImportService {
         }
     }
 
-    private func collectFiles(in root: URL, options: SubmissionImportOptions) -> (accepted: [URL], ignored: Int) {
-        let enumerator = FileManager.default.enumerator(at: root, includingPropertiesForKeys: nil)
+    private func collectFiles(
+        in root: URL,
+        options: SubmissionImportOptions,
+        tracker: inout FileScanTracker,
+        issues: inout [SubmissionImportIssue]
+    ) -> (accepted: [URL], ignored: Int) {
+        let enumerator = FileManager.default.enumerator(
+            at: root,
+            includingPropertiesForKeys: [.isDirectoryKey, .isRegularFileKey],
+            options: [.skipsHiddenFiles]
+        )
         var accepted: [URL] = []
         var ignored = 0
         while let url = enumerator?.nextObject() as? URL {
             if options.ignoredNames.contains(url.lastPathComponent) {
                 ignored += 1
+                if (try? url.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) == true {
+                    enumerator?.skipDescendants()
+                }
+                continue
+            }
+            let resourceValues = try? url.resourceValues(forKeys: [.isDirectoryKey, .isRegularFileKey])
+            if resourceValues?.isDirectory == true {
+                continue
+            }
+            guard resourceValues?.isRegularFile != false else {
+                ignored += 1
+                continue
+            }
+            guard tracker.registerFile(path: url.path, options: options, issues: &issues) else {
                 continue
             }
             let ext = url.pathExtension.lowercased()
@@ -181,5 +218,73 @@ struct SubmissionImportService {
             .replacingOccurrences(of: #"^\d+[-_\s]+"#, with: "", options: .regularExpression)
             .trimmingCharacters(in: .whitespacesAndNewlines)
         return name.isEmpty ? "未命名队伍" : name
+    }
+}
+
+private struct ZipImportTracker {
+    var entryCount = 0
+    var expandedBytes: UInt64 = 0
+    var entryLimitReported = false
+    var totalLimitReported = false
+
+    mutating func registerEntry(
+        path: String,
+        options: SubmissionImportOptions,
+        issues: inout [SubmissionImportIssue]
+    ) -> Bool {
+        entryCount += 1
+        guard entryCount <= options.maxEntryCount else {
+            if entryLimitReported == false {
+                issues.append(SubmissionImportIssue(path: path, severity: .warning, message: "ZIP 条目数量超过限制"))
+                entryLimitReported = true
+            }
+            return false
+        }
+        return true
+    }
+
+    mutating func reserveBytes(
+        _ byteCount: UInt64,
+        path: String,
+        options: SubmissionImportOptions,
+        issues: inout [SubmissionImportIssue]
+    ) -> Bool {
+        let maxSingleFileBytes = UInt64(max(0, options.maxSingleFileBytes))
+        guard byteCount <= maxSingleFileBytes else {
+            issues.append(SubmissionImportIssue(path: path, severity: .warning, message: "单文件大小超过限制"))
+            return false
+        }
+        let maxTotalExpandedBytes = UInt64(max(0, options.maxTotalExpandedBytes))
+        guard byteCount <= maxTotalExpandedBytes,
+              expandedBytes <= maxTotalExpandedBytes - byteCount else {
+            if totalLimitReported == false {
+                issues.append(SubmissionImportIssue(path: path, severity: .warning, message: "ZIP 总展开大小超过限制"))
+                totalLimitReported = true
+            }
+            return false
+        }
+        expandedBytes += byteCount
+        return true
+    }
+}
+
+private struct FileScanTracker {
+    var scannedFileCount = 0
+    var scanLimitReported = false
+
+    mutating func registerFile(
+        path: String,
+        options: SubmissionImportOptions,
+        issues: inout [SubmissionImportIssue]
+    ) -> Bool {
+        guard scannedFileCount < options.maxScannedFileCount else {
+            if scanLimitReported == false {
+                issues.append(SubmissionImportIssue(path: path, severity: .warning, message: "扫描文件数量超过限制"))
+                scanLimitReported = true
+            }
+            return false
+        }
+        scannedFileCount += 1
+        return true
     }
 }

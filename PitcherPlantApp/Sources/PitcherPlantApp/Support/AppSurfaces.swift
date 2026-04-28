@@ -6,6 +6,24 @@ enum AppLayout {
     static let rowVerticalPadding: CGFloat = 11
     static let rowMinHeight: CGFloat = 54
     static let controlColumnWidth: CGFloat = 360
+    static let surfaceCornerRadius: CGFloat = 18
+}
+
+struct LiquidGlassSurface<Content: View>: View {
+    var padding: EdgeInsets = EdgeInsets()
+    var cornerRadius: CGFloat = AppLayout.surfaceCornerRadius
+    var isInteractive = false
+    @ViewBuilder var content: Content
+
+    var body: some View {
+        content
+            .padding(padding)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .glassEffect(
+                isInteractive ? .regular.interactive() : .regular,
+                in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+            )
+    }
 }
 
 struct AppPageShell<Content: View>: View {
@@ -14,12 +32,14 @@ struct AppPageShell<Content: View>: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: spacing) {
-                content
+            GlassEffectContainer(spacing: spacing) {
+                VStack(alignment: .leading, spacing: spacing) {
+                    content
+                }
+                .padding(.horizontal, AppLayout.pagePadding)
+                .padding(.vertical, 22)
+                .frame(maxWidth: .infinity, alignment: .topLeading)
             }
-            .padding(.horizontal, AppLayout.pagePadding)
-            .padding(.vertical, 22)
-            .frame(maxWidth: .infinity, alignment: .topLeading)
         }
     }
 }
@@ -31,23 +51,27 @@ struct AppSectionPanel<Content: View>: View {
     @ViewBuilder var content: Content
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            VStack(alignment: .leading, spacing: 2) {
-                Text(title)
-                    .font(AppTypography.sectionTitle)
-                if subtitle.isEmpty == false {
-                    Text(subtitle)
-                        .font(AppTypography.metadata)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
+        LiquidGlassSurface(
+            padding: EdgeInsets(top: 14, leading: 16, bottom: 16, trailing: 16)
+        ) {
+            VStack(alignment: .leading, spacing: 10) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title)
+                        .font(AppTypography.sectionTitle)
+                    if subtitle.isEmpty == false {
+                        Text(subtitle)
+                            .font(AppTypography.metadata)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                    }
                 }
-            }
 
-            content
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(contentPadding)
+                content
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(contentPadding)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 
@@ -56,9 +80,9 @@ struct AppToolbarBand<Content: View>: View {
     @ViewBuilder var content: Content
 
     var body: some View {
-        content
-            .padding(padding)
-            .frame(maxWidth: .infinity, alignment: .leading)
+        LiquidGlassSurface(padding: padding, cornerRadius: 16, isInteractive: true) {
+            content
+        }
     }
 }
 
@@ -68,22 +92,26 @@ struct AppInspectorPanel<Content: View>: View {
     @ViewBuilder var content: Content
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            VStack(alignment: .leading, spacing: 2) {
-                Text(title)
-                    .font(AppTypography.sectionTitle)
-                if subtitle.isEmpty == false {
-                    Text(subtitle)
-                        .font(AppTypography.metadata)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(2)
+        LiquidGlassSurface(
+            padding: EdgeInsets(top: 14, leading: 14, bottom: 14, trailing: 14)
+        ) {
+            VStack(alignment: .leading, spacing: 10) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title)
+                        .font(AppTypography.sectionTitle)
+                    if subtitle.isEmpty == false {
+                        Text(subtitle)
+                            .font(AppTypography.metadata)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(2)
+                    }
                 }
-            }
 
-            content
-                .frame(maxWidth: .infinity, alignment: .leading)
+                content
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 

@@ -49,7 +49,7 @@ func ingestionFallsBackForMislabeledTextDocxAndSkipsBrokenDocx() throws {
 }
 
 @Test
-func normalizerRemovesLegacyNoisePatternsDuringIngestion() throws {
+func normalizerRemovesBoilerplateNoisePatternsDuringIngestion() throws {
     let root = FileManager.default.temporaryDirectory
         .appendingPathComponent("pitcherplant-normalizer-\(UUID().uuidString)", isDirectory: true)
     try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)

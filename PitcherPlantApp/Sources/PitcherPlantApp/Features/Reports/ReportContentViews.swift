@@ -120,11 +120,6 @@ struct ReportContentHeader: View {
 
             Spacer()
 
-            if report.isLegacy && appState.appSettings.showLegacyBadges {
-                Text("Legacy")
-                    .font(AppTypography.badge)
-                    .foregroundStyle(.secondary)
-            }
         }
     }
 }
@@ -202,7 +197,7 @@ struct ReportSectionReadingView: View {
                     Label(section.title, systemImage: section.kind.systemImage)
                         .font(AppTypography.pageTitle)
                     Spacer()
-                    Text(report.isLegacy ? appState.t("reports.legacyHTML") : appState.t("reports.nativeReport"))
+                    Text(report.createdAt.formatted(date: .abbreviated, time: .shortened))
                         .font(AppTypography.metadata.weight(.medium))
                         .foregroundStyle(.secondary)
                 }

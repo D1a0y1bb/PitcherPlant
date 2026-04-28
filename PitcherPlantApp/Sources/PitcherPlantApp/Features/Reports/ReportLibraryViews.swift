@@ -4,7 +4,6 @@ struct ReportLibrarySidebar: View {
     @Environment(AppState.self) private var appState
     let reports: [AuditReport]
     @Binding var reportQuery: String
-    @Binding var reportFilter: ReportLibraryFilter
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -19,16 +18,13 @@ struct ReportLibrarySidebar: View {
                             .foregroundStyle(.secondary)
                     }
 
-                    TextField(appState.t("reports.searchPrompt"), text: $reportQuery)
-                        .textFieldStyle(.roundedBorder)
-
-                    Picker(appState.t("reports.filter"), selection: $reportFilter) {
-                        ForEach(ReportLibraryFilter.allCases) { filter in
-                            Text(appState.title(for: filter)).tag(filter)
-                        }
+                    if reportQuery.isEmpty == false {
+                        Text(reportQuery)
+                            .font(AppTypography.metadata)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                            .truncationMode(.middle)
                     }
-                    .pickerStyle(.segmented)
-                    .labelsHidden()
                 }
             }
             .padding(.horizontal, 12)
@@ -64,22 +60,15 @@ struct ReportLibraryRow: View {
 
     var body: some View {
         HStack(spacing: 9) {
-            Image(systemName: report.isLegacy ? "doc.richtext" : "doc.text.magnifyingglass")
+            Image(systemName: "doc.text.magnifyingglass")
                 .foregroundStyle(.secondary)
                 .frame(width: 18)
 
             VStack(alignment: .leading, spacing: 3) {
-                HStack(spacing: 6) {
-                    Text(report.title)
-                        .font(AppTypography.rowPrimary)
-                        .lineLimit(1)
-                        .truncationMode(.middle)
-                    if report.isLegacy && appState.appSettings.showLegacyBadges {
-                        Text("Legacy")
-                            .font(AppTypography.badge)
-                            .foregroundStyle(.secondary)
-                    }
-                }
+                Text(report.title)
+                    .font(AppTypography.rowPrimary)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
                 Text(report.createdAt.formatted(date: .abbreviated, time: .shortened))
                     .font(AppTypography.metadata)
                     .foregroundStyle(.secondary)

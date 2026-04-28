@@ -1,4 +1,5 @@
 import AppKit
+import CoreText
 import Foundation
 import ZIPFoundation
 
@@ -44,20 +45,59 @@ enum ReportExporter {
 
     @MainActor
     static func exportPDF(report: AuditReport, to url: URL) throws {
-        let html = htmlString(from: report)
-        let attributed = try? NSAttributedString(
-            data: Data(html.utf8),
-            options: [.documentType: NSAttributedString.DocumentType.html],
-            documentAttributes: nil
-        )
-        let textView = NSTextView(frame: NSRect(x: 0, y: 0, width: 900, height: 2400))
-        if let attributed {
-            textView.textStorage?.setAttributedString(attributed)
-        } else {
-            textView.string = ReportTextFormatter.string(from: report)
-        }
-        let data = textView.dataWithPDF(inside: textView.bounds)
+        let data = try pdfData(from: report)
         try data.write(to: url)
+    }
+
+    @MainActor
+    private static func pdfData(from report: AuditReport) throws -> Data {
+        let pageSize = CGSize(width: 612, height: 792)
+        let margin: CGFloat = 48
+        let contentRect = CGRect(x: margin, y: margin, width: pageSize.width - margin * 2, height: pageSize.height - margin * 2)
+        let text = ReportTextFormatter.string(from: report)
+        let font = CTFontCreateWithName("Helvetica" as CFString, 11, nil)
+        let attributed = NSAttributedString(
+            string: text,
+            attributes: [
+                kCTFontAttributeName as NSAttributedString.Key: font,
+                kCTForegroundColorAttributeName as NSAttributedString.Key: CGColor(gray: 0.1, alpha: 1),
+            ]
+        )
+        let framesetter = CTFramesetterCreateWithAttributedString(attributed)
+
+        let data = NSMutableData()
+        var mediaBox = CGRect(origin: .zero, size: pageSize)
+        guard let consumer = CGDataConsumer(data: data as CFMutableData),
+              let context = CGContext(consumer: consumer, mediaBox: &mediaBox, nil) else {
+            throw NSError(
+                domain: "PitcherPlant.ReportExporter",
+                code: 1,
+                userInfo: [NSLocalizedDescriptionKey: "PDF 上下文创建失败"]
+            )
+        }
+
+        var range = CFRange(location: 0, length: 0)
+        repeat {
+            context.beginPDFPage(nil)
+            context.setFillColor(CGColor(gray: 1, alpha: 1))
+            context.fill(mediaBox)
+            context.saveGState()
+            context.textMatrix = .identity
+            context.translateBy(x: 0, y: pageSize.height)
+            context.scaleBy(x: 1, y: -1)
+            let path = CGPath(rect: contentRect, transform: nil)
+            let frame = CTFramesetterCreateFrame(framesetter, range, path, nil)
+            CTFrameDraw(frame, context)
+            let visibleRange = CTFrameGetVisibleStringRange(frame)
+            context.restoreGState()
+            context.endPDFPage()
+            guard visibleRange.length > 0 else {
+                break
+            }
+            range.location += visibleRange.length
+        } while range.location < attributed.length
+        context.closePDF()
+        return data as Data
     }
 
     static func exportCSV(report: AuditReport, to url: URL) throws {

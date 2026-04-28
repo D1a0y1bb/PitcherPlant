@@ -28,19 +28,19 @@ func candidateRecallIndexesLargeSyntheticCorpusAndKeepsPositivePairs() throws {
 }
 
 @Test
-func documentFeatureDatabaseMigratesLegacyPayloadAndCleansStaleRows() async throws {
+func documentFeatureDatabaseNormalizesCachedPayloadAndCleansStaleRows() async throws {
     let root = FileManager.default.temporaryDirectory
         .appendingPathComponent("pitcherplant-feature-db-\(UUID().uuidString)", isDirectory: true)
     let support = root.appendingPathComponent(".pitcherplant-macos", isDirectory: true)
     try FileManager.default.createDirectory(at: support, withIntermediateDirectories: true)
 
     let dbURL = support.appendingPathComponent("PitcherPlantMac.sqlite")
-    let legacyID = UUID()
-    let legacyPayload = """
-    {"author":"Alice","codeTokenSignature":[],"documentPath":"\(root.path)/legacy.md","ext":"md","filename":"legacy.md","id":"\(legacyID.uuidString)","imageHashPrefixes":[],"keywordSignature":["legacy","evidence","token"],"simhash":"1111111111111111","textLength":21,"updatedAt":"2026-04-27T00:00:00Z"}
+    let cachedID = UUID()
+    let cachedPayload = """
+    {"author":"Alice","codeTokenSignature":[],"documentPath":"\(root.path)/cached.md","ext":"md","filename":"cached.md","id":"\(cachedID.uuidString)","imageHashPrefixes":[],"keywordSignature":["cached","evidence","token"],"simhash":"1111111111111111","textLength":21,"updatedAt":"2026-04-27T00:00:00Z"}
     """
-    let legacyDB = try DatabaseQueue(path: dbURL.path)
-    try await legacyDB.write { db in
+    let cachedDB = try DatabaseQueue(path: dbURL.path)
+    try await cachedDB.write { db in
         try db.execute(
             sql: """
             CREATE TABLE document_features (
@@ -59,12 +59,12 @@ func documentFeatureDatabaseMigratesLegacyPayloadAndCleansStaleRows() async thro
             VALUES (?, ?, ?, ?, ?, ?)
             """,
             arguments: [
-                legacyID.uuidString,
-                "\(root.path)/legacy.md",
+                cachedID.uuidString,
+                "\(root.path)/cached.md",
                 "1111111111111111",
                 21,
                 Date(timeIntervalSince1970: 1_777_248_000),
-                legacyPayload
+                cachedPayload
             ]
         )
     }
@@ -72,11 +72,11 @@ func documentFeatureDatabaseMigratesLegacyPayloadAndCleansStaleRows() async thro
     let store = try DatabaseStore(rootDirectory: root)
     try await store.prepare()
 
-    let legacy = try #require(try await store.loadDocumentFeatures().first { $0.id == legacyID })
-    #expect(legacy.featureVersion == 1)
-    #expect(legacy.contentHash == "")
-    #expect(legacy.scanID == nil)
-    #expect(legacy.batchID == nil)
+    let cached = try #require(try await store.loadDocumentFeatures().first { $0.id == cachedID })
+    #expect(cached.featureVersion == 1)
+    #expect(cached.contentHash == "")
+    #expect(cached.scanID == nil)
+    #expect(cached.batchID == nil)
 
     let scanID = UUID()
     let batchID = UUID()
@@ -94,7 +94,7 @@ func documentFeatureDatabaseMigratesLegacyPayloadAndCleansStaleRows() async thro
     let deleted = try await store.cleanupDocumentFeatures(excludingDocumentPaths: [current.documentPath], batchID: batchID)
     #expect(deleted == 0)
 
-    let removed = try await store.deleteDocumentFeatures(ids: [current.id, legacyID])
+    let removed = try await store.deleteDocumentFeatures(ids: [current.id, cachedID])
     #expect(removed == 2)
     #expect(try await store.loadDocumentFeatures().isEmpty)
 }

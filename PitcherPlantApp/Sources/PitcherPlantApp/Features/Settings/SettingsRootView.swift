@@ -225,33 +225,17 @@ struct SettingsRootView: View {
                     SettingsDivider()
 
                     SettingsToggleRow(
-                        title: appState.t("settings.showLegacyBadges"),
-                        subtitle: appState.t("settings.showLegacyBadgesDescription"),
-                        isOn: settingsBinding(\.showLegacyBadges)
-                    )
-
-                    SettingsDivider()
-
-                    SettingsToggleRow(
                         title: appState.t("settings.attachmentPreview"),
                         subtitle: appState.t("settings.attachmentPreviewDescription"),
                         isOn: settingsBinding(\.showAttachmentPreviews)
                     )
                 }
 
-                SettingsGroup(title: appState.t("settings.dataMigration")) {
+                SettingsGroup(title: appState.t("settings.data")) {
                     SettingsReadOnlyPathRow(
                         title: appState.t("settings.databaseLocation"),
                         subtitle: appState.t("settings.databaseLocationDescription"),
                         value: appState.database.databaseURL.path
-                    )
-
-                    SettingsDivider()
-
-                    SettingsValueRow(
-                        title: appState.t("settings.migrationSummary"),
-                        subtitle: appState.t("settings.migrationSummaryDescription"),
-                        value: summaryText
                     )
 
                     SettingsDivider()
@@ -338,13 +322,6 @@ struct SettingsRootView: View {
             .frame(maxWidth: .infinity, alignment: .topLeading)
         }
         .environment(\.settingsSearchQuery, searchText)
-    }
-
-    private var summaryText: String {
-        guard let summary = appState.lastMigrationSummary else {
-            return appState.t("settings.noMigration")
-        }
-        return "\(appState.t("status.audits")) \(summary.importedJobs) · \(appState.t("status.reports")) \(summary.importedReports) · \(appState.t("status.fingerprints")) \(summary.importedFingerprints) · \(appState.t("sidebar.whitelist")) \(summary.importedWhitelistRules)"
     }
 
     private var recordCounts: String {

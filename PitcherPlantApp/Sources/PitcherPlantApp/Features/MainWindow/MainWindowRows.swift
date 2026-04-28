@@ -70,14 +70,6 @@ struct AuditReportListRow: View {
                 .fontWeight(.medium)
                 .lineLimit(1)
                 .frame(maxWidth: .infinity, alignment: .leading)
-            if report.isLegacy {
-                PlainBadgeLabel(title: "Legacy")
-                    .frame(width: 74, alignment: .trailing)
-            } else {
-                Text(appState.t("common.native"))
-                    .foregroundStyle(.secondary)
-                    .frame(width: 74, alignment: .trailing)
-            }
             Text("\(report.sections.count)")
                 .foregroundStyle(.secondary)
                 .frame(width: 54, alignment: .trailing)

@@ -93,6 +93,11 @@ jobs:
           swift --version
           xcodebuild -version
 
+      - name: Verify macOS 26 toolchain
+        run: |
+          swift --version | grep -E 'Apple Swift version 6\.2'
+          xcodebuild -version | grep -E '^Xcode 26\.'
+
       - name: Resolve release mode
         id: release
         run: |

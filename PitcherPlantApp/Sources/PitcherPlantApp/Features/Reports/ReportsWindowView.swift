@@ -3,18 +3,16 @@ import SwiftUI
 struct ReportsWindowView: View {
     @Environment(AppState.self) private var appState
     @State private var reportQuery = ""
-    @State private var reportFilter: ReportLibraryFilter = .all
 
     private var filteredReports: [AuditReport] {
-        appState.reports.filter { $0.matchesLibrarySearch(reportQuery, filter: reportFilter) }
+        appState.reports.filter { $0.matchesLibrarySearch(reportQuery) }
     }
 
     var body: some View {
         NavigationSplitView {
             ReportLibrarySidebar(
                 reports: filteredReports,
-                reportQuery: $reportQuery,
-                reportFilter: $reportFilter
+                reportQuery: $reportQuery
             )
             .navigationSplitViewColumnWidth(min: 260, ideal: 300, max: 360)
         } content: {
@@ -25,14 +23,14 @@ struct ReportsWindowView: View {
                 .navigationSplitViewColumnWidth(min: 360, ideal: 440, max: 560)
         }
         .navigationSplitViewStyle(.balanced)
+        .searchable(text: $reportQuery, placement: .toolbar, prompt: appState.t("reports.searchPrompt"))
         .onAppear {
             syncVisibleReportSelection()
         }
         .onChange(of: reportQuery) { _, _ in syncVisibleReportSelection() }
-        .onChange(of: reportFilter) { _, _ in syncVisibleReportSelection() }
         .onChange(of: appState.reports.map(\.id)) { _, _ in syncVisibleReportSelection() }
         .toolbar {
-            ToolbarItemGroup(placement: .primaryAction) {
+            ToolbarItem(placement: .primaryAction) {
                 Menu {
                     Button { appState.exportSelectedReportAsHTML() } label: {
                         Label("HTML", systemImage: "chevron.left.forwardslash.chevron.right")
@@ -55,7 +53,11 @@ struct ReportsWindowView: View {
                 } label: {
                     Label(appState.t("settings.exportReport"), systemImage: "square.and.arrow.up")
                 }
+            }
 
+            ToolbarSpacer(.fixed, placement: .primaryAction)
+
+            ToolbarItemGroup(placement: .primaryAction) {
                 Button {
                     appState.openSelectedReportSource()
                 } label: {
@@ -67,7 +69,11 @@ struct ReportsWindowView: View {
                 } label: {
                     Label(appState.t("command.deleteReport"), systemImage: "trash")
                 }
+            }
 
+            ToolbarSpacer(.fixed, placement: .primaryAction)
+
+            ToolbarItem(placement: .primaryAction) {
                 Button {
                     Task { await appState.reload() }
                 } label: {
@@ -92,18 +98,16 @@ struct ReportsWindowView: View {
 struct ReportsInlineView: View {
     @Environment(AppState.self) private var appState
     @State private var reportQuery = ""
-    @State private var reportFilter: ReportLibraryFilter = .all
 
     private var filteredReports: [AuditReport] {
-        appState.reports.filter { $0.matchesLibrarySearch(reportQuery, filter: reportFilter) }
+        appState.reports.filter { $0.matchesLibrarySearch(reportQuery) }
     }
 
     var body: some View {
         VStack(spacing: 14) {
             ReportsCenterSelectorBar(
                 reports: filteredReports,
-                reportQuery: $reportQuery,
-                reportFilter: $reportFilter
+                reportQuery: $reportQuery
             )
             ReportSectionsAndEvidenceView(showsReportHeader: false)
         }
@@ -112,8 +116,8 @@ struct ReportsInlineView: View {
             syncVisibleReportSelection()
         }
         .onChange(of: reportQuery) { _, _ in syncVisibleReportSelection() }
-        .onChange(of: reportFilter) { _, _ in syncVisibleReportSelection() }
         .onChange(of: appState.reports.map(\.id)) { _, _ in syncVisibleReportSelection() }
+        .searchable(text: $reportQuery, placement: .toolbar, prompt: appState.t("reports.searchPrompt"))
     }
 
     private func syncVisibleReportSelection() {
@@ -133,7 +137,6 @@ private struct ReportsCenterSelectorBar: View {
     @Environment(AppState.self) private var appState
     let reports: [AuditReport]
     @Binding var reportQuery: String
-    @Binding var reportFilter: ReportLibraryFilter
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -154,18 +157,9 @@ private struct ReportsCenterSelectorBar: View {
                 }
             }
 
-            ViewThatFits(in: .horizontal) {
-                HStack(spacing: 12) {
-                    searchField
-                    filterPicker
-                    Spacer()
-                }
-
-                VStack(alignment: .leading, spacing: 10) {
-                    searchField
-                    filterPicker
-                }
-            }
+            Text(reportQuery.isEmpty ? "\(reports.count) \(appState.t("common.countSuffix"))" : "\(reports.count) \(appState.t("reports.matchedReports"))")
+                .font(AppTypography.metadata)
+                .foregroundStyle(.secondary)
         }
     }
 
@@ -197,7 +191,7 @@ private struct ReportsCenterSelectorBar: View {
                     Button {
                         appState.selectReport(report.id)
                     } label: {
-                        Label(report.title, systemImage: report.isLegacy ? "doc.richtext" : "doc.text.magnifyingglass")
+                        Label(report.title, systemImage: "doc.text.magnifyingglass")
                     }
                 }
             }
@@ -220,22 +214,6 @@ private struct ReportsCenterSelectorBar: View {
         .disabled(appState.selectedReport == nil)
     }
 
-    private var searchField: some View {
-        TextField(appState.t("reports.searchPrompt"), text: $reportQuery)
-            .textFieldStyle(.roundedBorder)
-            .frame(minWidth: 240, idealWidth: 320, maxWidth: 420)
-    }
-
-    private var filterPicker: some View {
-        Picker(appState.t("reports.filter"), selection: $reportFilter) {
-            ForEach(ReportLibraryFilter.allCases) { filter in
-                Text(appState.title(for: filter)).tag(filter)
-            }
-        }
-        .pickerStyle(.segmented)
-        .labelsHidden()
-        .frame(width: 220)
-    }
 }
 
 struct ReportEvidenceInspectorHost: View {

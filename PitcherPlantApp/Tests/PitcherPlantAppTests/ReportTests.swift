@@ -3,7 +3,7 @@ import Testing
 @testable import PitcherPlantApp
 
 @Test
-func reportLibrarySearchMatchesLegacyAndSectionEvidence() {
+func reportLibrarySearchMatchesSectionEvidence() {
     let section = ReportSection(
         kind: .code,
         title: "代码/脚本抄袭分析",
@@ -20,25 +20,16 @@ func reportLibrarySearchMatchesLegacyAndSectionEvidence() {
             ]
         )
     )
-    let nativeReport = AuditReport(
+    let report = AuditReport(
         title: "2026-04-22 原生报告",
         sourcePath: "/tmp/native.html",
         scanDirectoryPath: "/tmp/date",
         metrics: [],
         sections: [section]
     )
-    let legacyReport = AuditReport(
-        title: "2026-04-20 Legacy 报告",
-        sourcePath: "/tmp/legacy.html",
-        scanDirectoryPath: "/tmp/date",
-        isLegacy: true,
-        metrics: [],
-        sections: [ReportSection(kind: .overview, title: "Legacy 报告", summary: "旧版导入")]
-    )
 
-    #expect(nativeReport.matchesLibrarySearch("结构片段", filter: .all))
-    #expect(nativeReport.matchesLibrarySearch("原生", filter: .nativeOnly))
-    #expect(legacyReport.matchesLibrarySearch("", filter: .legacyOnly))
+    #expect(report.matchesLibrarySearch("结构片段"))
+    #expect(report.matchesLibrarySearch("原生"))
 }
 
 @Test
@@ -114,7 +105,7 @@ func auditReportMergesDuplicateDisplaySections() throws {
     let firstRow = ReportTableRow(columns: ["a.swift", "b.swift", "0.82"], detailTitle: "代码证据 A", detailBody: "A")
     let secondRow = ReportTableRow(columns: ["c.swift", "d.swift", "0.91"], detailTitle: "代码证据 B", detailBody: "B")
     let report = AuditReport(
-        title: "Legacy 重复章节",
+        title: "重复章节",
         sourcePath: "/tmp/report.html",
         scanDirectoryPath: "/tmp/date",
         metrics: [],

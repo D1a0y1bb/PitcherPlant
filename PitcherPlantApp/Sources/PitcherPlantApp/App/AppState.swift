@@ -22,7 +22,6 @@ struct AppNotice: Identifiable, Equatable {
 final class AppState {
     let workspaceRoot: URL
     let database: DatabaseStore
-    let migrationService: MigrationService
     let auditRunner: AuditRunner
 
     var hasBootstrapped = false
@@ -46,10 +45,10 @@ final class AppState {
 
     var draftConfiguration: AuditConfiguration
     var latestReport: AuditReport?
-    var lastMigrationSummary: MigrationSummary?
     var initializationMessage: String?
     var notice: AppNotice?
     var isRunningAudit = false
+    var isImportingSubmissionPackage = false
     private var currentAuditTask: Task<AuditReport?, Never>?
 
     init() {
@@ -61,7 +60,6 @@ final class AppState {
         let databaseResult = Self.makeDatabase(rootDirectory: workspaceRoot)
         self.database = databaseResult.database
         self.initializationMessage = databaseResult.message
-        self.migrationService = MigrationService(workspaceRoot: workspaceRoot)
         self.auditRunner = AuditRunner()
         self.draftConfiguration = AppPreferences.loadDraftConfiguration(for: workspaceRoot)
     }
@@ -89,16 +87,11 @@ final class AppState {
         hasBootstrapped = true
         do {
             try await database.prepare()
-            lastMigrationSummary = try await migrationService.runIfNeeded(database: database)
             _ = try await database.markInterruptedJobs()
         } catch {
             showNotice(title: t("notice.bootstrapFailed"), message: error.localizedDescription, tone: .error)
         }
         await reload()
-        if let migratedConfig = lastMigrationSummary?.lastConfiguration {
-            draftConfiguration = migratedConfig
-            AppPreferences.saveDraftConfiguration(migratedConfig, for: workspaceRoot)
-        }
     }
 
     func reload() async {
@@ -360,7 +353,12 @@ final class AppState {
         guard let row = selectedReportRow else {
             return
         }
-        await saveReview(for: row, decision: decision, severity: row.riskAssessment?.level, note: review(for: row)?.reviewerNote ?? "")
+        let existing = review(for: row)
+        await quickReview(row: row, decision: decision, severity: existing?.severity ?? row.riskAssessment?.level, note: existing?.reviewerNote ?? "")
+    }
+
+    func quickReview(row: ReportTableRow, decision: EvidenceDecision, severity: RiskLevel?, note: String) async {
+        await saveReview(for: row, decision: decision, severity: severity, note: note)
         if decision == .whitelisted, let candidate = whitelistRuleCandidate(for: row) {
             await addWhitelistRule(pattern: candidate.pattern, type: candidate.type)
         }
@@ -519,6 +517,9 @@ final class AppState {
     }
 
     func importSubmissionPackageWithPanel() {
+        guard isImportingSubmissionPackage == false else {
+            return
+        }
         let panel = NSOpenPanel()
         panel.allowsMultipleSelection = false
         panel.canChooseFiles = true
@@ -530,18 +531,29 @@ final class AppState {
     }
 
     func importSubmissionPackage(at url: URL) async {
+        guard isImportingSubmissionPackage == false else {
+            return
+        }
+        isImportingSubmissionPackage = true
+        defer { isImportingSubmissionPackage = false }
+
+        let supportDirectory = database.databaseURL.deletingLastPathComponent()
+        let outputDirectory = URL(fileURLWithPath: draftConfiguration.outputDirectoryPath)
+        let reportNameTemplate = draftConfiguration.reportNameTemplate
         do {
-            let service = SubmissionImportService()
-            let result = try service.importPackage(
-                at: url,
-                into: database.databaseURL.deletingLastPathComponent()
-            )
+            let imported = try await Task.detached(priority: .userInitiated) {
+                let service = SubmissionImportService()
+                let result = try service.importPackage(at: url, into: supportDirectory)
+                let jobs = service.auditJobs(
+                    from: result,
+                    outputDirectory: outputDirectory,
+                    template: reportNameTemplate
+                )
+                return (result, jobs)
+            }.value
+            let result = imported.0
+            let jobsToQueue = imported.1
             try await database.upsertSubmissionBatch(result.batch, items: result.items)
-            let jobsToQueue = service.auditJobs(
-                from: result,
-                outputDirectory: URL(fileURLWithPath: draftConfiguration.outputDirectoryPath),
-                template: draftConfiguration.reportNameTemplate
-            )
             for job in jobsToQueue {
                 try await database.upsertJob(job)
             }
@@ -895,7 +907,6 @@ final class AppState {
             sourcePath: report.sourcePath,
             scanDirectoryPath: report.scanDirectoryPath,
             createdAt: report.createdAt,
-            isLegacy: report.isLegacy,
             metrics: report.metrics,
             sections: sections
         )

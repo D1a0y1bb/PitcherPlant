@@ -9,7 +9,6 @@
 /* Begin PBXBuildFile section */
 		00286AB6B71F4B8B4B1DF610 /* SettingsLayoutRows.swift in Sources */ = {isa = PBXBuildFile; fileRef = 47C2832C89D8FC39CBD1B9E9 /* SettingsLayoutRows.swift */; };
 		00D8C65F6BC6001356A0C7D1 /* DatabaseStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C2B648C0359BA9D1072C5AB7 /* DatabaseStoreTests.swift */; };
-		045358DDD28C944FD21466C6 /* MigrationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = AEA2F52160967FD69B95CE2E /* MigrationService.swift */; };
 		0A975239F9DE6BA8D276DCB5 /* FeatureCompletionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F1E3A67673DB71739C8CE8D /* FeatureCompletionTests.swift */; };
 		0CAD5DE16AB41D5FEC900BF6 /* TestSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B868185145383AC94AD161F /* TestSupport.swift */; };
 		0F406771B516A94A398EA9AA /* SettingsRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D684506393797F240E731AA /* SettingsRootView.swift */; };
@@ -35,7 +34,6 @@
 		4707954688F4D3EF639402B0 /* CrossBatchGraph.swift in Sources */ = {isa = PBXBuildFile; fileRef = 40A1EA69ED1A74B7F9DC91AA /* CrossBatchGraph.swift */; };
 		56E47645240E1C3E3D032F1B /* Typography.swift in Sources */ = {isa = PBXBuildFile; fileRef = 65239D837F7125DDE36465A7 /* Typography.swift */; };
 		5ABE317374EE212C9D507DD2 /* ReportExporter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 58D12DF8783F55B02E4AD0E1 /* ReportExporter.swift */; };
-		5CEBD2A6EC8B7AB236074F8B /* MigrationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4DE75C67A1CA3F98A8DAEFB7 /* MigrationTests.swift */; };
 		5EFE25EEC256A6780006F171 /* SettingsStyles.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3C41049ABF3348F1AB4240F0 /* SettingsStyles.swift */; };
 		6470E071E62B237D2C06A4DA /* AppSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = C48B2A6AD8AB4857937A22C1 /* AppSettings.swift */; };
 		682ADA20FAF91F229D48F5F6 /* manifest.json in Resources */ = {isa = PBXBuildFile; fileRef = C60211847CA8DEE8FF1505BE /* manifest.json */; };
@@ -110,7 +108,6 @@
 		49FE455BEF863D8F1AD2DF2B /* PitcherPlantMenuBarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PitcherPlantMenuBarView.swift; sourceTree = "<group>"; };
 		4AA176FFC61F4E3C6C10B4E3 /* LibraryViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibraryViews.swift; sourceTree = "<group>"; };
 		4BF556CB79EA2D6CC23D09D3 /* MainWindowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainWindowView.swift; sourceTree = "<group>"; };
-		4DE75C67A1CA3F98A8DAEFB7 /* MigrationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MigrationTests.swift; sourceTree = "<group>"; };
 		54162EA7478EAFCCE88C5709 /* AppVersionInfo.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppVersionInfo.swift; sourceTree = "<group>"; };
 		58D12DF8783F55B02E4AD0E1 /* ReportExporter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReportExporter.swift; sourceTree = "<group>"; };
 		5D684506393797F240E731AA /* SettingsRootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsRootView.swift; sourceTree = "<group>"; };
@@ -128,7 +125,6 @@
 		A3BD2EB5398BC6FA45FFE4EB /* ReportsWindowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReportsWindowView.swift; sourceTree = "<group>"; };
 		A4D24A1F69026B8E6BD26390 /* EvidenceModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EvidenceModels.swift; sourceTree = "<group>"; };
 		AE04FBF480A6296285FC313E /* PitcherPlantCommands.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PitcherPlantCommands.swift; sourceTree = "<group>"; };
-		AEA2F52160967FD69B95CE2E /* MigrationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MigrationService.swift; sourceTree = "<group>"; };
 		AF37FB99D953410663C49E8A /* AuditTypes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuditTypes.swift; sourceTree = "<group>"; };
 		B1D904B478A4010745FF5C7A /* WorkspaceDashboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceDashboardView.swift; sourceTree = "<group>"; };
 		B1F11DC3C1E84F493B744720 /* FingerprintPackageService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FingerprintPackageService.swift; sourceTree = "<group>"; };
@@ -354,7 +350,6 @@
 				5F1E3A67673DB71739C8CE8D /* FeatureCompletionTests.swift */,
 				7D48DBF219033E310548945A /* FullCompletionTests.swift */,
 				6EF4E6E6E579AA134A9F2ECA /* IngestionTests.swift */,
-				4DE75C67A1CA3F98A8DAEFB7 /* MigrationTests.swift */,
 				0C20A6066A3B74F762C42CC5 /* PerformanceTests.swift */,
 				FF185EAF13D14CD89DE1EE77 /* ReportTests.swift */,
 				1B868185145383AC94AD161F /* TestSupport.swift */,
@@ -367,7 +362,6 @@
 			isa = PBXGroup;
 			children = (
 				94E86405322D0D8F372EF4FF /* DatabaseStore.swift */,
-				AEA2F52160967FD69B95CE2E /* MigrationService.swift */,
 			);
 			path = Persistence;
 			sourceTree = "<group>";
@@ -490,7 +484,6 @@
 				0A975239F9DE6BA8D276DCB5 /* FeatureCompletionTests.swift in Sources */,
 				CA9A7DE20AA2E6520FEC30D3 /* FullCompletionTests.swift in Sources */,
 				71006994939884A238594E43 /* IngestionTests.swift in Sources */,
-				5CEBD2A6EC8B7AB236074F8B /* MigrationTests.swift in Sources */,
 				90D374EE1E2E53C657D1160D /* PerformanceTests.swift in Sources */,
 				AB791E8CB46CABA14F0BDF80 /* ReportTests.swift in Sources */,
 				0CAD5DE16AB41D5FEC900BF6 /* TestSupport.swift in Sources */,
@@ -524,7 +517,6 @@
 				CC646EB1A213156915356D50 /* MainWindowRows.swift in Sources */,
 				1705B2991572DD3C65098E85 /* MainWindowSupport.swift in Sources */,
 				E5E7CD8F82E84E1FA32492B7 /* MainWindowView.swift in Sources */,
-				045358DDD28C944FD21466C6 /* MigrationService.swift in Sources */,
 				127CC905AA3111E18E295DD2 /* PitcherPlantCommands.swift in Sources */,
 				22E8AEE623DBC02AA53B1D3B /* PitcherPlantDesktopApp.swift in Sources */,
 				1B17F3120D231966A4CD3BB9 /* PitcherPlantMenuBarView.swift in Sources */,
@@ -575,7 +567,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MACOSX_DEPLOYMENT_TARGET = 15.0;
+				MACOSX_DEPLOYMENT_TARGET = 26.0;
 				PP_RELEASE_TAG = "";
 				PRODUCT_BUNDLE_IDENTIFIER = com.pitcherplant.desktop;
 				PRODUCT_MODULE_NAME = PitcherPlantApp;
@@ -637,7 +629,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				MACOSX_DEPLOYMENT_TARGET = 15.0;
+				MACOSX_DEPLOYMENT_TARGET = 26.0;
 				MARKETING_VERSION = 0.1.0;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
@@ -663,7 +655,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MACOSX_DEPLOYMENT_TARGET = 15.0;
+				MACOSX_DEPLOYMENT_TARGET = 26.0;
 				PP_RELEASE_TAG = "";
 				PRODUCT_BUNDLE_IDENTIFIER = com.pitcherplant.desktop;
 				PRODUCT_MODULE_NAME = PitcherPlantApp;
@@ -719,7 +711,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				MACOSX_DEPLOYMENT_TARGET = 15.0;
+				MACOSX_DEPLOYMENT_TARGET = 26.0;
 				MARKETING_VERSION = 0.1.0;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
@@ -742,7 +734,7 @@
 					"@executable_path/../Frameworks",
 					"@loader_path/../Frameworks",
 				);
-				MACOSX_DEPLOYMENT_TARGET = 15.0;
+				MACOSX_DEPLOYMENT_TARGET = 26.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.pitcherplant.desktop.tests;
 				SDKROOT = macosx;
 				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/PitcherPlant.app/Contents/MacOS/PitcherPlant";
@@ -760,7 +752,7 @@
 					"@executable_path/../Frameworks",
 					"@loader_path/../Frameworks",
 				);
-				MACOSX_DEPLOYMENT_TARGET = 15.0;
+				MACOSX_DEPLOYMENT_TARGET = 26.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.pitcherplant.desktop.tests;
 				SDKROOT = macosx;
 				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/PitcherPlant.app/Contents/MacOS/PitcherPlant";

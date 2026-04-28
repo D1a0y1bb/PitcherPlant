@@ -18,16 +18,20 @@ struct SettingsGroup<Content: View>: View {
     @ViewBuilder var content: Content
 
     var body: some View {
-        GroupBox {
+        LiquidGlassSurface(
+            padding: EdgeInsets(top: 12, leading: 0, bottom: 0, trailing: 0)
+        ) {
             VStack(spacing: 0) {
+                Text(title)
+                    .font(AppTypography.sectionTitle)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, SettingsLayout.horizontalPadding)
+                    .padding(.bottom, 4)
+
                 content
             }
             .frame(maxWidth: .infinity, alignment: .leading)
-        } label: {
-            Text(title)
-                .font(AppTypography.sectionTitle)
         }
-        .groupBoxStyle(.automatic)
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 }

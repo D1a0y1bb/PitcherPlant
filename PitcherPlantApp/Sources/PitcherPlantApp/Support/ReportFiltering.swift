@@ -1,32 +1,5 @@
 import Foundation
 
-enum ReportLibraryFilter: String, CaseIterable, Identifiable, Sendable {
-    case all
-    case nativeOnly
-    case legacyOnly
-
-    var id: String { rawValue }
-
-    var title: String {
-        switch self {
-        case .all: return "全部"
-        case .nativeOnly: return "原生"
-        case .legacyOnly: return "Legacy"
-        }
-    }
-
-    func includes(_ report: AuditReport) -> Bool {
-        switch self {
-        case .all:
-            return true
-        case .nativeOnly:
-            return report.isLegacy == false
-        case .legacyOnly:
-            return report.isLegacy
-        }
-    }
-}
-
 enum ReportEvidenceFilter: String, CaseIterable, Identifiable, Sendable {
     case all
     case highRisk
@@ -92,10 +65,7 @@ enum ReportEvidenceSortOrder: String, CaseIterable, Identifiable, Sendable {
 }
 
 extension AuditReport {
-    func matchesLibrarySearch(_ query: String, filter: ReportLibraryFilter) -> Bool {
-        guard filter.includes(self) else {
-            return false
-        }
+    func matchesLibrarySearch(_ query: String) -> Bool {
         let trimmed = query.normalizedSearchQuery
         guard trimmed.isEmpty == false else {
             return true

@@ -66,7 +66,6 @@ actor DatabaseStore {
                 table.column("source_path", .text).notNull().indexed()
                 table.column("scan_directory_path", .text).notNull().indexed()
                 table.column("job_id", .text)
-                table.column("is_legacy", .boolean).notNull().defaults(to: false)
             }
             try db.create(table: "audit_job_events", ifNotExists: true) { table in
                 table.column("id", .text).primaryKey()
@@ -92,10 +91,6 @@ actor DatabaseStore {
             try db.create(table: "whitelist_rules", ifNotExists: true) { table in
                 table.column("id", .text).primaryKey()
                 table.column("payload", .text).notNull()
-            }
-            try db.create(table: "app_migrations", ifNotExists: true) { table in
-                table.column("name", .text).primaryKey()
-                table.column("created_at", .datetime).notNull()
             }
             try db.create(table: "export_records", ifNotExists: true) { table in
                 table.column("id", .text).primaryKey()
@@ -181,7 +176,6 @@ actor DatabaseStore {
             try ensureColumn("source_path", in: "audit_reports", type: .text, db: db)
             try ensureColumn("scan_directory_path", in: "audit_reports", type: .text, db: db)
             try ensureColumn("job_id", in: "audit_reports", type: .text, db: db)
-            try ensureColumn("is_legacy", in: "audit_reports", type: .boolean, db: db)
 
             try db.execute(sql: "CREATE INDEX IF NOT EXISTS audit_jobs_directory_path_idx ON audit_jobs(directory_path)")
             try db.execute(sql: "CREATE INDEX IF NOT EXISTS audit_jobs_status_idx ON audit_jobs(status)")
@@ -228,7 +222,7 @@ actor DatabaseStore {
                 try db.execute(
                     sql: """
                     UPDATE audit_reports
-                    SET title = ?, source_path = ?, scan_directory_path = ?, job_id = ?, is_legacy = ?
+                    SET title = ?, source_path = ?, scan_directory_path = ?, job_id = ?
                     WHERE id = ?
                     """,
                     arguments: [
@@ -236,7 +230,6 @@ actor DatabaseStore {
                         report.sourcePath,
                         report.scanDirectoryPath,
                         report.jobID?.uuidString,
-                        report.isLegacy,
                         reportID
                     ]
                 )
@@ -249,6 +242,10 @@ actor DatabaseStore {
 
         migrator.registerMigration("extend-document-features-cache-v1") { db in
             try extendDocumentFeaturesSchema(db)
+        }
+
+        migrator.registerMigration("remove-obsolete-report-state-v1") { db in
+            try removeObsoleteReportState(db)
         }
 
         try migrator.migrate(dbQueue)
@@ -356,16 +353,15 @@ actor DatabaseStore {
         try dbQueue.write { db in
             try db.execute(
                 sql: """
-                INSERT INTO audit_reports (id, payload, created_at, title, source_path, scan_directory_path, job_id, is_legacy)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO audit_reports (id, payload, created_at, title, source_path, scan_directory_path, job_id)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(id) DO UPDATE SET
                     payload = excluded.payload,
                     created_at = excluded.created_at,
                     title = excluded.title,
                     source_path = excluded.source_path,
                     scan_directory_path = excluded.scan_directory_path,
-                    job_id = excluded.job_id,
-                    is_legacy = excluded.is_legacy
+                    job_id = excluded.job_id
                 """,
                 arguments: [
                     report.id.uuidString,
@@ -375,7 +371,6 @@ actor DatabaseStore {
                     report.sourcePath,
                     report.scanDirectoryPath,
                     report.jobID?.uuidString,
-                    report.isLegacy,
                 ]
             )
             try db.execute(sql: "DELETE FROM report_sections WHERE report_id = ?", arguments: [report.id.uuidString])
@@ -421,7 +416,6 @@ actor DatabaseStore {
                         sourcePath: report.sourcePath,
                         scanDirectoryPath: report.scanDirectoryPath,
                         createdAt: report.createdAt,
-                        isLegacy: report.isLegacy,
                         metrics: report.metrics,
                         sections: sections
                     )
@@ -758,24 +752,6 @@ actor DatabaseStore {
         }
     }
 
-    func hasMigration(named name: String) throws -> Bool {
-        try dbQueue.read { db in
-            try Row.fetchOne(db, sql: "SELECT name FROM app_migrations WHERE name = ?", arguments: [name]) != nil
-        }
-    }
-
-    func markMigration(name: String) throws {
-        try dbQueue.write { db in
-            try db.execute(
-                sql: """
-                INSERT OR IGNORE INTO app_migrations (name, created_at)
-                VALUES (?, ?)
-                """,
-                arguments: [name, Date()]
-            )
-        }
-    }
-
     func recordExport(_ record: ExportRecord) throws {
         try dbQueue.write { db in
             try db.execute(
@@ -851,6 +827,18 @@ actor DatabaseStore {
         }
     }
 
+    func debugTableExists(named table: String) throws -> Bool {
+        try dbQueue.read { db in
+            try tableExists(table, db: db)
+        }
+    }
+
+    func debugTableColumns(named table: String) throws -> [String] {
+        try dbQueue.read { db in
+            try db.columns(in: table).map(\.name)
+        }
+    }
+
     private func fetchJobEventsByJobID(_ db: Database) throws -> [String: [AuditJobEvent]] {
         let rows = try Row.fetchAll(db, sql: "SELECT job_id, timestamp, message, progress, id FROM audit_job_events ORDER BY timestamp ASC")
         var grouped: [String: [AuditJobEvent]] = [:]
@@ -888,6 +876,43 @@ private func ensureColumn(_ name: String, in table: String, type: Database.Colum
     try db.alter(table: table) { t in
         t.add(column: name, type)
     }
+}
+
+private func removeObsoleteReportState(_ db: Database) throws {
+    if try tableExists("audit_reports", db: db),
+       try db.columns(in: "audit_reports").contains(where: { $0.name == "is_legacy" }) {
+        try db.create(table: "audit_reports_without_legacy") { table in
+            table.column("id", .text).primaryKey()
+            table.column("payload", .text).notNull()
+            table.column("created_at", .datetime).notNull()
+            table.column("title", .text).notNull()
+            table.column("source_path", .text).notNull()
+            table.column("scan_directory_path", .text).notNull()
+            table.column("job_id", .text)
+        }
+        try db.execute(sql: """
+            INSERT INTO audit_reports_without_legacy (id, payload, created_at, title, source_path, scan_directory_path, job_id)
+            SELECT id, payload, created_at, title, source_path, scan_directory_path, job_id
+            FROM audit_reports
+            """)
+        try db.drop(table: "audit_reports")
+        try db.execute(sql: "ALTER TABLE audit_reports_without_legacy RENAME TO audit_reports")
+        try db.execute(sql: "CREATE INDEX IF NOT EXISTS audit_reports_title_idx ON audit_reports(title)")
+        try db.execute(sql: "CREATE INDEX IF NOT EXISTS audit_reports_source_path_idx ON audit_reports(source_path)")
+        try db.execute(sql: "CREATE INDEX IF NOT EXISTS audit_reports_scan_dir_idx ON audit_reports(scan_directory_path)")
+    }
+
+    if try tableExists("app_migrations", db: db) {
+        try db.drop(table: "app_migrations")
+    }
+}
+
+private func tableExists(_ table: String, db: Database) throws -> Bool {
+    try Row.fetchOne(
+        db,
+        sql: "SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?",
+        arguments: [table]
+    ) != nil
 }
 
 private func createOperationalTables(_ db: Database) throws {

@@ -41,7 +41,6 @@ struct AppSettings: Codable, Hashable, Sendable {
     var showMenuBarExtra: Bool
     var preferInAppReports: Bool
     var defaultExportFormat: ExportRecord.Format
-    var showLegacyBadges: Bool
     var showAttachmentPreviews: Bool
     var auditAssistant: AuditAssistantConfiguration? = AuditAssistantConfiguration()
 
@@ -53,7 +52,6 @@ struct AppSettings: Codable, Hashable, Sendable {
         showMenuBarExtra: true,
         preferInAppReports: true,
         defaultExportFormat: .html,
-        showLegacyBadges: true,
         showAttachmentPreviews: true,
         auditAssistant: AuditAssistantConfiguration()
     )

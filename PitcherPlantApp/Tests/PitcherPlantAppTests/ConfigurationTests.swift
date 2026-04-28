@@ -98,7 +98,6 @@ func appSettingsRoundTripPreservesEnumSelections() throws {
         showMenuBarExtra: true,
         preferInAppReports: false,
         defaultExportFormat: .pdf,
-        showLegacyBadges: false,
         showAttachmentPreviews: true
     )
     AppPreferences.saveAppSettings(settings, defaults: defaults)

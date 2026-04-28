@@ -51,17 +51,9 @@ struct PitcherPlantMenuBarView: View {
 
     @ViewBuilder
     private var menuPanelContent: some View {
-        #if compiler(>=6.2)
-        if #available(macOS 26.0, *) {
-            GlassEffectContainer(spacing: 12) {
-                panelContent
-            }
-        } else {
+        GlassEffectContainer(spacing: 12) {
             panelContent
         }
-        #else
-        panelContent
-        #endif
     }
 
     private var panelContent: some View {
@@ -113,16 +105,9 @@ struct PitcherPlantMenuBarView: View {
 
     @ViewBuilder
     private var header: some View {
-        #if compiler(>=6.2)
-        if #available(macOS 26.0, *) {
-            headerContent
-                .glassEffect(.regular)
-        } else {
+        LiquidGlassSurface(isInteractive: true) {
             headerContent
         }
-        #else
-        headerContent
-        #endif
     }
 
     private var headerContent: some View {
@@ -143,16 +128,9 @@ struct PitcherPlantMenuBarView: View {
 
     @ViewBuilder
     private var actions: some View {
-        #if compiler(>=6.2)
-        if #available(macOS 26.0, *) {
-            actionsContent
-                .glassEffect(.regular)
-        } else {
+        LiquidGlassSurface(isInteractive: true) {
             actionsContent
         }
-        #else
-        actionsContent
-        #endif
     }
 
     private var actionsContent: some View {
@@ -240,16 +218,9 @@ private struct MenuBarGlassSection<Content: View>: View {
 
     @ViewBuilder
     var body: some View {
-        #if compiler(>=6.2)
-        if #available(macOS 26.0, *) {
-            sectionContent
-                .glassEffect(.regular)
-        } else {
+        LiquidGlassSurface {
             sectionContent
         }
-        #else
-        sectionContent
-        #endif
     }
 
     private var sectionContent: some View {
@@ -317,7 +288,7 @@ private struct CompactReportRow: View {
     var body: some View {
         Button(action: action) {
             HStack(spacing: 10) {
-                Image(systemName: report.isLegacy ? "doc.richtext" : "doc.text.magnifyingglass")
+                Image(systemName: "doc.text.magnifyingglass")
                     .foregroundStyle(.secondary)
                     .frame(width: 14)
 

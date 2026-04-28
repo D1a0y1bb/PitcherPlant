@@ -1,5 +1,7 @@
 import Foundation
+import PDFKit
 import Testing
+import ZIPFoundation
 @testable import PitcherPlantApp
 
 @Test
@@ -111,6 +113,34 @@ func submissionImportBuildsTeamItemsAndQueuedJobs() throws {
 }
 
 @Test
+func submissionImportEnforcesZipLimitsAndScansFolders() throws {
+    let root = FileManager.default.temporaryDirectory
+        .appendingPathComponent("pitcherplant-submission-zip-limits-\(UUID().uuidString)", isDirectory: true)
+    let support = FileManager.default.temporaryDirectory
+        .appendingPathComponent("pitcherplant-submission-support-\(UUID().uuidString)", isDirectory: true)
+    try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+    let zipURL = root.appendingPathComponent("submissions.zip")
+    do {
+        let archive = try Archive(url: zipURL, accessMode: .create, pathEncoding: nil)
+        try addZipFile(to: archive, path: "001 Alpha/solve.md", contents: "ok")
+        try addZipFile(to: archive, path: "001 Alpha/extra.txt", contents: "ok")
+        try addZipFile(to: archive, path: "001 Alpha/huge.md", contents: String(repeating: "x", count: 32))
+    }
+
+    var options = SubmissionImportOptions()
+    options.maxSingleFileBytes = 8
+    options.maxScannedFileCount = 1
+    let result = try SubmissionImportService().importPackage(at: zipURL, into: support, options: options)
+    let item = try #require(result.items.first)
+
+    #expect(item.teamName == "Alpha")
+    #expect(item.fileCount == 1)
+    #expect(result.issues.contains { $0.message.contains("单文件大小超过限制") })
+    #expect(result.issues.contains { $0.message.contains("扫描文件数量超过限制") })
+    #expect(FileManager.default.fileExists(atPath: result.batch.destinationPath + "/001 Alpha/huge.md") == false)
+}
+
+@Test
 func auditJobRetryRequeuesAndPreservesAttemptHistory() throws {
     let root = FileManager.default.temporaryDirectory
         .appendingPathComponent("pitcherplant-retry-\(UUID().uuidString)", isDirectory: true)
@@ -207,7 +237,7 @@ func candidateRecallKeepsLargeRunsBelowFullPairCount() {
 
 @Test
 @MainActor
-func reportExporterWritesReviewAwareFormatsAndBundle() throws {
+func exportFormatsIncludeReviewAndAttachments() throws {
     let root = FileManager.default.temporaryDirectory
         .appendingPathComponent("pitcherplant-export-formats-\(UUID().uuidString)", isDirectory: true)
     try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
@@ -273,6 +303,52 @@ func reportExporterWritesReviewAwareFormatsAndBundle() throws {
     #expect(listing.contains("evidence.csv"))
     #expect(listing.contains("report.json"))
     #expect(listing.contains("attachments/image-"))
+}
+
+@Test
+@MainActor
+func longReportPDFPreservesTailEvidenceInStandaloneAndBundle() throws {
+    let root = FileManager.default.temporaryDirectory
+        .appendingPathComponent("pitcherplant-long-pdf-\(UUID().uuidString)", isDirectory: true)
+    try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+    let tailMarker = "PDF_TAIL_MARKER_\(UUID().uuidString)"
+    let rows = (0..<180).map { index in
+        ReportTableRow(
+            columns: ["team-\(index)", "match-\(index)", "91%"],
+            detailTitle: "长报告证据 \(index)",
+            detailBody: index == 179 ? tailMarker : "重复证据说明 \(index) " + String(repeating: "detail ", count: 12),
+            evidenceID: UUID(),
+            evidenceType: .text,
+            riskAssessment: RiskAssessment(score: 0.91, reasons: ["长报告测试"])
+        )
+    }
+    let report = AuditReport(
+        title: "长报告 PDF 导出",
+        sourcePath: root.appendingPathComponent("report.html").path,
+        scanDirectoryPath: root.path,
+        metrics: [ReportMetric(title: "证据", value: "\(rows.count)", systemImage: "doc.text")],
+        sections: [
+            ReportSection(
+                kind: .text,
+                title: "文本相似",
+                summary: "验证长报告尾部证据进入 PDF",
+                table: ReportTable(headers: ["A", "B", "Score"], rows: rows)
+            )
+        ]
+    )
+
+    let pdfURL = root.appendingPathComponent("report.pdf")
+    let bundleURL = root.appendingPathComponent("bundle.zip")
+    let bundledPDFURL = root.appendingPathComponent("bundled-report.pdf")
+    try ReportExporter.exportPDF(report: report, to: pdfURL)
+    try ReportExporter.exportEvidenceBundle(report: report, to: bundleURL)
+
+    let archive = try Archive(url: bundleURL, accessMode: .read, pathEncoding: nil)
+    let entry = try #require(archive["report.pdf"])
+    _ = try archive.extract(entry, to: bundledPDFURL)
+
+    #expect(try pdfText(at: pdfURL).contains(tailMarker))
+    #expect(try pdfText(at: bundledPDFURL).contains(tailMarker))
 }
 
 @Test
@@ -370,4 +446,24 @@ private func processOutput(_ executable: String, arguments: [String]) throws -> 
         )
     }
     return output
+}
+
+private func addZipFile(to archive: Archive, path: String, contents: String) throws {
+    let data = Data(contents.utf8)
+    try archive.addEntry(with: path, type: .file, uncompressedSize: Int64(data.count), compressionMethod: .deflate) { position, size in
+        let start = Int(position)
+        let end = min(start + size, data.count)
+        return data.subdata(in: start..<end)
+    }
+}
+
+private func pdfText(at url: URL) throws -> String {
+    guard let document = PDFDocument(url: url), let text = document.string else {
+        throw NSError(
+            domain: "PitcherPlantTests.PDF",
+            code: 1,
+            userInfo: [NSLocalizedDescriptionKey: "无法读取 PDF 文本：\(url.path)"]
+        )
+    }
+    return text
 }

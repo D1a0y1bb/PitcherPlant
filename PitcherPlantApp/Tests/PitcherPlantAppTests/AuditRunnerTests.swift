@@ -33,7 +33,6 @@ func auditRunnerProducesNativeReportRowsForAppViewing() async throws {
 
     let textSection = try #require(result.report.sections.first(where: { $0.kind == .text }))
 
-    #expect(result.report.isLegacy == false)
     #expect(textSection.table?.rows.isEmpty == false)
     #expect(textSection.table?.rows.first?.detailBody.isEmpty == false)
     #expect(FileManager.default.fileExists(atPath: result.report.sourcePath))

@@ -23,7 +23,6 @@ PitcherPlantApp/
 ```text
 PitcherPlant.xcworkspace/       # 根目录 Xcode workspace 入口
 Fixtures/WriteupSamples/        # 样例 WriteUP 数据
-LegacyData/LegacyImport/        # 旧版数据导入资料
 GeneratedReports/               # 本地生成报告
 Docs/                           # 项目文档
 ```

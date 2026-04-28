@@ -248,8 +248,21 @@ struct EvidenceReviewPanel: View {
                 }
             }
         }
-        .onAppear(perform: syncFromState)
-        .onChange(of: row.id) { _, _ in syncFromState() }
+        .onAppear { syncFromSnapshot(reviewSnapshot) }
+        .onChange(of: reviewSnapshot) { _, snapshot in syncFromSnapshot(snapshot) }
+    }
+
+    private var reviewSnapshot: EvidenceReviewSnapshot {
+        let review = appState.review(for: row)
+        return EvidenceReviewSnapshot(
+            rowID: row.id,
+            reviewID: review?.id,
+            decision: review?.decision ?? .pending,
+            severity: review?.severity,
+            fallbackSeverity: row.riskAssessment?.level,
+            note: review?.reviewerNote ?? "",
+            updatedAt: review?.updatedAt
+        )
     }
 
     private func reviewLabel(_ title: String) -> some View {
@@ -262,29 +275,43 @@ struct EvidenceReviewPanel: View {
     private var quickReviewButtons: some View {
         Group {
             Button {
-                Task { await appState.quickReviewSelectedEvidence(.confirmed) }
+                Task { await saveQuickReview(.confirmed) }
             } label: {
                 Label(appState.t("review.confirm"), systemImage: "checkmark.seal")
             }
             Button {
-                Task { await appState.quickReviewSelectedEvidence(.falsePositive) }
+                Task { await saveQuickReview(.falsePositive) }
             } label: {
                 Label(appState.t("review.falsePositive"), systemImage: "xmark.seal")
             }
             Button {
-                Task { await appState.quickReviewSelectedEvidence(.whitelisted) }
+                Task { await saveQuickReview(.whitelisted) }
             } label: {
                 Label(appState.t("review.whitelist"), systemImage: "checkmark.shield")
             }
         }
     }
 
-    private func syncFromState() {
-        let review = appState.review(for: row)
-        decision = review?.decision ?? .pending
-        severity = review?.severity ?? row.riskAssessment?.level ?? .none
-        note = review?.reviewerNote ?? ""
+    private func saveQuickReview(_ decision: EvidenceDecision) async {
+        let selectedSeverity = severity == .none ? nil : severity
+        await appState.quickReview(row: row, decision: decision, severity: selectedSeverity, note: note)
     }
+
+    private func syncFromSnapshot(_ snapshot: EvidenceReviewSnapshot) {
+        decision = snapshot.decision
+        severity = snapshot.severity ?? snapshot.fallbackSeverity ?? .none
+        note = snapshot.note
+    }
+}
+
+private struct EvidenceReviewSnapshot: Hashable {
+    let rowID: UUID
+    let reviewID: UUID?
+    let decision: EvidenceDecision
+    let severity: RiskLevel?
+    let fallbackSeverity: RiskLevel?
+    let note: String
+    let updatedAt: Date?
 }
 
 struct EvidenceSemanticDetailView: View {

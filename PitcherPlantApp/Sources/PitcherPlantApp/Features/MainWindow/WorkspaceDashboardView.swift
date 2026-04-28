@@ -14,6 +14,7 @@ struct WorkspaceDashboardView: View {
                     } label: {
                         Label(appState.t("audit.importSubmissions"), systemImage: "tray.and.arrow.down")
                     }
+                    .disabled(appState.isImportingSubmissionPackage)
 
                     Button {
                         appState.toggleAudit()
@@ -136,7 +137,6 @@ private struct RecentReportsTable: View {
         Grid(alignment: .leading, horizontalSpacing: 14, verticalSpacing: 8) {
             GridRow {
                 tableHeader("Title")
-                tableHeader(appState.t("common.type"))
                 tableHeader(appState.t("reports.sectionSummary"))
                 tableHeader(appState.t("common.createdAt"))
             }
@@ -146,16 +146,12 @@ private struct RecentReportsTable: View {
                     Button {
                         appState.showReport(report.id)
                     } label: {
-                        Label(report.title, systemImage: report.isLegacy ? "doc.richtext" : "doc.text.magnifyingglass")
+                        Label(report.title, systemImage: "doc.text.magnifyingglass")
                             .lineLimit(1)
                             .truncationMode(.middle)
                     }
                     .buttonStyle(.plain)
                     .gridColumnAlignment(.leading)
-
-                    Text(report.isLegacy ? "Legacy" : appState.t("common.native"))
-                        .foregroundStyle(.secondary)
-                        .frame(width: 90, alignment: .leading)
 
                     Text("\(report.sections.count)")
                         .monospacedDigit()
@@ -225,6 +221,7 @@ struct NewAuditView: View {
                     } label: {
                         Label(appState.t("audit.importSubmissions"), systemImage: "tray.and.arrow.down")
                     }
+                    .disabled(appState.isImportingSubmissionPackage)
                 }
             }
 

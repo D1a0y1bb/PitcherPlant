@@ -288,7 +288,6 @@ struct AuditReport: Codable, Identifiable, Hashable, Sendable {
     let sourcePath: String
     let scanDirectoryPath: String
     let createdAt: Date
-    let isLegacy: Bool
     let metrics: [ReportMetric]
     let sections: [ReportSection]
 
@@ -299,7 +298,6 @@ struct AuditReport: Codable, Identifiable, Hashable, Sendable {
         sourcePath: String,
         scanDirectoryPath: String,
         createdAt: Date = .now,
-        isLegacy: Bool = false,
         metrics: [ReportMetric],
         sections: [ReportSection]
     ) {
@@ -309,7 +307,6 @@ struct AuditReport: Codable, Identifiable, Hashable, Sendable {
         self.sourcePath = sourcePath
         self.scanDirectoryPath = scanDirectoryPath
         self.createdAt = createdAt
-        self.isLegacy = isLegacy
         self.metrics = metrics
         self.sections = sections
     }
@@ -366,7 +363,7 @@ struct AuditReport: Codable, Identifiable, Hashable, Sendable {
             id: matches[0].id,
             kind: kind,
             title: titleSet.count == 1 ? matches[0].title : kind.title,
-            summary: summaries.isEmpty ? "\(kind.title)章节来自多个旧报告区块。" : summaries.joined(separator: "\n\n"),
+            summary: summaries.isEmpty ? "\(kind.title)章节来自多个报告区块。" : summaries.joined(separator: "\n\n"),
             callouts: callouts,
             table: rows.isEmpty ? nil : ReportTable(headers: headers, rows: rows)
         )
@@ -516,12 +513,4 @@ struct WhitelistRule: Codable, Identifiable, Hashable, Sendable {
         self.pattern = pattern
         self.createdAt = createdAt
     }
-}
-
-struct MigrationSummary: Hashable, Sendable {
-    let importedJobs: Int
-    let importedReports: Int
-    let importedFingerprints: Int
-    let importedWhitelistRules: Int
-    let lastConfiguration: AuditConfiguration?
 }

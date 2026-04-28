@@ -10,38 +10,45 @@ on:
 
 jobs:
   macos:
-    name: macOS build and test (${{ matrix.runner_label }})
-    runs-on: ${{ matrix.runner }}
+    name: macOS 26 build and test
+    runs-on: macos-26
     timeout-minutes: 30
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - runner_label: "macos-15-xcode-16.4"
-            runner: macos-15
-            xcode_path: /Applications/Xcode_16.4.app
-          - runner_label: "macos-latest"
-            runner: macos-latest
-            xcode_path: ""
 
     steps:
       - name: Checkout
         uses: actions/checkout@v5
 
-      - name: Select fixed Xcode
-        if: matrix.xcode_path != ''
+      - name: Select Xcode 26
         run: |
-          if [ ! -d "${{ matrix.xcode_path }}" ]; then
-            echo "Required Xcode is missing: ${{ matrix.xcode_path }}"
+          SELECTED_XCODE=""
+          for candidate in /Applications/Xcode*.app; do
+            if [ ! -d "$candidate" ]; then
+              continue
+            fi
+            version="$("$candidate/Contents/Developer/usr/bin/xcodebuild" -version | awk '/^Xcode / { print $2 }')"
+            case "$version" in
+              26.*)
+                SELECTED_XCODE="$candidate"
+                break
+                ;;
+            esac
+          done
+          if [ -z "$SELECTED_XCODE" ]; then
+            echo "Xcode 26 is required."
             ls -1 /Applications | grep '^Xcode' || true
             exit 1
           fi
-          sudo xcode-select -s "${{ matrix.xcode_path }}/Contents/Developer"
+          sudo xcode-select -s "$SELECTED_XCODE/Contents/Developer"
 
       - name: Print toolchain versions
         run: |
           swift --version
           xcodebuild -version
+
+      - name: Verify macOS 26 toolchain
+        run: |
+          swift --version | grep -E 'Apple Swift version 6\.2'
+          xcodebuild -version | grep -E '^Xcode 26\.'
 
       - name: Install XcodeGen
         run: |
