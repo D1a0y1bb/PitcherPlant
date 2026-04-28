@@ -97,11 +97,14 @@ struct MainWindowView: View {
 
     @ViewBuilder
     private var inspectorColumn: some View {
-        if appState.selectedMainSidebar.usesReportInspector {
-            ReportEvidenceInspectorHost()
-        } else {
-            JobInspectorView()
+        Group {
+            if appState.selectedMainSidebar.usesReportInspector {
+                ReportEvidenceInspectorHost()
+            } else {
+                JobInspectorView()
+            }
         }
+        .navigationSplitViewColumnWidth(min: 360, ideal: 420, max: 520)
     }
 
     @ToolbarContentBuilder

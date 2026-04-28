@@ -194,43 +194,45 @@ struct EvidenceReviewPanel: View {
 
     var body: some View {
         InspectorSection(title: appState.t("reports.review")) {
-            VStack(alignment: .leading, spacing: 10) {
-                HStack(spacing: 8) {
-                    Button {
-                        Task { await appState.quickReviewSelectedEvidence(.confirmed) }
-                    } label: {
-                        Label(appState.t("review.confirm"), systemImage: "checkmark.seal")
+            VStack(alignment: .leading, spacing: 12) {
+                Grid(alignment: .leading, horizontalSpacing: 12, verticalSpacing: 10) {
+                    GridRow {
+                        reviewLabel("快捷")
+                        ViewThatFits(in: .horizontal) {
+                            HStack(spacing: 8) { quickReviewButtons }
+                            VStack(alignment: .leading, spacing: 8) { quickReviewButtons }
+                        }
                     }
-                    Button {
-                        Task { await appState.quickReviewSelectedEvidence(.falsePositive) }
-                    } label: {
-                        Label(appState.t("review.falsePositive"), systemImage: "xmark.seal")
+
+                    GridRow {
+                        reviewLabel(appState.t("review.decision"))
+                        Picker(appState.t("review.decision"), selection: $decision) {
+                            ForEach(EvidenceDecision.allCases) { option in
+                                Text(option.title).tag(option)
+                            }
+                        }
+                        .pickerStyle(.menu)
+                        .labelsHidden()
+                        .frame(width: 160, alignment: .leading)
                     }
-                    Button {
-                        Task { await appState.quickReviewSelectedEvidence(.whitelisted) }
-                    } label: {
-                        Label(appState.t("review.whitelist"), systemImage: "checkmark.shield")
+
+                    GridRow {
+                        reviewLabel(appState.t("review.severity"))
+                        Picker(appState.t("review.severity"), selection: $severity) {
+                            ForEach(RiskLevel.allCases) { option in
+                                Text(option.title).tag(option)
+                            }
+                        }
+                        .pickerStyle(.segmented)
+                        .labelsHidden()
+                        .frame(maxWidth: 260)
                     }
                 }
                 .buttonStyle(.borderless)
 
-                Picker(appState.t("review.decision"), selection: $decision) {
-                    ForEach(EvidenceDecision.allCases) { option in
-                        Text(option.title).tag(option)
-                    }
-                }
-                .pickerStyle(.menu)
-
-                Picker(appState.t("review.severity"), selection: $severity) {
-                    ForEach(RiskLevel.allCases) { option in
-                        Text(option.title).tag(option)
-                    }
-                }
-                .pickerStyle(.segmented)
-
                 TextEditor(text: $note)
                     .font(AppTypography.body)
-                    .frame(minHeight: 72)
+                    .frame(minHeight: 72, idealHeight: 92, maxHeight: 120)
 
                 Button {
                     Task {
@@ -248,6 +250,33 @@ struct EvidenceReviewPanel: View {
         }
         .onAppear(perform: syncFromState)
         .onChange(of: row.id) { _, _ in syncFromState() }
+    }
+
+    private func reviewLabel(_ title: String) -> some View {
+        Text(title)
+            .font(AppTypography.tableHeader)
+            .foregroundStyle(.secondary)
+            .frame(width: 70, alignment: .leading)
+    }
+
+    private var quickReviewButtons: some View {
+        Group {
+            Button {
+                Task { await appState.quickReviewSelectedEvidence(.confirmed) }
+            } label: {
+                Label(appState.t("review.confirm"), systemImage: "checkmark.seal")
+            }
+            Button {
+                Task { await appState.quickReviewSelectedEvidence(.falsePositive) }
+            } label: {
+                Label(appState.t("review.falsePositive"), systemImage: "xmark.seal")
+            }
+            Button {
+                Task { await appState.quickReviewSelectedEvidence(.whitelisted) }
+            } label: {
+                Label(appState.t("review.whitelist"), systemImage: "checkmark.shield")
+            }
+        }
     }
 
     private func syncFromState() {
@@ -292,14 +321,23 @@ struct TextEvidenceComparisonView: View {
                     title: "共享 token"
                 )
 
-                HStack(alignment: .top, spacing: 10) {
-                    ForEach(Array(textAttachments.enumerated()), id: \.offset) { _, attachment in
-                        EvidenceContextCard(
-                            attachment: attachment,
+                ViewThatFits(in: .horizontal) {
+                    HStack(alignment: .top, spacing: 12) {
+                        evidenceContextCards(
+                            attachments: textAttachments,
                             fallback: row.evidencePreview,
                             style: .text,
                             highlights: highlights,
-                            focusedHighlight: selectedHighlight
+                            selectedHighlight: selectedHighlight
+                        )
+                    }
+                    VStack(alignment: .leading, spacing: 12) {
+                        evidenceContextCards(
+                            attachments: textAttachments,
+                            fallback: row.evidencePreview,
+                            style: .text,
+                            highlights: highlights,
+                            selectedHighlight: selectedHighlight
                         )
                     }
                 }
@@ -321,6 +359,7 @@ struct CodeEvidenceComparisonView: View {
         let codeAttachments = Array(row.attachments.filter { $0.imageBase64 == nil }.prefix(2))
         let highlights = EvidenceTokenAnalyzer.sharedHighlights(in: codeAttachments.map { $0.body }, fallback: row.detailBody)
         let selectedHighlight = highlights[safe: selectedHighlightIndex]
+        let renderedAttachments = codeAttachments.map { $0.transformedBody(selectedMode.render($0.body)) }
         if codeAttachments.count == 2 {
             InspectorSection(title: appState.t("reports.codeViewer")) {
                 Picker("代码视图", selection: $selectedMode) {
@@ -334,14 +373,23 @@ struct CodeEvidenceComparisonView: View {
                 CodeLineDiffView(left: codeAttachments[0].body, right: codeAttachments[1].body)
                 EvidenceHighlightNavigator(tokens: highlights, selectedIndex: $selectedHighlightIndex, title: "共享标记")
 
-                HStack(alignment: .top, spacing: 10) {
-                    ForEach(Array(codeAttachments.enumerated()), id: \.offset) { _, attachment in
-                        EvidenceContextCard(
-                            attachment: attachment.transformedBody(selectedMode.render(attachment.body)),
+                ViewThatFits(in: .horizontal) {
+                    HStack(alignment: .top, spacing: 12) {
+                        evidenceContextCards(
+                            attachments: renderedAttachments,
                             fallback: row.detailBody,
                             style: .code,
                             highlights: highlights,
-                            focusedHighlight: selectedHighlight
+                            selectedHighlight: selectedHighlight
+                        )
+                    }
+                    VStack(alignment: .leading, spacing: 12) {
+                        evidenceContextCards(
+                            attachments: renderedAttachments,
+                            fallback: row.detailBody,
+                            style: .code,
+                            highlights: highlights,
+                            selectedHighlight: selectedHighlight
                         )
                     }
                 }
@@ -354,6 +402,25 @@ struct CodeEvidenceComparisonView: View {
                 selectedHighlightIndex = min(selectedHighlightIndex, max(count - 1, 0))
             }
         }
+    }
+}
+
+@ViewBuilder
+private func evidenceContextCards(
+    attachments: [ReportAttachment],
+    fallback: String,
+    style: EvidenceContextStyle,
+    highlights: [String],
+    selectedHighlight: String?
+) -> some View {
+    ForEach(Array(attachments.enumerated()), id: \.offset) { _, attachment in
+        EvidenceContextCard(
+            attachment: attachment,
+            fallback: fallback,
+            style: style,
+            highlights: highlights,
+            focusedHighlight: selectedHighlight
+        )
     }
 }
 
@@ -459,15 +526,12 @@ struct ImageEvidenceDetailView: View {
             } else {
                 imageComparisonToolbar
 
-                HStack(alignment: .top, spacing: 10) {
-                    ForEach(Array(currentPair.enumerated()), id: \.offset) { index, attachment in
-                        ImageComparisonCard(
-                            label: index == 0 ? "A" : "B",
-                            attachment: attachment,
-                            showsPreview: showsPreviews,
-                            zoom: zoom,
-                            decodedImage: decodedImage
-                        )
+                ViewThatFits(in: .horizontal) {
+                    HStack(alignment: .top, spacing: 12) {
+                        imageComparisonCards
+                    }
+                    VStack(alignment: .leading, spacing: 12) {
+                        imageComparisonCards
                     }
                 }
 
@@ -479,6 +543,18 @@ struct ImageEvidenceDetailView: View {
         }
         .onChange(of: imagePairs.count) { _, count in
             selectedPairIndex = min(selectedPairIndex, max(count - 1, 0))
+        }
+    }
+
+    private var imageComparisonCards: some View {
+        ForEach(Array(currentPair.enumerated()), id: \.offset) { index, attachment in
+            ImageComparisonCard(
+                label: index == 0 ? "A" : "B",
+                attachment: attachment,
+                showsPreview: showsPreviews,
+                zoom: zoom,
+                decodedImage: decodedImage
+            )
         }
     }
 

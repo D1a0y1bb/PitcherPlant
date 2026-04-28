@@ -16,18 +16,32 @@ struct NativePageHeader<Actions: View>: View {
     @ViewBuilder var actions: Actions
 
     var body: some View {
-        HStack(alignment: .firstTextBaseline) {
-            VStack(alignment: .leading, spacing: 4) {
-                Text(title)
-                    .font(AppTypography.pageTitle)
-                Text(subtitle)
-                    .font(AppTypography.supporting)
-                    .foregroundStyle(.secondary)
+        ViewThatFits(in: .horizontal) {
+            HStack(alignment: .firstTextBaseline, spacing: 16) {
+                titleBlock
+                Spacer(minLength: 16)
+                HStack(spacing: 8) {
+                    actions
+                }
             }
-            Spacer()
-            HStack(spacing: 8) {
-                actions
+
+            VStack(alignment: .leading, spacing: 12) {
+                titleBlock
+                HStack(spacing: 8) {
+                    actions
+                }
             }
+        }
+    }
+
+    private var titleBlock: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(title)
+                .font(AppTypography.pageTitle)
+            Text(subtitle)
+                .font(AppTypography.supporting)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
         }
     }
 }
@@ -64,21 +78,35 @@ struct SearchHeader: View {
     let prompt: String
 
     var body: some View {
-        AppToolbarBand {
-            HStack(spacing: 12) {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(title)
-                        .font(AppTypography.sectionTitle)
-                    Text("\(count) \(appState.t("common.countSuffix"))")
-                        .font(AppTypography.metadata)
-                        .foregroundStyle(.secondary)
-                }
-                Spacer()
-                TextField(prompt, text: $query)
-                    .textFieldStyle(.roundedBorder)
-                    .frame(width: 280)
+        ViewThatFits(in: .horizontal) {
+            HStack(alignment: .firstTextBaseline, spacing: 16) {
+                titleBlock
+                Spacer(minLength: 16)
+                searchField
+            }
+
+            VStack(alignment: .leading, spacing: 10) {
+                titleBlock
+                searchField
             }
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var titleBlock: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(title)
+                .font(AppTypography.sectionTitle)
+            Text("\(count) \(appState.t("common.countSuffix"))")
+                .font(AppTypography.metadata)
+                .foregroundStyle(.secondary)
+        }
+    }
+
+    private var searchField: some View {
+        TextField(prompt, text: $query)
+            .textFieldStyle(.roundedBorder)
+            .frame(minWidth: 220, idealWidth: 280, maxWidth: 360)
     }
 }
 

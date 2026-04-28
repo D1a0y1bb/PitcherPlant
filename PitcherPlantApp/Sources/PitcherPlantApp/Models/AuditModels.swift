@@ -124,6 +124,15 @@ enum AuditJobStatus: String, Codable, CaseIterable {
         case .failed: return "status.failed"
         }
     }
+
+    var systemImage: String {
+        switch self {
+        case .queued: return "clock"
+        case .running: return "play.circle"
+        case .succeeded: return "checkmark.circle"
+        case .failed: return "exclamationmark.triangle"
+        }
+    }
 }
 
 enum AuditStage: String, Codable, CaseIterable {

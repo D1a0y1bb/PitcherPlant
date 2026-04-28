@@ -134,19 +134,18 @@ struct ReportSectionStrip: View {
     let report: AuditReport
 
     var body: some View {
-        AppToolbarBand {
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 8) {
-                    ForEach(report.displaySections) { section in
-                        ReportSectionChip(
-                            section: section,
-                            isSelected: appState.selectedReportSection == section.kind
-                        ) {
-                            appState.selectReportSection(section.kind)
-                        }
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                ForEach(report.displaySections) { section in
+                    ReportSectionChip(
+                        section: section,
+                        isSelected: appState.selectedReportSection == section.kind
+                    ) {
+                        appState.selectReportSection(section.kind)
                     }
                 }
             }
+            .padding(.vertical, 2)
         }
     }
 }
@@ -257,38 +256,64 @@ struct EvidenceToolbar: View {
     let totalRowCount: Int
 
     var body: some View {
-        HStack(spacing: 12) {
-            TextField(appState.t("reports.searchEvidence"), text: $evidenceQuery)
-                .textFieldStyle(.roundedBorder)
-                .frame(width: 260)
+        ViewThatFits(in: .horizontal) {
+            HStack(alignment: .center, spacing: 12) {
+                searchField
+                filterPicker
+                sortMenu
+                Spacer()
+                countLabel
+            }
 
-            Picker(appState.t("reports.filter"), selection: $evidenceFilter) {
-                ForEach(ReportEvidenceFilter.allCases) { option in
+            VStack(alignment: .leading, spacing: 10) {
+                HStack(spacing: 12) {
+                    searchField
+                    Spacer()
+                    countLabel
+                }
+                HStack(spacing: 12) {
+                    filterPicker
+                    sortMenu
+                    Spacer()
+                }
+            }
+        }
+        .padding(.vertical, 10)
+    }
+
+    private var searchField: some View {
+        TextField(appState.t("reports.searchEvidence"), text: $evidenceQuery)
+            .textFieldStyle(.roundedBorder)
+            .frame(minWidth: 220, idealWidth: 280, maxWidth: 360)
+    }
+
+    private var filterPicker: some View {
+        Picker(appState.t("reports.filter"), selection: $evidenceFilter) {
+            ForEach(ReportEvidenceFilter.allCases) { option in
+                Text(appState.title(for: option)).tag(option)
+            }
+        }
+        .pickerStyle(.segmented)
+        .labelsHidden()
+        .frame(width: 220)
+    }
+
+    private var sortMenu: some View {
+        Menu {
+            Picker(appState.t("reports.sort"), selection: $evidenceSortOrder) {
+                ForEach(ReportEvidenceSortOrder.allCases) { option in
                     Text(appState.title(for: option)).tag(option)
                 }
             }
-            .pickerStyle(.segmented)
-            .labelsHidden()
-            .frame(width: 220)
-
-            Menu {
-                Picker(appState.t("reports.sort"), selection: $evidenceSortOrder) {
-                    ForEach(ReportEvidenceSortOrder.allCases) { option in
-                        Text(appState.title(for: option)).tag(option)
-                    }
-                }
-            } label: {
-                Label(appState.title(for: evidenceSortOrder), systemImage: "arrow.up.arrow.down")
-            }
-            .menuStyle(.borderlessButton)
-
-            Spacer()
-            Text("\(visibleRowCount) / \(totalRowCount) \(appState.t("reports.rows"))")
-                .font(AppTypography.metadata)
-                .foregroundStyle(.secondary)
+        } label: {
+            Label(appState.title(for: evidenceSortOrder), systemImage: "arrow.up.arrow.down")
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 10)
+    }
+
+    private var countLabel: some View {
+        Text("\(visibleRowCount) / \(totalRowCount) \(appState.t("reports.rows"))")
+            .font(AppTypography.metadata)
+            .foregroundStyle(.secondary)
     }
 }
 
@@ -318,22 +343,92 @@ struct EvidenceList: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
         } else {
-            List(selection: Binding(
-                get: { appState.selectedReportRowID },
-                set: { appState.selectedReportRowID = $0 }
-            )) {
-                DenseEvidenceHeader(headers: section.table?.headers ?? [])
-                    .listRowSeparator(.visible)
-                    .listRowInsets(EdgeInsets(top: 4, leading: 12, bottom: 4, trailing: 12))
-
-                ForEach(rows) { row in
-                    EvidenceListRow(row: row)
+            VStack(alignment: .leading, spacing: 6) {
+                EvidenceListHeader(headers: section.table?.headers ?? [])
+                List(rows, selection: Binding(
+                    get: { appState.selectedReportRowID },
+                    set: { appState.selectedReportRowID = $0 }
+                )) { row in
+                    AdaptiveEvidenceListRow(row: row)
                         .tag(row.id)
-                        .listRowInsets(EdgeInsets(top: 3, leading: 12, bottom: 3, trailing: 12))
+                        .listRowInsets(EdgeInsets(top: 4, leading: 0, bottom: 4, trailing: 0))
                 }
+                .listStyle(.plain)
+                .frame(height: reportListHeight(rowCount: rows.count))
             }
-            .listStyle(.plain)
         }
+    }
+}
+
+private struct EvidenceListHeader: View {
+    let headers: [String]
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Text(headers[safe: 0] ?? "证据")
+                .frame(maxWidth: .infinity, alignment: .leading)
+            Text(headers[safe: 2] ?? "分数")
+                .frame(width: 70, alignment: .trailing)
+            Text("标记")
+                .frame(width: 92, alignment: .trailing)
+        }
+        .font(AppTypography.tableHeader)
+        .foregroundStyle(.secondary)
+        .padding(.horizontal, 2)
+    }
+}
+
+private struct AdaptiveEvidenceListRow: View {
+    let row: ReportTableRow
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 12) {
+            VStack(alignment: .leading, spacing: 3) {
+                Text(primaryTitle)
+                    .font(AppTypography.rowPrimary)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+                Text(previewText)
+                    .font(AppTypography.metadata)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(2)
+                    .truncationMode(.tail)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+
+            Text(scoreText)
+                .font(AppTypography.metadata.monospacedDigit())
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+                .frame(width: 70, alignment: .trailing)
+
+            Text(badgeText)
+                .font(AppTypography.metadata)
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+                .truncationMode(.tail)
+                .frame(width: 92, alignment: .trailing)
+        }
+        .padding(.vertical, 3)
+    }
+
+    private var primaryTitle: String {
+        let lhs = row.columns[safe: 0] ?? row.detailTitle
+        let rhs = row.columns[safe: 1] ?? ""
+        return rhs.isEmpty ? lhs : "\(lhs) ↔ \(rhs)"
+    }
+
+    private var scoreText: String {
+        row.columns[safe: 2] ?? ""
+    }
+
+    private var previewText: String {
+        let value = row.columns[safe: 3] ?? row.detailBody
+        return value.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private var badgeText: String {
+        row.badges.first?.title ?? row.columns[safe: 4] ?? ""
     }
 }
 
@@ -447,21 +542,19 @@ struct CrossBatchList: View {
     let rows: [ReportTableRow]
 
     var body: some View {
-        List(selection: Binding(
-            get: { appState.selectedReportRowID },
-            set: { appState.selectedReportRowID = $0 }
-        )) {
-            CrossBatchHeader()
-                .listRowSeparator(.visible)
-                .listRowInsets(EdgeInsets(top: 4, leading: 12, bottom: 4, trailing: 12))
-
-            ForEach(rows) { row in
-                CrossBatchListRow(row: row)
+        VStack(alignment: .leading, spacing: 6) {
+            EvidenceListHeader(headers: ["当前文件", "历史文件", "位差"])
+            List(rows, selection: Binding(
+                get: { appState.selectedReportRowID },
+                set: { appState.selectedReportRowID = $0 }
+            )) { row in
+                AdaptiveEvidenceListRow(row: row)
                     .tag(row.id)
-                    .listRowInsets(EdgeInsets(top: 3, leading: 12, bottom: 3, trailing: 12))
+                    .listRowInsets(EdgeInsets(top: 4, leading: 0, bottom: 4, trailing: 0))
             }
+            .listStyle(.plain)
+            .frame(height: reportListHeight(rowCount: rows.count))
         }
-        .listStyle(.plain)
     }
 }
 
@@ -710,24 +803,22 @@ struct OverviewEvidenceList: View {
     let rows: [ReportTableRow]
 
     var body: some View {
-        List(selection: Binding(
-            get: { appState.selectedReportRowID },
-            set: { appState.selectedReportRowID = $0 }
-        )) {
-            ForEach(rows) { row in
-                HStack {
-                    Text(row.detailTitle)
-                        .font(AppTypography.rowPrimary)
-                        .fontWeight(.medium)
-                        .lineLimit(1)
-                    Spacer()
-                    Text(row.columns[safe: 2] ?? "")
-                        .foregroundStyle(.secondary)
-                }
-                .tag(row.id)
-                .padding(.vertical, 5)
+        VStack(alignment: .leading, spacing: 6) {
+            EvidenceListHeader(headers: ["证据", "", appState.t("common.score")])
+            List(rows, selection: Binding(
+                get: { appState.selectedReportRowID },
+                set: { appState.selectedReportRowID = $0 }
+            )) { row in
+                AdaptiveEvidenceListRow(row: row)
+                    .tag(row.id)
+                    .listRowInsets(EdgeInsets(top: 4, leading: 0, bottom: 4, trailing: 0))
             }
+            .listStyle(.plain)
+            .frame(height: reportListHeight(rowCount: rows.count))
         }
-        .listStyle(.plain)
     }
+}
+
+private func reportListHeight(rowCount: Int) -> CGFloat {
+    min(max(CGFloat(rowCount) * 50 + 12, 82), 520)
 }

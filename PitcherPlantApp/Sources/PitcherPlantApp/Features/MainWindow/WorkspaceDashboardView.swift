@@ -39,45 +39,146 @@ struct WorkspaceDashboardView: View {
                 SummaryItem(title: appState.t("workspace.summary.whitelist"), value: "\(appState.whitelistRules.count)", systemImage: "checkmark.shield")
             ])
 
-            NativeSection(title: appState.t("workspace.recentJobs"), subtitle: "\(min(appState.jobs.count, 8)) \(appState.t("common.countSuffix"))") {
-                VStack(spacing: 0) {
-                    DenseHeader(columns: [appState.t("audit.directory"), appState.t("common.type"), "Progress", appState.t("common.updatedAt")])
-                    if appState.jobs.isEmpty {
-                        EmptyInlineRow(title: appState.t("job.noSelection"), subtitle: appState.t("job.noSelectionDescription"), systemImage: "clock.badge.questionmark")
-                    } else {
-                        ForEach(appState.jobs.prefix(8)) { job in
-                            Button {
-                                appState.selectedJobID = job.id
-                                appState.selectedMainSidebar = .history
-                            } label: {
-                                JobTableRow(job: job)
-                            }
-                            .buttonStyle(.plain)
-                        }
-                    }
+            ViewThatFits(in: .horizontal) {
+                HStack(alignment: .top, spacing: 28) {
+                    recentJobsSection
+                        .frame(maxWidth: .infinity, alignment: .topLeading)
+                    recentReportsSection
+                        .frame(maxWidth: .infinity, alignment: .topLeading)
                 }
-            }
 
-            NativeSection(title: appState.t("workspace.recentReports"), subtitle: "\(min(appState.reports.count, 8)) \(appState.t("common.countSuffix"))") {
-                VStack(spacing: 0) {
-                    DenseHeader(columns: ["Title", appState.t("common.type"), appState.t("reports.sectionSummary"), appState.t("common.createdAt")])
-                    if appState.reports.isEmpty {
-                        EmptyInlineRow(title: appState.t("reports.noReport"), subtitle: appState.t("reports.noReportDescription"), systemImage: "doc.text")
-                    } else {
-                        ForEach(appState.reports.sorted(by: { $0.createdAt > $1.createdAt }).prefix(8)) { report in
-                            Button {
-                                appState.showReport(report.id)
-                            } label: {
-                                AuditReportListRow(report: report)
-                            }
-                            .buttonStyle(.plain)
-                        }
-                    }
+                VStack(alignment: .leading, spacing: 24) {
+                    recentJobsSection
+                    recentReportsSection
                 }
             }
         }
     }
+
+    private var recentJobsSection: some View {
+        NativeSection(title: appState.t("workspace.recentJobs"), subtitle: "\(min(appState.jobs.count, 8)) \(appState.t("common.countSuffix"))") {
+            if appState.jobs.isEmpty {
+                EmptyInlineRow(title: appState.t("job.noSelection"), subtitle: appState.t("job.noSelectionDescription"), systemImage: "clock.badge.questionmark")
+            } else {
+                RecentJobsTable(jobs: Array(appState.jobs.prefix(8)))
+            }
+        }
+    }
+
+    private var recentReportsSection: some View {
+        NativeSection(title: appState.t("workspace.recentReports"), subtitle: "\(min(appState.reports.count, 8)) \(appState.t("common.countSuffix"))") {
+            if appState.reports.isEmpty {
+                EmptyInlineRow(title: appState.t("reports.noReport"), subtitle: appState.t("reports.noReportDescription"), systemImage: "doc.text")
+            } else {
+                RecentReportsTable(reports: Array(appState.reports.sorted(by: { $0.createdAt > $1.createdAt }).prefix(8)))
+            }
+        }
+    }
 }
+
+private struct RecentJobsTable: View {
+    @Environment(AppState.self) private var appState
+    let jobs: [AuditJob]
+
+    var body: some View {
+        Grid(alignment: .leading, horizontalSpacing: 14, verticalSpacing: 8) {
+            GridRow {
+                tableHeader(appState.t("audit.directory"))
+                tableHeader(appState.t("common.type"))
+                tableHeader("Progress")
+                tableHeader(appState.t("common.updatedAt"))
+            }
+
+            ForEach(jobs) { job in
+                GridRow {
+                    Button {
+                        appState.selectedJobID = job.id
+                        appState.selectedMainSidebar = .history
+                    } label: {
+                        Label(URL(fileURLWithPath: job.configuration.directoryPath).lastPathComponent, systemImage: job.status.systemImage)
+                            .lineLimit(1)
+                            .truncationMode(.middle)
+                    }
+                    .buttonStyle(.plain)
+                    .gridColumnAlignment(.leading)
+
+                    Text(job.status.displayTitle)
+                        .foregroundStyle(.secondary)
+                        .frame(width: 90, alignment: .leading)
+
+                    Text("\(job.progress)%")
+                        .monospacedDigit()
+                        .foregroundStyle(.secondary)
+                        .frame(width: 76, alignment: .leading)
+
+                    Text(job.updatedAt.formatted(date: .abbreviated, time: .shortened))
+                        .foregroundStyle(.secondary)
+                        .frame(width: 170, alignment: .leading)
+                }
+                .font(AppTypography.rowSecondary)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private func tableHeader(_ title: String) -> some View {
+        Text(title)
+            .font(AppTypography.tableHeader)
+            .foregroundStyle(.secondary)
+    }
+}
+
+private struct RecentReportsTable: View {
+    @Environment(AppState.self) private var appState
+    let reports: [AuditReport]
+
+    var body: some View {
+        Grid(alignment: .leading, horizontalSpacing: 14, verticalSpacing: 8) {
+            GridRow {
+                tableHeader("Title")
+                tableHeader(appState.t("common.type"))
+                tableHeader(appState.t("reports.sectionSummary"))
+                tableHeader(appState.t("common.createdAt"))
+            }
+
+            ForEach(reports) { report in
+                GridRow {
+                    Button {
+                        appState.showReport(report.id)
+                    } label: {
+                        Label(report.title, systemImage: report.isLegacy ? "doc.richtext" : "doc.text.magnifyingglass")
+                            .lineLimit(1)
+                            .truncationMode(.middle)
+                    }
+                    .buttonStyle(.plain)
+                    .gridColumnAlignment(.leading)
+
+                    Text(report.isLegacy ? "Legacy" : appState.t("common.native"))
+                        .foregroundStyle(.secondary)
+                        .frame(width: 90, alignment: .leading)
+
+                    Text("\(report.sections.count)")
+                        .monospacedDigit()
+                        .foregroundStyle(.secondary)
+                        .frame(width: 88, alignment: .leading)
+
+                    Text(report.createdAt.formatted(date: .abbreviated, time: .shortened))
+                        .foregroundStyle(.secondary)
+                        .frame(width: 170, alignment: .leading)
+                }
+                .font(AppTypography.rowSecondary)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private func tableHeader(_ title: String) -> some View {
+        Text(title)
+            .font(AppTypography.tableHeader)
+            .foregroundStyle(.secondary)
+    }
+}
+
 
 struct NewAuditView: View {
     @Environment(AppState.self) private var appState
