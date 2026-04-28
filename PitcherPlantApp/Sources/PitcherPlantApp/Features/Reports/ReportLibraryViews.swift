@@ -10,22 +10,26 @@ struct ReportLibrarySidebar: View {
         VStack(alignment: .leading, spacing: 12) {
             AppToolbarBand {
                 VStack(alignment: .leading, spacing: 10) {
-                HStack(alignment: .firstTextBaseline) {
-                    Text(appState.t("reports.title"))
-                        .font(AppTypography.sectionTitle)
-                    Spacer()
-                    Text("\(reports.count)")
-                        .font(AppTypography.metadata)
-                        .foregroundStyle(.secondary)
-                }
-                Picker(appState.t("reports.filter"), selection: $reportFilter) {
-                    ForEach(ReportLibraryFilter.allCases) { filter in
-                        Text(appState.title(for: filter)).tag(filter)
+                    HStack(alignment: .firstTextBaseline) {
+                        Text(appState.t("reports.title"))
+                            .font(AppTypography.sectionTitle)
+                        Spacer()
+                        Text("\(reports.count)")
+                            .font(AppTypography.metadata)
+                            .foregroundStyle(.secondary)
                     }
+
+                    TextField(appState.t("reports.searchPrompt"), text: $reportQuery)
+                        .textFieldStyle(.roundedBorder)
+
+                    Picker(appState.t("reports.filter"), selection: $reportFilter) {
+                        ForEach(ReportLibraryFilter.allCases) { filter in
+                            Text(appState.title(for: filter)).tag(filter)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                    .labelsHidden()
                 }
-                .pickerStyle(.segmented)
-                .labelsHidden()
-            }
             }
             .padding(.horizontal, 12)
             .padding(.top, 12)
@@ -51,7 +55,6 @@ struct ReportLibrarySidebar: View {
             .padding(.horizontal, 12)
             .padding(.bottom, 12)
         }
-        .searchable(text: $reportQuery, placement: .sidebar, prompt: appState.t("reports.searchPrompt"))
     }
 }
 

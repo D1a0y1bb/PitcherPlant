@@ -9,37 +9,22 @@ struct MainWindowView: View {
     var body: some View {
         @Bindable var state = appState
 
-        NavigationSplitView(columnVisibility: $columnVisibility) {
-            MainSidebarView(selection: $state.selectedMainSidebar)
-                .navigationSplitViewColumnWidth(min: 270, ideal: 300, max: 320)
-        } content: {
-            mainContent
-                .safeAreaInset(edge: .bottom, spacing: 0) {
-                    if appState.selectedMainSidebar != .settings {
-                        MainStatusBar()
-                    }
+        Group {
+            if isInspectorColumnVisible {
+                NavigationSplitView(columnVisibility: $columnVisibility) {
+                    sidebar(selection: $state.selectedMainSidebar)
+                } content: {
+                    contentColumn
+                } detail: {
+                    inspectorColumn
                 }
-                .modifier(SettingsSearchToolbarModifier(
-                    isActive: appState.selectedMainSidebar == .settings,
-                    searchText: $settingsSearchText,
-                    prompt: appState.t("settings.searchPrompt")
-                ))
-                .navigationSplitViewColumnWidth(min: 560, ideal: 760, max: .infinity)
-        } detail: {
-            Group {
-                if !isInspectorColumnVisible {
-                    EmptyView()
-                } else if appState.selectedMainSidebar.usesReportInspector {
-                    ReportEvidenceInspectorHost()
-                } else {
-                    JobInspectorView()
+            } else {
+                NavigationSplitView(columnVisibility: $columnVisibility) {
+                    sidebar(selection: $state.selectedMainSidebar)
+                } detail: {
+                    contentColumn
                 }
             }
-            .navigationSplitViewColumnWidth(
-                min: isInspectorColumnVisible ? 340 : 0,
-                ideal: isInspectorColumnVisible ? 400 : 0,
-                max: isInspectorColumnVisible ? 520 : 0
-            )
         }
         .navigationSplitViewStyle(.balanced)
         .onAppear {
@@ -67,66 +52,7 @@ struct MainWindowView: View {
             updateColumnVisibility()
         }
         .toolbar {
-            if appState.selectedMainSidebar == .settings {
-                ToolbarItemGroup(placement: .primaryAction) {
-                    Button {
-                        Task { await appState.reload() }
-                    } label: {
-                        Label(appState.t("toolbar.reload"), systemImage: "arrow.clockwise")
-                    }
-                    .keyboardShortcut("r", modifiers: .command)
-                    .help(appState.t("command.reloadData"))
-
-                    Button {
-                        appState.selectedMainSidebar = .settings
-                    } label: {
-                        Label(appState.t("toolbar.settings"), systemImage: "gear")
-                    }
-                    .keyboardShortcut(",", modifiers: .command)
-                    .help(appState.t("toolbar.settings"))
-                }
-            } else {
-                ToolbarItemGroup(placement: .primaryAction) {
-                    if appState.selectedMainSidebar.allowsInspector {
-                        Button {
-                            inspectorVisible.toggle()
-                        } label: {
-                            Label(
-                                inspectorVisible ? appState.t("toolbar.hideInspector") : appState.t("toolbar.showInspector"),
-                                systemImage: inspectorVisible ? "sidebar.right" : "sidebar.trailing"
-                            )
-                        }
-                        .help(inspectorVisible ? appState.t("toolbar.hideInspector") : appState.t("toolbar.showInspector"))
-                    }
-
-                    Button {
-                        Task { await appState.reload() }
-                    } label: {
-                        Label(appState.t("toolbar.reload"), systemImage: "arrow.clockwise")
-                    }
-                    .keyboardShortcut("r", modifiers: .command)
-                    .help(appState.t("command.reloadData"))
-
-                    Button {
-                        appState.toggleAudit()
-                    } label: {
-                        Label(
-                            appState.isRunningAudit ? appState.t("toolbar.cancel") : appState.t("toolbar.start"),
-                            systemImage: appState.isRunningAudit ? "stop.fill" : "play.fill"
-                        )
-                    }
-                    .keyboardShortcut(.return, modifiers: .command)
-                    .help(appState.t("command.startAudit"))
-
-                    Button {
-                        appState.selectedMainSidebar = .settings
-                    } label: {
-                        Label(appState.t("toolbar.settings"), systemImage: "gear")
-                    }
-                        .keyboardShortcut(",", modifiers: .command)
-                        .help(appState.t("toolbar.settings"))
-                }
-            }
+            mainToolbarItems
         }
         .environment(\.locale, appState.effectiveLocale ?? .current)
         .preferredColorScheme(appState.effectiveColorScheme)
@@ -137,7 +63,74 @@ struct MainWindowView: View {
     }
 
     private func updateColumnVisibility() {
-        columnVisibility = .all
+        columnVisibility = isInspectorColumnVisible ? .all : .doubleColumn
+    }
+
+    private func sidebar(selection: Binding<MainSidebarItem>) -> some View {
+        MainSidebarView(selection: selection)
+            .navigationSplitViewColumnWidth(min: 270, ideal: 300, max: 320)
+    }
+
+    private var contentColumn: some View {
+        mainContent
+            .safeAreaInset(edge: .bottom, spacing: 0) {
+                if appState.selectedMainSidebar != .settings {
+                    MainStatusBar()
+                }
+            }
+            .navigationSplitViewColumnWidth(min: 560, ideal: 820, max: .infinity)
+    }
+
+    @ViewBuilder
+    private var inspectorColumn: some View {
+        if appState.selectedMainSidebar.usesReportInspector {
+            ReportEvidenceInspectorHost()
+        } else {
+            JobInspectorView()
+        }
+    }
+
+    @ToolbarContentBuilder
+    private var mainToolbarItems: some ToolbarContent {
+        ToolbarItemGroup(placement: .primaryAction) {
+            Button {
+                inspectorVisible.toggle()
+            } label: {
+                Label(
+                    inspectorVisible ? appState.t("toolbar.hideInspector") : appState.t("toolbar.showInspector"),
+                    systemImage: inspectorVisible ? "sidebar.right" : "sidebar.trailing"
+                )
+            }
+            .disabled(!appState.selectedMainSidebar.allowsInspector)
+            .help(inspectorVisible ? appState.t("toolbar.hideInspector") : appState.t("toolbar.showInspector"))
+
+            Button {
+                Task { await appState.reload() }
+            } label: {
+                Label(appState.t("toolbar.reload"), systemImage: "arrow.clockwise")
+            }
+            .keyboardShortcut("r", modifiers: .command)
+            .help(appState.t("command.reloadData"))
+
+            Button {
+                appState.toggleAudit()
+            } label: {
+                Label(
+                    appState.isRunningAudit ? appState.t("toolbar.cancel") : appState.t("toolbar.start"),
+                    systemImage: appState.isRunningAudit ? "stop.fill" : "play.fill"
+                )
+            }
+            .keyboardShortcut(.return, modifiers: .command)
+            .help(appState.t("command.startAudit"))
+
+            Button {
+                appState.selectedMainSidebar = .settings
+            } label: {
+                Label(appState.t("toolbar.settings"), systemImage: "gear")
+            }
+            .keyboardShortcut(",", modifiers: .command)
+            .help(appState.t("toolbar.settings"))
+        }
     }
 
     @ViewBuilder

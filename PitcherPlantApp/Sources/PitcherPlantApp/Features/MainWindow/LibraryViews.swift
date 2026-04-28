@@ -16,7 +16,7 @@ struct JobHistoryView: View {
 
     var body: some View {
         VStack(spacing: 14) {
-            SearchHeader(title: appState.t("sidebar.history"), count: filteredJobs.count)
+            SearchHeader(title: appState.t("sidebar.history"), count: filteredJobs.count, query: $query, prompt: appState.t("history.searchPrompt"))
 
             AppTablePanel {
                 List(selection: Binding(get: { appState.selectedJobID }, set: { appState.selectedJobID = $0 })) {
@@ -31,7 +31,6 @@ struct JobHistoryView: View {
         }
         .padding(AppLayout.pagePadding)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .searchable(text: $query, prompt: appState.t("history.searchPrompt"))
     }
 }
 
@@ -53,7 +52,7 @@ struct FingerprintLibraryView: View {
 
     var body: some View {
         VStack(spacing: 14) {
-            SearchHeader(title: appState.t("sidebar.fingerprints"), count: filteredRecords.count)
+            SearchHeader(title: appState.t("sidebar.fingerprints"), count: filteredRecords.count, query: $query, prompt: appState.t("fingerprints.searchPrompt"))
 
             AppToolbarBand {
                 VStack(spacing: 10) {
@@ -117,7 +116,6 @@ struct FingerprintLibraryView: View {
         }
         .padding(AppLayout.pagePadding)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .searchable(text: $query, prompt: appState.t("fingerprints.searchPrompt"))
     }
 
     private var cleanupMatchCount: Int {
@@ -194,7 +192,7 @@ struct WhitelistLibraryView: View {
 
     var body: some View {
         VStack(spacing: 14) {
-            SearchHeader(title: appState.t("sidebar.whitelist"), count: filteredRules.count + filteredSuggestions.count)
+            SearchHeader(title: appState.t("sidebar.whitelist"), count: filteredRules.count + filteredSuggestions.count, query: $query, prompt: appState.t("whitelist.searchPrompt"))
 
             AppToolbarBand {
                 HStack(spacing: 10) {
@@ -262,7 +260,6 @@ struct WhitelistLibraryView: View {
         }
         .padding(AppLayout.pagePadding)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .searchable(text: $query, prompt: appState.t("whitelist.searchPrompt"))
         .task {
             if suggestions.isEmpty {
                 await refreshSuggestions()

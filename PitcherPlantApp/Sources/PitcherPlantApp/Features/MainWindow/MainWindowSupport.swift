@@ -1,20 +1,5 @@
 import SwiftUI
 
-struct SettingsSearchToolbarModifier: ViewModifier {
-    let isActive: Bool
-    @Binding var searchText: String
-    let prompt: String
-
-    func body(content: Content) -> some View {
-        if isActive {
-            content
-                .searchable(text: $searchText, prompt: prompt)
-        } else {
-            content
-        }
-    }
-}
-
 struct EvidenceFocusedReportsView: View {
     @Environment(AppState.self) private var appState
     let kind: ReportSectionKind?

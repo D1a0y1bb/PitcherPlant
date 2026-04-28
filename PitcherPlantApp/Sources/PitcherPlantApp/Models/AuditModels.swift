@@ -92,7 +92,12 @@ enum MainSidebarItem: String, Codable, CaseIterable, Identifiable, Sendable {
     }
 
     var allowsInspector: Bool {
-        self != .settings
+        switch self {
+        case .workspace, .history, .reports, .textEvidence, .codeEvidence, .imageEvidence, .metadataEvidence, .dedupEvidence, .crossBatchEvidence:
+            return true
+        case .newAudit, .fingerprints, .whitelist, .settings:
+            return false
+        }
     }
 }
 
