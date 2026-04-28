@@ -51,13 +51,17 @@ func databasePersistsReviewsBatchesItemsAndDocumentFeatures() async throws {
         evidenceType: .text,
         decision: .confirmed,
         severity: .high,
-        reviewerNote: "人工确认"
+        reviewerNote: "人工确认",
+        isFavorite: true,
+        isWatched: true
     )
     try await store.upsertEvidenceReview(review)
 
     let loadedReview = try #require(try await store.loadEvidenceReviews(reportID: reportID).first)
     #expect(loadedReview.decision == .confirmed)
     #expect(loadedReview.severity == .high)
+    #expect(loadedReview.isFavorite)
+    #expect(loadedReview.isWatched)
 
     let batch = SubmissionBatch(name: "round-one", sourcePath: root.path, destinationPath: root.path, itemCount: 1)
     let item = SubmissionItem(batchID: batch.id, teamName: "Alpha", rootPath: root.path, fileCount: 2, ignoredCount: 1)
@@ -77,6 +81,166 @@ func databasePersistsReviewsBatchesItemsAndDocumentFeatures() async throws {
 
     try await store.deleteEvidenceReview(id: review.id)
     #expect(try await store.loadEvidenceReviews(reportID: reportID).isEmpty)
+}
+
+@Test
+func evidenceReviewDecodesLegacyFavoriteWatchDefaults() throws {
+    let json = """
+    {
+      "id": "11111111-1111-1111-1111-111111111111",
+      "reportID": "22222222-2222-2222-2222-222222222222",
+      "evidenceID": "33333333-3333-3333-3333-333333333333",
+      "evidenceType": "text",
+      "decision": "pending",
+      "severity": null,
+      "reviewerNote": "",
+      "createdAt": "2026-04-28T00:00:00Z",
+      "updatedAt": "2026-04-28T00:00:00Z"
+    }
+    """
+    let decoder = JSONDecoder()
+    decoder.dateDecodingStrategy = .iso8601
+
+    let review = try decoder.decode(EvidenceReview.self, from: Data(json.utf8))
+
+    #expect(review.isFavorite == false)
+    #expect(review.isWatched == false)
+}
+
+@Test
+@MainActor
+func evidenceFlagTogglesPreserveReviewDisposition() async throws {
+    let root = FileManager.default.temporaryDirectory
+        .appendingPathComponent("pitcherplant-evidence-flags-\(UUID().uuidString)", isDirectory: true)
+    try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+    let appState = AppState(workspaceRoot: root)
+    try await appState.database.prepare()
+
+    let reportID = UUID()
+    let evidenceID = UUID()
+    let row = ReportTableRow(
+        id: evidenceID,
+        columns: ["alpha.md", "beta.md", "0.97", "shared exploit"],
+        detailTitle: "alpha.md ↔ beta.md",
+        detailBody: "shared exploit",
+        evidenceID: evidenceID,
+        evidenceType: .text,
+        riskAssessment: RiskAssessment(score: 0.97, reasons: ["文本复用"])
+    )
+    let report = AuditReport(
+        id: reportID,
+        title: "Flag Report",
+        sourcePath: root.appendingPathComponent("report.html").path,
+        scanDirectoryPath: root.path,
+        metrics: [],
+        sections: [
+            ReportSection(
+                kind: .text,
+                title: "文本证据",
+                summary: "",
+                table: ReportTable(headers: ["A", "B", "Score", "Detail"], rows: [row])
+            )
+        ]
+    )
+    try await appState.database.saveReport(report)
+    try await appState.database.upsertEvidenceReview(EvidenceReview(
+        reportID: reportID,
+        evidenceID: evidenceID,
+        evidenceType: .text,
+        decision: .confirmed,
+        severity: .high,
+        reviewerNote: "保留这条备注"
+    ))
+    await appState.reload()
+    appState.selectReport(reportID)
+    appState.selectReportSection(.text)
+
+    let selectedRow = try #require(appState.selectedReportRow)
+    await appState.toggleFavorite(row: selectedRow)
+    let favoriteReview = try #require(try await appState.database.loadEvidenceReviews(reportID: reportID).first)
+    #expect(favoriteReview.decision == .confirmed)
+    #expect(favoriteReview.severity == .high)
+    #expect(favoriteReview.reviewerNote == "保留这条备注")
+    #expect(favoriteReview.isFavorite)
+    #expect(favoriteReview.isWatched == false)
+
+    let reloadedRow = try #require(appState.selectedReportRow)
+    await appState.toggleWatch(row: reloadedRow)
+    let watchedReview = try #require(try await appState.database.loadEvidenceReviews(reportID: reportID).first)
+    #expect(watchedReview.decision == .confirmed)
+    #expect(watchedReview.severity == .high)
+    #expect(watchedReview.reviewerNote == "保留这条备注")
+    #expect(watchedReview.isFavorite)
+    #expect(watchedReview.isWatched)
+}
+
+@Test
+@MainActor
+func evidenceCollectionFiltersFlagsAndRestoresSelection() throws {
+    let root = FileManager.default.temporaryDirectory
+        .appendingPathComponent("pitcherplant-evidence-collection-\(UUID().uuidString)", isDirectory: true)
+    let appState = AppState(workspaceRoot: root)
+    let favoriteReportID = UUID()
+    let watchedReportID = UUID()
+    let favoriteEvidenceID = UUID()
+    let watchedEvidenceID = UUID()
+    let favoriteRow = ReportTableRow(
+        id: favoriteEvidenceID,
+        columns: ["favorite.md", "source.md", "0.91", "favorite body"],
+        detailTitle: "Favorite Evidence",
+        detailBody: "favorite body",
+        evidenceID: favoriteEvidenceID,
+        evidenceType: .code
+    )
+    let watchedRow = ReportTableRow(
+        id: watchedEvidenceID,
+        columns: ["watched.md", "source.md", "0.88", "watched body"],
+        detailTitle: "Watched Evidence",
+        detailBody: "watched body",
+        evidenceID: watchedEvidenceID,
+        evidenceType: .image
+    )
+    appState.reports = [
+        AuditReport(
+            id: favoriteReportID,
+            title: "Favorite Report",
+            sourcePath: root.appendingPathComponent("favorite.html").path,
+            scanDirectoryPath: root.path,
+            metrics: [],
+            sections: [
+                ReportSection(kind: .code, title: "代码证据", summary: "", table: ReportTable(headers: [], rows: [favoriteRow]))
+            ]
+        ),
+        AuditReport(
+            id: watchedReportID,
+            title: "Watched Report",
+            sourcePath: root.appendingPathComponent("watched.html").path,
+            scanDirectoryPath: root.path,
+            metrics: [],
+            sections: [
+                ReportSection(kind: .image, title: "图片证据", summary: "", table: ReportTable(headers: [], rows: [watchedRow]))
+            ]
+        )
+    ]
+    appState.evidenceReviews = [
+        EvidenceReview(reportID: favoriteReportID, evidenceID: favoriteEvidenceID, evidenceType: .code, isFavorite: true),
+        EvidenceReview(reportID: watchedReportID, evidenceID: watchedEvidenceID, evidenceType: .image, isWatched: true)
+    ]
+
+    let favorites = appState.evidenceCollection(for: .favorites)
+    let watched = appState.evidenceCollection(for: .watched)
+    let all = appState.evidenceCollection(for: .all)
+
+    #expect(favorites.map(\.row.evidenceID) == [favoriteEvidenceID])
+    #expect(watched.map(\.row.evidenceID) == [watchedEvidenceID])
+    #expect(all.count == 2)
+
+    let watchedItem = try #require(watched.first)
+    appState.selectEvidence(watchedItem)
+
+    #expect(appState.selectedReportID == watchedReportID)
+    #expect(appState.selectedReportSection == .image)
+    #expect(appState.selectedReportRowID == watchedEvidenceID)
 }
 
 @Test

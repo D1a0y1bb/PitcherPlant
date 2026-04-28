@@ -6,6 +6,9 @@ enum AppWindow: String {
 
 enum MainSidebarItem: String, Codable, CaseIterable, Identifiable, Sendable {
     case workspace
+    case allEvidence
+    case favoriteEvidence
+    case watchedEvidence
     case newAudit
     case history
     case reports
@@ -24,15 +27,18 @@ enum MainSidebarItem: String, Codable, CaseIterable, Identifiable, Sendable {
     var title: String {
         switch self {
         case .workspace: return "工作台"
+        case .allEvidence: return "全部证据"
+        case .favoriteEvidence: return "收藏"
+        case .watchedEvidence: return "关注"
         case .newAudit: return "新建审计"
         case .history: return "历史任务"
         case .reports: return "报告中心"
-        case .textEvidence: return "文本证据"
-        case .codeEvidence: return "代码证据"
-        case .imageEvidence: return "图片证据"
-        case .metadataEvidence: return "元数据证据"
-        case .dedupEvidence: return "重复证据"
-        case .crossBatchEvidence: return "跨批次证据"
+        case .textEvidence: return "文本"
+        case .codeEvidence: return "代码"
+        case .imageEvidence: return "图片"
+        case .metadataEvidence: return "元数据"
+        case .dedupEvidence: return "重复"
+        case .crossBatchEvidence: return "跨批次"
         case .fingerprints: return "指纹库"
         case .whitelist: return "白名单"
         case .settings: return "设置"
@@ -42,6 +48,9 @@ enum MainSidebarItem: String, Codable, CaseIterable, Identifiable, Sendable {
     var localizationKey: String {
         switch self {
         case .workspace: return "sidebar.workspace"
+        case .allEvidence: return "sidebar.allEvidence"
+        case .favoriteEvidence: return "sidebar.favorites"
+        case .watchedEvidence: return "sidebar.watched"
         case .newAudit: return "sidebar.newAudit"
         case .history: return "sidebar.history"
         case .reports: return "sidebar.reports"
@@ -60,6 +69,9 @@ enum MainSidebarItem: String, Codable, CaseIterable, Identifiable, Sendable {
     var systemImage: String {
         switch self {
         case .workspace: return "square.grid.2x2.fill"
+        case .allEvidence: return "list.bullet"
+        case .favoriteEvidence: return "star.fill"
+        case .watchedEvidence: return "eye.fill"
         case .newAudit: return "play.circle.fill"
         case .history: return "clock.arrow.circlepath"
         case .reports: return "doc.text.magnifyingglass"
@@ -87,16 +99,49 @@ enum MainSidebarItem: String, Codable, CaseIterable, Identifiable, Sendable {
         }
     }
 
+    var evidenceCollectionScope: EvidenceCollectionScope? {
+        switch self {
+        case .allEvidence: return .all
+        case .favoriteEvidence: return .favorites
+        case .watchedEvidence: return .watched
+        default: return nil
+        }
+    }
+
     var usesReportInspector: Bool {
-        self == .reports || reportSectionKind != nil
+        self == .reports || reportSectionKind != nil || evidenceCollectionScope != nil
     }
 
     var allowsInspector: Bool {
         switch self {
-        case .workspace, .history, .reports, .textEvidence, .codeEvidence, .imageEvidence, .metadataEvidence, .dedupEvidence, .crossBatchEvidence:
+        case .workspace, .allEvidence, .favoriteEvidence, .watchedEvidence, .history, .reports, .textEvidence, .codeEvidence, .imageEvidence, .metadataEvidence, .dedupEvidence, .crossBatchEvidence:
             return true
         case .newAudit, .fingerprints, .whitelist, .settings:
             return false
+        }
+    }
+}
+
+enum EvidenceCollectionScope: String, Codable, CaseIterable, Identifiable, Sendable {
+    case all
+    case favorites
+    case watched
+
+    var id: String { rawValue }
+
+    var localizationKey: String {
+        switch self {
+        case .all: return "sidebar.allEvidence"
+        case .favorites: return "sidebar.favorites"
+        case .watched: return "sidebar.watched"
+        }
+    }
+
+    var systemImage: String {
+        switch self {
+        case .all: return "list.bullet"
+        case .favorites: return "star.fill"
+        case .watched: return "eye.fill"
         }
     }
 }

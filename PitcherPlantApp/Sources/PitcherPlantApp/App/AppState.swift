@@ -17,6 +17,42 @@ struct AppNotice: Identifiable, Equatable {
     let tone: Tone
 }
 
+struct EvidenceCollectionItem: Identifiable, Hashable, Sendable {
+    let id: String
+    let reportID: UUID
+    let reportTitle: String
+    let sectionKind: ReportSectionKind
+    let sectionTitle: String
+    var row: ReportTableRow
+
+    init(report: AuditReport, section: ReportSection, row: ReportTableRow) {
+        let evidenceID = row.evidenceID ?? row.id
+        self.id = "\(report.id.uuidString):\(evidenceID.uuidString)"
+        self.reportID = report.id
+        self.reportTitle = report.title
+        self.sectionKind = section.kind
+        self.sectionTitle = section.title
+        self.row = row
+    }
+
+    func matchesSearch(_ query: String) -> Bool {
+        let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmed.isEmpty == false else {
+            return true
+        }
+        return searchCorpus.localizedCaseInsensitiveContains(trimmed)
+    }
+
+    private var searchCorpus: String {
+        let badgeCorpus = row.badges.map(\.title).joined(separator: "\n")
+        let attachmentCorpus = row.attachments
+            .flatMap { [$0.title, $0.subtitle, $0.body] }
+            .joined(separator: "\n")
+        return ([reportTitle, sectionTitle, row.detailTitle, row.detailBody, badgeCorpus, attachmentCorpus] + row.columns)
+            .joined(separator: "\n")
+    }
+}
+
 @MainActor
 @Observable
 final class AppState {
@@ -51,17 +87,17 @@ final class AppState {
     var isImportingSubmissionPackage = false
     private var currentAuditTask: Task<AuditReport?, Never>?
 
-    init() {
-        let locator = ProjectLocator()
-        self.workspaceRoot = locator.workspaceRoot()
+    init(workspaceRoot: URL? = nil) {
+        let resolvedRoot = workspaceRoot ?? ProjectLocator().workspaceRoot()
+        self.workspaceRoot = resolvedRoot
         let settings = AppPreferences.loadAppSettings()
         self.appSettings = settings
         self.selectedMainSidebar = .workspace
-        let databaseResult = Self.makeDatabase(rootDirectory: workspaceRoot)
+        let databaseResult = Self.makeDatabase(rootDirectory: resolvedRoot)
         self.database = databaseResult.database
         self.initializationMessage = databaseResult.message
         self.auditRunner = AuditRunner()
-        self.draftConfiguration = AppPreferences.loadDraftConfiguration(for: workspaceRoot)
+        self.draftConfiguration = AppPreferences.loadDraftConfiguration(for: resolvedRoot)
     }
 
     private static func makeDatabase(rootDirectory: URL) -> (database: DatabaseStore, message: String?) {
@@ -146,6 +182,18 @@ final class AppState {
             return rows.first(where: { $0.matchesSelection(selectedReportRowID) }) ?? rows.first
         }
         return rows.first
+    }
+
+    var allEvidenceCount: Int {
+        evidenceCollection(for: .all).count
+    }
+
+    var favoriteEvidenceCount: Int {
+        evidenceCollection(for: .favorites).count
+    }
+
+    var watchedEvidenceCount: Int {
+        evidenceCollection(for: .watched).count
     }
 
     func updateDraft(_ transform: (inout AuditConfiguration) -> Void) {
@@ -325,6 +373,36 @@ final class AppState {
             ?? row.review
     }
 
+    func isFavorite(row: ReportTableRow) -> Bool {
+        review(for: row)?.isFavorite ?? row.review?.isFavorite ?? false
+    }
+
+    func isWatching(row: ReportTableRow) -> Bool {
+        review(for: row)?.isWatched ?? row.review?.isWatched ?? false
+    }
+
+    func toggleFavoriteSelectedEvidence() async {
+        guard let row = selectedReportRow else {
+            return
+        }
+        await toggleFavorite(row: row)
+    }
+
+    func toggleWatchSelectedEvidence() async {
+        guard let row = selectedReportRow else {
+            return
+        }
+        await toggleWatch(row: row)
+    }
+
+    func toggleFavorite(row: ReportTableRow) async {
+        await saveEvidenceFlags(for: row, isFavorite: !isFavorite(row: row), isWatched: nil)
+    }
+
+    func toggleWatch(row: ReportTableRow) async {
+        await saveEvidenceFlags(for: row, isFavorite: nil, isWatched: !isWatching(row: row))
+    }
+
     func saveReview(for row: ReportTableRow, decision: EvidenceDecision, severity: RiskLevel?, note: String) async {
         guard let report = selectedReport else {
             return
@@ -349,6 +427,35 @@ final class AppState {
         }
     }
 
+    func evidenceCollection(for scope: EvidenceCollectionScope) -> [EvidenceCollectionItem] {
+        reports.flatMap { report in
+            report.sections.flatMap { section in
+                guard section.kind != .overview, let rows = section.table?.rows else {
+                    return [EvidenceCollectionItem]()
+                }
+                return rows.compactMap { row in
+                    let rowWithReview = rowWithEffectiveReview(row, reportID: report.id)
+                    switch scope {
+                    case .all:
+                        return EvidenceCollectionItem(report: report, section: section, row: rowWithReview)
+                    case .favorites:
+                        guard rowWithReview.review?.isFavorite == true else { return nil }
+                        return EvidenceCollectionItem(report: report, section: section, row: rowWithReview)
+                    case .watched:
+                        guard rowWithReview.review?.isWatched == true else { return nil }
+                        return EvidenceCollectionItem(report: report, section: section, row: rowWithReview)
+                    }
+                }
+            }
+        }
+    }
+
+    func selectEvidence(_ item: EvidenceCollectionItem) {
+        selectedReportID = item.reportID
+        selectedReportSection = item.sectionKind
+        selectedReportRowID = item.row.evidenceID ?? item.row.id
+    }
+
     func quickReviewSelectedEvidence(_ decision: EvidenceDecision) async {
         guard let row = selectedReportRow else {
             return
@@ -361,6 +468,29 @@ final class AppState {
         await saveReview(for: row, decision: decision, severity: severity, note: note)
         if decision == .whitelisted, let candidate = whitelistRuleCandidate(for: row) {
             await addWhitelistRule(pattern: candidate.pattern, type: candidate.type)
+        }
+    }
+
+    private func saveEvidenceFlags(for row: ReportTableRow, isFavorite: Bool?, isWatched: Bool?) async {
+        guard let report = selectedReport else {
+            return
+        }
+        let evidenceID = row.evidenceID ?? row.id
+        let existing = review(for: row)
+        let review = existing?.updatedFlags(isFavorite: isFavorite, isWatched: isWatched)
+            ?? EvidenceReview(
+                id: UUID.pitcherPlantStable(namespace: "evidence-review", components: [report.id.uuidString, evidenceID.uuidString]),
+                reportID: report.id,
+                evidenceID: evidenceID,
+                evidenceType: row.evidenceType ?? EvidenceType(rawValue: selectedReportSection?.rawValue ?? "") ?? .text,
+                isFavorite: isFavorite ?? false,
+                isWatched: isWatched ?? false
+            )
+        do {
+            try await database.upsertEvidenceReview(review)
+            await reload()
+        } catch {
+            showNotice(title: t("notice.reviewSaveFailed"), message: error.localizedDescription, tone: .error)
         }
     }
 
@@ -870,32 +1000,12 @@ final class AppState {
     }
 
     private func reportWithReviews(_ report: AuditReport) -> AuditReport {
-        let reviewsByEvidenceID = Dictionary(uniqueKeysWithValues: evidenceReviews
-            .filter { $0.reportID == report.id }
-            .map { ($0.evidenceID, $0) })
         let sections = report.sections.map { section in
             var copy = section
             if let table = section.table {
                 copy.table = ReportTable(
                     headers: table.headers,
-                    rows: table.rows.map { row in
-                        var rowCopy = row
-                        if let review = reviewsByEvidenceID[row.evidenceID ?? row.id] {
-                            rowCopy.review = review
-                            rowCopy.badges = rowCopy.badges.filter { badge in
-                                EvidenceDecision.allCases.contains(where: { $0.title == badge.title }) == false
-                            } + [ReportBadge(title: review.decision.title, tone: review.decision.badgeTone)]
-                            if let severity = review.severity, let current = rowCopy.riskAssessment {
-                                rowCopy.riskAssessment = RiskAssessment(
-                                    score: current.score,
-                                    level: severity,
-                                    reasons: current.reasons,
-                                    evidenceCount: current.evidenceCount
-                                )
-                            }
-                        }
-                        return rowCopy
-                    }
+                    rows: table.rows.map { rowWithEffectiveReview($0, reportID: report.id) }
                 )
             }
             return copy
@@ -910,6 +1020,29 @@ final class AppState {
             metrics: report.metrics,
             sections: sections
         )
+    }
+
+    private func rowWithEffectiveReview(_ row: ReportTableRow, reportID: UUID) -> ReportTableRow {
+        let evidenceID = row.evidenceID ?? row.id
+        guard let review = evidenceReviews.first(where: { $0.evidenceID == evidenceID && $0.reportID == reportID }) ?? row.review else {
+            return row
+        }
+        var rowCopy = row
+        rowCopy.review = review
+        if review.hasReviewerDisposition {
+            rowCopy.badges = rowCopy.badges.filter { badge in
+                EvidenceDecision.allCases.contains(where: { $0.title == badge.title }) == false
+            } + [ReportBadge(title: review.decision.title, tone: review.decision.badgeTone)]
+        }
+        if let severity = review.severity, let current = rowCopy.riskAssessment {
+            rowCopy.riskAssessment = RiskAssessment(
+                score: current.score,
+                level: severity,
+                reasons: current.reasons,
+                evidenceCount: current.evidenceCount
+            )
+        }
+        return rowCopy
     }
 
     private func export(report: AuditReport, format: ExportRecord.Format, to url: URL) throws {

@@ -312,6 +312,185 @@ struct EvidenceToolbar: View {
     }
 }
 
+struct EvidenceCollectionView: View {
+    @Environment(AppState.self) private var appState
+    let scope: EvidenceCollectionScope
+    @State private var query = ""
+    @State private var selectedItemID: String?
+
+    private var items: [EvidenceCollectionItem] {
+        appState.evidenceCollection(for: scope).filter { $0.matchesSearch(query) }
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 24) {
+            NativePageHeader(
+                title: appState.title(for: scope),
+                subtitle: "\(items.count) \(appState.t("reports.rows"))",
+                actions: {
+                    EmptyView()
+                }
+            )
+
+            AppToolbarBand {
+                HStack(spacing: 12) {
+                    TextField(appState.t("evidence.collection.searchPrompt"), text: $query)
+                        .textFieldStyle(.plain)
+                        .padding(.horizontal, 10)
+                        .frame(height: 28)
+                        .frame(minWidth: 260, idealWidth: 340, maxWidth: 460)
+                    Spacer()
+                    Label("\(items.count)", systemImage: scope.systemImage)
+                        .foregroundStyle(.secondary)
+                }
+            }
+
+            AppTablePanel {
+                if items.isEmpty {
+                    AppEmptyPanel(
+                        title: appState.t("evidence.collection.empty"),
+                        subtitle: appState.t("evidence.collection.emptyDescription"),
+                        systemImage: scope.systemImage
+                    )
+                } else {
+                    VStack(alignment: .leading, spacing: 6) {
+                        EvidenceCollectionHeader()
+                        List(items, selection: $selectedItemID) { item in
+                            EvidenceCollectionRow(item: item) {
+                                select(item)
+                            }
+                            .tag(item.id)
+                            .listRowInsets(EdgeInsets(top: 4, leading: 0, bottom: 4, trailing: 0))
+                        }
+                        .listStyle(.plain)
+                        .scrollContentBackground(.hidden)
+                        .frame(maxHeight: .infinity)
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                }
+            }
+        }
+        .padding(.horizontal, AppLayout.pagePadding)
+        .padding(.vertical, 22)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .onAppear { syncSelection() }
+        .onChange(of: query) { _, _ in syncSelection() }
+        .onChange(of: items.map(\.id)) { _, _ in syncSelection() }
+    }
+
+    private func syncSelection() {
+        guard let item = selectedItemID.flatMap({ id in items.first(where: { $0.id == id }) }) ?? items.first else {
+            selectedItemID = nil
+            appState.selectedReportRowID = nil
+            return
+        }
+        selectedItemID = item.id
+        appState.selectEvidence(item)
+    }
+
+    private func select(_ item: EvidenceCollectionItem) {
+        selectedItemID = item.id
+        appState.selectEvidence(item)
+    }
+}
+
+private struct EvidenceCollectionHeader: View {
+    @Environment(AppState.self) private var appState
+
+    var body: some View {
+        HStack(spacing: 12) {
+            HStack(spacing: 8) {
+                Text("★")
+                Image(systemName: "eye")
+            }
+            .frame(width: 54, alignment: .center)
+            Text(appState.t("reports.evidenceDetails"))
+                .frame(maxWidth: .infinity, alignment: .leading)
+            Text(appState.t("reports.title"))
+                .frame(width: 180, alignment: .leading)
+            Text(appState.t("common.score"))
+                .frame(width: 70, alignment: .trailing)
+            Text(appState.t("common.badge"))
+                .frame(width: 92, alignment: .trailing)
+        }
+        .font(AppTypography.tableHeader)
+        .foregroundStyle(.secondary)
+        .padding(.horizontal, 2)
+    }
+}
+
+private struct EvidenceCollectionRow: View {
+    let item: EvidenceCollectionItem
+    let onSelect: () -> Void
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 12) {
+            EvidenceFlagButtons(row: item.row, beforeToggle: onSelect)
+                .frame(width: 54, alignment: .center)
+
+            VStack(alignment: .leading, spacing: 3) {
+                Text(primaryTitle)
+                    .font(AppTypography.rowPrimary)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+                Text(previewText)
+                    .font(AppTypography.metadata)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(2)
+                    .truncationMode(.tail)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+
+            VStack(alignment: .leading, spacing: 3) {
+                Text(item.reportTitle)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+                Text(item.sectionTitle)
+                    .font(AppTypography.metadata)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
+            .font(AppTypography.rowSecondary)
+            .frame(width: 180, alignment: .leading)
+
+            Text(scoreText)
+                .font(AppTypography.metadata.monospacedDigit())
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+                .frame(width: 70, alignment: .trailing)
+
+            Text(badgeText)
+                .font(AppTypography.metadata)
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+                .truncationMode(.tail)
+                .frame(width: 92, alignment: .trailing)
+        }
+        .contentShape(Rectangle())
+        .onTapGesture(perform: onSelect)
+        .padding(.vertical, 3)
+    }
+
+    private var primaryTitle: String {
+        let lhs = item.row.columns[safe: 0] ?? item.row.detailTitle
+        let rhs = item.row.columns[safe: 1] ?? ""
+        return rhs.isEmpty ? lhs : "\(lhs) ↔ \(rhs)"
+    }
+
+    private var scoreText: String {
+        item.row.columns[safe: 2] ?? ""
+    }
+
+    private var previewText: String {
+        let value = item.row.columns[safe: 3] ?? item.row.detailBody
+        return value.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private var badgeText: String {
+        item.row.badges.first?.title ?? item.row.columns[safe: 4] ?? ""
+    }
+}
+
 struct EvidenceList: View {
     @Environment(AppState.self) private var appState
     let section: ReportSection
@@ -360,6 +539,11 @@ private struct EvidenceListHeader: View {
 
     var body: some View {
         HStack(spacing: 12) {
+            HStack(spacing: 8) {
+                Text("★")
+                Image(systemName: "eye")
+            }
+            .frame(width: 54, alignment: .center)
             Text(headers[safe: 0] ?? "证据")
                 .frame(maxWidth: .infinity, alignment: .leading)
             Text(headers[safe: 2] ?? "分数")
@@ -373,11 +557,54 @@ private struct EvidenceListHeader: View {
     }
 }
 
+struct EvidenceFlagButtons: View {
+    @Environment(AppState.self) private var appState
+    let row: ReportTableRow
+    var beforeToggle: () -> Void = {}
+
+    private var isFavorite: Bool {
+        row.review?.isFavorite ?? appState.isFavorite(row: row)
+    }
+
+    private var isWatching: Bool {
+        row.review?.isWatched ?? appState.isWatching(row: row)
+    }
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Button {
+                beforeToggle()
+                Task { await appState.toggleFavorite(row: row) }
+            } label: {
+                Image(systemName: isFavorite ? "star.fill" : "star")
+                    .foregroundStyle(isFavorite ? .yellow : .secondary)
+            }
+            .buttonStyle(.plain)
+            .help(appState.t(isFavorite ? "evidence.removeFavorite" : "evidence.addFavorite"))
+            .accessibilityLabel(Text(appState.t(isFavorite ? "evidence.removeFavorite" : "evidence.addFavorite")))
+
+            Button {
+                beforeToggle()
+                Task { await appState.toggleWatch(row: row) }
+            } label: {
+                Image(systemName: isWatching ? "eye.fill" : "eye")
+                    .foregroundStyle(isWatching ? .blue : .secondary)
+            }
+            .buttonStyle(.plain)
+            .help(appState.t(isWatching ? "evidence.removeWatch" : "evidence.addWatch"))
+            .accessibilityLabel(Text(appState.t(isWatching ? "evidence.removeWatch" : "evidence.addWatch")))
+        }
+    }
+}
+
 private struct AdaptiveEvidenceListRow: View {
     let row: ReportTableRow
 
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
+            EvidenceFlagButtons(row: row)
+                .frame(width: 54, alignment: .center)
+
             VStack(alignment: .leading, spacing: 3) {
                 Text(primaryTitle)
                     .font(AppTypography.rowPrimary)

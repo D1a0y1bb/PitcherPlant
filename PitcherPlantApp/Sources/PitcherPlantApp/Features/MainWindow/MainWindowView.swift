@@ -54,6 +54,8 @@ struct MainWindowView: View {
         .toolbar {
             mainToolbarItems
         }
+        .toolbar(removing: .sidebarToggle)
+        .toolbarBackgroundVisibility(.hidden, for: .windowToolbar)
         .alert(item: noticeBinding) { notice in
             Alert(
                 title: Text(notice.title),
@@ -109,7 +111,9 @@ struct MainWindowView: View {
 
     @ToolbarContentBuilder
     private var mainToolbarItems: some ToolbarContent {
-        ToolbarItem(placement: .primaryAction) {
+        ToolbarSpacer(.flexible, placement: .primaryAction)
+
+        ToolbarItemGroup(placement: .primaryAction) {
             Button {
                 inspectorVisible.toggle()
             } label: {
@@ -120,11 +124,7 @@ struct MainWindowView: View {
             }
             .disabled(!appState.selectedMainSidebar.allowsInspector)
             .help(inspectorVisible ? appState.t("toolbar.hideInspector") : appState.t("toolbar.showInspector"))
-        }
 
-        ToolbarSpacer(.fixed, placement: .primaryAction)
-
-        ToolbarItemGroup(placement: .primaryAction) {
             Button {
                 Task { await appState.reload() }
             } label: {
@@ -143,11 +143,7 @@ struct MainWindowView: View {
             }
             .keyboardShortcut(.return, modifiers: .command)
             .help(appState.t("command.startAudit"))
-        }
 
-        ToolbarSpacer(.fixed, placement: .primaryAction)
-
-        ToolbarItem(placement: .primaryAction) {
             Button {
                 appState.selectedMainSidebar = .settings
             } label: {
@@ -169,6 +165,8 @@ struct MainWindowView: View {
             JobHistoryView()
         case .reports:
             ReportsInlineView()
+        case .allEvidence, .favoriteEvidence, .watchedEvidence:
+            EvidenceCollectionView(scope: appState.selectedMainSidebar.evidenceCollectionScope ?? .all)
         case .textEvidence, .codeEvidence, .imageEvidence, .metadataEvidence, .dedupEvidence, .crossBatchEvidence:
             EvidenceFocusedReportsView(kind: appState.selectedMainSidebar.reportSectionKind)
         case .fingerprints:

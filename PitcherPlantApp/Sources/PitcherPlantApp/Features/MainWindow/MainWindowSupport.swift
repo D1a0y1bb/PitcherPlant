@@ -30,57 +30,72 @@ struct MainSidebarView: View {
     @Environment(AppState.self) private var appState
 
     var body: some View {
+        // Adapted from PortKiller's MIT-licensed SidebarView/FavoriteWatchButtons patterns.
         List(selection: $selection) {
-            Section(appState.t("sidebar.categories")) {
-                sidebarRow(.workspace, count: appState.jobs.count)
+            Section {
+                sidebarRow(.workspace)
                 sidebarRow(.newAudit)
-                sidebarRow(.history, count: appState.jobs.count)
-                sidebarRow(.reports, count: appState.reports.count)
+                sidebarRow(.history)
+                sidebarRow(.reports)
+            }
+
+            Section(appState.t("sidebar.evidenceCollections")) {
+                sidebarRow(.allEvidence)
+                sidebarRow(.favoriteEvidence)
+                sidebarRow(.watchedEvidence)
             }
 
             Section(appState.t("sidebar.evidenceTypes")) {
-                sidebarRow(.textEvidence, count: evidenceCount(.text))
-                sidebarRow(.codeEvidence, count: evidenceCount(.code))
-                sidebarRow(.imageEvidence, count: evidenceCount(.image))
-                sidebarRow(.metadataEvidence, count: evidenceCount(.metadata))
-                sidebarRow(.dedupEvidence, count: evidenceCount(.dedup))
-                sidebarRow(.crossBatchEvidence, count: evidenceCount(.crossBatch))
+                sidebarRow(.textEvidence)
+                sidebarRow(.codeEvidence)
+                sidebarRow(.imageEvidence)
+                sidebarRow(.metadataEvidence)
+                sidebarRow(.dedupEvidence)
+                sidebarRow(.crossBatchEvidence)
             }
 
             Section(appState.t("sidebar.libraries")) {
-                sidebarRow(.fingerprints, count: appState.fingerprints.count)
-                sidebarRow(.whitelist, count: appState.whitelistRules.count)
-            }
-
-            Section {
+                sidebarRow(.fingerprints)
+                sidebarRow(.whitelist)
                 sidebarRow(.settings)
             }
         }
         .listStyle(.sidebar)
     }
 
-    private func sidebarRow(_ item: MainSidebarItem, title: String? = nil, count: Int? = nil) -> some View {
+    private func sidebarRow(_ item: MainSidebarItem, title: String? = nil) -> some View {
         HStack(spacing: 10) {
             Image(systemName: item.systemImage)
                 .frame(width: 18, alignment: .center)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(iconColor(for: item))
             Text(title ?? appState.title(for: item))
                 .lineLimit(1)
             Spacer()
-            if let count {
-                Text("\(count)")
-                    .font(AppTypography.metadata)
-                    .foregroundStyle(.secondary)
-                    .frame(minWidth: 26, alignment: .trailing)
-            }
         }
         .padding(.vertical, 3)
+        .padding(.leading, 8)
         .tag(item)
     }
 
-    private func evidenceCount(_ kind: ReportSectionKind) -> Int {
-        appState.reports.reduce(0) { total, report in
-            total + (report.displaySection(for: kind)?.table?.rows.count ?? 0)
+    private func iconColor(for item: MainSidebarItem) -> Color {
+        switch item {
+        case .workspace: return .orange
+        case .allEvidence: return .blue
+        case .favoriteEvidence: return .yellow
+        case .watchedEvidence: return .cyan
+        case .newAudit: return .green
+        case .history: return .orange
+        case .reports: return .indigo
+        case .textEvidence: return .mint
+        case .codeEvidence: return .purple
+        case .imageEvidence: return .teal
+        case .metadataEvidence: return .cyan
+        case .dedupEvidence: return .brown
+        case .crossBatchEvidence: return .pink
+        case .fingerprints: return .blue
+        case .whitelist: return .green
+        case .settings: return .orange
         }
     }
+
 }

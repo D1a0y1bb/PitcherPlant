@@ -144,6 +144,8 @@ struct EvidenceReview: Codable, Identifiable, Hashable, Sendable {
     var decision: EvidenceDecision
     var severity: RiskLevel?
     var reviewerNote: String
+    var isFavorite: Bool
+    var isWatched: Bool
     var createdAt: Date
     var updatedAt: Date
 
@@ -155,6 +157,8 @@ struct EvidenceReview: Codable, Identifiable, Hashable, Sendable {
         decision: EvidenceDecision = .pending,
         severity: RiskLevel? = nil,
         reviewerNote: String = "",
+        isFavorite: Bool = false,
+        isWatched: Bool = false,
         createdAt: Date = .now,
         updatedAt: Date = .now
     ) {
@@ -165,8 +169,39 @@ struct EvidenceReview: Codable, Identifiable, Hashable, Sendable {
         self.decision = decision
         self.severity = severity
         self.reviewerNote = reviewerNote
+        self.isFavorite = isFavorite
+        self.isWatched = isWatched
         self.createdAt = createdAt
         self.updatedAt = updatedAt
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case reportID
+        case evidenceID
+        case evidenceType
+        case decision
+        case severity
+        case reviewerNote
+        case isFavorite
+        case isWatched
+        case createdAt
+        case updatedAt
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(UUID.self, forKey: .id)
+        reportID = try container.decode(UUID.self, forKey: .reportID)
+        evidenceID = try container.decode(UUID.self, forKey: .evidenceID)
+        evidenceType = try container.decode(EvidenceType.self, forKey: .evidenceType)
+        decision = try container.decode(EvidenceDecision.self, forKey: .decision)
+        severity = try container.decodeIfPresent(RiskLevel.self, forKey: .severity)
+        reviewerNote = try container.decode(String.self, forKey: .reviewerNote)
+        isFavorite = try container.decodeIfPresent(Bool.self, forKey: .isFavorite) ?? false
+        isWatched = try container.decodeIfPresent(Bool.self, forKey: .isWatched) ?? false
+        createdAt = try container.decode(Date.self, forKey: .createdAt)
+        updatedAt = try container.decode(Date.self, forKey: .updatedAt)
     }
 
     func updated(decision: EvidenceDecision, severity: RiskLevel?, reviewerNote: String) -> EvidenceReview {
@@ -176,6 +211,22 @@ struct EvidenceReview: Codable, Identifiable, Hashable, Sendable {
         copy.reviewerNote = reviewerNote
         copy.updatedAt = .now
         return copy
+    }
+
+    func updatedFlags(isFavorite: Bool? = nil, isWatched: Bool? = nil) -> EvidenceReview {
+        var copy = self
+        if let isFavorite {
+            copy.isFavorite = isFavorite
+        }
+        if let isWatched {
+            copy.isWatched = isWatched
+        }
+        copy.updatedAt = .now
+        return copy
+    }
+
+    var hasReviewerDisposition: Bool {
+        decision != .pending || severity != nil || reviewerNote.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
     }
 }
 
