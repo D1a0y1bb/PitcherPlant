@@ -53,6 +53,11 @@ struct EvidenceCollectionItem: Identifiable, Hashable, Sendable {
     }
 }
 
+private struct EvidenceReviewKey: Hashable {
+    let reportID: UUID
+    let evidenceID: UUID
+}
+
 @MainActor
 @Observable
 final class AppState {
@@ -433,13 +438,14 @@ final class AppState {
     }
 
     func evidenceCollection(for scope: EvidenceCollectionScope) -> [EvidenceCollectionItem] {
-        reports.flatMap { report in
+        let reviewLookup = evidenceReviewLookup
+        return reports.flatMap { report in
             report.sections.flatMap { section in
                 guard section.kind != .overview, let rows = section.table?.rows else {
                     return [EvidenceCollectionItem]()
                 }
                 return rows.compactMap { row in
-                    let rowWithReview = rowWithEffectiveReview(row, reportID: report.id)
+                    let rowWithReview = rowWithEffectiveReview(row, reportID: report.id, reviewLookup: reviewLookup)
                     switch scope {
                     case .all:
                         return EvidenceCollectionItem(report: report, section: section, row: rowWithReview)
@@ -1005,12 +1011,13 @@ final class AppState {
     }
 
     private func reportWithReviews(_ report: AuditReport) -> AuditReport {
+        let reviewLookup = evidenceReviewLookup
         let sections = report.sections.map { section in
             var copy = section
             if let table = section.table {
                 copy.table = ReportTable(
                     headers: table.headers,
-                    rows: table.rows.map { rowWithEffectiveReview($0, reportID: report.id) }
+                    rows: table.rows.map { rowWithEffectiveReview($0, reportID: report.id, reviewLookup: reviewLookup) }
                 )
             }
             return copy
@@ -1027,9 +1034,24 @@ final class AppState {
         )
     }
 
-    private func rowWithEffectiveReview(_ row: ReportTableRow, reportID: UUID) -> ReportTableRow {
+    private var evidenceReviewLookup: [EvidenceReviewKey: EvidenceReview] {
+        Dictionary(
+            evidenceReviews.map { review in
+                (EvidenceReviewKey(reportID: review.reportID, evidenceID: review.evidenceID), review)
+            },
+            uniquingKeysWith: { current, next in
+                current.updatedAt >= next.updatedAt ? current : next
+            }
+        )
+    }
+
+    private func rowWithEffectiveReview(
+        _ row: ReportTableRow,
+        reportID: UUID,
+        reviewLookup: [EvidenceReviewKey: EvidenceReview]
+    ) -> ReportTableRow {
         let evidenceID = row.evidenceID ?? row.id
-        guard let review = evidenceReviews.first(where: { $0.evidenceID == evidenceID && $0.reportID == reportID }) ?? row.review else {
+        guard let review = reviewLookup[EvidenceReviewKey(reportID: reportID, evidenceID: evidenceID)] ?? row.review else {
             return row
         }
         var rowCopy = row

@@ -82,45 +82,47 @@ private struct RecentJobsTable: View {
     let jobs: [AuditJob]
 
     var body: some View {
-        Grid(alignment: .leading, horizontalSpacing: 14, verticalSpacing: 8) {
-            GridRow {
-                tableHeader(appState.t("audit.directory"))
-                tableHeader(appState.t("common.type"))
-                tableHeader("Progress")
-                tableHeader(appState.t("common.updatedAt"))
-            }
-
-            ForEach(jobs) { job in
+        AppHorizontalOverflow(minWidth: AppLayout.workspaceTableMinWidth) {
+            Grid(alignment: .leading, horizontalSpacing: 14, verticalSpacing: 8) {
                 GridRow {
-                    Button {
-                        appState.selectedJobID = job.id
-                        appState.selectedMainSidebar = .history
-                        appState.requestInspector()
-                    } label: {
-                        Label(URL(fileURLWithPath: job.configuration.directoryPath).lastPathComponent, systemImage: job.status.systemImage)
-                            .lineLimit(1)
-                            .truncationMode(.middle)
-                    }
-                    .buttonStyle(.plain)
-                    .gridColumnAlignment(.leading)
-
-                    Text(job.status.displayTitle)
-                        .foregroundStyle(.secondary)
-                        .frame(width: 90, alignment: .leading)
-
-                    Text("\(job.progress)%")
-                        .monospacedDigit()
-                        .foregroundStyle(.secondary)
-                        .frame(width: 76, alignment: .leading)
-
-                    Text(job.updatedAt.formatted(date: .abbreviated, time: .shortened))
-                        .foregroundStyle(.secondary)
-                        .frame(width: 170, alignment: .leading)
+                    tableHeader(appState.t("audit.directory"))
+                    tableHeader(appState.t("common.type"))
+                    tableHeader("Progress")
+                    tableHeader(appState.t("common.updatedAt"))
                 }
-                .font(AppTypography.rowSecondary)
+
+                ForEach(jobs) { job in
+                    GridRow {
+                        Button {
+                            appState.selectedJobID = job.id
+                            appState.selectedMainSidebar = .history
+                            appState.requestInspector()
+                        } label: {
+                            Label(URL(fileURLWithPath: job.configuration.directoryPath).lastPathComponent, systemImage: job.status.systemImage)
+                                .lineLimit(1)
+                                .truncationMode(.middle)
+                        }
+                        .buttonStyle(.plain)
+                        .gridColumnAlignment(.leading)
+
+                        Text(job.status.displayTitle)
+                            .foregroundStyle(.secondary)
+                            .frame(width: 90, alignment: .leading)
+
+                        Text("\(job.progress)%")
+                            .monospacedDigit()
+                            .foregroundStyle(.secondary)
+                            .frame(width: 76, alignment: .leading)
+
+                        Text(job.updatedAt.formatted(date: .abbreviated, time: .shortened))
+                            .foregroundStyle(.secondary)
+                            .frame(width: 170, alignment: .leading)
+                    }
+                    .font(AppTypography.rowSecondary)
+                }
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private func tableHeader(_ title: String) -> some View {
@@ -135,38 +137,40 @@ private struct RecentReportsTable: View {
     let reports: [AuditReport]
 
     var body: some View {
-        Grid(alignment: .leading, horizontalSpacing: 14, verticalSpacing: 8) {
-            GridRow {
-                tableHeader("Title")
-                tableHeader(appState.t("reports.sectionSummary"))
-                tableHeader(appState.t("common.createdAt"))
-            }
-
-            ForEach(reports) { report in
+        AppHorizontalOverflow(minWidth: AppLayout.workspaceTableMinWidth) {
+            Grid(alignment: .leading, horizontalSpacing: 14, verticalSpacing: 8) {
                 GridRow {
-                    Button {
-                        appState.showReport(report.id)
-                    } label: {
-                        Label(report.title, systemImage: "doc.text.magnifyingglass")
-                            .lineLimit(1)
-                            .truncationMode(.middle)
-                    }
-                    .buttonStyle(.plain)
-                    .gridColumnAlignment(.leading)
-
-                    Text("\(report.sections.count)")
-                        .monospacedDigit()
-                        .foregroundStyle(.secondary)
-                        .frame(width: 88, alignment: .leading)
-
-                    Text(report.createdAt.formatted(date: .abbreviated, time: .shortened))
-                        .foregroundStyle(.secondary)
-                        .frame(width: 170, alignment: .leading)
+                    tableHeader("Title")
+                    tableHeader(appState.t("reports.sectionSummary"))
+                    tableHeader(appState.t("common.createdAt"))
                 }
-                .font(AppTypography.rowSecondary)
+
+                ForEach(reports) { report in
+                    GridRow {
+                        Button {
+                            appState.showReport(report.id)
+                        } label: {
+                            Label(report.title, systemImage: "doc.text.magnifyingglass")
+                                .lineLimit(1)
+                                .truncationMode(.middle)
+                        }
+                        .buttonStyle(.plain)
+                        .gridColumnAlignment(.leading)
+
+                        Text("\(report.sections.count)")
+                            .monospacedDigit()
+                            .foregroundStyle(.secondary)
+                            .frame(width: 88, alignment: .leading)
+
+                        Text(report.createdAt.formatted(date: .abbreviated, time: .shortened))
+                            .foregroundStyle(.secondary)
+                            .frame(width: 170, alignment: .leading)
+                    }
+                    .font(AppTypography.rowSecondary)
+                }
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private func tableHeader(_ title: String) -> some View {

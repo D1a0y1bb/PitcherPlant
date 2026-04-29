@@ -50,6 +50,7 @@ struct JobHistoryView: View {
                     }
                     .width(min: 150, ideal: 180)
                 }
+                .scrollIndicators(.hidden)
                 .frame(
                     minHeight: 120,
                     idealHeight: nativeTableIdealHeight(rowCount: filteredJobs.count, minHeight: 160, maxHeight: 360),
@@ -92,21 +93,25 @@ struct FingerprintLibraryView: View {
                 cleanup: confirmAndDeleteFingerprints
             )
 
-            VStack(alignment: .leading, spacing: 6) {
-                FingerprintListHeader()
-                List(filteredRecords) { record in
-                    FingerprintLibraryRow(
-                        record: record,
-                        context: fingerprintContext(record)
+            AppHorizontalOverflow(minWidth: AppLayout.fingerprintTableMinWidth) {
+                VStack(alignment: .leading, spacing: 6) {
+                    FingerprintListHeader()
+                    List(filteredRecords) { record in
+                        FingerprintLibraryRow(
+                            record: record,
+                            context: fingerprintContext(record)
+                        )
+                        .listRowInsets(EdgeInsets(top: 4, leading: 0, bottom: 4, trailing: 0))
+                    }
+                    .listStyle(.plain)
+                    .scrollIndicators(.hidden)
+                    .frame(
+                        minHeight: 180,
+                        idealHeight: nativeTableIdealHeight(rowCount: filteredRecords.count, minHeight: 220, maxHeight: 360),
+                        maxHeight: .infinity
                     )
-                    .listRowInsets(EdgeInsets(top: 4, leading: 0, bottom: 4, trailing: 0))
                 }
-                .listStyle(.plain)
-                .frame(
-                    minHeight: 180,
-                    idealHeight: nativeTableIdealHeight(rowCount: filteredRecords.count, minHeight: 220, maxHeight: 360),
-                    maxHeight: .infinity
-                )
+                .frame(maxHeight: .infinity, alignment: .topLeading)
             }
         }
         .padding(AppLayout.pagePadding)
@@ -226,21 +231,23 @@ private struct FingerprintActionsView: View {
     let cleanup: (String, Int) -> Void
 
     var body: some View {
-        Grid(alignment: .leading, horizontalSpacing: 14, verticalSpacing: 10) {
-            GridRow {
-                actionLabel("导入")
-                importControls
+        AppHorizontalOverflow(minWidth: AppLayout.fingerprintActionsMinWidth) {
+            Grid(alignment: .leading, horizontalSpacing: 14, verticalSpacing: 10) {
+                GridRow {
+                    actionLabel("导入")
+                    importControls
+                }
+                GridRow {
+                    actionLabel("导出")
+                    exportControls
+                }
+                GridRow {
+                    actionLabel("清理")
+                    cleanupControls
+                }
             }
-            GridRow {
-                actionLabel("导出")
-                exportControls
-            }
-            GridRow {
-                actionLabel("清理")
-                cleanupControls
-            }
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private func actionLabel(_ title: String) -> some View {
@@ -553,6 +560,7 @@ private struct WhitelistSuggestionsSection: View {
                         .listRowInsets(EdgeInsets(top: 4, leading: 0, bottom: 4, trailing: 0))
                     }
                     .listStyle(.plain)
+                    .scrollIndicators(.hidden)
                     .frame(
                         minHeight: 120,
                         idealHeight: nativeTableIdealHeight(rowCount: suggestions.count, minHeight: 160, maxHeight: 260),
@@ -607,6 +615,7 @@ private struct WhitelistRulesSection: View {
                             .listRowInsets(EdgeInsets(top: 4, leading: 0, bottom: 4, trailing: 0))
                     }
                     .listStyle(.plain)
+                    .scrollIndicators(.hidden)
                     .frame(
                         minHeight: 70,
                         idealHeight: nativeTableIdealHeight(rowCount: rules.count, minHeight: 100, maxHeight: 220),
@@ -784,66 +793,68 @@ struct JobInspectorView: View {
     var body: some View {
         if let job = appState.selectedJob {
             ScrollView {
-                VStack(alignment: .leading, spacing: 18) {
-                    VStack(alignment: .leading, spacing: 12) {
-                        HStack(alignment: .top) {
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text(URL(fileURLWithPath: job.configuration.directoryPath).lastPathComponent)
-                                    .font(AppTypography.pageTitle)
-                                Text(job.configuration.directoryPath)
-                                    .font(AppTypography.smallCode)
-                                    .foregroundStyle(.secondary)
-                                    .lineLimit(1)
-                                    .truncationMode(.middle)
-                            }
-                            Spacer()
-                            StatusBadge(status: job.status)
-                        }
+                GlassEffectContainer(spacing: 18) {
+                    VStack(alignment: .leading, spacing: 18) {
+                        VStack(alignment: .leading, spacing: 12) {
+                            ViewThatFits(in: .horizontal) {
+                                HStack(alignment: .top) {
+                                    jobHeaderText(job)
+                                    Spacer()
+                                    StatusBadge(status: job.status)
+                                }
 
-                        Button {
-                            appState.restoreDraft(from: job)
-                        } label: {
-                            Label(appState.t("job.restoreParameters"), systemImage: "arrow.counterclockwise")
-                        }
-
-                        ViewThatFits(in: .horizontal) {
-                            HStack(spacing: 8) {
-                                jobRunQueueButton
-                                if job.status == .failed {
-                                    jobRetryButton(job)
+                                VStack(alignment: .leading, spacing: 8) {
+                                    StatusBadge(status: job.status)
+                                    jobHeaderText(job)
                                 }
                             }
-                            VStack(alignment: .leading, spacing: 8) {
-                                jobRunQueueButton
-                                if job.status == .failed {
-                                    jobRetryButton(job)
+
+                            Button {
+                                appState.restoreDraft(from: job)
+                            } label: {
+                                Label(appState.t("job.restoreParameters"), systemImage: "arrow.counterclockwise")
+                            }
+
+                            ViewThatFits(in: .horizontal) {
+                                HStack(spacing: 8) {
+                                    jobRunQueueButton
+                                    if job.status == .failed {
+                                        jobRetryButton(job)
+                                    }
+                                }
+                                VStack(alignment: .leading, spacing: 8) {
+                                    jobRunQueueButton
+                                    if job.status == .failed {
+                                        jobRetryButton(job)
+                                    }
+                                }
+                            }
+
+                            VStack(alignment: .leading, spacing: 6) {
+                                HStack {
+                                    Text(job.latestMessage)
+                                    Spacer()
+                                    Text("\(job.progress)%")
+                                }
+                                .font(AppTypography.rowSecondary)
+                                .foregroundStyle(.secondary)
+                                ProgressView(value: Double(job.progress), total: 100)
+                            }
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+
+                        JobInspectorSection(title: appState.t("job.timeline"), subtitle: "\(job.events.count) \(appState.t("common.countSuffix"))") {
+                            VStack(alignment: .leading, spacing: 0) {
+                                ForEach(Array(job.events.reversed())) { event in
+                                    TimelineEventRow(event: event)
                                 }
                             }
                         }
-
-                        VStack(alignment: .leading, spacing: 6) {
-                            HStack {
-                                Text(job.latestMessage)
-                                Spacer()
-                                Text("\(job.progress)%")
-                            }
-                            .font(AppTypography.rowSecondary)
-                            .foregroundStyle(.secondary)
-                            ProgressView(value: Double(job.progress), total: 100)
-                        }
                     }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-
-                    JobInspectorSection(title: appState.t("job.timeline"), subtitle: "\(job.events.count) \(appState.t("common.countSuffix"))") {
-                        VStack(alignment: .leading, spacing: 0) {
-                            ForEach(Array(job.events.reversed())) { event in
-                                TimelineEventRow(event: event)
-                            }
-                        }
-                    }
+                    .padding(20)
                 }
-                .padding(20)
             }
+            .scrollIndicators(.hidden)
         } else {
             ContentUnavailableView(appState.t("job.noSelection"), systemImage: "clock.badge.questionmark", description: Text(appState.t("job.noSelectionDescription")))
         }
@@ -865,5 +876,22 @@ struct JobInspectorView: View {
             Label(appState.t("job.retry"), systemImage: "arrow.clockwise")
         }
         .disabled(appState.isRunningAudit)
+    }
+
+    private func jobHeaderText(_ job: AuditJob) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(URL(fileURLWithPath: job.configuration.directoryPath).lastPathComponent)
+                .font(AppTypography.sectionTitle)
+                .lineLimit(2)
+                .truncationMode(.middle)
+                .fixedSize(horizontal: false, vertical: true)
+            Text(job.configuration.directoryPath)
+                .font(AppTypography.smallCode)
+                .foregroundStyle(.secondary)
+                .lineLimit(2)
+                .truncationMode(.middle)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }

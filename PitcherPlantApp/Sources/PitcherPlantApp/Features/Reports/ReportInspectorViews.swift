@@ -6,20 +6,28 @@ struct ReportEvidenceInspector: View {
     var body: some View {
         Group {
             if let row = appState.selectedReportRow {
-                ScrollView {
+                ReportInspectorScrollView {
                     VStack(alignment: .leading, spacing: 18) {
                         VStack(alignment: .leading, spacing: 12) {
-                            HStack(alignment: .top) {
-                                Text(row.detailTitle)
-                                    .font(AppTypography.pageTitle)
-                                    .lineLimit(3)
-                                Spacer()
-                            }
+                            Text(row.detailTitle)
+                                .font(AppTypography.sectionTitle)
+                                .lineLimit(3)
+                                .truncationMode(.middle)
+                                .fixedSize(horizontal: false, vertical: true)
+                                .frame(maxWidth: .infinity, alignment: .leading)
 
                             if !row.badges.isEmpty {
-                                HStack(spacing: 8) {
-                                    ForEach(row.badges, id: \.title) { badge in
-                                        ReportBadgeView(badge: badge)
+                                ViewThatFits(in: .horizontal) {
+                                    HStack(spacing: 8) {
+                                        ForEach(row.badges, id: \.title) { badge in
+                                            ReportBadgeView(badge: badge)
+                                        }
+                                    }
+
+                                    VStack(alignment: .leading, spacing: 6) {
+                                        ForEach(row.badges, id: \.title) { badge in
+                                            ReportBadgeView(badge: badge)
+                                        }
                                     }
                                 }
                             }
@@ -46,7 +54,6 @@ struct ReportEvidenceInspector: View {
                             }
                         }
                     }
-                    .padding(20)
                     .frame(maxWidth: .infinity, alignment: .leading)
                 }
             } else if let section = appState.selectedReportSectionModel {
@@ -70,12 +77,33 @@ struct ReportEvidenceInspector: View {
     }
 }
 
+private struct ReportInspectorScrollView<Content: View>: View {
+    var horizontalPadding: CGFloat = 14
+    var verticalPadding: CGFloat = 18
+    @ViewBuilder var content: Content
+
+    var body: some View {
+        GeometryReader { proxy in
+            ScrollView {
+                GlassEffectContainer(spacing: 18) {
+                    content
+                        .frame(width: max(proxy.size.width - horizontalPadding * 2, 1), alignment: .topLeading)
+                        .padding(.horizontal, horizontalPadding)
+                        .padding(.vertical, verticalPadding)
+                }
+            }
+            .scrollIndicators(.hidden)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        }
+    }
+}
+
 struct ReportQuickInspector: View {
     @Environment(AppState.self) private var appState
     let report: AuditReport
 
     var body: some View {
-        ScrollView {
+        ReportInspectorScrollView {
             VStack(alignment: .leading, spacing: 18) {
                 VStack(alignment: .leading, spacing: 8) {
                     Text(appState.t("reports.reportProperties"))
@@ -109,17 +137,20 @@ struct ReportQuickInspector: View {
                         Text(report.sourcePath)
                             .font(AppTypography.smallCode)
                             .foregroundStyle(.secondary)
+                            .lineLimit(3)
+                            .truncationMode(.middle)
                             .textSelection(.enabled)
                         Text(appState.t("reports.scanDirectory"))
                             .font(AppTypography.tableHeader)
                         Text(report.scanDirectoryPath)
                             .font(AppTypography.smallCode)
                             .foregroundStyle(.secondary)
+                            .lineLimit(3)
+                            .truncationMode(.middle)
                             .textSelection(.enabled)
                     }
                 }
             }
-            .padding(20)
             .frame(maxWidth: .infinity, alignment: .leading)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
@@ -132,11 +163,13 @@ struct ReportSectionSummaryInspector: View {
     let report: AuditReport?
 
     var body: some View {
-        ScrollView {
+        ReportInspectorScrollView {
             VStack(alignment: .leading, spacing: 18) {
                 VStack(alignment: .leading, spacing: 8) {
                     Label(section.title, systemImage: section.kind.systemImage)
                         .font(AppTypography.sectionTitle)
+                        .lineLimit(2)
+                        .fixedSize(horizontal: false, vertical: true)
                     if let report {
                         Text(report.title)
                             .font(AppTypography.metadata)
@@ -173,7 +206,6 @@ struct ReportSectionSummaryInspector: View {
                     }
                 }
             }
-            .padding(20)
             .frame(maxWidth: .infinity, alignment: .leading)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
@@ -187,6 +219,26 @@ struct InspectorSection<Content: View>: View {
         AppInspectorPanel(title: title) {
             content
         }
+    }
+}
+
+private struct InspectorWidthSwitch<Regular: View, Compact: View>: View {
+    var regularMinWidth: CGFloat = 320
+    @ViewBuilder var regular: () -> Regular
+    @ViewBuilder var compact: () -> Compact
+
+    var body: some View {
+        GeometryReader { proxy in
+            Group {
+                if proxy.size.width >= regularMinWidth {
+                    regular()
+                } else {
+                    compact()
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .frame(height: 28)
     }
 }
 
@@ -223,20 +275,36 @@ struct EvidenceReviewPanel: View {
 
                     VStack(alignment: .leading, spacing: 6) {
                         reviewLabel(appState.t("review.severity"))
-                        Picker(appState.t("review.severity"), selection: $severity) {
-                            ForEach(RiskLevel.allCases) { option in
-                                Text(option.title).tag(option)
+                        InspectorWidthSwitch(regularMinWidth: 330) {
+                            Picker(appState.t("review.severity"), selection: $severity) {
+                                ForEach(RiskLevel.allCases) { option in
+                                    Text(option.title).tag(option)
+                                }
                             }
+                            .pickerStyle(.segmented)
+                            .controlSize(.small)
+                            .labelsHidden()
+
+                            .frame(maxWidth: .infinity)
+                        } compact: {
+                            Picker(appState.t("review.severity"), selection: $severity) {
+                                ForEach(RiskLevel.allCases) { option in
+                                    Text(option.title).tag(option)
+                                }
+                            }
+                            .pickerStyle(.menu)
+                            .controlSize(.small)
+                            .labelsHidden()
                         }
-                        .pickerStyle(.segmented)
-                        .labelsHidden()
-                        .frame(maxWidth: .infinity)
+                        .frame(maxWidth: .infinity, alignment: .leading)
                     }
                 }
                 .buttonStyle(.borderless)
+                .controlSize(.small)
 
                 TextEditor(text: $note)
                     .font(AppTypography.body)
+                    .frame(maxWidth: .infinity)
                     .frame(minHeight: 72, idealHeight: 92, maxHeight: 120)
 
                 Button {
@@ -339,10 +407,13 @@ struct TextEvidenceComparisonView: View {
     @Environment(AppState.self) private var appState
     let row: ReportTableRow
     @State private var selectedHighlightIndex = 0
+    @State private var highlights: [String] = []
+
+    private var textAttachments: [ReportAttachment] {
+        Array(row.attachments.filter { $0.imageBase64 == nil }.prefix(2))
+    }
 
     var body: some View {
-        let textAttachments = Array(row.attachments.filter { $0.imageBase64 == nil }.prefix(2))
-        let highlights = EvidenceTokenAnalyzer.sharedHighlights(in: textAttachments.map { $0.body }, fallback: row.evidencePreview)
         let selectedHighlight = highlights[safe: selectedHighlightIndex]
         if textAttachments.isEmpty == false {
             InspectorSection(title: appState.t("reports.textViewer")) {
@@ -352,31 +423,28 @@ struct TextEvidenceComparisonView: View {
                     title: "共享 token"
                 )
 
-                ViewThatFits(in: .horizontal) {
-                    HStack(alignment: .top, spacing: 12) {
-                        evidenceContextCards(
-                            attachments: textAttachments,
-                            fallback: row.evidencePreview,
-                            style: .text,
-                            highlights: highlights,
-                            selectedHighlight: selectedHighlight
-                        )
-                    }
-                    VStack(alignment: .leading, spacing: 12) {
-                        evidenceContextCards(
-                            attachments: textAttachments,
-                            fallback: row.evidencePreview,
-                            style: .text,
-                            highlights: highlights,
-                            selectedHighlight: selectedHighlight
-                        )
-                    }
+                VStack(alignment: .leading, spacing: 12) {
+                    evidenceContextCards(
+                        attachments: textAttachments,
+                        fallback: row.evidencePreview,
+                        style: .text,
+                        highlights: highlights,
+                        selectedHighlight: selectedHighlight
+                    )
                 }
             }
+            .task(id: row.id) { updateHighlights() }
             .onChange(of: highlights.count) { _, count in
                 selectedHighlightIndex = min(selectedHighlightIndex, max(count - 1, 0))
             }
         }
+    }
+
+    private func updateHighlights() {
+        highlights = EvidenceTokenAnalyzer.sharedHighlights(
+            in: textAttachments.map { $0.body },
+            fallback: row.evidencePreview
+        )
     }
 }
 
@@ -385,54 +453,69 @@ struct CodeEvidenceComparisonView: View {
     let row: ReportTableRow
     @State private var selectedMode: CodeViewerMode = .original
     @State private var selectedHighlightIndex = 0
+    @State private var highlights: [String] = []
+
+    private var codeAttachments: [ReportAttachment] {
+        Array(row.attachments.filter { $0.imageBase64 == nil }.prefix(2))
+    }
 
     var body: some View {
-        let codeAttachments = Array(row.attachments.filter { $0.imageBase64 == nil }.prefix(2))
-        let highlights = EvidenceTokenAnalyzer.sharedHighlights(in: codeAttachments.map { $0.body }, fallback: row.detailBody)
         let selectedHighlight = highlights[safe: selectedHighlightIndex]
         let renderedAttachments = codeAttachments.map { $0.transformedBody(selectedMode.render($0.body)) }
         if codeAttachments.count == 2 {
             InspectorSection(title: appState.t("reports.codeViewer")) {
-                Picker("代码视图", selection: $selectedMode) {
-                    ForEach(CodeViewerMode.allCases) { mode in
-                        Text(mode.title).tag(mode)
+                ViewThatFits(in: .horizontal) {
+                    Picker("代码视图", selection: $selectedMode) {
+                        ForEach(CodeViewerMode.allCases) { mode in
+                            Text(mode.title).tag(mode)
+                        }
                     }
+                    .pickerStyle(.segmented)
+                    .controlSize(.small)
+                    .labelsHidden()
+
+                    Picker("代码视图", selection: $selectedMode) {
+                        ForEach(CodeViewerMode.allCases) { mode in
+                            Text(mode.title).tag(mode)
+                        }
+                    }
+                    .pickerStyle(.menu)
+                    .controlSize(.small)
+                    .labelsHidden()
                 }
-                .pickerStyle(.segmented)
+                .frame(maxWidth: .infinity, alignment: .leading)
 
                 CodeDiffSummaryView(left: codeAttachments[0].body, right: codeAttachments[1].body)
                 CodeLineDiffView(left: codeAttachments[0].body, right: codeAttachments[1].body)
                 EvidenceHighlightNavigator(tokens: highlights, selectedIndex: $selectedHighlightIndex, title: "共享标记")
 
-                ViewThatFits(in: .horizontal) {
-                    HStack(alignment: .top, spacing: 12) {
-                        evidenceContextCards(
-                            attachments: renderedAttachments,
-                            fallback: row.detailBody,
-                            style: .code,
-                            highlights: highlights,
-                            selectedHighlight: selectedHighlight
-                        )
-                    }
-                    VStack(alignment: .leading, spacing: 12) {
-                        evidenceContextCards(
-                            attachments: renderedAttachments,
-                            fallback: row.detailBody,
-                            style: .code,
-                            highlights: highlights,
-                            selectedHighlight: selectedHighlight
-                        )
-                    }
+                VStack(alignment: .leading, spacing: 12) {
+                    evidenceContextCards(
+                        attachments: renderedAttachments,
+                        fallback: row.detailBody,
+                        style: .code,
+                        highlights: highlights,
+                        selectedHighlight: selectedHighlight
+                    )
                 }
                 Text(row.detailBody)
                     .font(AppTypography.body)
                     .foregroundStyle(.secondary)
+                    .lineLimit(8)
                     .textSelection(.enabled)
             }
+            .task(id: row.id) { updateHighlights() }
             .onChange(of: highlights.count) { _, count in
                 selectedHighlightIndex = min(selectedHighlightIndex, max(count - 1, 0))
             }
         }
+    }
+
+    private func updateHighlights() {
+        highlights = EvidenceTokenAnalyzer.sharedHighlights(
+            in: codeAttachments.map { $0.body },
+            fallback: row.detailBody
+        )
     }
 }
 
@@ -546,8 +629,7 @@ struct ImageEvidenceDetailView: View {
     @State private var zoom = 1.0
 
     private let columns = [
-        GridItem(.flexible(minimum: 180), spacing: 12),
-        GridItem(.flexible(minimum: 180), spacing: 12),
+        GridItem(.adaptive(minimum: 150, maximum: 240), spacing: 12),
     ]
 
     var body: some View {
@@ -557,13 +639,8 @@ struct ImageEvidenceDetailView: View {
             } else {
                 imageComparisonToolbar
 
-                ViewThatFits(in: .horizontal) {
-                    HStack(alignment: .top, spacing: 12) {
-                        imageComparisonCards
-                    }
-                    VStack(alignment: .leading, spacing: 12) {
-                        imageComparisonCards
-                    }
+                VStack(alignment: .leading, spacing: 12) {
+                    imageComparisonCards
                 }
 
                 let remaining = attachments.filter { $0.imageBase64 == nil }
@@ -601,13 +678,31 @@ struct ImageEvidenceDetailView: View {
     }
 
     private var imageComparisonToolbar: some View {
+        ViewThatFits(in: .horizontal) {
+            imageComparisonToolbarContent
+            VStack(alignment: .leading, spacing: 8) {
+                Text("图片 A/B 对比")
+                    .font(AppTypography.tableHeader)
+                    .foregroundStyle(.secondary)
+                imagePairControls
+                imageZoomControls
+            }
+        }
+        .buttonStyle(.borderless)
+    }
+
+    private var imageComparisonToolbarContent: some View {
         HStack(spacing: 10) {
             Text("图片 A/B 对比")
                 .font(AppTypography.tableHeader)
                 .foregroundStyle(.secondary)
+            imagePairControls
+            imageZoomControls
+        }
+    }
 
-            Spacer()
-
+    private var imagePairControls: some View {
+        HStack(spacing: 6) {
             if imagePairs.count > 1 {
                 Button {
                     selectedPairIndex = max(selectedPairIndex - 1, 0)
@@ -627,19 +722,22 @@ struct ImageEvidenceDetailView: View {
                 }
                 .disabled(selectedPairIndex >= imagePairs.count - 1)
             }
+        }
+    }
 
+    private var imageZoomControls: some View {
+        HStack(spacing: 6) {
             Image(systemName: "minus.magnifyingglass")
                 .foregroundStyle(.secondary)
             Slider(value: $zoom, in: 0.5...3.0, step: 0.1)
-                .frame(width: 120)
+                .frame(width: 72)
             Image(systemName: "plus.magnifyingglass")
                 .foregroundStyle(.secondary)
             Text("\(Int(zoom * 100))%")
                 .font(.caption.monospacedDigit())
                 .foregroundStyle(.secondary)
-                .frame(width: 42, alignment: .trailing)
+                .frame(width: 38, alignment: .trailing)
         }
-        .buttonStyle(.borderless)
     }
 
     private func attachmentGrid(_ values: [ReportAttachment]) -> some View {
@@ -677,6 +775,10 @@ private struct EvidenceContextCard: View {
         return trimmed.isEmpty ? fallback : attachment.body
     }
 
+    private var displayedContent: String {
+        String(content.prefix(6_000))
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             VStack(alignment: .leading, spacing: 3) {
@@ -684,10 +786,12 @@ private struct EvidenceContextCard: View {
                     Text(attachment.title)
                         .font(AppTypography.rowPrimary)
                         .lineLimit(1)
+                        .truncationMode(.middle)
                     Spacer()
                     Text(metricText)
                         .font(AppTypography.metadata.monospacedDigit())
                         .foregroundStyle(.secondary)
+                        .lineLimit(1)
                 }
 
                 Label(attachment.sourceReferenceText, systemImage: "link")
@@ -709,17 +813,19 @@ private struct EvidenceContextCard: View {
 
             if style == .code {
                 ScrollView([.horizontal, .vertical]) {
-                    Text(EvidenceTextHighlighter.attributed(content, highlights: visibleHighlights))
+                    Text(EvidenceTextHighlighter.attributed(displayedContent, highlights: visibleHighlights))
                         .font(AppTypography.code)
                         .textSelection(.enabled)
                         .frame(minWidth: 280, maxWidth: .infinity, alignment: .leading)
                         .padding(2)
                 }
+                .scrollIndicators(.hidden)
                 .frame(minHeight: 132, maxHeight: 240)
             } else {
-                Text(EvidenceTextHighlighter.attributed(content, highlights: visibleHighlights))
+                Text(EvidenceTextHighlighter.attributed(displayedContent, highlights: visibleHighlights))
                     .font(AppTypography.body)
                     .textSelection(.enabled)
+                    .lineLimit(12)
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
         }
@@ -727,8 +833,9 @@ private struct EvidenceContextCard: View {
     }
 
     private var metricText: String {
-        let lineCount = max(content.components(separatedBy: .newlines).count, 1)
-        return "\(lineCount) 行 · \(content.count) 字"
+        let lineCount = max(displayedContent.components(separatedBy: .newlines).count, 1)
+        let suffix = content.count > displayedContent.count ? "+" : ""
+        return "\(lineCount) 行 · \(displayedContent.count)\(suffix) 字"
     }
 
     private var visibleHighlights: [String] {
@@ -746,17 +853,14 @@ private struct EvidenceHighlightNavigator: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            HStack(alignment: .firstTextBaseline, spacing: 8) {
-                Text(title)
-                    .font(AppTypography.tableHeader)
-                    .foregroundStyle(.secondary)
-
-                if tokens.isEmpty {
-                    Text("暂无稳定共享片段")
-                        .font(AppTypography.metadata)
-                        .foregroundStyle(.tertiary)
-                } else {
-                    FlowTokenLine(tokens: tokens)
+            ViewThatFits(in: .horizontal) {
+                HStack(alignment: .firstTextBaseline, spacing: 8) {
+                    navigatorTitle
+                    navigatorTokenSummary
+                }
+                VStack(alignment: .leading, spacing: 4) {
+                    navigatorTitle
+                    navigatorTokenSummary
                 }
             }
 
@@ -783,6 +887,24 @@ private struct EvidenceHighlightNavigator: View {
                     .disabled(selectedIndex >= tokens.count - 1)
                 }
                 .buttonStyle(.borderless)
+            }
+        }
+    }
+
+    private var navigatorTitle: some View {
+        Text(title)
+            .font(AppTypography.tableHeader)
+            .foregroundStyle(.secondary)
+    }
+
+    private var navigatorTokenSummary: some View {
+        Group {
+            if tokens.isEmpty {
+                Text("暂无稳定共享片段")
+                    .font(AppTypography.metadata)
+                    .foregroundStyle(.tertiary)
+            } else {
+                FlowTokenLine(tokens: tokens)
             }
         }
     }
@@ -828,10 +950,18 @@ private struct CodeDiffSummaryView: View {
         let fragment = EvidenceTokenAnalyzer.bestSharedFragment(left: left, right: right) ?? "暂无稳定公共片段"
 
         VStack(alignment: .leading, spacing: 6) {
-            HStack(spacing: 12) {
-                Label("共享 \(shared)", systemImage: "equal.square")
-                Label("左侧独有 \(leftOnly)", systemImage: "arrow.left.square")
-                Label("右侧独有 \(rightOnly)", systemImage: "arrow.right.square")
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: 12) {
+                    Label("共享 \(shared)", systemImage: "equal.square")
+                    Label("左侧独有 \(leftOnly)", systemImage: "arrow.left.square")
+                    Label("右侧独有 \(rightOnly)", systemImage: "arrow.right.square")
+                }
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Label("共享 \(shared)", systemImage: "equal.square")
+                    Label("左侧独有 \(leftOnly)", systemImage: "arrow.left.square")
+                    Label("右侧独有 \(rightOnly)", systemImage: "arrow.right.square")
+                }
             }
             .font(AppTypography.metadata)
             .foregroundStyle(.secondary)
@@ -885,6 +1015,7 @@ private struct CodeLineDiffView: View {
                 }
                 .padding(8)
             }
+            .scrollIndicators(.hidden)
             .frame(minHeight: 120, maxHeight: 220)
         }
     }
@@ -924,13 +1055,15 @@ private struct FlowTokenLine: View {
     let tokens: [String]
 
     var body: some View {
-        HStack(spacing: 6) {
-            ForEach(tokens.prefix(8), id: \.self) { token in
-                Text(token)
-                    .font(AppTypography.badge)
-                    .lineLimit(1)
-                    .truncationMode(.middle)
-                    .foregroundStyle(.secondary)
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 6) {
+                ForEach(tokens.prefix(8), id: \.self) { token in
+                    Text(token)
+                        .font(AppTypography.badge)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                        .foregroundStyle(.secondary)
+                }
             }
         }
     }
@@ -986,6 +1119,7 @@ private struct ImageComparisonCard: View {
                         .aspectRatio(contentMode: .fit)
                         .frame(width: displaySize(for: image).width, height: displaySize(for: image).height)
                 }
+                .scrollIndicators(.hidden)
                 .frame(maxWidth: .infinity, minHeight: 180, maxHeight: 260)
             }
 
@@ -1028,7 +1162,8 @@ private enum EvidenceTokenAnalyzer {
     static func sharedHighlights(in values: [String], fallback: String) -> [String] {
         let texts = values.map { value in
             let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
-            return trimmed.isEmpty ? fallback : value
+            let source = trimmed.isEmpty ? fallback : value
+            return String(source.prefix(8_000))
         }
         guard texts.isEmpty == false else { return [] }
 
@@ -1085,8 +1220,8 @@ private enum EvidenceTokenAnalyzer {
     }
 
     static func bestSharedFragment(left: String, right: String) -> String? {
-        let leftChars = Array(left.prefix(1_600))
-        let rightChars = Array(right.prefix(1_600))
+        let leftChars = Array(left.prefix(800))
+        let rightChars = Array(right.prefix(800))
         guard leftChars.isEmpty == false, rightChars.isEmpty == false else { return nil }
 
         var previous = Array(repeating: 0, count: rightChars.count + 1)

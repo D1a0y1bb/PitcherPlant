@@ -24,6 +24,11 @@ struct ReportSectionsAndEvidenceView: View {
     }
 
     var body: some View {
+        let selectedSection = selectedSection
+        let visibleRows = rows
+        let visibleRowIDs = visibleRows.map(\.id)
+        let totalRowCount = totalRowCount
+
         if let report = appState.selectedReport {
             VStack(spacing: 14) {
                 if showsReportHeader {
@@ -40,10 +45,10 @@ struct ReportSectionsAndEvidenceView: View {
                                     evidenceQuery: $evidenceQuery,
                                     evidenceFilter: $evidenceFilter,
                                     evidenceSortOrder: $evidenceSortOrder,
-                                    visibleRowCount: rows.count,
+                                    visibleRowCount: visibleRows.count,
                                     totalRowCount: totalRowCount
                                 )
-                                EvidenceList(section: section, rows: rows)
+                                EvidenceList(section: section, rows: visibleRows)
                             }
                             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
                         }
@@ -62,7 +67,7 @@ struct ReportSectionsAndEvidenceView: View {
                 }
                 syncVisibleEvidenceSelection()
             }
-            .onChange(of: rows.map(\.id)) { _, _ in syncVisibleEvidenceSelection() }
+            .onChange(of: visibleRowIDs) { _, _ in syncVisibleEvidenceSelection() }
             .onChange(of: appState.selectedReportSection) { _, _ in syncVisibleEvidenceSelection() }
             .onChange(of: appState.selectedReportID) { _, _ in
                 evidenceQuery = ""
@@ -241,6 +246,7 @@ struct ReportSectionReadingView: View {
             .frame(maxWidth: 760, alignment: .leading)
             .frame(maxWidth: .infinity, alignment: .leading)
         }
+        .scrollIndicators(.hidden)
         .frame(minHeight: AppLayout.reportListMinHeight, maxHeight: .infinity)
     }
 }
@@ -326,10 +332,13 @@ struct EvidenceCollectionView: View {
     }
 
     var body: some View {
+        let visibleItems = items
+        let visibleItemIDs = visibleItems.map(\.id)
+
         VStack(alignment: .leading, spacing: 24) {
             NativePageHeader(
                 title: appState.title(for: scope),
-                subtitle: "\(items.count) \(appState.t("reports.rows"))",
+                subtitle: "\(visibleItems.count) \(appState.t("reports.rows"))",
                 actions: {
                     EmptyView()
                 }
@@ -343,33 +352,36 @@ struct EvidenceCollectionView: View {
                         .frame(height: 28)
                         .frame(minWidth: 260, idealWidth: 340, maxWidth: 460)
                     Spacer()
-                    Label("\(items.count)", systemImage: scope.systemImage)
+                    Label("\(visibleItems.count)", systemImage: scope.systemImage)
                         .foregroundStyle(.secondary)
                 }
             }
 
             AppTablePanel {
-                if items.isEmpty {
+                if visibleItems.isEmpty {
                     AppEmptyPanel(
                         title: appState.t("evidence.collection.empty"),
                         subtitle: appState.t("evidence.collection.emptyDescription"),
                         systemImage: scope.systemImage
                     )
                 } else {
-                    VStack(alignment: .leading, spacing: 6) {
-                        EvidenceCollectionHeader()
-                        List(items, selection: $selectedItemID) { item in
-                            EvidenceCollectionRow(item: item) {
-                                select(item)
+                    AppHorizontalOverflow(minWidth: AppLayout.evidenceCollectionTableMinWidth) {
+                        VStack(alignment: .leading, spacing: 6) {
+                            EvidenceCollectionHeader()
+                            List(visibleItems, selection: $selectedItemID) { item in
+                                EvidenceCollectionRow(item: item) {
+                                    select(item)
+                                }
+                                .tag(item.id)
+                                .listRowInsets(EdgeInsets(top: 4, leading: 0, bottom: 4, trailing: 0))
                             }
-                            .tag(item.id)
-                            .listRowInsets(EdgeInsets(top: 4, leading: 0, bottom: 4, trailing: 0))
+                            .listStyle(.plain)
+                            .scrollIndicators(.hidden)
+                            .scrollContentBackground(.hidden)
+                            .frame(maxHeight: .infinity)
                         }
-                        .listStyle(.plain)
-                        .scrollContentBackground(.hidden)
-                        .frame(maxHeight: .infinity)
+                        .frame(maxHeight: .infinity, alignment: .topLeading)
                     }
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
                 }
             }
         }
@@ -378,7 +390,7 @@ struct EvidenceCollectionView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .onAppear { syncSelection() }
         .onChange(of: query) { _, _ in syncSelection() }
-        .onChange(of: items.map(\.id)) { _, _ in syncSelection() }
+        .onChange(of: visibleItemIDs) { _, _ in syncSelection() }
     }
 
     private func syncSelection() {
@@ -521,31 +533,35 @@ struct EvidenceList: View {
                 .padding(20)
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
+            .scrollIndicators(.hidden)
             .frame(minHeight: AppLayout.reportListMinHeight, maxHeight: .infinity)
         } else {
-            VStack(alignment: .leading, spacing: 6) {
-                EvidenceListHeader(headers: section.table?.headers ?? [])
-                List(rows, selection: Binding(
-                    get: { appState.selectedReportRowID },
-                    set: { selectedID in
-                        appState.selectedReportRowID = selectedID
-                        if selectedID != nil {
-                            appState.requestInspector()
+            AppHorizontalOverflow(minWidth: AppLayout.evidenceTableMinWidth) {
+                VStack(alignment: .leading, spacing: 6) {
+                    EvidenceListHeader(headers: section.table?.headers ?? [])
+                    List(rows, selection: Binding(
+                        get: { appState.selectedReportRowID },
+                        set: { selectedID in
+                            appState.selectedReportRowID = selectedID
+                            if selectedID != nil {
+                                appState.requestInspector()
+                            }
                         }
+                    )) { row in
+                        AdaptiveEvidenceListRow(row: row)
+                            .tag(row.id)
+                            .listRowInsets(EdgeInsets(top: 4, leading: 0, bottom: 4, trailing: 0))
                     }
-                )) { row in
-                    AdaptiveEvidenceListRow(row: row)
-                        .tag(row.id)
-                        .listRowInsets(EdgeInsets(top: 4, leading: 0, bottom: 4, trailing: 0))
+                    .listStyle(.plain)
+                    .scrollIndicators(.hidden)
+                    .frame(
+                        minHeight: AppLayout.reportListMinHeight,
+                        idealHeight: reportListIdealHeight(rowCount: rows.count),
+                        maxHeight: .infinity
+                    )
                 }
-                .listStyle(.plain)
-                .frame(
-                    minHeight: AppLayout.reportListMinHeight,
-                    idealHeight: reportListIdealHeight(rowCount: rows.count),
-                    maxHeight: .infinity
-                )
+                .frame(maxHeight: .infinity, alignment: .topLeading)
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         }
     }
 }
@@ -780,29 +796,32 @@ struct CrossBatchList: View {
     let rows: [ReportTableRow]
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            EvidenceListHeader(headers: ["当前文件", "历史文件", "位差"])
-            List(rows, selection: Binding(
-                get: { appState.selectedReportRowID },
-                set: { selectedID in
-                    appState.selectedReportRowID = selectedID
-                    if selectedID != nil {
-                        appState.requestInspector()
+        AppHorizontalOverflow(minWidth: AppLayout.evidenceTableMinWidth) {
+            VStack(alignment: .leading, spacing: 6) {
+                EvidenceListHeader(headers: ["当前文件", "历史文件", "位差"])
+                List(rows, selection: Binding(
+                    get: { appState.selectedReportRowID },
+                    set: { selectedID in
+                        appState.selectedReportRowID = selectedID
+                        if selectedID != nil {
+                            appState.requestInspector()
+                        }
                     }
+                )) { row in
+                    AdaptiveEvidenceListRow(row: row)
+                        .tag(row.id)
+                        .listRowInsets(EdgeInsets(top: 4, leading: 0, bottom: 4, trailing: 0))
                 }
-            )) { row in
-                AdaptiveEvidenceListRow(row: row)
-                    .tag(row.id)
-                    .listRowInsets(EdgeInsets(top: 4, leading: 0, bottom: 4, trailing: 0))
+                .listStyle(.plain)
+                .scrollIndicators(.hidden)
+                .frame(
+                    minHeight: AppLayout.reportListMinHeight,
+                    idealHeight: reportListIdealHeight(rowCount: rows.count),
+                    maxHeight: .infinity
+                )
             }
-            .listStyle(.plain)
-            .frame(
-                minHeight: AppLayout.reportListMinHeight,
-                idealHeight: reportListIdealHeight(rowCount: rows.count),
-                maxHeight: .infinity
-            )
+            .frame(maxHeight: .infinity, alignment: .topLeading)
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
 }
 
@@ -888,6 +907,7 @@ struct CrossBatchGraphPanel: View {
                 .padding(16)
                 .frame(maxWidth: .infinity, alignment: .topLeading)
             }
+            .scrollIndicators(.hidden)
             .frame(minHeight: AppLayout.reportListMinHeight, maxHeight: .infinity)
         }
     }
@@ -1070,6 +1090,7 @@ struct OverviewEvidenceList: View {
                     .listRowInsets(EdgeInsets(top: 4, leading: 0, bottom: 4, trailing: 0))
             }
             .listStyle(.plain)
+            .scrollIndicators(.hidden)
             .frame(
                 minHeight: AppLayout.reportListMinHeight,
                 idealHeight: reportListIdealHeight(rowCount: rows.count),

@@ -321,6 +321,7 @@ struct SettingsRootView: View {
             .padding(.vertical, 28)
             .frame(maxWidth: .infinity, alignment: .topLeading)
         }
+        .scrollIndicators(.hidden)
         .environment(\.settingsSearchQuery, searchText)
     }
 

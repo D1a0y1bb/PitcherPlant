@@ -47,6 +47,7 @@ struct ReportLibrarySidebar: View {
                     }
                 }
                 .listStyle(.plain)
+                .scrollIndicators(.hidden)
             }
             .padding(.horizontal, 12)
             .padding(.bottom, 12)

@@ -10,11 +10,20 @@ enum AppLayout {
     static let sidebarMinWidth: CGFloat = 230
     static let sidebarIdealWidth: CGFloat = 260
     static let sidebarMaxWidth: CGFloat = 300
-    static let contentMinWidth: CGFloat = 280
-    static let contentIdealWidth: CGFloat = 760
-    static let inspectorMinWidth: CGFloat = 300
-    static let inspectorIdealWidth: CGFloat = 360
-    static let inspectorMaxWidth: CGFloat = 460
+    static let contentMinWidth: CGFloat = 240
+    static let contentIdealWidth: CGFloat = 620
+    static let inspectorMinWidth: CGFloat = 340
+    static let inspectorIdealWidth: CGFloat = 380
+    static let inspectorMaxWidth: CGFloat = 520
+    static let sidebarCollapseWidthWithInspector: CGFloat = 1160
+    static let sidebarRestoreWidthWithInspector: CGFloat = 1280
+    static let sidebarCollapseWidthWithoutInspector: CGFloat = 860
+    static let sidebarRestoreWidthWithoutInspector: CGFloat = 1040
+    static let workspaceTableMinWidth: CGFloat = 560
+    static let evidenceTableMinWidth: CGFloat = 640
+    static let evidenceCollectionTableMinWidth: CGFloat = 720
+    static let fingerprintTableMinWidth: CGFloat = 840
+    static let fingerprintActionsMinWidth: CGFloat = 600
     static let reportListMinHeight: CGFloat = 180
     static let reportListIdealMaxHeight: CGFloat = 420
     static let pagePadding: CGFloat = 24
@@ -39,6 +48,7 @@ struct LiquidGlassSurface<Content: View>: View {
                 isInteractive ? .regular.interactive() : .regular,
                 in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
             )
+            .compositingGroup()
     }
 }
 
@@ -69,6 +79,7 @@ struct AppPageShell<Content: View>: View {
                 .frame(maxWidth: .infinity, alignment: .topLeading)
             }
         }
+        .scrollIndicators(.hidden)
     }
 }
 
@@ -149,6 +160,24 @@ struct AppTablePanel<Content: View>: View {
     var body: some View {
         content
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+    }
+}
+
+struct AppHorizontalOverflow<Content: View>: View {
+    let minWidth: CGFloat
+    var showsIndicators = true
+    @ViewBuilder var content: Content
+
+    var body: some View {
+        GeometryReader { proxy in
+            ScrollView(.horizontal, showsIndicators: showsIndicators) {
+                content
+                    .frame(width: max(proxy.size.width, minWidth), alignment: .topLeading)
+            }
+            .scrollIndicators(.hidden)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        }
+        .frame(maxWidth: .infinity, alignment: .topLeading)
     }
 }
 
