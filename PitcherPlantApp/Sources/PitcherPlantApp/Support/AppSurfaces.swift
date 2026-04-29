@@ -80,6 +80,8 @@ struct AppPageShell<Content: View>: View {
             }
         }
         .scrollIndicators(.hidden)
+        .scrollClipDisabled()
+        .scrollEdgeEffectStyle(.hard, for: .top)
     }
 }
 
@@ -131,7 +133,7 @@ struct AppInspectorPanel<Content: View>: View {
     @ViewBuilder var content: Content
 
     var body: some View {
-        InspectorGlassSurface(
+        LiquidGlassSurface(
             padding: EdgeInsets(top: 14, leading: 14, bottom: 14, trailing: 14)
         ) {
             VStack(alignment: .leading, spacing: 10) {
@@ -154,37 +156,19 @@ struct AppInspectorPanel<Content: View>: View {
     }
 }
 
-private struct InspectorGlassSurface<Content: View>: View {
-    var padding: EdgeInsets = EdgeInsets()
-    var cornerRadius: CGFloat = AppLayout.surfaceCornerRadius
-    @ViewBuilder var content: Content
-
-    var body: some View {
-        let shape = RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-
-        content
-            .padding(padding)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background {
-                shape
-                    .fill(.regularMaterial)
-                shape
-                    .fill(Color(nsColor: .windowBackgroundColor))
-                    .opacity(0.16)
-            }
-            .overlay {
-                shape
-                    .strokeBorder(Color.primary.opacity(0.10), lineWidth: 1)
-            }
-    }
-}
-
 struct AppTablePanel<Content: View>: View {
     @ViewBuilder var content: Content
 
     var body: some View {
         content
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+    }
+}
+
+struct AppWindowColumnBackground: View {
+    var body: some View {
+        Rectangle()
+            .fill(.windowBackground)
     }
 }
 

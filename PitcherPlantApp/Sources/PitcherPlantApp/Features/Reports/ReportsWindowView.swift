@@ -26,6 +26,10 @@ struct ReportsWindowView: View {
                     ideal: AppLayout.contentIdealWidth,
                     max: .infinity
                 )
+                .background {
+                    AppWindowColumnBackground()
+                        .ignoresSafeArea(.container, edges: .top)
+                }
         } detail: {
             ReportEvidenceInspector()
                 .navigationSplitViewColumnWidth(
@@ -93,6 +97,7 @@ struct ReportsWindowView: View {
                 }
             }
         }
+        .toolbarBackgroundVisibility(.hidden, for: .windowToolbar)
     }
 
     private func syncVisibleReportSelection() {
@@ -117,10 +122,12 @@ struct ReportsInlineView: View {
 
     var body: some View {
         VStack(spacing: 14) {
-            ReportsCenterSelectorBar(
-                reports: filteredReports,
-                reportQuery: $reportQuery
-            )
+            AppToolbarBand {
+                ReportsCenterSelectorBar(
+                    reports: filteredReports,
+                    reportQuery: $reportQuery
+                )
+            }
             ReportSectionsAndEvidenceView(showsReportHeader: false)
         }
         .padding(AppLayout.pagePadding)

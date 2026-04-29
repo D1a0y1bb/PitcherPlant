@@ -366,6 +366,8 @@ struct SettingsRootView: View {
             .frame(maxWidth: .infinity, alignment: .topLeading)
         }
         .scrollIndicators(.hidden)
+        .scrollClipDisabled()
+        .scrollEdgeEffectStyle(.hard, for: .top)
         .environment(\.settingsSearchQuery, searchText)
     }
 

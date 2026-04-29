@@ -242,22 +242,24 @@ private struct FingerprintActionsView: View {
     let cleanup: (String, Int) -> Void
 
     var body: some View {
-        AppHorizontalOverflow(minWidth: AppLayout.fingerprintActionsMinWidth) {
-            Grid(alignment: .leading, horizontalSpacing: 14, verticalSpacing: 10) {
-                GridRow {
-                    actionLabel("导入")
-                    importControls
+        AppToolbarBand {
+            AppHorizontalOverflow(minWidth: AppLayout.fingerprintActionsMinWidth, fitsContentHeight: true) {
+                Grid(alignment: .leading, horizontalSpacing: 14, verticalSpacing: 10) {
+                    GridRow {
+                        actionLabel("导入")
+                        importControls
+                    }
+                    GridRow {
+                        actionLabel("导出")
+                        exportControls
+                    }
+                    GridRow {
+                        actionLabel("清理")
+                        cleanupControls
+                    }
                 }
-                GridRow {
-                    actionLabel("导出")
-                    exportControls
-                }
-                GridRow {
-                    actionLabel("清理")
-                    cleanupControls
-                }
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
 
@@ -482,18 +484,20 @@ private struct WhitelistRuleEditor: View {
     @Binding var newType: WhitelistRule.RuleType
 
     var body: some View {
-        Grid(alignment: .leading, horizontalSpacing: 12, verticalSpacing: 10) {
-            GridRow {
-                Text("新增")
-                    .font(AppTypography.tableHeader)
-                    .foregroundStyle(.secondary)
-                    .frame(width: 48, alignment: .leading)
-                ruleTypePicker
-                ruleField
-                saveButton
+        AppToolbarBand {
+            Grid(alignment: .leading, horizontalSpacing: 12, verticalSpacing: 10) {
+                GridRow {
+                    Text("新增")
+                        .font(AppTypography.tableHeader)
+                        .foregroundStyle(.secondary)
+                        .frame(width: 48, alignment: .leading)
+                    ruleTypePicker
+                    ruleField
+                    saveButton
+                }
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private var ruleTypePicker: some View {
@@ -804,89 +808,94 @@ struct JobInspectorView: View {
     var body: some View {
         if let job = appState.selectedJob {
             ScrollView {
-                VStack(alignment: .leading, spacing: 18) {
-                    VStack(alignment: .leading, spacing: 12) {
-                        ViewThatFits(in: .horizontal) {
-                            HStack(alignment: .top) {
-                                jobHeaderText(job)
-                                Spacer()
-                                StatusBadge(status: job.status)
-                            }
+                GlassEffectContainer(spacing: 18) {
+                    VStack(alignment: .leading, spacing: 18) {
+                        VStack(alignment: .leading, spacing: 12) {
+                            ViewThatFits(in: .horizontal) {
+                                HStack(alignment: .top) {
+                                    jobHeaderText(job)
+                                    Spacer()
+                                    StatusBadge(status: job.status)
+                                }
 
-                            VStack(alignment: .leading, spacing: 8) {
-                                StatusBadge(status: job.status)
-                                jobHeaderText(job)
-                            }
-                        }
-
-                        Button {
-                            appState.restoreDraft(from: job)
-                        } label: {
-                            Label(appState.t("job.restoreParameters"), systemImage: "arrow.counterclockwise")
-                        }
-
-                        ViewThatFits(in: .horizontal) {
-                            HStack(spacing: 8) {
-                                jobRunQueueButton
-                                if job.status == .failed {
-                                    jobRetryButton(job)
+                                VStack(alignment: .leading, spacing: 8) {
+                                    StatusBadge(status: job.status)
+                                    jobHeaderText(job)
                                 }
                             }
-                            VStack(alignment: .leading, spacing: 8) {
-                                jobRunQueueButton
-                                if job.status == .failed {
-                                    jobRetryButton(job)
+
+                            Button {
+                                appState.restoreDraft(from: job)
+                            } label: {
+                                Label(appState.t("job.restoreParameters"), systemImage: "arrow.counterclockwise")
+                            }
+
+                            ViewThatFits(in: .horizontal) {
+                                HStack(spacing: 8) {
+                                    jobRunQueueButton
+                                    if job.status == .failed {
+                                        jobRetryButton(job)
+                                    }
+                                }
+                                VStack(alignment: .leading, spacing: 8) {
+                                    jobRunQueueButton
+                                    if job.status == .failed {
+                                        jobRetryButton(job)
+                                    }
+                                }
+                            }
+
+                            VStack(alignment: .leading, spacing: 6) {
+                                HStack {
+                                    Text(job.latestMessage)
+                                    Spacer()
+                                    Text("\(job.progress)%")
+                                }
+                                .font(AppTypography.rowSecondary)
+                                .foregroundStyle(.secondary)
+                                ProgressView(value: Double(job.progress), total: 100)
+                            }
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+
+                        JobInspectorSection(title: appState.t("job.timeline"), subtitle: "\(job.events.count) \(appState.t("common.countSuffix"))") {
+                            VStack(alignment: .leading, spacing: 0) {
+                                ForEach(Array(job.events.reversed())) { event in
+                                    TimelineEventRow(event: event)
                                 }
                             }
                         }
 
-                        VStack(alignment: .leading, spacing: 6) {
-                            HStack {
-                                Text(job.latestMessage)
-                                Spacer()
-                                Text("\(job.progress)%")
+                        if job.failedFiles.isEmpty == false {
+                            JobInspectorSection(title: "失败文件", subtitle: "\(job.failedFiles.count) 条") {
+                                VStack(alignment: .leading, spacing: 8) {
+                                    ForEach(job.failedFiles.prefix(8), id: \.self) { file in
+                                        Text(file)
+                                            .font(AppTypography.smallCode)
+                                            .foregroundStyle(.secondary)
+                                            .lineLimit(1)
+                                            .truncationMode(.middle)
+                                            .textSelection(.enabled)
+                                    }
+
+                                    Button {
+                                        NSPasteboard.general.clearContents()
+                                        NSPasteboard.general.setString(job.diagnosticSummary, forType: .string)
+                                    } label: {
+                                        Label("复制错误诊断", systemImage: "doc.on.doc")
+                                    }
+                                    .buttonStyle(.borderless)
+                                }
                             }
-                            .font(AppTypography.rowSecondary)
-                            .foregroundStyle(.secondary)
-                            ProgressView(value: Double(job.progress), total: 100)
                         }
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
-
-                    JobInspectorSection(title: appState.t("job.timeline"), subtitle: "\(job.events.count) \(appState.t("common.countSuffix"))") {
-                        VStack(alignment: .leading, spacing: 0) {
-                            ForEach(Array(job.events.reversed())) { event in
-                                TimelineEventRow(event: event)
-                            }
-                        }
-                    }
-
-                    if job.failedFiles.isEmpty == false {
-                        JobInspectorSection(title: "失败文件", subtitle: "\(job.failedFiles.count) 条") {
-                            VStack(alignment: .leading, spacing: 8) {
-                                ForEach(job.failedFiles.prefix(8), id: \.self) { file in
-                                    Text(file)
-                                        .font(AppTypography.smallCode)
-                                        .foregroundStyle(.secondary)
-                                        .lineLimit(1)
-                                        .truncationMode(.middle)
-                                        .textSelection(.enabled)
-                                }
-
-                                Button {
-                                    NSPasteboard.general.clearContents()
-                                    NSPasteboard.general.setString(job.diagnosticSummary, forType: .string)
-                                } label: {
-                                    Label("复制错误诊断", systemImage: "doc.on.doc")
-                                }
-                                .buttonStyle(.borderless)
-                            }
-                        }
-                    }
                 }
                 .padding(20)
             }
             .scrollIndicators(.hidden)
+            .scrollClipDisabled()
+            .scrollEdgeEffectStyle(.hard, for: .top)
         } else {
             InspectorEmptyState(
                 title: appState.t("job.noSelection"),

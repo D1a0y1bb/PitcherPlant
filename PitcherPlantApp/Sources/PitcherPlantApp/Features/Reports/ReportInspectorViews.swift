@@ -84,12 +84,16 @@ private struct ReportInspectorScrollView<Content: View>: View {
     var body: some View {
         GeometryReader { proxy in
             ScrollView {
-                content
-                    .frame(width: max(proxy.size.width - horizontalPadding * 2, 1), alignment: .topLeading)
-                    .padding(.horizontal, horizontalPadding)
-                    .padding(.vertical, verticalPadding)
+                GlassEffectContainer(spacing: 18) {
+                    content
+                        .frame(width: max(proxy.size.width - horizontalPadding * 2, 1), alignment: .topLeading)
+                }
+                .padding(.horizontal, horizontalPadding)
+                .padding(.vertical, verticalPadding)
             }
             .scrollIndicators(.hidden)
+            .scrollClipDisabled()
+            .scrollEdgeEffectStyle(.hard, for: .top)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         }
     }

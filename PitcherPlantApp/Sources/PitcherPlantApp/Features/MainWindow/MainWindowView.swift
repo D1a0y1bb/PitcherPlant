@@ -132,9 +132,6 @@ struct MainWindowView: View {
                     maxHeight: .infinity,
                     alignment: .topLeading
                 )
-                .compositingGroup()
-                .mask(Rectangle())
-                .clipped()
                 .layoutPriority(1)
 
             if isInspectorColumnVisible {
@@ -220,7 +217,7 @@ struct MainWindowView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .background {
-            InspectorColumnBackground()
+            AppWindowColumnBackground()
                 .ignoresSafeArea(.container, edges: .top)
         }
     }
@@ -333,18 +330,6 @@ struct MainWindowView: View {
             WhitelistLibraryView()
         case .settings:
             SettingsRootView(searchText: $settingsSearchText)
-        }
-    }
-}
-
-private struct InspectorColumnBackground: View {
-    var body: some View {
-        ZStack {
-            Rectangle()
-                .fill(.regularMaterial)
-
-            Color(nsColor: .windowBackgroundColor)
-                .opacity(0.18)
         }
     }
 }
