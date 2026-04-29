@@ -266,47 +266,40 @@ struct MainWindowView: View {
     private var mainToolbarItems: some ToolbarContent {
         ToolbarSpacer(.flexible, placement: .primaryAction)
 
-        ToolbarItemGroup(placement: .primaryAction) {
-            Button {
-                withAnimation(inspectorColumnAnimation) {
-                    inspectorVisible.toggle()
-                }
-            } label: {
-                Label(
+        ToolbarItem(placement: .primaryAction) {
+            FloatingToolbarButtonGroup {
+                FloatingToolbarIconButton(
                     isInspectorColumnVisible ? appState.t("toolbar.hideInspector") : appState.t("toolbar.showInspector"),
                     systemImage: isInspectorColumnVisible ? "sidebar.right" : "sidebar.trailing"
-                )
-            }
-            .disabled(!appState.selectedMainSidebar.allowsInspector)
-            .help(isInspectorColumnVisible ? appState.t("toolbar.hideInspector") : appState.t("toolbar.showInspector"))
+                ) {
+                    withAnimation(inspectorColumnAnimation) {
+                        inspectorVisible.toggle()
+                    }
+                }
+                .disabled(!appState.selectedMainSidebar.allowsInspector)
 
-            Button {
-                Task { await appState.reload() }
-            } label: {
-                Label(appState.t("toolbar.reload"), systemImage: "arrow.clockwise")
-            }
-            .keyboardShortcut("r", modifiers: .command)
-            .help(appState.t("command.reloadData"))
+                FloatingToolbarIconButton(appState.t("toolbar.reload"), systemImage: "arrow.clockwise") {
+                    Task { await appState.reload() }
+                }
+                .keyboardShortcut("r", modifiers: .command)
 
-            Button {
-                appState.toggleAudit()
-            } label: {
-                Label(
+                FloatingToolbarIconButton(
                     appState.isRunningAudit ? appState.t("toolbar.cancel") : appState.t("toolbar.start"),
-                    systemImage: appState.isRunningAudit ? "stop.fill" : "play.fill"
-                )
-            }
-            .keyboardShortcut(.return, modifiers: .command)
-            .help(appState.t("command.startAudit"))
+                    systemImage: appState.isRunningAudit ? "stop.fill" : "play.fill",
+                    role: appState.isRunningAudit ? .destructive : nil,
+                    isProminent: true
+                ) {
+                    appState.toggleAudit()
+                }
+                .keyboardShortcut(.return, modifiers: .command)
 
-            Button {
-                appState.selectedMainSidebar = .settings
-            } label: {
-                Label(appState.t("toolbar.settings"), systemImage: "gear")
+                FloatingToolbarIconButton(appState.t("toolbar.settings"), systemImage: "gear") {
+                    appState.selectedMainSidebar = .settings
+                }
+                .keyboardShortcut(",", modifiers: .command)
             }
-            .keyboardShortcut(",", modifiers: .command)
-            .help(appState.t("toolbar.settings"))
         }
+        .sharedBackgroundVisibility(.hidden)
     }
 
     @ViewBuilder

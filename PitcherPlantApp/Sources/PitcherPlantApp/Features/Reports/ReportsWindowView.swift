@@ -39,63 +39,55 @@ struct ReportsWindowView: View {
                 )
         }
         .navigationSplitViewStyle(.balanced)
-        .searchable(text: $reportQuery, placement: .toolbar, prompt: appState.t("reports.searchPrompt"))
         .onAppear {
             syncVisibleReportSelection()
         }
         .onChange(of: reportQuery) { _, _ in syncVisibleReportSelection() }
         .onChange(of: appState.reports.map(\.id)) { _, _ in syncVisibleReportSelection() }
         .toolbar {
-            ToolbarItem(placement: .primaryAction) {
-                Menu {
-                    Button { appState.exportSelectedReportAsHTML() } label: {
-                        Label("HTML", systemImage: "chevron.left.forwardslash.chevron.right")
-                    }
-                    Button { appState.exportSelectedReportAsPDF() } label: {
-                        Label("PDF", systemImage: "doc.richtext")
-                    }
-                    Button { appState.exportSelectedReportAsCSV() } label: {
-                        Label("CSV", systemImage: "tablecells")
-                    }
-                    Button { appState.exportSelectedReportAsJSON() } label: {
-                        Label("JSON", systemImage: "curlybraces")
-                    }
-                    Button { appState.exportSelectedReportAsMarkdown() } label: {
-                        Label("Markdown", systemImage: "doc.plaintext")
-                    }
-                    Button { appState.exportSelectedReportAsEvidenceBundle() } label: {
-                        Label(appState.t("settings.exportBundle"), systemImage: "archivebox")
-                    }
-                } label: {
-                    Label(appState.t("settings.exportReport"), systemImage: "square.and.arrow.up")
-                }
-            }
-
-            ToolbarSpacer(.fixed, placement: .primaryAction)
-
-            ToolbarItemGroup(placement: .primaryAction) {
-                Button {
-                    appState.openSelectedReportSource()
-                } label: {
-                    Label(appState.t("settings.openFinder"), systemImage: "folder")
-                }
-
-                Button(role: .destructive) {
-                    Task { await appState.removeSelectedReport() }
-                } label: {
-                    Label(appState.t("command.deleteReport"), systemImage: "trash")
-                }
-            }
-
-            ToolbarSpacer(.fixed, placement: .primaryAction)
+            ToolbarSpacer(.flexible, placement: .primaryAction)
 
             ToolbarItem(placement: .primaryAction) {
-                Button {
-                    Task { await appState.reload() }
-                } label: {
-                    Label(appState.t("toolbar.reload"), systemImage: "arrow.clockwise")
+                FloatingToolbarCluster {
+                    FloatingToolbarButtonGroup {
+                        FloatingToolbarMenuButton(appState.t("settings.exportReport"), systemImage: "square.and.arrow.up") {
+                            Button { appState.exportSelectedReportAsHTML() } label: {
+                                Label("HTML", systemImage: "chevron.left.forwardslash.chevron.right")
+                            }
+                            Button { appState.exportSelectedReportAsPDF() } label: {
+                                Label("PDF", systemImage: "doc.richtext")
+                            }
+                            Button { appState.exportSelectedReportAsCSV() } label: {
+                                Label("CSV", systemImage: "tablecells")
+                            }
+                            Button { appState.exportSelectedReportAsJSON() } label: {
+                                Label("JSON", systemImage: "curlybraces")
+                            }
+                            Button { appState.exportSelectedReportAsMarkdown() } label: {
+                                Label("Markdown", systemImage: "doc.plaintext")
+                            }
+                            Button { appState.exportSelectedReportAsEvidenceBundle() } label: {
+                                Label(appState.t("settings.exportBundle"), systemImage: "archivebox")
+                            }
+                        }
+
+                        FloatingToolbarIconButton(appState.t("settings.openFinder"), systemImage: "folder") {
+                            appState.openSelectedReportSource()
+                        }
+
+                        FloatingToolbarIconButton(appState.t("command.deleteReport"), systemImage: "trash", role: .destructive) {
+                            Task { await appState.removeSelectedReport() }
+                        }
+
+                        FloatingToolbarIconButton(appState.t("toolbar.reload"), systemImage: "arrow.clockwise") {
+                            Task { await appState.reload() }
+                        }
+                    }
+
+                    FloatingToolbarSearchField(text: $reportQuery, prompt: appState.t("reports.searchPrompt"))
                 }
             }
+            .sharedBackgroundVisibility(.hidden)
         }
         .toolbarBackgroundVisibility(.hidden, for: .windowToolbar)
     }
@@ -136,7 +128,12 @@ struct ReportsInlineView: View {
         }
         .onChange(of: reportQuery) { _, _ in syncVisibleReportSelection() }
         .onChange(of: appState.reports.map(\.id)) { _, _ in syncVisibleReportSelection() }
-        .searchable(text: $reportQuery, placement: .toolbar, prompt: appState.t("reports.searchPrompt"))
+        .toolbar {
+            ToolbarItem(placement: .primaryAction) {
+                FloatingToolbarSearchField(text: $reportQuery, prompt: appState.t("reports.searchPrompt"))
+            }
+            .sharedBackgroundVisibility(.hidden)
+        }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
 

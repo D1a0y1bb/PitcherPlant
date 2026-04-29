@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 enum AppLayout {
@@ -124,6 +125,194 @@ struct AppToolbarBand<Content: View>: View {
         LiquidGlassSurface(padding: padding, cornerRadius: 16, isInteractive: true) {
             content
         }
+    }
+}
+
+struct FloatingToolbarButtonGroup<Content: View>: View {
+    @ViewBuilder var content: Content
+
+    var body: some View {
+        HStack(spacing: 5) {
+            content
+        }
+        .padding(.horizontal, 7)
+        .padding(.vertical, 5)
+        .floatingToolbarCapsule()
+    }
+}
+
+struct FloatingToolbarCluster<Content: View>: View {
+    var spacing: CGFloat = 10
+    @ViewBuilder var content: Content
+
+    var body: some View {
+        GlassEffectContainer(spacing: spacing) {
+            HStack(alignment: .center, spacing: spacing) {
+                content
+            }
+        }
+    }
+}
+
+struct FloatingToolbarIconButton: View {
+    let title: String
+    let systemImage: String
+    let role: ButtonRole?
+    let isProminent: Bool
+    let action: () -> Void
+    @State private var isHovering = false
+
+    init(
+        _ title: String,
+        systemImage: String,
+        role: ButtonRole? = nil,
+        isProminent: Bool = false,
+        action: @escaping () -> Void
+    ) {
+        self.title = title
+        self.systemImage = systemImage
+        self.role = role
+        self.isProminent = isProminent
+        self.action = action
+    }
+
+    var body: some View {
+        Button(role: role, action: action) {
+            FloatingToolbarIconGlyph(
+                systemImage: systemImage,
+                role: role,
+                isProminent: isProminent,
+                isHovering: isHovering
+            )
+        }
+        .buttonStyle(.plain)
+        .help(title)
+        .accessibilityLabel(title)
+        .onHover { hovering in
+            isHovering = hovering
+        }
+    }
+}
+
+struct FloatingToolbarMenuButton<Content: View>: View {
+    let title: String
+    let systemImage: String
+    let isProminent: Bool
+    @ViewBuilder var content: Content
+    @State private var isHovering = false
+
+    init(
+        _ title: String,
+        systemImage: String,
+        isProminent: Bool = false,
+        @ViewBuilder content: () -> Content
+    ) {
+        self.title = title
+        self.systemImage = systemImage
+        self.isProminent = isProminent
+        self.content = content()
+    }
+
+    var body: some View {
+        Menu {
+            content
+        } label: {
+            FloatingToolbarIconGlyph(
+                systemImage: systemImage,
+                role: nil,
+                isProminent: isProminent,
+                isHovering: isHovering
+            )
+        }
+        .buttonStyle(.plain)
+        .menuIndicator(.hidden)
+        .help(title)
+        .accessibilityLabel(title)
+        .onHover { hovering in
+            isHovering = hovering
+        }
+    }
+}
+
+struct FloatingToolbarSearchField: View {
+    @Binding var text: String
+    let prompt: String
+    var width: CGFloat = 320
+    @FocusState private var isFocused: Bool
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "magnifyingglass")
+                .font(.system(size: 15, weight: .medium))
+                .foregroundStyle(.secondary)
+
+            TextField(prompt, text: $text)
+                .textFieldStyle(.plain)
+                .focused($isFocused)
+                .font(.body)
+
+            if text.isEmpty == false {
+                Button {
+                    text = ""
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundStyle(.tertiary)
+                }
+                .buttonStyle(.plain)
+                .help("Clear")
+                .accessibilityLabel("Clear")
+            }
+        }
+        .frame(width: width, height: 36)
+        .padding(.horizontal, 11)
+        .floatingToolbarCapsule(isFocused: isFocused)
+    }
+}
+
+private struct FloatingToolbarIconGlyph: View {
+    @Environment(\.isEnabled) private var isEnabled
+    let systemImage: String
+    let role: ButtonRole?
+    let isProminent: Bool
+    let isHovering: Bool
+
+    var body: some View {
+        Image(systemName: systemImage)
+            .font(.system(size: 15, weight: .medium))
+            .symbolRenderingMode(.hierarchical)
+            .foregroundStyle(role == .destructive ? Color.red : Color.primary)
+            .frame(width: 29, height: 26)
+            .background {
+                Capsule()
+                    .fill(hoverFill)
+                    .opacity(isHovering ? 1 : 0)
+            }
+            .contentShape(Capsule())
+            .opacity(isEnabled ? 1 : 0.36)
+            .animation(.smooth(duration: 0.12), value: isHovering)
+    }
+
+    private var hoverFill: Color {
+        if role == .destructive {
+            return .red.opacity(isProminent ? 0.12 : 0.10)
+        }
+        return .primary.opacity(isProminent ? 0.11 : 0.09)
+    }
+}
+
+extension View {
+    func floatingToolbarCapsule(isFocused: Bool = false) -> some View {
+        background {
+            Capsule()
+                .fill(Color(nsColor: NSColor.controlBackgroundColor.withAlphaComponent(isFocused ? 0.18 : 0.10)))
+        }
+        .overlay {
+            Capsule()
+                .strokeBorder(Color(nsColor: NSColor.separatorColor.withAlphaComponent(isFocused ? 0.26 : 0.14)), lineWidth: 0.75)
+        }
+        .glassEffect(.clear.interactive(), in: Capsule())
+        .compositingGroup()
     }
 }
 
