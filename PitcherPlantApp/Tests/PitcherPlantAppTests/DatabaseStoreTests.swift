@@ -4,6 +4,35 @@ import Testing
 @testable import PitcherPlantApp
 
 @Test
+func databasePersistsStructuredJobEventPayloads() async throws {
+    let root = FileManager.default.temporaryDirectory
+        .appendingPathComponent("pitcherplant-event-payload-\(UUID().uuidString)", isDirectory: true)
+    try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+    let store = try DatabaseStore(rootDirectory: root)
+    try await store.prepare()
+
+    let job = AuditJob(configuration: AuditConfiguration.defaults(for: root))
+        .advanced(
+            stage: .parse,
+            message: "解析完成",
+            processedCount: 3,
+            failedCount: 1,
+            failedFiles: ["bad.pdf"],
+            duration: 0.31
+        )
+    try await store.upsertJob(job)
+
+    let loaded = try #require(try await store.loadJobs().first)
+    let event = try #require(loaded.events.last)
+    #expect(event.stage == .parse)
+    #expect(event.processedCount == 3)
+    #expect(event.failedCount == 1)
+    #expect(event.failedFiles == ["bad.pdf"])
+    #expect(event.duration == 0.31)
+    #expect(try await store.debugTableColumns(named: "audit_job_events").contains("payload"))
+}
+
+@Test
 func databaseStorePersistsStructuredJobEventsAndReportSections() async throws {
     let root = FileManager.default.temporaryDirectory
         .appendingPathComponent("pitcherplant-db-\(UUID().uuidString)", isDirectory: true)

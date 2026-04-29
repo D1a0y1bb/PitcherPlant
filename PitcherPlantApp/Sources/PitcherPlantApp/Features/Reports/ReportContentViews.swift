@@ -48,7 +48,7 @@ struct ReportSectionsAndEvidenceView: View {
                                     visibleRowCount: visibleRows.count,
                                     totalRowCount: totalRowCount
                                 )
-                                EvidenceList(section: section, rows: visibleRows)
+                                EvidenceList(report: report, section: section, rows: visibleRows)
                             }
                             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
                         }
@@ -325,7 +325,7 @@ struct EvidenceCollectionView: View {
     @Environment(AppState.self) private var appState
     let scope: EvidenceCollectionScope
     @State private var query = ""
-    @State private var selectedItemID: String?
+    @State private var selectedEvidenceIDs = Set<UUID>()
 
     private var items: [EvidenceCollectionItem] {
         appState.evidenceCollection(for: scope).filter { $0.matchesSearch(query) }
@@ -366,21 +366,16 @@ struct EvidenceCollectionView: View {
                     )
                 } else {
                     AppHorizontalOverflow(minWidth: AppLayout.evidenceCollectionTableMinWidth) {
-                        VStack(alignment: .leading, spacing: 6) {
-                            EvidenceCollectionHeader()
-                            List(visibleItems, selection: $selectedItemID) { item in
-                                EvidenceCollectionRow(item: item) {
-                                    select(item)
-                                }
-                                .tag(item.id)
-                                .listRowInsets(EdgeInsets(top: 4, leading: 0, bottom: 4, trailing: 0))
+                        EvidenceReviewTableView(
+                            rows: EvidenceReviewTableRow.sorted(EvidenceReviewTableRow.rows(items: visibleItems), by: .riskDescending),
+                            selection: $selectedEvidenceIDs
+                        ) { row in
+                            guard let row else {
+                                return
                             }
-                            .listStyle(.plain)
-                            .scrollIndicators(.hidden)
-                            .scrollContentBackground(.hidden)
-                            .frame(maxHeight: .infinity)
+                            appState.selectEvidence(row.target)
+                            appState.requestInspector()
                         }
-                        .frame(maxHeight: .infinity, alignment: .topLeading)
                     }
                 }
             }
@@ -394,19 +389,14 @@ struct EvidenceCollectionView: View {
     }
 
     private func syncSelection() {
-        guard let item = selectedItemID.flatMap({ id in items.first(where: { $0.id == id }) }) ?? items.first else {
-            selectedItemID = nil
+        let selectedID = selectedEvidenceIDs.first
+        guard let item = selectedID.flatMap({ id in items.first(where: { ($0.row.evidenceID ?? $0.row.id) == id }) }) ?? items.first else {
+            selectedEvidenceIDs = []
             appState.selectedReportRowID = nil
             return
         }
-        selectedItemID = item.id
+        selectedEvidenceIDs = [item.row.evidenceID ?? item.row.id]
         appState.selectEvidence(item)
-    }
-
-    private func select(_ item: EvidenceCollectionItem) {
-        selectedItemID = item.id
-        appState.selectEvidence(item)
-        appState.requestInspector()
     }
 }
 
@@ -509,8 +499,10 @@ private struct EvidenceCollectionRow: View {
 
 struct EvidenceList: View {
     @Environment(AppState.self) private var appState
+    let report: AuditReport
     let section: ReportSection
     let rows: [ReportTableRow]
+    @State private var selectedEvidenceIDs = Set<UUID>()
 
     var body: some View {
         if rows.isEmpty, section.table != nil {
@@ -537,31 +529,29 @@ struct EvidenceList: View {
             .frame(minHeight: AppLayout.reportListMinHeight, maxHeight: .infinity)
         } else {
             AppHorizontalOverflow(minWidth: AppLayout.evidenceTableMinWidth) {
-                VStack(alignment: .leading, spacing: 6) {
-                    EvidenceListHeader(headers: section.table?.headers ?? [])
-                    List(rows, selection: Binding(
-                        get: { appState.selectedReportRowID },
-                        set: { selectedID in
-                            appState.selectedReportRowID = selectedID
-                            if selectedID != nil {
-                                appState.requestInspector()
-                            }
-                        }
-                    )) { row in
-                        AdaptiveEvidenceListRow(row: row)
-                            .tag(row.id)
-                            .listRowInsets(EdgeInsets(top: 4, leading: 0, bottom: 4, trailing: 0))
+                EvidenceReviewTableView(
+                    rows: EvidenceReviewTableRow.rows(report: report, section: section, rows: rows),
+                    selection: $selectedEvidenceIDs
+                ) { tableRow in
+                    if let tableRow {
+                        appState.selectedReportRowID = tableRow.target.evidenceID
                     }
-                    .listStyle(.plain)
-                    .scrollIndicators(.hidden)
-                    .frame(
-                        minHeight: AppLayout.reportListMinHeight,
-                        idealHeight: reportListIdealHeight(rowCount: rows.count),
-                        maxHeight: .infinity
-                    )
                 }
-                .frame(maxHeight: .infinity, alignment: .topLeading)
+                .onAppear { syncSelection() }
+                .onChange(of: appState.selectedReportRowID) { _, _ in syncSelection() }
+                .onChange(of: rows.map { $0.evidenceID ?? $0.id }) { _, _ in syncSelection() }
             }
+        }
+    }
+
+    private func syncSelection() {
+        if let selectedID = appState.selectedReportRowID,
+           let row = rows.first(where: { ($0.evidenceID ?? $0.id) == selectedID || $0.id == selectedID }) {
+            selectedEvidenceIDs = [row.evidenceID ?? row.id]
+        } else if let first = rows.first {
+            selectedEvidenceIDs = [first.evidenceID ?? first.id]
+        } else {
+            selectedEvidenceIDs = []
         }
     }
 }
@@ -794,33 +784,34 @@ struct CrossBatchFilterPicker: View {
 struct CrossBatchList: View {
     @Environment(AppState.self) private var appState
     let rows: [ReportTableRow]
+    @State private var selectedEvidenceIDs = Set<UUID>()
 
     var body: some View {
         AppHorizontalOverflow(minWidth: AppLayout.evidenceTableMinWidth) {
-            VStack(alignment: .leading, spacing: 6) {
-                EvidenceListHeader(headers: ["当前文件", "历史文件", "位差"])
-                List(rows, selection: Binding(
-                    get: { appState.selectedReportRowID },
-                    set: { selectedID in
-                        appState.selectedReportRowID = selectedID
-                        if selectedID != nil {
-                            appState.requestInspector()
-                        }
+            if let report = appState.selectedReport {
+                let section = appState.selectedReportSectionModel ?? ReportSection(kind: .crossBatch, title: "跨批次", summary: "")
+                EvidenceReviewTableView(
+                    rows: EvidenceReviewTableRow.rows(report: report, section: section, rows: rows),
+                    selection: $selectedEvidenceIDs
+                ) { tableRow in
+                    if let tableRow {
+                        appState.selectedReportRowID = tableRow.target.evidenceID
                     }
-                )) { row in
-                    AdaptiveEvidenceListRow(row: row)
-                        .tag(row.id)
-                        .listRowInsets(EdgeInsets(top: 4, leading: 0, bottom: 4, trailing: 0))
                 }
-                .listStyle(.plain)
-                .scrollIndicators(.hidden)
-                .frame(
-                    minHeight: AppLayout.reportListMinHeight,
-                    idealHeight: reportListIdealHeight(rowCount: rows.count),
-                    maxHeight: .infinity
-                )
+                .onAppear { syncSelection() }
+                .onChange(of: appState.selectedReportRowID) { _, _ in syncSelection() }
             }
-            .frame(maxHeight: .infinity, alignment: .topLeading)
+        }
+    }
+
+    private func syncSelection() {
+        if let selectedID = appState.selectedReportRowID,
+           let row = rows.first(where: { ($0.evidenceID ?? $0.id) == selectedID || $0.id == selectedID }) {
+            selectedEvidenceIDs = [row.evidenceID ?? row.id]
+        } else if let first = rows.first {
+            selectedEvidenceIDs = [first.evidenceID ?? first.id]
+        } else {
+            selectedEvidenceIDs = []
         }
     }
 }

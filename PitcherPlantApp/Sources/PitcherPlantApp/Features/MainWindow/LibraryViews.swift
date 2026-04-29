@@ -38,12 +38,23 @@ struct JobHistoryView: View {
                             .foregroundStyle(.secondary)
                     }
                     .width(90)
+                    TableColumn("阶段") { job in
+                        Text(job.stage.displayTitle)
+                            .foregroundStyle(.secondary)
+                    }
+                    .width(min: 120, ideal: 150)
                     TableColumn("Progress") { job in
                         Text("\(job.progress)%")
                             .monospacedDigit()
                             .foregroundStyle(.secondary)
                     }
                     .width(76)
+                    TableColumn("失败") { job in
+                        Text("\(job.failureCount)")
+                            .monospacedDigit()
+                            .foregroundStyle(job.failureCount > 0 ? .red : .secondary)
+                    }
+                    .width(56)
                     TableColumn(appState.t("common.updatedAt")) { job in
                         Text(job.updatedAt.formatted(date: .abbreviated, time: .shortened))
                             .foregroundStyle(.secondary)
@@ -847,6 +858,29 @@ struct JobInspectorView: View {
                             VStack(alignment: .leading, spacing: 0) {
                                 ForEach(Array(job.events.reversed())) { event in
                                     TimelineEventRow(event: event)
+                                }
+                            }
+                        }
+
+                        if job.failedFiles.isEmpty == false {
+                            JobInspectorSection(title: "失败文件", subtitle: "\(job.failedFiles.count) 条") {
+                                VStack(alignment: .leading, spacing: 8) {
+                                    ForEach(job.failedFiles.prefix(8), id: \.self) { file in
+                                        Text(file)
+                                            .font(AppTypography.smallCode)
+                                            .foregroundStyle(.secondary)
+                                            .lineLimit(1)
+                                            .truncationMode(.middle)
+                                            .textSelection(.enabled)
+                                    }
+
+                                    Button {
+                                        NSPasteboard.general.clearContents()
+                                        NSPasteboard.general.setString(job.diagnosticSummary, forType: .string)
+                                    } label: {
+                                        Label("复制错误诊断", systemImage: "doc.on.doc")
+                                    }
+                                    .buttonStyle(.borderless)
                                 }
                             }
                         }

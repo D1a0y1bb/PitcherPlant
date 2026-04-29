@@ -16,8 +16,10 @@ struct AuditRunner {
         try Task.checkCancellation()
 
         let directoryURL = URL(fileURLWithPath: configuration.directoryPath)
+        try await progress(.scan, AuditStage.scan.displayTitle)
         let ingestion = DocumentIngestionService(configuration: configuration)
         let documents = try ingestion.ingestDocuments(in: directoryURL)
+        try await progress(.parse, "\(AuditStage.parse.displayTitle)：\(documents.count) 个文档")
         let featureResult = DocumentFeatureStore().buildFeatureResult(
             for: documents,
             scanID: scanID,
@@ -25,6 +27,7 @@ struct AuditRunner {
             cachedFeatures: cachedDocumentFeatures
         )
         let features = featureResult.features
+        try await progress(.features, "生成特征：复用 \(featureResult.reusedCount)，重建 \(featureResult.rebuiltCount)")
         try await progress(.parsed, AuditStage.parsed.displayTitle)
         try await warnIfLargeRun(
             documents: documents,
@@ -32,6 +35,11 @@ struct AuditRunner {
             limits: limits,
             progress: progress
         )
+        try Task.checkCancellation()
+        let recallStats = recallStats(for: features)
+        let candidatePairCount = recallStats.reduce(0) { $0 + $1.candidatePairCount }
+        let skippedBucketCount = recallStats.reduce(0) { $0 + $1.skippedOversizedBucketCount }
+        try await progress(.recall, "候选召回：\(candidatePairCount) 对候选，跳过 \(skippedBucketCount) 个大 bucket")
         try Task.checkCancellation()
 
         let textAnalyzer = TextSimilarityAnalyzer()
@@ -87,6 +95,7 @@ struct AuditRunner {
             whitelistMode: configuration.whitelistMode,
             threshold: configuration.simhashThreshold
         )
+        try await progress(.crossBatch, AuditStage.crossBatch.displayTitle)
         try Task.checkCancellation()
 
         let title = directoryURL.lastPathComponent.isEmpty ? "PitcherPlant 报告" : directoryURL.lastPathComponent
@@ -110,13 +119,15 @@ struct AuditRunner {
             fingerprints: currentFingerprints,
             crossBatch: crossBatch
         )
+        try await progress(.aggregate, AuditStage.aggregate.displayTitle)
         try ReportExporter.exportHTML(report: report, to: sourceURL)
+        try await progress(.export, AuditStage.export.displayTitle)
         let summary = AuditRunSummary(
             documentCount: documents.count,
             imageCount: documents.reduce(0) { $0 + $1.images.count },
             historicalFingerprintCount: importedFingerprints.count,
             duration: Date().timeIntervalSince(startedAt),
-            recallStats: recallStats(for: features)
+            recallStats: recallStats
         )
         return AuditRunResult(report: report, fingerprints: currentFingerprints, summary: summary, documentFeatureResult: featureResult)
     }

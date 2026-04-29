@@ -10,7 +10,6 @@ struct PitcherPlantCommands: Commands {
                 appState.showWorkspace()
                 showMainWindow()
             }
-            .keyboardShortcut("1", modifiers: [.command])
 
             Button(appState.isRunningAudit ? appState.t("command.cancelAudit") : appState.t("command.startAudit")) {
                 if appState.isRunningAudit {
@@ -26,6 +25,41 @@ struct PitcherPlantCommands: Commands {
                 Task { await appState.reload() }
             }
             .keyboardShortcut("l", modifiers: [.command, .shift])
+        }
+
+        CommandMenu("视图") {
+            Button("显示或隐藏检查器") {
+                appState.requestInspectorToggle()
+                showMainWindow()
+            }
+            .keyboardShortcut("i", modifiers: [.command])
+            .disabled(!appState.selectedMainSidebar.allowsInspector)
+        }
+
+        CommandMenu("复核") {
+            Button("确认违规") {
+                Task { await appState.quickReviewSelectedEvidence(.confirmed) }
+            }
+            .keyboardShortcut("a", modifiers: [])
+            .disabled(appState.selectedReportRow == nil)
+
+            Button("标记误报") {
+                Task { await appState.quickReviewSelectedEvidence(.falsePositive) }
+            }
+            .keyboardShortcut("f", modifiers: [])
+            .disabled(appState.selectedReportRow == nil)
+
+            Button("忽略证据") {
+                Task { await appState.quickReviewSelectedEvidence(.ignored) }
+            }
+            .keyboardShortcut("i", modifiers: [])
+            .disabled(appState.selectedReportRow == nil)
+
+            Button("加入白名单") {
+                Task { await appState.quickReviewSelectedEvidence(.whitelisted) }
+            }
+            .keyboardShortcut("w", modifiers: [])
+            .disabled(appState.selectedReportRow == nil)
         }
 
         CommandMenu(appState.t("app.reportMenu")) {

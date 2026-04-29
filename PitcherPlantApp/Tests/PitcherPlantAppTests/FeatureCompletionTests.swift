@@ -244,6 +244,70 @@ func evidenceCollectionFiltersFlagsAndRestoresSelection() throws {
 }
 
 @Test
+@MainActor
+func batchReviewAppliesDecisionAndAdvancesToNextPendingEvidence() async throws {
+    let root = FileManager.default.temporaryDirectory
+        .appendingPathComponent("pitcherplant-batch-review-\(UUID().uuidString)", isDirectory: true)
+    try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+    let appState = AppState(workspaceRoot: root)
+    try await appState.database.prepare()
+
+    let reportID = UUID()
+    let firstEvidenceID = UUID()
+    let secondEvidenceID = UUID()
+    let rows = [
+        ReportTableRow(
+            id: firstEvidenceID,
+            columns: ["alpha.md", "beta.md", "0.91", "shared exploit"],
+            detailTitle: "alpha.md ↔ beta.md",
+            detailBody: "shared exploit",
+            evidenceID: firstEvidenceID,
+            evidenceType: .text,
+            riskAssessment: RiskAssessment(score: 0.91, reasons: ["文本复用"])
+        ),
+        ReportTableRow(
+            id: secondEvidenceID,
+            columns: ["gamma.md", "delta.md", "0.86", "shared payload"],
+            detailTitle: "gamma.md ↔ delta.md",
+            detailBody: "shared payload",
+            evidenceID: secondEvidenceID,
+            evidenceType: .code,
+            riskAssessment: RiskAssessment(score: 0.86, reasons: ["代码复用"])
+        )
+    ]
+    let section = ReportSection(
+        kind: .text,
+        title: "文本证据",
+        summary: "",
+        table: ReportTable(headers: ["A", "B", "Score", "Detail"], rows: rows)
+    )
+    let report = AuditReport(
+        id: reportID,
+        title: "Batch Review",
+        sourcePath: root.appendingPathComponent("report.html").path,
+        scanDirectoryPath: root.path,
+        metrics: [],
+        sections: [section]
+    )
+    try await appState.database.saveReport(report)
+    await appState.reload()
+    appState.selectReport(reportID)
+    appState.selectReportSection(.text)
+    appState.selectedReportRowID = firstEvidenceID
+
+    let target = EvidenceReviewTarget(reportID: reportID, reportTitle: report.title, sectionKind: .text, sectionTitle: section.title, rowID: firstEvidenceID, evidenceID: firstEvidenceID, evidenceType: .text)
+    await appState.applyReviewDecision(to: [target], decision: .confirmed, severity: .high, note: "人工确认")
+
+    let reviews = try await appState.database.loadEvidenceReviews(reportID: reportID)
+    let review = try #require(reviews.first)
+    #expect(review.evidenceID == firstEvidenceID)
+    #expect(review.decision == .confirmed)
+    #expect(review.severity == .high)
+    #expect(review.reviewerNote == "人工确认")
+    #expect(appState.selectedReportRowID == secondEvidenceID)
+}
+
+@Test
 func submissionImportBuildsTeamItemsAndQueuedJobs() throws {
     let root = FileManager.default.temporaryDirectory
         .appendingPathComponent("pitcherplant-submissions-\(UUID().uuidString)", isDirectory: true)

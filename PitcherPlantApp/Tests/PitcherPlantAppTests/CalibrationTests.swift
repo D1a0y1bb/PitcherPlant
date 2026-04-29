@@ -60,6 +60,28 @@ func calibrationManifestThresholdsCoverCoreEvidenceTypes() throws {
 }
 
 @Test
+func calibrationServiceEvaluatesManifestAndPresetsTuneThresholds() throws {
+    let manifestURL = URL(fileURLWithPath: #filePath)
+        .deletingLastPathComponent()
+        .appendingPathComponent("Fixtures/calibration/manifest.json")
+    let service = CalibrationService(manifestURL: manifestURL)
+    let configuration = AuditConfiguration.defaults(for: URL(fileURLWithPath: "/tmp/pitcherplant-calibration-service"))
+
+    let result = try service.evaluate(configuration: configuration)
+    let textRow = try #require(result.rows.first(where: { $0.kind == .text }))
+    let conservative = configuration.applyingCalibrationPreset(.conservative)
+    let aggressive = configuration.applyingCalibrationPreset(.aggressive)
+
+    #expect(result.rows.count >= 5)
+    #expect(result.summary.sampleCount > 0)
+    #expect(textRow.metrics.f1 >= 0.85)
+    #expect(conservative.textThreshold > configuration.textThreshold)
+    #expect(conservative.dedupThreshold > configuration.dedupThreshold)
+    #expect(aggressive.textThreshold < configuration.textThreshold)
+    #expect(aggressive.simhashThreshold > configuration.simhashThreshold)
+}
+
+@Test
 func documentFeatureStoreReusesInvalidatesAndIdentifiesCleanupCandidates() throws {
     let root = FileManager.default.temporaryDirectory
         .appendingPathComponent("pitcherplant-feature-cache-\(UUID().uuidString)", isDirectory: true)

@@ -73,6 +73,7 @@ actor DatabaseStore {
                 table.column("timestamp", .datetime).notNull()
                 table.column("message", .text).notNull()
                 table.column("progress", .integer).notNull()
+                table.column("payload", .text)
             }
             try db.create(table: "report_sections", ifNotExists: true) { table in
                 table.column("id", .text).primaryKey()
@@ -110,7 +111,9 @@ actor DatabaseStore {
                 table.column("timestamp", .datetime).notNull()
                 table.column("message", .text).notNull()
                 table.column("progress", .integer).notNull()
+                table.column("payload", .text)
             }
+            try ensureColumn("payload", in: "audit_job_events", type: .text, db: db)
             try db.create(table: "report_sections", ifNotExists: true) { table in
                 table.column("id", .text).primaryKey()
                 table.column("report_id", .text).notNull().indexed()
@@ -130,10 +133,10 @@ actor DatabaseStore {
                 for event in job.events {
                     try db.execute(
                         sql: """
-                        INSERT INTO audit_job_events (id, job_id, timestamp, message, progress)
-                        VALUES (?, ?, ?, ?, ?)
+                        INSERT INTO audit_job_events (id, job_id, timestamp, message, progress, payload)
+                        VALUES (?, ?, ?, ?, ?, ?)
                         """,
-                        arguments: [event.id.uuidString, jobID, event.timestamp, event.message, event.progress]
+                        arguments: [event.id.uuidString, jobID, event.timestamp, event.message, event.progress, try JSONEncoder.pitcherPlant.encodeToString(event)]
                     )
                 }
             }
@@ -248,6 +251,23 @@ actor DatabaseStore {
             try removeObsoleteReportState(db)
         }
 
+        migrator.registerMigration("add-audit-job-event-payload-v1") { db in
+            try ensureColumn("payload", in: "audit_job_events", type: .text, db: db)
+            let rows = try Row.fetchAll(db, sql: "SELECT id, timestamp, message, progress FROM audit_job_events WHERE payload IS NULL OR payload = ''")
+            for row in rows {
+                let event = AuditJobEvent(
+                    id: UUID(uuidString: row["id"]) ?? UUID(),
+                    timestamp: row["timestamp"],
+                    message: row["message"],
+                    progress: row["progress"]
+                )
+                try db.execute(
+                    sql: "UPDATE audit_job_events SET payload = ? WHERE id = ?",
+                    arguments: [try JSONEncoder.pitcherPlant.encodeToString(event), row["id"] as String]
+                )
+            }
+        }
+
         try migrator.migrate(dbQueue)
     }
 
@@ -282,10 +302,10 @@ actor DatabaseStore {
             for event in job.events {
                 try db.execute(
                     sql: """
-                    INSERT INTO audit_job_events (id, job_id, timestamp, message, progress)
-                    VALUES (?, ?, ?, ?, ?)
+                    INSERT INTO audit_job_events (id, job_id, timestamp, message, progress, payload)
+                    VALUES (?, ?, ?, ?, ?, ?)
                     """,
-                    arguments: [event.id.uuidString, job.id.uuidString, event.timestamp, event.message, event.progress]
+                    arguments: [event.id.uuidString, job.id.uuidString, event.timestamp, event.message, event.progress, try JSONEncoder.pitcherPlant.encodeToString(event)]
                 )
             }
         }
@@ -337,10 +357,10 @@ actor DatabaseStore {
                 for event in job.events {
                     try db.execute(
                         sql: """
-                        INSERT INTO audit_job_events (id, job_id, timestamp, message, progress)
-                        VALUES (?, ?, ?, ?, ?)
+                        INSERT INTO audit_job_events (id, job_id, timestamp, message, progress, payload)
+                        VALUES (?, ?, ?, ?, ?, ?)
                         """,
-                        arguments: [event.id.uuidString, jobID, event.timestamp, event.message, event.progress]
+                        arguments: [event.id.uuidString, jobID, event.timestamp, event.message, event.progress, try JSONEncoder.pitcherPlant.encodeToString(event)]
                     )
                 }
             }
@@ -840,16 +860,23 @@ actor DatabaseStore {
     }
 
     private func fetchJobEventsByJobID(_ db: Database) throws -> [String: [AuditJobEvent]] {
-        let rows = try Row.fetchAll(db, sql: "SELECT job_id, timestamp, message, progress, id FROM audit_job_events ORDER BY timestamp ASC")
+        let rows = try Row.fetchAll(db, sql: "SELECT job_id, timestamp, message, progress, id, payload FROM audit_job_events ORDER BY timestamp ASC")
         var grouped: [String: [AuditJobEvent]] = [:]
         for row in rows {
             let jobID: String = row["job_id"]
-            let event = AuditJobEvent(
-                id: UUID(uuidString: row["id"]) ?? UUID(),
-                timestamp: row["timestamp"],
-                message: row["message"],
-                progress: row["progress"]
-            )
+            let payload: String? = row["payload"]
+            let event: AuditJobEvent
+            if let payload, payload.isEmpty == false,
+               let decoded = try? JSONDecoder.pitcherPlant.decodeString(AuditJobEvent.self, from: payload) {
+                event = decoded
+            } else {
+                event = AuditJobEvent(
+                    id: UUID(uuidString: row["id"]) ?? UUID(),
+                    timestamp: row["timestamp"],
+                    message: row["message"],
+                    progress: row["progress"]
+                )
+            }
             grouped[jobID, default: []].append(event)
         }
         return grouped

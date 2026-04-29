@@ -3,6 +3,9 @@ import SwiftUI
 struct SettingsRootView: View {
     @Environment(AppState.self) private var appState
     @Binding private var searchText: String
+    @State private var selectedCalibrationPreset: AuditCalibrationPreset = .balanced
+    @State private var calibrationResult: CalibrationEvaluationResult?
+    @State private var calibrationMessage: String?
 
     init(searchText: Binding<String> = .constant("")) {
         _searchText = searchText
@@ -153,6 +156,47 @@ struct SettingsRootView: View {
                             width: SettingsLayout.menuWidth,
                             title: { appState.title(for: $0) }
                         )
+                    }
+                }
+
+                SettingsGroup(title: "校准") {
+                    SettingsPickerRow(
+                        title: "阈值预设",
+                        subtitle: selectedCalibrationPreset.subtitle
+                    ) {
+                        SettingsMenuPicker(
+                            selection: $selectedCalibrationPreset,
+                            options: AuditCalibrationPreset.allCases,
+                            width: SettingsLayout.menuWidth,
+                            title: { $0.title }
+                        )
+                    }
+
+                    SettingsDivider()
+
+                    SettingsButtonGroupRow(
+                        title: "校准评估",
+                        subtitle: calibrationSummaryText
+                    ) {
+                        Button {
+                            applyCalibrationPreset()
+                        } label: {
+                            Label("应用预设", systemImage: "slider.horizontal.3")
+                        }
+
+                        Button {
+                            runCalibration()
+                        } label: {
+                            Label("运行校准", systemImage: "chart.xyaxis.line")
+                        }
+                    }
+
+                    if let calibrationResult {
+                        SettingsDivider()
+                        CalibrationResultRows(result: calibrationResult)
+                    } else if let calibrationMessage {
+                        SettingsDivider()
+                        SettingsValueRow(title: "校准状态", subtitle: calibrationMessage, value: "")
                     }
                 }
 
@@ -329,6 +373,43 @@ struct SettingsRootView: View {
         "\(appState.jobs.count) \(appState.t("status.audits")) · \(appState.reports.count) \(appState.t("status.reports")) · \(appState.fingerprints.count) \(appState.t("status.fingerprints")) · \(appState.whitelistRules.count) \(appState.t("sidebar.whitelist"))"
     }
 
+    private var calibrationSummaryText: String {
+        if let calibrationResult {
+            return String(
+                format: "样本 %d · Precision %.2f · Recall %.2f · F1 %.2f",
+                calibrationResult.summary.sampleCount,
+                calibrationResult.summary.precision,
+                calibrationResult.summary.recall,
+                calibrationResult.summary.f1
+            )
+        }
+        return "基于校准 fixture 展示 Precision、Recall 和 F1"
+    }
+
+    private func applyCalibrationPreset() {
+        let preset = selectedCalibrationPreset
+        appState.updateDraft { configuration in
+            configuration = configuration.applyingCalibrationPreset(preset)
+        }
+    }
+
+    private func runCalibration() {
+        let manifestURL = appState.workspaceRoot
+            .appendingPathComponent("PitcherPlantApp/Tests/PitcherPlantAppTests/Fixtures/calibration/manifest.json")
+        guard FileManager.default.fileExists(atPath: manifestURL.path) else {
+            calibrationResult = nil
+            calibrationMessage = "未找到校准 fixture：\(manifestURL.path)"
+            return
+        }
+        do {
+            calibrationResult = try CalibrationService(manifestURL: manifestURL).evaluate(configuration: appState.draftConfiguration)
+            calibrationMessage = nil
+        } catch {
+            calibrationResult = nil
+            calibrationMessage = error.localizedDescription
+        }
+    }
+
     private var auditAssistantMode: AuditAssistantConfiguration.Mode {
         (appState.appSettings.auditAssistant ?? AuditAssistantConfiguration()).mode
     }
@@ -482,5 +563,47 @@ private struct SettingsAssistantTimeoutStepper: View {
 
     private func clamped(_ candidate: Double) -> Double {
         min(max(candidate, range.lowerBound), range.upperBound)
+    }
+}
+
+private struct CalibrationResultRows: View {
+    let result: CalibrationEvaluationResult
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 12) {
+                Text("类型").frame(width: 80, alignment: .leading)
+                Text("样本").frame(width: 54, alignment: .trailing)
+                Text("P").frame(width: 54, alignment: .trailing)
+                Text("R").frame(width: 54, alignment: .trailing)
+                Text("F1").frame(width: 54, alignment: .trailing)
+                Text("阈值").frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .font(AppTypography.tableHeader)
+            .foregroundStyle(.secondary)
+            .padding(.horizontal, AppLayout.rowHorizontalPadding)
+
+            ForEach(result.rows) { row in
+                HStack(spacing: 12) {
+                    Label(row.kind.title, systemImage: row.kind.sectionKind.systemImage)
+                        .frame(width: 80, alignment: .leading)
+                    Text("\(row.sampleCount)").frame(width: 54, alignment: .trailing)
+                    Text(Self.metric(row.metrics.precision)).frame(width: 54, alignment: .trailing)
+                    Text(Self.metric(row.metrics.recall)).frame(width: 54, alignment: .trailing)
+                    Text(Self.metric(row.metrics.f1)).frame(width: 54, alignment: .trailing)
+                    Text(row.thresholdDescription)
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .font(AppTypography.rowSecondary.monospacedDigit())
+                .padding(.horizontal, AppLayout.rowHorizontalPadding)
+                .padding(.vertical, 5)
+                .accessibilityLabel("\(row.kind.title)，样本 \(row.sampleCount)，Precision \(Self.metric(row.metrics.precision))，Recall \(Self.metric(row.metrics.recall))，F1 \(Self.metric(row.metrics.f1))")
+            }
+        }
+    }
+
+    private static func metric(_ value: Double) -> String {
+        String(format: "%.2f", value)
     }
 }

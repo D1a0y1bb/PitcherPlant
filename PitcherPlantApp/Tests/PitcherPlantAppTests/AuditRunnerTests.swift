@@ -128,3 +128,25 @@ func auditJobCompletionStoresRunSummaryEvent() {
     #expect(message.contains("2 张图片"))
     #expect(message.contains("1 条历史指纹"))
 }
+
+@Test
+func auditJobEventsCarryStructuredStagePayloads() throws {
+    let root = URL(fileURLWithPath: "/tmp/pitcherplant-structured-event")
+    let job = AuditJob(configuration: AuditConfiguration.defaults(for: root))
+        .advanced(
+            stage: .scan,
+            message: "扫描文件完成",
+            processedCount: 12,
+            failedCount: 1,
+            failedFiles: ["broken.docx"],
+            duration: 0.42
+        )
+
+    let event = try #require(job.events.last)
+
+    #expect(event.stage == .scan)
+    #expect(event.processedCount == 12)
+    #expect(event.failedCount == 1)
+    #expect(event.failedFiles == ["broken.docx"])
+    #expect(event.duration == 0.42)
+}

@@ -63,7 +63,6 @@ private struct EvidenceReviewKey: Hashable {
 final class AppState {
     let workspaceRoot: URL
     let database: DatabaseStore
-    let auditRunner: AuditRunner
 
     var hasBootstrapped = false
 
@@ -73,6 +72,7 @@ final class AppState {
     var selectedReportSection: ReportSectionKind?
     var selectedReportRowID: UUID?
     var inspectorRequestID = UUID()
+    var inspectorToggleRequestID = UUID()
 
     var jobs: [AuditJob] = []
     var reports: [AuditReport] = []
@@ -102,7 +102,6 @@ final class AppState {
         let databaseResult = Self.makeDatabase(rootDirectory: resolvedRoot)
         self.database = databaseResult.database
         self.initializationMessage = databaseResult.message
-        self.auditRunner = AuditRunner()
         self.draftConfiguration = AppPreferences.loadDraftConfiguration(for: resolvedRoot)
     }
 
@@ -214,6 +213,10 @@ final class AppState {
 
     func requestInspector() {
         inspectorRequestID = UUID()
+    }
+
+    func requestInspectorToggle() {
+        inspectorToggleRequestID = UUID()
     }
 
     var effectiveLocale: Locale? {
@@ -467,12 +470,70 @@ final class AppState {
         selectedReportRowID = item.row.evidenceID ?? item.row.id
     }
 
+    func selectEvidence(_ target: EvidenceReviewTarget) {
+        selectedReportID = target.reportID
+        selectedReportSection = target.sectionKind
+        selectedReportRowID = target.evidenceID
+    }
+
     func quickReviewSelectedEvidence(_ decision: EvidenceDecision) async {
         guard let row = selectedReportRow else {
             return
         }
         let existing = review(for: row)
         await quickReview(row: row, decision: decision, severity: existing?.severity ?? row.riskAssessment?.level, note: existing?.reviewerNote ?? "")
+    }
+
+    func applyReviewDecision(
+        to targets: [EvidenceReviewTarget],
+        decision: EvidenceDecision,
+        severity: RiskLevel?,
+        note: String
+    ) async {
+        guard targets.isEmpty == false else {
+            return
+        }
+
+        var seenTargets = Set<EvidenceReviewKey>()
+        var uniqueTargets: [EvidenceReviewTarget] = []
+        for target in targets {
+            let key = EvidenceReviewKey(reportID: target.reportID, evidenceID: target.evidenceID)
+            if seenTargets.insert(key).inserted {
+                uniqueTargets.append(target)
+            }
+        }
+        let reviewedEvidenceIDs = Set(uniqueTargets.map(\.evidenceID))
+
+        for target in uniqueTargets {
+            let existing = evidenceReviews.first { review in
+                review.reportID == target.reportID && review.evidenceID == target.evidenceID
+            } ?? reportRow(for: target)?.review
+            let review = existing?.updated(decision: decision, severity: severity, reviewerNote: note)
+                ?? EvidenceReview(
+                    id: UUID.pitcherPlantStable(namespace: "evidence-review", components: [target.reportID.uuidString, target.evidenceID.uuidString]),
+                    reportID: target.reportID,
+                    evidenceID: target.evidenceID,
+                    evidenceType: target.evidenceType,
+                    decision: decision,
+                    severity: severity,
+                    reviewerNote: note
+                )
+            do {
+                try await database.upsertEvidenceReview(review)
+                if decision == .whitelisted,
+                   let row = reportRow(for: target),
+                   let candidate = whitelistRuleCandidate(for: row) {
+                    let rule = WhitelistRule(type: candidate.type, pattern: candidate.pattern)
+                    try await database.upsertWhitelistRule(rule)
+                }
+            } catch {
+                showNotice(title: t("notice.reviewSaveFailed"), message: error.localizedDescription, tone: .error)
+            }
+        }
+
+        let selectedBeforeReload = selectedReportRowID
+        await reload()
+        advanceSelectionAfterBatchReview(reviewedEvidenceIDs: reviewedEvidenceIDs, selectedBeforeReload: selectedBeforeReload)
     }
 
     func quickReview(row: ReportTableRow, decision: EvidenceDecision, severity: RiskLevel?, note: String) async {
@@ -502,6 +563,33 @@ final class AppState {
             await reload()
         } catch {
             showNotice(title: t("notice.reviewSaveFailed"), message: error.localizedDescription, tone: .error)
+        }
+    }
+
+    private func reportRow(for target: EvidenceReviewTarget) -> ReportTableRow? {
+        reports
+            .first(where: { $0.id == target.reportID })?
+            .displaySection(for: target.sectionKind)?
+            .table?
+            .rows
+            .first { $0.matchesSelection(target.evidenceID) || $0.id == target.rowID }
+    }
+
+    private func advanceSelectionAfterBatchReview(reviewedEvidenceIDs: Set<UUID>, selectedBeforeReload: UUID?) {
+        guard let selectedBeforeReload,
+              reviewedEvidenceIDs.contains(selectedBeforeReload),
+              let rows = selectedReportSectionModel?.table?.rows,
+              rows.isEmpty == false,
+              let currentIndex = rows.firstIndex(where: { $0.matchesSelection(selectedBeforeReload) }) else {
+            return
+        }
+
+        let orderedCandidates = Array(rows.dropFirst(currentIndex + 1)) + Array(rows.prefix(currentIndex))
+        if let next = orderedCandidates.first(where: { row in
+            let evidenceID = row.evidenceID ?? row.id
+            return reviewedEvidenceIDs.contains(evidenceID) == false && (review(for: row)?.decision ?? .pending) == .pending
+        }) {
+            selectedReportRowID = next.evidenceID ?? next.id
         }
     }
 
@@ -774,21 +862,34 @@ final class AppState {
             let historicalFingerprints = fingerprints
             let rules = whitelistRules
             let cachedFeatures = try await database.loadDocumentFeatures(batchID: job.batchID)
-            let result = try await auditRunner.run(
-                configuration: configuration,
-                importedFingerprints: historicalFingerprints,
-                whitelistRules: rules,
-                cachedDocumentFeatures: cachedFeatures,
-                scanID: job.id,
-                batchID: job.batchID
-            ) { stage, message in
-                job = job.advanced(stage: stage, message: message)
-                try await self.database.upsertJob(job)
-                await self.reload()
+            let progressFallbackJob = job
+            let scanID = job.id
+            let batchID = job.batchID
+            let progressHandler: @MainActor @Sendable (AuditStage, String) async throws -> Void = { stage, message in
+                try await self.recordAuditProgress(
+                    jobID: progressFallbackJob.id,
+                    fallback: progressFallbackJob,
+                    stage: stage,
+                    message: message
+                )
             }
+            let result = try await Task.detached(priority: .userInitiated) {
+                try await AuditRunner().run(
+                    configuration: configuration,
+                    importedFingerprints: historicalFingerprints,
+                    whitelistRules: rules,
+                    cachedDocumentFeatures: cachedFeatures,
+                    scanID: scanID,
+                    batchID: batchID,
+                    progress: progressHandler
+                )
+            }
+            .value
 
+            job = jobs.first(where: { $0.id == progressFallbackJob.id }) ?? job
             job = job.completed(reportID: result.report.id, summaryMessage: Self.auditSummaryMessage(for: result.summary))
             try await database.upsertJob(job)
+            replaceJobInMemory(job)
             try await database.saveReport(result.report)
             if !result.fingerprints.isEmpty {
                 let fingerprints = try await fingerprintsWithSourceContext(
@@ -807,7 +908,11 @@ final class AppState {
                     _ = try await database.deleteDocumentFeatures(ids: featureResult.orphanedFeatureIDs)
                 }
             }
-            if let documents = try? DocumentIngestionService(configuration: configuration).ingestDocuments(in: URL(fileURLWithPath: configuration.directoryPath)) {
+            let whitelistDocumentsTask = Task.detached(priority: .utility) {
+                try DocumentIngestionService(configuration: configuration)
+                    .ingestDocuments(in: URL(fileURLWithPath: configuration.directoryPath))
+            }
+            if let documents = try? await whitelistDocumentsTask.value {
                 refreshWhitelistSuggestions(from: documents)
             }
             if selectCompletedReport {
@@ -824,10 +929,32 @@ final class AppState {
         } catch {
             job = job.failed(Self.auditFailureMessage(for: error))
             try? await database.upsertJob(job)
+            replaceJobInMemory(job)
             await reload()
             showNotice(title: error is CancellationError ? t("notice.auditCancelled") : t("notice.auditFailed"), message: job.latestMessage, tone: error is CancellationError ? .info : .error)
             return nil
         }
+    }
+
+    private func replaceJobInMemory(_ job: AuditJob) {
+        if let index = jobs.firstIndex(where: { $0.id == job.id }) {
+            jobs[index] = job
+        } else {
+            jobs.insert(job, at: 0)
+        }
+        selectedJobID = job.id
+    }
+
+    private func recordAuditProgress(
+        jobID: UUID,
+        fallback: AuditJob,
+        stage: AuditStage,
+        message: String
+    ) async throws {
+        let currentJob = jobs.first(where: { $0.id == jobID }) ?? fallback
+        let updatedJob = currentJob.advanced(stage: stage, message: message)
+        try await database.upsertJob(updatedJob)
+        replaceJobInMemory(updatedJob)
     }
 
     func dismissNotice() {

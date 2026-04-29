@@ -165,7 +165,7 @@ struct TimelineEventRow: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(event.message)
                     .font(AppTypography.rowSecondary)
-                Text("\(event.progress)% · \(event.timestamp.formatted(date: .abbreviated, time: .standard))")
+                Text(event.metadataLine)
                     .font(AppTypography.metadata)
                     .foregroundStyle(.secondary)
             }
@@ -173,5 +173,25 @@ struct TimelineEventRow: View {
         }
         .padding(.horizontal, AppLayout.rowHorizontalPadding)
         .padding(.vertical, 9)
+    }
+}
+
+private extension AuditJobEvent {
+    var metadataLine: String {
+        var parts = ["\(progress)%"]
+        if let stage {
+            parts.append(stage.displayTitle)
+        }
+        if let processedCount {
+            parts.append("处理 \(processedCount)")
+        }
+        if let failedCount, failedCount > 0 {
+            parts.append("失败 \(failedCount)")
+        }
+        if let duration {
+            parts.append(String(format: "%.2fs", duration))
+        }
+        parts.append(timestamp.formatted(date: .abbreviated, time: .standard))
+        return parts.joined(separator: " · ")
     }
 }

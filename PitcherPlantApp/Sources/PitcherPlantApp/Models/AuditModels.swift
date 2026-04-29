@@ -183,22 +183,38 @@ enum AuditJobStatus: String, Codable, CaseIterable {
 enum AuditStage: String, Codable, CaseIterable {
     case queued
     case initialize
+    case scan
+    case parse
     case parsed
+    case ocrImages
+    case features
+    case recall
     case text
     case code
     case image
     case metadata
+    case crossBatch
+    case aggregate
+    case export
     case done
 
     var progress: Int {
         switch self {
         case .queued: return 0
         case .initialize: return 5
+        case .scan: return 8
+        case .parse: return 15
         case .parsed: return 15
+        case .ocrImages: return 22
+        case .features: return 28
+        case .recall: return 32
         case .text: return 35
         case .code: return 55
         case .image: return 75
         case .metadata: return 85
+        case .crossBatch: return 88
+        case .aggregate: return 92
+        case .export: return 96
         case .done: return 100
         }
     }
@@ -207,11 +223,19 @@ enum AuditStage: String, Codable, CaseIterable {
         switch self {
         case .queued: return "等待开始"
         case .initialize: return "初始化"
+        case .scan: return "扫描文件"
+        case .parse: return "解析文档"
         case .parsed: return "解析文档完成"
+        case .ocrImages: return "OCR / 图片提取"
+        case .features: return "生成特征"
+        case .recall: return "候选召回"
         case .text: return "文本分析完成"
         case .code: return "代码分析完成"
         case .image: return "图片分析完成"
         case .metadata: return "元数据分析完成"
+        case .crossBatch: return "跨批次匹配"
+        case .aggregate: return "风险聚合"
+        case .export: return "报告导出"
         case .done: return "报告生成完成"
         }
     }
@@ -220,11 +244,19 @@ enum AuditStage: String, Codable, CaseIterable {
         switch self {
         case .queued: return "stage.queued"
         case .initialize: return "stage.initialize"
+        case .scan: return "stage.scan"
+        case .parse: return "stage.parse"
         case .parsed: return "stage.parsed"
+        case .ocrImages: return "stage.ocrImages"
+        case .features: return "stage.features"
+        case .recall: return "stage.recall"
         case .text: return "stage.text"
         case .code: return "stage.code"
         case .image: return "stage.image"
         case .metadata: return "stage.metadata"
+        case .crossBatch: return "stage.crossBatch"
+        case .aggregate: return "stage.aggregate"
+        case .export: return "stage.export"
         case .done: return "stage.done"
         }
     }
@@ -314,12 +346,57 @@ struct AuditJobEvent: Codable, Identifiable, Hashable, Sendable {
     let timestamp: Date
     let message: String
     let progress: Int
+    var stage: AuditStage?
+    var processedCount: Int?
+    var failedCount: Int?
+    var failedFiles: [String]
+    var duration: TimeInterval?
 
-    init(id: UUID = UUID(), timestamp: Date = .now, message: String, progress: Int) {
+    init(
+        id: UUID = UUID(),
+        timestamp: Date = .now,
+        message: String,
+        progress: Int,
+        stage: AuditStage? = nil,
+        processedCount: Int? = nil,
+        failedCount: Int? = nil,
+        failedFiles: [String] = [],
+        duration: TimeInterval? = nil
+    ) {
         self.id = id
         self.timestamp = timestamp
         self.message = message
         self.progress = progress
+        self.stage = stage
+        self.processedCount = processedCount
+        self.failedCount = failedCount
+        self.failedFiles = failedFiles
+        self.duration = duration
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case timestamp
+        case message
+        case progress
+        case stage
+        case processedCount
+        case failedCount
+        case failedFiles
+        case duration
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(UUID.self, forKey: .id)
+        timestamp = try container.decode(Date.self, forKey: .timestamp)
+        message = try container.decode(String.self, forKey: .message)
+        progress = try container.decode(Int.self, forKey: .progress)
+        stage = try container.decodeIfPresent(AuditStage.self, forKey: .stage)
+        processedCount = try container.decodeIfPresent(Int.self, forKey: .processedCount)
+        failedCount = try container.decodeIfPresent(Int.self, forKey: .failedCount)
+        failedFiles = try container.decodeIfPresent([String].self, forKey: .failedFiles) ?? []
+        duration = try container.decodeIfPresent(TimeInterval.self, forKey: .duration)
     }
 }
 
@@ -352,14 +429,29 @@ struct AuditJob: Codable, Identifiable, Hashable, Sendable {
         self.attempt = 1
     }
 
-    func advanced(stage: AuditStage, message: String) -> AuditJob {
+    func advanced(
+        stage: AuditStage,
+        message: String,
+        processedCount: Int? = nil,
+        failedCount: Int? = nil,
+        failedFiles: [String] = [],
+        duration: TimeInterval? = nil
+    ) -> AuditJob {
         var copy = self
         copy.status = .running
         copy.stage = stage
         copy.progress = stage.progress
         copy.latestMessage = message
         copy.updatedAt = .now
-        copy.events.append(AuditJobEvent(message: message, progress: stage.progress))
+        copy.events.append(AuditJobEvent(
+            message: message,
+            progress: stage.progress,
+            stage: stage,
+            processedCount: processedCount,
+            failedCount: failedCount,
+            failedFiles: failedFiles,
+            duration: duration
+        ))
         copy.events = Array(copy.events.suffix(20))
         return copy
     }
@@ -399,5 +491,32 @@ struct AuditJob: Codable, Identifiable, Hashable, Sendable {
         copy.events.append(AuditJobEvent(message: "第 \(copy.attempt ?? 1) 次尝试已排队", progress: 0))
         copy.events = Array(copy.events.suffix(20))
         return copy
+    }
+
+    var failureCount: Int {
+        events.reduce(errorMessage == nil ? 0 : 1) { partial, event in
+            partial + (event.failedCount ?? 0)
+        }
+    }
+
+    var failedFiles: [String] {
+        Array(NSOrderedSet(array: events.flatMap(\.failedFiles)).compactMap { $0 as? String })
+    }
+
+    var diagnosticSummary: String {
+        var lines = [
+            "任务：\(configuration.directoryPath)",
+            "状态：\(status.displayTitle)",
+            "阶段：\(stage.displayTitle)",
+            "进度：\(progress)%",
+        ]
+        if let errorMessage {
+            lines.append("错误：\(errorMessage)")
+        }
+        if failedFiles.isEmpty == false {
+            lines.append("失败文件：")
+            lines.append(contentsOf: failedFiles.map { "- \($0)" })
+        }
+        return lines.joined(separator: "\n")
     }
 }

@@ -60,6 +60,15 @@ struct MainWindowView: View {
             }
             applySidebarPolicy(windowWidth: windowWidth)
         }
+        .onChange(of: appState.inspectorToggleRequestID) { _, _ in
+            guard appState.selectedMainSidebar.allowsInspector else {
+                return
+            }
+            withAnimation(inspectorColumnAnimation) {
+                inspectorVisible.toggle()
+            }
+            applySidebarPolicy(windowWidth: windowWidth)
+        }
         .toolbar {
             mainToolbarItems
         }
