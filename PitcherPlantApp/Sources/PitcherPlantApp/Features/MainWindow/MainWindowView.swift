@@ -223,11 +223,6 @@ struct MainWindowView: View {
             InspectorColumnBackground()
                 .ignoresSafeArea(.container, edges: .top)
         }
-        .overlay(alignment: .leading) {
-            Rectangle()
-                .fill(Color(nsColor: .separatorColor))
-                .frame(width: 1)
-        }
     }
 
     private func applySidebarPolicy(windowWidth: CGFloat) {
