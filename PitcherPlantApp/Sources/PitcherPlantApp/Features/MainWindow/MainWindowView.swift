@@ -72,6 +72,7 @@ struct MainWindowView: View {
         .toolbar {
             mainToolbarItems
         }
+        .toolbarBackgroundVisibility(.hidden, for: .windowToolbar)
         .alert(item: noticeBinding) { notice in
             Alert(
                 title: Text(notice.title),
@@ -142,7 +143,7 @@ struct MainWindowView: View {
                         maxHeight: .infinity,
                         alignment: .topLeading
                     )
-                    .clipped()
+                    .ignoresSafeArea(.container, edges: .top)
                     .transition(.move(edge: .trailing).combined(with: .opacity))
             }
         }
@@ -215,6 +216,10 @@ struct MainWindowView: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .background(.bar, ignoresSafeAreaEdges: .top)
+        .overlay(alignment: .leading) {
+            Divider()
+        }
     }
 
     private func applySidebarPolicy(windowWidth: CGFloat) {

@@ -304,6 +304,8 @@ struct EvidenceReviewPanel: View {
 
                 TextEditor(text: $note)
                     .font(AppTypography.body)
+                    .scrollContentBackground(.hidden)
+                    .background(.clear)
                     .frame(maxWidth: .infinity)
                     .frame(minHeight: 72, idealHeight: 92, maxHeight: 120)
 
