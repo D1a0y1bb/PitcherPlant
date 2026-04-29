@@ -82,7 +82,7 @@ private struct RecentJobsTable: View {
     let jobs: [AuditJob]
 
     var body: some View {
-        AppHorizontalOverflow(minWidth: AppLayout.workspaceTableMinWidth) {
+        AppHorizontalOverflow(minWidth: AppLayout.workspaceTableMinWidth, fitsContentHeight: true) {
             Grid(alignment: .leading, horizontalSpacing: 14, verticalSpacing: 8) {
                 GridRow {
                     tableHeader(appState.t("audit.directory"))
@@ -137,7 +137,7 @@ private struct RecentReportsTable: View {
     let reports: [AuditReport]
 
     var body: some View {
-        AppHorizontalOverflow(minWidth: AppLayout.workspaceTableMinWidth) {
+        AppHorizontalOverflow(minWidth: AppLayout.workspaceTableMinWidth, fitsContentHeight: true) {
             Grid(alignment: .leading, horizontalSpacing: 14, verticalSpacing: 8) {
                 GridRow {
                     tableHeader("Title")

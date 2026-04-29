@@ -65,12 +65,11 @@ struct ReportEvidenceInspector: View {
                     ReportSectionSummaryInspector(section: section, report: appState.selectedReport)
                 }
             } else {
-                ContentUnavailableView {
-                    Label(appState.t("reports.noEvidenceSelection"), systemImage: "doc.text.magnifyingglass")
-                } description: {
-                    Text(appState.t("reports.noEvidenceSelectionDescription"))
-                }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                InspectorEmptyState(
+                    title: appState.t("reports.noEvidenceSelection"),
+                    subtitle: appState.t("reports.noEvidenceSelectionDescription"),
+                    systemImage: "doc.text.magnifyingglass"
+                )
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
@@ -85,12 +84,10 @@ private struct ReportInspectorScrollView<Content: View>: View {
     var body: some View {
         GeometryReader { proxy in
             ScrollView {
-                GlassEffectContainer(spacing: 18) {
-                    content
-                        .frame(width: max(proxy.size.width - horizontalPadding * 2, 1), alignment: .topLeading)
-                        .padding(.horizontal, horizontalPadding)
-                        .padding(.vertical, verticalPadding)
-                }
+                content
+                    .frame(width: max(proxy.size.width - horizontalPadding * 2, 1), alignment: .topLeading)
+                    .padding(.horizontal, horizontalPadding)
+                    .padding(.vertical, verticalPadding)
             }
             .scrollIndicators(.hidden)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
