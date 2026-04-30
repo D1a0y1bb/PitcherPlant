@@ -15,6 +15,7 @@ struct MainWindowView: View {
     @State private var reportSearchText = ""
     @State private var reportToolbarSearchPresented = false
     @State private var reportToolbarSearchExpanded = false
+    @State private var titleSelectorPresented = false
     private let layoutPolicy = MainWindowLayoutPolicy()
 
     var body: some View {
@@ -79,6 +80,8 @@ struct MainWindowView: View {
         .toolbar {
             mainToolbarItems
         }
+        .toolbar(removing: .sidebarToggle)
+        .toolbar(removing: .title)
         .animation(AppMotion.toolbarGlassAppear, value: appState.selectedMainSidebar)
         .toolbarBackgroundVisibility(.hidden, for: .windowToolbar)
         .alert(item: noticeBinding) { notice in
@@ -127,7 +130,12 @@ struct MainWindowView: View {
     }
 
     private func sidebar(selection: Binding<MainSidebarItem>) -> some View {
-        MainSidebarView(selection: selection)
+        MainSidebarView(
+            selection: selection,
+            toggleSidebar: toggleSidebarColumn,
+            showNewAuditComposer: showNewAuditComposer,
+            showsToolbarControls: !sidebarCollapsed
+        )
             .navigationSplitViewColumnWidth(
                 min: AppLayout.sidebarMinWidth,
                 ideal: AppLayout.sidebarIdealWidth,
@@ -270,11 +278,49 @@ struct MainWindowView: View {
         }
     }
 
+    private func toggleSidebarColumn() {
+        withAnimation(AppMotion.toolbarGlassAppear) {
+            autoCollapsedSidebar = false
+            columnVisibility = sidebarCollapsed ? .all : .detailOnly
+        }
+    }
+
+    private func showNewAuditComposer() {
+        withAnimation(AppMotion.toolbarGlassAppear) {
+            appState.selectedMainSidebar = .newAudit
+        }
+        NSApp.activate(ignoringOtherApps: true)
+    }
+
     @ToolbarContentBuilder
     private var mainToolbarItems: some ToolbarContent {
-        ToolbarSpacer(.flexible, placement: .primaryAction)
+        ToolbarItem(placement: .navigation) {
+            FloatingToolbarCluster(spacing: 10) {
+                if sidebarCollapsed {
+                    MainSidebarToolbarControls(
+                        showsCapsule: true,
+                        toggleSidebar: toggleSidebarColumn,
+                        showNewAuditComposer: showNewAuditComposer
+                    )
+                    .transition(.floatingToolbarFusion)
+                }
 
-        ToolbarItem(placement: .primaryAction) {
+                FloatingToolbarTitleSelector(
+                    title: "PitcherPlant",
+                    subtitle: appState.t("toolbar.titleMode.standard"),
+                    accessibilityLabel: appState.t("toolbar.titleSelector"),
+                    isPresented: $titleSelectorPresented
+                ) {
+                    MainToolbarTitlePopover()
+                }
+            }
+            .animation(AppMotion.toolbarGlassAppear, value: sidebarCollapsed)
+        }
+        .sharedBackgroundVisibility(.hidden)
+
+        ToolbarSpacer(.flexible)
+
+        ToolbarItem(placement: .automatic) {
             FloatingToolbarFusionCluster(spacing: 10, forceExpanded: reportToolbarSearchExpanded) {
                 FloatingToolbarButtonGroup {
                     mainToolbarUtilityButtons
@@ -396,6 +442,110 @@ struct MainWindowView: View {
         case .settings:
             SettingsRootView(searchText: $settingsSearchText)
         }
+    }
+}
+
+private struct MainToolbarTitlePopover: View {
+    @Environment(AppState.self) private var appState
+
+    var body: some View {
+        FloatingToolbarPopoverPanel(width: 420) {
+            VStack(alignment: .leading, spacing: 8) {
+                MainToolbarModeRow(
+                    title: appState.t("toolbar.mode.auto"),
+                    subtitle: appState.t("toolbar.mode.auto.subtitle"),
+                    isSelected: false
+                )
+                MainToolbarModeRow(
+                    title: appState.t("toolbar.mode.deep"),
+                    subtitle: appState.t("toolbar.mode.deep.subtitle"),
+                    isSelected: false
+                )
+                MainToolbarModeRow(
+                    title: appState.t("toolbar.mode.standard"),
+                    subtitle: appState.t("toolbar.mode.standard.subtitle"),
+                    isSelected: true
+                )
+                MainToolbarModeRow(
+                    title: appState.t("toolbar.mode.quick"),
+                    subtitle: appState.t("toolbar.mode.quick.subtitle"),
+                    isSelected: false
+                )
+
+                Divider()
+                    .padding(.vertical, 4)
+
+                HStack(spacing: 12) {
+                    Image(systemName: "slider.horizontal.3")
+                        .font(.system(size: 16, weight: .medium))
+                        .frame(width: 24)
+                        .foregroundStyle(.secondary)
+                    Text(appState.t("toolbar.mode.templates"))
+                        .font(.system(size: 14, weight: .semibold))
+                    Spacer()
+                    Image(systemName: "chevron.down")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(.secondary)
+                }
+                .frame(height: 38)
+
+                Divider()
+                    .padding(.vertical, 4)
+
+                HStack(spacing: 12) {
+                    Image(systemName: "wand.and.stars")
+                        .font(.system(size: 16, weight: .medium))
+                        .frame(width: 24)
+                        .foregroundStyle(.secondary)
+                    Text(appState.t("toolbar.mode.temporary"))
+                        .font(.system(size: 14, weight: .semibold))
+                    Spacer()
+                    Capsule()
+                        .fill(.secondary.opacity(0.18))
+                        .frame(width: 48, height: 28)
+                        .overlay(alignment: .leading) {
+                            Circle()
+                                .fill(.primary.opacity(0.12))
+                                .frame(width: 24, height: 24)
+                                .padding(.leading, 2)
+                        }
+                }
+                .frame(height: 38)
+            }
+        }
+    }
+}
+
+private struct MainToolbarModeRow: View {
+    let title: String
+    let subtitle: String
+    let isSelected: Bool
+
+    var body: some View {
+        HStack(alignment: .center, spacing: 12) {
+            VStack(alignment: .leading, spacing: 3) {
+                Text(title)
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(.primary)
+                Text(subtitle)
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundStyle(.secondary)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+
+            if isSelected {
+                Image(systemName: "checkmark")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(.primary)
+            }
+        }
+        .padding(.horizontal, 12)
+        .frame(height: 58)
+        .background {
+            RoundedRectangle(cornerRadius: 13, style: .continuous)
+                .fill(Color.primary.opacity(isSelected ? 0.07 : 0))
+        }
+        .contentShape(RoundedRectangle(cornerRadius: 13, style: .continuous))
     }
 }
 

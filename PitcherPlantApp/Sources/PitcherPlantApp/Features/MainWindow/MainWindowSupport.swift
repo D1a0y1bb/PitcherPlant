@@ -29,6 +29,9 @@ struct EvidenceFocusedReportsView: View {
 struct MainSidebarView: View {
     @Binding var selection: MainSidebarItem
     @Environment(AppState.self) private var appState
+    let toggleSidebar: () -> Void
+    let showNewAuditComposer: () -> Void
+    let showsToolbarControls: Bool
 
     var body: some View {
         // Adapted from PortKiller's MIT-licensed SidebarView/FavoriteWatchButtons patterns.
@@ -63,6 +66,19 @@ struct MainSidebarView: View {
         }
         .listStyle(.sidebar)
         .scrollIndicators(.hidden)
+        .toolbar {
+            if showsToolbarControls {
+                ToolbarItem(placement: .primaryAction) {
+                    MainSidebarToolbarControls(
+                        showsCapsule: false,
+                        toggleSidebar: toggleSidebar,
+                        showNewAuditComposer: showNewAuditComposer
+                    )
+                }
+                .sharedBackgroundVisibility(.hidden)
+            }
+        }
+        .toolbar(removing: .sidebarToggle)
     }
 
     private func sidebarRow(_ item: MainSidebarItem, title: String? = nil) -> some View {
@@ -100,4 +116,23 @@ struct MainSidebarView: View {
         }
     }
 
+}
+
+struct MainSidebarToolbarControls: View {
+    @Environment(AppState.self) private var appState
+    var showsCapsule = true
+    let toggleSidebar: () -> Void
+    let showNewAuditComposer: () -> Void
+
+    var body: some View {
+        FloatingToolbarButtonGroup(showsCapsule: showsCapsule) {
+            FloatingToolbarIconButton(appState.t("toolbar.toggleSidebar"), systemImage: "sidebar.leading") {
+                toggleSidebar()
+            }
+
+            FloatingToolbarIconButton(appState.t("toolbar.newScan"), systemImage: "plus") {
+                showNewAuditComposer()
+            }
+        }
+    }
 }

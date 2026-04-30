@@ -129,15 +129,30 @@ struct AppToolbarBand<Content: View>: View {
 }
 
 struct FloatingToolbarButtonGroup<Content: View>: View {
+    var showsCapsule = true
     @ViewBuilder var content: Content
+    @State private var isHovering = false
 
     var body: some View {
+        if showsCapsule {
+            groupContent
+                .padding(.horizontal, 7)
+                .padding(.vertical, 5)
+                .floatingToolbarCapsule(isHovered: isHovering)
+                .onHover { hovering in
+                    withAnimation(AppMotion.toolbarGlassHover) {
+                        isHovering = hovering
+                    }
+                }
+        } else {
+            groupContent
+        }
+    }
+
+    private var groupContent: some View {
         HStack(spacing: 5) {
             content
         }
-        .padding(.horizontal, 7)
-        .padding(.vertical, 5)
-        .floatingToolbarCapsule()
     }
 }
 
@@ -274,6 +289,93 @@ struct FloatingToolbarMenuButton<Content: View>: View {
                 isHovering = hovering
             }
         }
+    }
+}
+
+struct FloatingToolbarTitleSelector<Panel: View>: View {
+    let title: String
+    let subtitle: String
+    let accessibilityLabel: String
+    @Binding var isPresented: Bool
+    @ViewBuilder var panel: Panel
+    @State private var isHovering = false
+
+    init(
+        title: String,
+        subtitle: String,
+        accessibilityLabel: String,
+        isPresented: Binding<Bool>,
+        @ViewBuilder panel: () -> Panel
+    ) {
+        self.title = title
+        self.subtitle = subtitle
+        self.accessibilityLabel = accessibilityLabel
+        self._isPresented = isPresented
+        self.panel = panel()
+    }
+
+    var body: some View {
+        Button {
+            withAnimation(AppMotion.toolbarGlassAppear) {
+                isPresented.toggle()
+            }
+        } label: {
+            HStack(spacing: 7) {
+                Text(title)
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(.primary)
+                Text(subtitle)
+                    .font(.system(size: 15, weight: .medium))
+                    .foregroundStyle(.secondary)
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(.tertiary)
+                    .rotationEffect(.degrees(isPresented ? 90 : 0))
+            }
+            .lineLimit(1)
+            .padding(.horizontal, 15)
+            .frame(height: 36)
+            .floatingToolbarCapsule(isFocused: isPresented || isHovering)
+            .contentShape(Capsule())
+        }
+        .buttonStyle(FloatingToolbarButtonStyle())
+        .help(accessibilityLabel)
+        .accessibilityLabel(accessibilityLabel)
+        .onHover { hovering in
+            withAnimation(AppMotion.toolbarGlassHover) {
+                isHovering = hovering
+            }
+        }
+        .popover(isPresented: $isPresented, arrowEdge: .top) {
+            panel
+                .padding(4)
+                .presentationBackground(.clear)
+        }
+        .animation(AppMotion.toolbarGlassHover, value: isHovering)
+        .animation(AppMotion.toolbarGlassAppear, value: isPresented)
+    }
+}
+
+struct FloatingToolbarPopoverPanel<Content: View>: View {
+    var width: CGFloat = 420
+    var cornerRadius: CGFloat = 24
+    @ViewBuilder var content: Content
+
+    var body: some View {
+        content
+            .padding(.horizontal, 20)
+            .padding(.vertical, 18)
+            .frame(width: width, alignment: .leading)
+            .background {
+                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    .fill(Color(nsColor: NSColor.controlBackgroundColor.withAlphaComponent(0.13)))
+            }
+            .overlay {
+                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    .strokeBorder(Color(nsColor: NSColor.separatorColor.withAlphaComponent(0.18)), lineWidth: 0.75)
+            }
+            .glassEffect(.regular.interactive(), in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+            .compositingGroup()
     }
 }
 
@@ -506,7 +608,7 @@ struct FloatingToolbarSearchTriggerButton: View {
     }
 }
 
-private struct FloatingToolbarButtonStyle: ButtonStyle {
+struct FloatingToolbarButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .background {
@@ -553,17 +655,37 @@ private struct FloatingToolbarIconGlyph: View {
 }
 
 extension View {
-    func floatingToolbarCapsule(isFocused: Bool = false) -> some View {
+    func floatingToolbarCapsule(isFocused: Bool = false, isHovered: Bool = false) -> some View {
         background {
             Capsule()
-                .fill(Color(nsColor: NSColor.controlBackgroundColor.withAlphaComponent(isFocused ? 0.18 : 0.10)))
+                .fill(Color(nsColor: NSColor.controlBackgroundColor.withAlphaComponent(capsuleFillAlpha(isFocused: isFocused, isHovered: isHovered))))
         }
         .overlay {
             Capsule()
-                .strokeBorder(Color(nsColor: NSColor.separatorColor.withAlphaComponent(isFocused ? 0.26 : 0.14)), lineWidth: 0.75)
+                .strokeBorder(Color(nsColor: NSColor.separatorColor.withAlphaComponent(capsuleStrokeAlpha(isFocused: isFocused, isHovered: isHovered))), lineWidth: 0.75)
         }
         .glassEffect(.clear.interactive(), in: Capsule())
         .compositingGroup()
+    }
+
+    private func capsuleFillAlpha(isFocused: Bool, isHovered: Bool) -> CGFloat {
+        if isFocused {
+            return 0.18
+        }
+        if isHovered {
+            return 0.13
+        }
+        return 0.07
+    }
+
+    private func capsuleStrokeAlpha(isFocused: Bool, isHovered: Bool) -> CGFloat {
+        if isFocused {
+            return 0.26
+        }
+        if isHovered {
+            return 0.19
+        }
+        return 0.11
     }
 }
 
