@@ -286,10 +286,52 @@ struct MainWindowView: View {
     }
 
     private func toggleSidebarColumn() {
+        if sidebarCollapsed {
+            expandWindowForSidebarIfNeeded()
+        }
         withAnimation(AppMotion.toolbarGlassAppear) {
             autoCollapsedSidebar = false
             columnVisibility = sidebarCollapsed ? .all : .detailOnly
         }
+    }
+
+    private func expandWindowForSidebarIfNeeded() {
+        guard let window = NSApp.keyWindow ?? NSApp.mainWindow else {
+            return
+        }
+        guard window.styleMask.contains(.fullScreen) == false else {
+            return
+        }
+
+        let safeWidth = isInspectorColumnVisible
+            ? AppLayout.sidebarRestoreWidthWithInspector
+            : AppLayout.sidebarRestoreWidthWithoutInspector
+        let currentWidth = max(windowWidth, window.frame.width)
+        guard currentWidth < safeWidth else {
+            return
+        }
+
+        resizeWindow(window, toWidth: safeWidth)
+    }
+
+    private func resizeWindow(_ window: NSWindow, toWidth requestedWidth: CGFloat) {
+        var frame = window.frame
+        let visibleFrame = window.screen?.visibleFrame ?? NSScreen.main?.visibleFrame
+        let targetWidth = min(requestedWidth, visibleFrame?.width ?? requestedWidth)
+        let delta = targetWidth - frame.width
+        guard delta > 0 else {
+            return
+        }
+
+        frame.size.width = targetWidth
+        frame.origin.x -= delta / 2
+
+        if let visibleFrame {
+            let maxX = visibleFrame.maxX - frame.width
+            frame.origin.x = min(max(frame.origin.x, visibleFrame.minX), maxX)
+        }
+
+        window.setFrame(frame, display: true, animate: true)
     }
 
     private func showNewAuditComposer() {
