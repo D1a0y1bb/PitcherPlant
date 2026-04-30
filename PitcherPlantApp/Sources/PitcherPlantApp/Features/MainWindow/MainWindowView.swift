@@ -386,7 +386,7 @@ struct MainWindowView: View {
 
             if titleSelectorPresented, titleSelectorGlobalFrame != .zero {
                 Button {
-                    withAnimation(AppMotion.toolbarGlassAppear) {
+                    withAnimation(AppMotion.toolbarPopoverDismiss) {
                         titleSelectorPresented = false
                     }
                 } label: {
@@ -409,7 +409,7 @@ struct MainWindowView: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .animation(AppMotion.toolbarGlassAppear, value: titleSelectorPresented)
+        .animation(titleSelectorPresented ? AppMotion.toolbarPopoverPresent : AppMotion.toolbarPopoverDismiss, value: titleSelectorPresented)
     }
 
     private func mainWindowTrailingToolbarOverlay(topSafeAreaInset: CGFloat) -> some View {

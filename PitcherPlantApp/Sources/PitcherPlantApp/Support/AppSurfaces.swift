@@ -461,7 +461,8 @@ struct FloatingToolbarTitleSelector: View {
 
     var body: some View {
         Button {
-            withAnimation(AppMotion.toolbarGlassAppear) {
+            let animation = isPresented ? AppMotion.toolbarPopoverDismiss : AppMotion.toolbarPopoverPresent
+            withAnimation(animation) {
                 isPresented.toggle()
             }
         } label: {
@@ -494,7 +495,7 @@ struct FloatingToolbarTitleSelector: View {
             }
         }
         .animation(AppMotion.toolbarGlassHover, value: isHovering)
-        .animation(AppMotion.toolbarGlassAppear, value: isPresented)
+        .animation(isPresented ? AppMotion.toolbarPopoverPresent : AppMotion.toolbarPopoverDismiss, value: isPresented)
     }
 }
 
@@ -871,6 +872,8 @@ enum AppMotion {
     static let toolbarGlassFusion = Animation.smooth(duration: 0.82, extraBounce: 0.22)
     static let toolbarGlassHover = Animation.smooth(duration: 0.22, extraBounce: 0.10)
     static let toolbarGlassPress = Animation.smooth(duration: 0.20, extraBounce: 0.38)
+    static let toolbarPopoverPresent = Animation.smooth(duration: 0.48, extraBounce: 0.10)
+    static let toolbarPopoverDismiss = Animation.smooth(duration: 0.50, extraBounce: 0.02)
     static let toolbarSearchHoverSettleDelay: UInt64 = 620_000_000
     static let toolbarSearchExpansionLockDelay: UInt64 = 1_250_000_000
     static let toolbarSearchCollapseDelay: UInt64 = 260_000_000
@@ -905,8 +908,8 @@ extension AnyTransition {
                 identity: FloatingToolbarPopoverPresenceModifier(progress: 1)
             ),
             removal: .modifier(
-                active: FloatingToolbarPopoverPresenceModifier(progress: 0),
-                identity: FloatingToolbarPopoverPresenceModifier(progress: 1)
+                active: FloatingToolbarPopoverDismissModifier(progress: 0),
+                identity: FloatingToolbarPopoverDismissModifier(progress: 1)
             )
         )
     }
@@ -929,9 +932,25 @@ private struct FloatingToolbarPopoverPresenceModifier: ViewModifier {
     func body(content: Content) -> some View {
         content
             .opacity(progress)
-            .scaleEffect(0.94 + progress * 0.06, anchor: .topLeading)
-            .offset(y: (1 - progress) * -8)
-            .blur(radius: (1 - progress) * 2.5)
+            .scaleEffect(x: 1, y: 0.94 + progress * 0.06, anchor: .top)
+            .offset(y: (1 - progress) * -14)
+            .blur(radius: (1 - progress) * 2)
+    }
+}
+
+private struct FloatingToolbarPopoverDismissModifier: ViewModifier {
+    let progress: Double
+
+    func body(content: Content) -> some View {
+        content
+            .opacity(progress)
+            .scaleEffect(
+                x: 1,
+                y: 0.82 + progress * 0.18,
+                anchor: .top
+            )
+            .offset(y: (1 - progress) * -18)
+            .blur(radius: (1 - progress) * 1.4)
     }
 }
 
