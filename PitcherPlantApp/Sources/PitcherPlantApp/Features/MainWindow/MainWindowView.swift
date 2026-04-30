@@ -160,7 +160,7 @@ struct MainWindowView: View {
                 inspectorColumn
                     .frame(
                         minWidth: AppLayout.inspectorMinWidth,
-                        idealWidth: adaptiveInspectorIdealWidth,
+                        idealWidth: AppLayout.inspectorIdealWidth,
                         maxWidth: adaptiveInspectorMaxWidth,
                         maxHeight: .infinity,
                         alignment: .topLeading
@@ -188,44 +188,15 @@ struct MainWindowView: View {
         }
     }
 
-    private var adaptiveInspectorIdealWidth: CGFloat {
-        guard windowWidth > 0 else {
-            return AppLayout.inspectorIdealWidth
-        }
-
-        if windowWidth >= 1_600 {
-            return AppLayout.inspectorMaxWidth
-        }
-
-        if sidebarCollapsed, windowWidth >= 960 {
-            return AppLayout.inspectorIdealWidth
-        }
-
-        if windowWidth >= AppLayout.sidebarCollapseWidthWithInspector {
-            return AppLayout.inspectorIdealWidth
-        }
-
-        return AppLayout.inspectorMinWidth
-    }
-
     private var adaptiveInspectorMaxWidth: CGFloat {
         guard windowWidth > 0 else {
             return AppLayout.inspectorMaxWidth
         }
 
-        if windowWidth >= 1_600 {
-            return AppLayout.inspectorMaxWidth
-        }
+        let availableDetailWidth = windowWidth - (sidebarCollapsed ? 0 : AppLayout.sidebarMaxWidth)
+        let dragLimit = min(AppLayout.inspectorMaxWidth, availableDetailWidth - AppLayout.contentMinWidth)
 
-        if sidebarCollapsed, windowWidth >= 960 {
-            return AppLayout.inspectorIdealWidth
-        }
-
-        if windowWidth >= AppLayout.sidebarCollapseWidthWithInspector {
-            return AppLayout.inspectorIdealWidth
-        }
-
-        return AppLayout.inspectorMinWidth
+        return max(AppLayout.inspectorMinWidth, dragLimit)
     }
 
     @ViewBuilder

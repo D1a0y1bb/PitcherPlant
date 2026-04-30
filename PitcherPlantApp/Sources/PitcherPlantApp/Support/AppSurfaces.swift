@@ -14,8 +14,8 @@ enum AppLayout {
     static let contentMinWidth: CGFloat = 240
     static let contentIdealWidth: CGFloat = 620
     static let inspectorMinWidth: CGFloat = 340
-    static let inspectorIdealWidth: CGFloat = 380
-    static let inspectorMaxWidth: CGFloat = 520
+    static let inspectorIdealWidth: CGFloat = inspectorMinWidth
+    static let inspectorMaxWidth: CGFloat = 720
     static let sidebarCollapseWidthWithInspector: CGFloat = 1160
     static let sidebarRestoreWidthWithInspector: CGFloat = 1280
     static let sidebarCollapseWidthWithoutInspector: CGFloat = 860
