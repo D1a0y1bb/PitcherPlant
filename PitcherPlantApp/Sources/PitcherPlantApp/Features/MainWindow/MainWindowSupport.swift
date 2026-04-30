@@ -66,16 +66,19 @@ struct MainSidebarView: View {
         }
         .listStyle(.sidebar)
         .scrollIndicators(.hidden)
-        .toolbar {
+        .overlay {
             if showsToolbarControls {
-                ToolbarItem(placement: .primaryAction) {
+                GeometryReader { proxy in
                     MainSidebarToolbarControls(
                         showsCapsule: false,
                         toggleSidebar: toggleSidebar,
                         showNewAuditComposer: showNewAuditComposer
                     )
+                    .padding(.top, sidebarToolbarTopPadding(topSafeAreaInset: proxy.safeAreaInsets.top))
+                    .padding(.trailing, sidebarToolbarTrailingPadding(topSafeAreaInset: proxy.safeAreaInsets.top))
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
+                    .ignoresSafeArea(.container, edges: .top)
                 }
-                .sharedBackgroundVisibility(.hidden)
             }
         }
         .toolbar(removing: .sidebarToggle)
@@ -114,6 +117,14 @@ struct MainSidebarView: View {
         case .whitelist: return .green
         case .settings: return .orange
         }
+    }
+
+    private func sidebarToolbarTopPadding(topSafeAreaInset: CGFloat) -> CGFloat {
+        AppLayout.floatingToolbarTopPadding(topSafeAreaInset: topSafeAreaInset)
+    }
+
+    private func sidebarToolbarTrailingPadding(topSafeAreaInset _: CGFloat) -> CGFloat {
+        4
     }
 
 }

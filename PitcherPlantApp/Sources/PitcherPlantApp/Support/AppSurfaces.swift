@@ -33,6 +33,35 @@ enum AppLayout {
     static let rowMinHeight: CGFloat = 54
     static let controlColumnWidth: CGFloat = 360
     static let surfaceCornerRadius: CGFloat = 18
+    static let floatingToolbarControlHeight: CGFloat = 36
+    static let floatingToolbarWindowCornerRadius: CGFloat = 30
+    static let floatingToolbarSidebarCornerRadius: CGFloat = 28
+
+    static func floatingToolbarTopPadding(topSafeAreaInset: CGFloat) -> CGFloat {
+        guard topSafeAreaInset > floatingToolbarControlHeight else {
+            return 4
+        }
+        return max(4, (topSafeAreaInset - floatingToolbarControlHeight) / 2)
+    }
+
+    static func curvedToolbarTrailingPadding(
+        base: CGFloat,
+        topPadding: CGFloat,
+        cornerRadius: CGFloat
+    ) -> CGFloat {
+        base + ceil(cornerInset(topOffset: topPadding, cornerRadius: cornerRadius))
+    }
+
+    private static func cornerInset(topOffset: CGFloat, cornerRadius: CGFloat) -> CGFloat {
+        guard cornerRadius > 0, topOffset < cornerRadius else {
+            return 0
+        }
+
+        let y = min(max(topOffset, 0), cornerRadius)
+        let distanceFromCenterY = cornerRadius - y
+        let arcReach = sqrt(max(0, cornerRadius * cornerRadius - distanceFromCenterY * distanceFromCenterY))
+        return max(0, cornerRadius - arcReach)
+    }
 }
 
 struct LiquidGlassSurface<Content: View>: View {
@@ -292,26 +321,23 @@ struct FloatingToolbarMenuButton<Content: View>: View {
     }
 }
 
-struct FloatingToolbarTitleSelector<Panel: View>: View {
+struct FloatingToolbarTitleSelector: View {
     let title: String
     let subtitle: String
     let accessibilityLabel: String
     @Binding var isPresented: Bool
-    @ViewBuilder var panel: Panel
     @State private var isHovering = false
 
     init(
         title: String,
         subtitle: String,
         accessibilityLabel: String,
-        isPresented: Binding<Bool>,
-        @ViewBuilder panel: () -> Panel
+        isPresented: Binding<Bool>
     ) {
         self.title = title
         self.subtitle = subtitle
         self.accessibilityLabel = accessibilityLabel
         self._isPresented = isPresented
-        self.panel = panel()
     }
 
     var body: some View {
@@ -324,9 +350,11 @@ struct FloatingToolbarTitleSelector<Panel: View>: View {
                 Text(title)
                     .font(.system(size: 15, weight: .semibold))
                     .foregroundStyle(.primary)
-                Text(subtitle)
-                    .font(.system(size: 15, weight: .medium))
-                    .foregroundStyle(.secondary)
+                if subtitle.isEmpty == false {
+                    Text(subtitle)
+                        .font(.system(size: 15, weight: .medium))
+                        .foregroundStyle(.secondary)
+                }
                 Image(systemName: "chevron.right")
                     .font(.system(size: 12, weight: .semibold))
                     .foregroundStyle(.tertiary)
@@ -346,36 +374,30 @@ struct FloatingToolbarTitleSelector<Panel: View>: View {
                 isHovering = hovering
             }
         }
-        .popover(isPresented: $isPresented, arrowEdge: .top) {
-            panel
-                .padding(4)
-                .presentationBackground(.clear)
-        }
         .animation(AppMotion.toolbarGlassHover, value: isHovering)
         .animation(AppMotion.toolbarGlassAppear, value: isPresented)
     }
 }
 
 struct FloatingToolbarPopoverPanel<Content: View>: View {
-    var width: CGFloat = 420
-    var cornerRadius: CGFloat = 24
+    var width: CGFloat = 260
+    var cornerRadius: CGFloat = 20
     @ViewBuilder var content: Content
+    @State private var isHovering = false
 
     var body: some View {
-        content
-            .padding(.horizontal, 20)
-            .padding(.vertical, 18)
-            .frame(width: width, alignment: .leading)
-            .background {
-                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .fill(Color(nsColor: NSColor.controlBackgroundColor.withAlphaComponent(0.13)))
-            }
-            .overlay {
-                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .strokeBorder(Color(nsColor: NSColor.separatorColor.withAlphaComponent(0.18)), lineWidth: 0.75)
-            }
-            .glassEffect(.regular.interactive(), in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
-            .compositingGroup()
+        GlassEffectContainer(spacing: 8) {
+            content
+                .padding(.horizontal, 10)
+                .padding(.vertical, 10)
+                .frame(width: width, alignment: .leading)
+                .floatingToolbarRoundedPanel(cornerRadius: cornerRadius, isHovered: isHovering)
+                .onHover { hovering in
+                    withAnimation(AppMotion.toolbarGlassHover) {
+                        isHovering = hovering
+                    }
+                }
+        }
     }
 }
 
@@ -623,6 +645,21 @@ struct FloatingToolbarButtonStyle: ButtonStyle {
     }
 }
 
+struct FloatingToolbarPanelButtonStyle: ButtonStyle {
+    var cornerRadius: CGFloat = 12
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .background {
+                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    .fill(Color.primary.opacity(configuration.isPressed ? 0.10 : 0))
+            }
+            .scaleEffect(configuration.isPressed ? 0.965 : 1, anchor: .center)
+            .shadow(color: Color.primary.opacity(configuration.isPressed ? 0.08 : 0), radius: 8, y: 0)
+            .animation(AppMotion.toolbarGlassPress, value: configuration.isPressed)
+    }
+}
+
 private struct FloatingToolbarIconGlyph: View {
     @Environment(\.isEnabled) private var isEnabled
     let systemImage: String
@@ -665,6 +702,24 @@ extension View {
                 .strokeBorder(Color(nsColor: NSColor.separatorColor.withAlphaComponent(capsuleStrokeAlpha(isFocused: isFocused, isHovered: isHovered))), lineWidth: 0.75)
         }
         .glassEffect(.clear.interactive(), in: Capsule())
+        .compositingGroup()
+    }
+
+    func floatingToolbarRoundedPanel(
+        cornerRadius: CGFloat,
+        isFocused: Bool = false,
+        isHovered: Bool = false
+    ) -> some View {
+        background {
+            RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                .fill(Color(nsColor: NSColor.controlBackgroundColor.withAlphaComponent(capsuleFillAlpha(isFocused: isFocused, isHovered: isHovered))))
+        }
+        .overlay {
+            RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                .strokeBorder(Color(nsColor: NSColor.separatorColor.withAlphaComponent(capsuleStrokeAlpha(isFocused: isFocused, isHovered: isHovered))), lineWidth: 0.75)
+        }
+        .contentShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+        .glassEffect(.clear.interactive(), in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
         .compositingGroup()
     }
 
@@ -720,6 +775,19 @@ extension AnyTransition {
             )
         )
     }
+
+    static var floatingToolbarPopoverPresence: AnyTransition {
+        .asymmetric(
+            insertion: .modifier(
+                active: FloatingToolbarPopoverPresenceModifier(progress: 0),
+                identity: FloatingToolbarPopoverPresenceModifier(progress: 1)
+            ),
+            removal: .modifier(
+                active: FloatingToolbarPopoverPresenceModifier(progress: 0),
+                identity: FloatingToolbarPopoverPresenceModifier(progress: 1)
+            )
+        )
+    }
 }
 
 private struct FloatingToolbarSearchPresenceModifier: ViewModifier {
@@ -730,6 +798,18 @@ private struct FloatingToolbarSearchPresenceModifier: ViewModifier {
             .opacity(progress)
             .scaleEffect(0.985 + progress * 0.015, anchor: .trailing)
             .blur(radius: (1 - progress) * 2)
+    }
+}
+
+private struct FloatingToolbarPopoverPresenceModifier: ViewModifier {
+    let progress: Double
+
+    func body(content: Content) -> some View {
+        content
+            .opacity(progress)
+            .scaleEffect(0.94 + progress * 0.06, anchor: .topLeading)
+            .offset(y: (1 - progress) * -8)
+            .blur(radius: (1 - progress) * 2.5)
     }
 }
 

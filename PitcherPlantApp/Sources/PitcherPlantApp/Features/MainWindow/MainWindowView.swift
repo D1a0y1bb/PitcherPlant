@@ -16,6 +16,7 @@ struct MainWindowView: View {
     @State private var reportToolbarSearchPresented = false
     @State private var reportToolbarSearchExpanded = false
     @State private var titleSelectorPresented = false
+    @State private var titleSelectorFrame: CGRect = .zero
     private let layoutPolicy = MainWindowLayoutPolicy()
 
     var body: some View {
@@ -84,6 +85,12 @@ struct MainWindowView: View {
         .toolbar(removing: .title)
         .animation(AppMotion.toolbarGlassAppear, value: appState.selectedMainSidebar)
         .toolbarBackgroundVisibility(.hidden, for: .windowToolbar)
+        .overlay {
+            GeometryReader { proxy in
+                mainWindowToolbarOverlay(topSafeAreaInset: proxy.safeAreaInsets.top)
+                    .ignoresSafeArea(.container, edges: .top)
+            }
+        }
         .alert(item: noticeBinding) { notice in
             Alert(
                 title: Text(notice.title),
@@ -307,70 +314,95 @@ struct MainWindowView: View {
 
                 FloatingToolbarTitleSelector(
                     title: "PitcherPlant",
-                    subtitle: appState.t("toolbar.titleMode.standard"),
+                    subtitle: "",
                     accessibilityLabel: appState.t("toolbar.titleSelector"),
                     isPresented: $titleSelectorPresented
-                ) {
-                    MainToolbarTitlePopover()
-                }
+                )
+                .background(WindowLocalFrameObserver(frame: $titleSelectorFrame))
             }
             .animation(AppMotion.toolbarGlassAppear, value: sidebarCollapsed)
         }
         .sharedBackgroundVisibility(.hidden)
+    }
 
-        ToolbarSpacer(.flexible)
+    private func mainWindowToolbarOverlay(topSafeAreaInset: CGFloat) -> some View {
+        ZStack(alignment: .topLeading) {
+            mainWindowTrailingToolbarOverlay(topSafeAreaInset: topSafeAreaInset)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
 
-        ToolbarItem(placement: .automatic) {
-            FloatingToolbarFusionCluster(spacing: 10, forceExpanded: reportToolbarSearchExpanded) {
-                FloatingToolbarButtonGroup {
-                    mainToolbarUtilityButtons
-                    mainToolbarAuditButton
-                    mainToolbarSettingsButton
-                    if shouldShowReportToolbarSearch, reportToolbarSearchPresented {
-                        FloatingToolbarSearchTriggerButton(
-                            title: appState.t("reports.searchPrompt"),
-                            isExpanded: $reportToolbarSearchExpanded
-                        )
-                    }
-                }
-                .glassEffectID("main-toolbar-actions-collapsed", in: mainToolbarGlassNamespace)
-                .glassEffectTransition(.matchedGeometry)
-            } expanded: {
-                FloatingToolbarButtonGroup {
-                    mainToolbarUtilityButtons
-                }
-                .glassEffectID("main-toolbar-utility-actions", in: mainToolbarGlassNamespace)
-                .glassEffectTransition(.matchedGeometry)
-
-                FloatingToolbarButtonGroup {
-                    mainToolbarAuditButton
-                }
-                .glassEffectID("main-toolbar-primary-action", in: mainToolbarGlassNamespace)
-                .glassEffectTransition(.matchedGeometry)
-
-                FloatingToolbarButtonGroup {
-                    mainToolbarSettingsButton
-                }
-                .glassEffectID("main-toolbar-settings-action", in: mainToolbarGlassNamespace)
-                .glassEffectTransition(.matchedGeometry)
-
-                if shouldShowReportToolbarSearch, reportToolbarSearchPresented {
-                    FloatingToolbarSearchField(
-                        text: $reportSearchText,
-                        prompt: appState.t("reports.searchPrompt"),
-                        isExpanded: $reportToolbarSearchExpanded,
-                        collapsesWhenInactive: true
+            if titleSelectorPresented, titleSelectorFrame != .zero {
+                MainToolbarTitlePopover()
+                    .padding(4)
+                    .offset(
+                        x: titleSelectorFrame.minX,
+                        y: titleSelectorFrame.maxY + 6
                     )
-                        .glassEffectID("main-toolbar-search-action", in: mainToolbarGlassNamespace)
-                        .glassEffectTransition(.matchedGeometry)
-                        .transition(.floatingToolbarSearchPresence)
+                    .transition(.floatingToolbarPopoverPresence)
+                    .zIndex(30)
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .animation(AppMotion.toolbarGlassAppear, value: titleSelectorPresented)
+    }
+
+    private func mainWindowTrailingToolbarOverlay(topSafeAreaInset: CGFloat) -> some View {
+        FloatingToolbarFusionCluster(spacing: 10, forceExpanded: reportToolbarSearchExpanded) {
+            FloatingToolbarButtonGroup {
+                mainToolbarUtilityButtons
+                mainToolbarAuditButton
+                mainToolbarSettingsButton
+                if shouldShowReportToolbarSearch, reportToolbarSearchPresented {
+                    FloatingToolbarSearchTriggerButton(
+                        title: appState.t("reports.searchPrompt"),
+                        isExpanded: $reportToolbarSearchExpanded
+                    )
                 }
             }
-            .animation(AppMotion.toolbarGlassAppear, value: reportToolbarSearchPresented)
-            .animation(AppMotion.toolbarSearchExpand, value: reportToolbarSearchExpanded)
-            .animation(AppMotion.toolbarGlassAppear, value: appState.selectedMainSidebar)
+            .glassEffectID("main-toolbar-actions-collapsed", in: mainToolbarGlassNamespace)
+            .glassEffectTransition(.matchedGeometry)
+        } expanded: {
+            FloatingToolbarButtonGroup {
+                mainToolbarUtilityButtons
+            }
+            .glassEffectID("main-toolbar-utility-actions", in: mainToolbarGlassNamespace)
+            .glassEffectTransition(.matchedGeometry)
+
+            FloatingToolbarButtonGroup {
+                mainToolbarAuditButton
+                mainToolbarSettingsButton
+            }
+            .glassEffectID("main-toolbar-primary-actions", in: mainToolbarGlassNamespace)
+            .glassEffectTransition(.matchedGeometry)
+
+            if shouldShowReportToolbarSearch, reportToolbarSearchPresented {
+                FloatingToolbarSearchField(
+                    text: $reportSearchText,
+                    prompt: appState.t("reports.searchPrompt"),
+                    isExpanded: $reportToolbarSearchExpanded,
+                    collapsesWhenInactive: true
+                )
+                    .glassEffectID("main-toolbar-search-action", in: mainToolbarGlassNamespace)
+                    .glassEffectTransition(.matchedGeometry)
+                    .transition(.floatingToolbarSearchPresence)
+            }
         }
-        .sharedBackgroundVisibility(.hidden)
+        .padding(.top, trailingToolbarTopPadding(topSafeAreaInset: topSafeAreaInset))
+        .padding(.trailing, trailingToolbarTrailingPadding(topSafeAreaInset: topSafeAreaInset))
+        .animation(AppMotion.toolbarGlassAppear, value: reportToolbarSearchPresented)
+        .animation(AppMotion.toolbarSearchExpand, value: reportToolbarSearchExpanded)
+        .animation(AppMotion.toolbarGlassAppear, value: appState.selectedMainSidebar)
+    }
+
+    private func trailingToolbarTopPadding(topSafeAreaInset: CGFloat) -> CGFloat {
+        AppLayout.floatingToolbarTopPadding(topSafeAreaInset: topSafeAreaInset)
+    }
+
+    private func trailingToolbarTrailingPadding(topSafeAreaInset: CGFloat) -> CGFloat {
+        AppLayout.curvedToolbarTrailingPadding(
+            base: 14,
+            topPadding: trailingToolbarTopPadding(topSafeAreaInset: topSafeAreaInset),
+            cornerRadius: AppLayout.floatingToolbarWindowCornerRadius
+        )
     }
 
     @ViewBuilder
@@ -445,73 +477,86 @@ struct MainWindowView: View {
     }
 }
 
+private enum MainToolbarModeSelection {
+    case auto
+    case deep
+    case standard
+    case quick
+}
+
 private struct MainToolbarTitlePopover: View {
     @Environment(AppState.self) private var appState
+    @State private var selectedMode: MainToolbarModeSelection = .standard
+    @State private var templatesExpanded = false
+    @State private var temporaryScanEnabled = false
 
     var body: some View {
-        FloatingToolbarPopoverPanel(width: 420) {
-            VStack(alignment: .leading, spacing: 8) {
+        FloatingToolbarPopoverPanel(width: 260) {
+            VStack(alignment: .leading, spacing: 4) {
                 MainToolbarModeRow(
                     title: appState.t("toolbar.mode.auto"),
                     subtitle: appState.t("toolbar.mode.auto.subtitle"),
-                    isSelected: false
-                )
+                    isSelected: selectedMode == .auto
+                ) {
+                    selectMode(.auto)
+                }
                 MainToolbarModeRow(
                     title: appState.t("toolbar.mode.deep"),
                     subtitle: appState.t("toolbar.mode.deep.subtitle"),
-                    isSelected: false
-                )
+                    isSelected: selectedMode == .deep
+                ) {
+                    selectMode(.deep)
+                }
                 MainToolbarModeRow(
                     title: appState.t("toolbar.mode.standard"),
                     subtitle: appState.t("toolbar.mode.standard.subtitle"),
-                    isSelected: true
-                )
+                    isSelected: selectedMode == .standard
+                ) {
+                    selectMode(.standard)
+                }
                 MainToolbarModeRow(
                     title: appState.t("toolbar.mode.quick"),
                     subtitle: appState.t("toolbar.mode.quick.subtitle"),
-                    isSelected: false
-                )
+                    isSelected: selectedMode == .quick
+                ) {
+                    selectMode(.quick)
+                }
 
                 Divider()
-                    .padding(.vertical, 4)
+                    .padding(.vertical, 2)
 
-                HStack(spacing: 12) {
-                    Image(systemName: "slider.horizontal.3")
-                        .font(.system(size: 16, weight: .medium))
-                        .frame(width: 24)
-                        .foregroundStyle(.secondary)
-                    Text(appState.t("toolbar.mode.templates"))
-                        .font(.system(size: 14, weight: .semibold))
-                    Spacer()
-                    Image(systemName: "chevron.down")
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(.secondary)
+                MainToolbarPanelIconRow(
+                    title: appState.t("toolbar.mode.templates"),
+                    systemImage: "slider.horizontal.3",
+                    trailingSystemImage: "chevron.down",
+                    isActive: templatesExpanded,
+                    isExpanded: templatesExpanded
+                ) {
+                    withAnimation(AppMotion.toolbarGlassAppear) {
+                        templatesExpanded.toggle()
+                    }
                 }
-                .frame(height: 38)
 
                 Divider()
-                    .padding(.vertical, 4)
+                    .padding(.vertical, 2)
 
-                HStack(spacing: 12) {
-                    Image(systemName: "wand.and.stars")
-                        .font(.system(size: 16, weight: .medium))
-                        .frame(width: 24)
-                        .foregroundStyle(.secondary)
-                    Text(appState.t("toolbar.mode.temporary"))
-                        .font(.system(size: 14, weight: .semibold))
-                    Spacer()
-                    Capsule()
-                        .fill(.secondary.opacity(0.18))
-                        .frame(width: 48, height: 28)
-                        .overlay(alignment: .leading) {
-                            Circle()
-                                .fill(.primary.opacity(0.12))
-                                .frame(width: 24, height: 24)
-                                .padding(.leading, 2)
-                        }
+                MainToolbarPanelIconRow(
+                    title: appState.t("toolbar.mode.temporary"),
+                    systemImage: "wand.and.stars",
+                    showsToggle: true,
+                    isToggled: temporaryScanEnabled
+                ) {
+                    withAnimation(AppMotion.toolbarGlassAppear) {
+                        temporaryScanEnabled.toggle()
+                    }
                 }
-                .frame(height: 38)
             }
+        }
+    }
+
+    private func selectMode(_ mode: MainToolbarModeSelection) {
+        withAnimation(AppMotion.toolbarGlassAppear) {
+            selectedMode = mode
         }
     }
 }
@@ -520,32 +565,207 @@ private struct MainToolbarModeRow: View {
     let title: String
     let subtitle: String
     let isSelected: Bool
+    var action: () -> Void = {}
+    @State private var isHovering = false
 
     var body: some View {
-        HStack(alignment: .center, spacing: 12) {
-            VStack(alignment: .leading, spacing: 3) {
-                Text(title)
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(.primary)
-                Text(subtitle)
-                    .font(.system(size: 13, weight: .medium))
-                    .foregroundStyle(.secondary)
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
+        Button {
+            action()
+        } label: {
+            HStack(alignment: .center, spacing: 8) {
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(title)
+                        .font(.system(size: 12.5, weight: .semibold))
+                        .foregroundStyle(.primary)
+                    Text(subtitle)
+                        .font(.system(size: 10.5, weight: .medium))
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
 
-            if isSelected {
-                Image(systemName: "checkmark")
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(.primary)
+                if isSelected {
+                    Image(systemName: "checkmark")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(.primary)
+                }
+            }
+            .padding(.horizontal, 9)
+            .frame(height: 38)
+            .background {
+                RoundedRectangle(cornerRadius: 11, style: .continuous)
+                    .fill(Color.primary.opacity(rowFillAlpha))
+            }
+            .contentShape(RoundedRectangle(cornerRadius: 11, style: .continuous))
+        }
+        .buttonStyle(FloatingToolbarPanelButtonStyle(cornerRadius: 11))
+        .accessibilityLabel(title)
+        .onHover { hovering in
+            withAnimation(AppMotion.toolbarGlassHover) {
+                isHovering = hovering
             }
         }
-        .padding(.horizontal, 12)
-        .frame(height: 58)
-        .background {
-            RoundedRectangle(cornerRadius: 13, style: .continuous)
-                .fill(Color.primary.opacity(isSelected ? 0.07 : 0))
+    }
+
+    private var rowFillAlpha: Double {
+        if isSelected {
+            return isHovering ? 0.11 : 0.07
         }
-        .contentShape(RoundedRectangle(cornerRadius: 13, style: .continuous))
+        return isHovering ? 0.07 : 0
+    }
+}
+
+private struct MainToolbarPanelIconRow: View {
+    let title: String
+    let systemImage: String
+    var trailingSystemImage: String?
+    var isActive = false
+    var isExpanded = false
+    var showsToggle = false
+    var isToggled = false
+    var action: () -> Void = {}
+    @State private var isHovering = false
+
+    var body: some View {
+        Button {
+            action()
+        } label: {
+            HStack(spacing: 8) {
+                Image(systemName: systemImage)
+                    .font(.system(size: 12, weight: .medium))
+                    .frame(width: 18)
+                    .foregroundStyle(.secondary)
+                Text(title)
+                    .font(.system(size: 12, weight: .semibold))
+                    .lineLimit(1)
+                Spacer()
+                if let trailingSystemImage {
+                    Image(systemName: trailingSystemImage)
+                        .font(.system(size: 10.5, weight: .semibold))
+                        .foregroundStyle(.secondary)
+                        .rotationEffect(.degrees(isExpanded ? 180 : 0))
+                }
+                if showsToggle {
+                    Capsule()
+                        .fill(isToggled ? Color.primary.opacity(0.24) : Color.secondary.opacity(0.18))
+                        .frame(width: 34, height: 20)
+                        .overlay(alignment: isToggled ? .trailing : .leading) {
+                            Circle()
+                                .fill(.primary.opacity(isToggled ? 0.30 : 0.13))
+                                .frame(width: 16, height: 16)
+                                .padding(.horizontal, 2)
+                        }
+                }
+            }
+            .padding(.horizontal, 9)
+            .frame(height: 34)
+            .background {
+                RoundedRectangle(cornerRadius: 11, style: .continuous)
+                    .fill(Color.primary.opacity(rowFillAlpha))
+            }
+            .contentShape(RoundedRectangle(cornerRadius: 11, style: .continuous))
+        }
+        .buttonStyle(FloatingToolbarPanelButtonStyle(cornerRadius: 11))
+        .accessibilityLabel(title)
+        .onHover { hovering in
+            withAnimation(AppMotion.toolbarGlassHover) {
+                isHovering = hovering
+            }
+        }
+        .animation(AppMotion.toolbarGlassHover, value: isExpanded)
+        .animation(AppMotion.toolbarGlassHover, value: isToggled)
+    }
+
+    private var rowFillAlpha: Double {
+        if isActive || isToggled {
+            return isHovering ? 0.11 : 0.07
+        }
+        return isHovering ? 0.07 : 0
+    }
+}
+
+private struct WindowLocalFrameObserver: NSViewRepresentable {
+    @Binding var frame: CGRect
+
+    func makeNSView(context: Context) -> WindowLocalFrameObserverView {
+        let view = WindowLocalFrameObserverView()
+        view.onChange = { frame = $0 }
+        return view
+    }
+
+    func updateNSView(_ nsView: WindowLocalFrameObserverView, context: Context) {
+        nsView.onChange = { frame = $0 }
+        nsView.publishFrame()
+    }
+}
+
+@MainActor
+private final class WindowLocalFrameObserverView: NSView {
+    var onChange: (CGRect) -> Void = { _ in }
+    private var lastFrame: CGRect = .zero
+    private weak var observedWindow: NSWindow?
+
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        observe(window)
+        publishFrame()
+    }
+
+    override func layout() {
+        super.layout()
+        publishFrame()
+    }
+
+    deinit {
+        NotificationCenter.default.removeObserver(self)
+    }
+
+    func publishFrame() {
+        guard let window, let contentView = window.contentView else {
+            return
+        }
+
+        let rect = convert(bounds, to: contentView)
+        let y: CGFloat
+        if contentView.isFlipped {
+            y = rect.minY
+        } else {
+            y = contentView.bounds.height - rect.maxY
+        }
+
+        let nextFrame = CGRect(x: rect.minX, y: y, width: rect.width, height: rect.height)
+            .integral
+        guard nextFrame != lastFrame else {
+            return
+        }
+
+        lastFrame = nextFrame
+        onChange(nextFrame)
+    }
+
+    private func observe(_ window: NSWindow?) {
+        guard observedWindow !== window else {
+            return
+        }
+
+        NotificationCenter.default.removeObserver(self, name: NSWindow.didResizeNotification, object: observedWindow)
+        observedWindow = window
+
+        guard let window else {
+            return
+        }
+
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(windowDidResize(_:)),
+            name: NSWindow.didResizeNotification,
+            object: window
+        )
+    }
+
+    @objc
+    private func windowDidResize(_ notification: Notification) {
+        publishFrame()
     }
 }
 
