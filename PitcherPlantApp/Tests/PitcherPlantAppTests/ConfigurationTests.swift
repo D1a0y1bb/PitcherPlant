@@ -14,8 +14,10 @@ func configurationDefaultsBuildPaths() {
 func projectLocatorUsesSavedWorkspaceAndCreatesDefaultDirectories() throws {
     let suiteName = "pitcherplant.locator.tests.\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))
+    defer { clearTestDefaults(suiteName, defaults: defaults) }
     let root = FileManager.default.temporaryDirectory
         .appendingPathComponent("pitcherplant-workspace-\(UUID().uuidString)", isDirectory: true)
+    defer { try? FileManager.default.removeItem(at: root) }
     try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
     defaults.set(root.path, forKey: "pitcherplant.macos.workspaceRoot")
 
@@ -30,6 +32,7 @@ func projectLocatorUsesSavedWorkspaceAndCreatesDefaultDirectories() throws {
 func projectLocatorRejectsFilesystemRootSavedWorkspace() throws {
     let suiteName = "pitcherplant.locator.root.tests.\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))
+    defer { clearTestDefaults(suiteName, defaults: defaults) }
     defaults.set("/", forKey: "pitcherplant.macos.workspaceRoot")
 
     let resolved = ProjectLocator(defaults: defaults).workspaceRoot()
@@ -67,6 +70,7 @@ func presetStorageRoundTripsByWorkspaceRoot() throws {
         Issue.record("无法创建测试专用 UserDefaults")
         return
     }
+    defer { clearTestDefaults(suiteName, defaults: defaults) }
     let root = URL(fileURLWithPath: "/tmp/pitcherplant-presets")
     let configuration = AuditConfiguration.defaults(for: root)
 
@@ -89,6 +93,7 @@ func appSettingsRoundTripPreservesEnumSelections() throws {
         Issue.record("无法创建测试专用 UserDefaults")
         return
     }
+    defer { clearTestDefaults(suiteName, defaults: defaults) }
 
     let settings = AppSettings(
         language: .english,
@@ -109,4 +114,9 @@ func appSettingsRoundTripPreservesEnumSelections() throws {
 @Test
 func systemAppearanceLeavesColorSchemeUnspecified() {
     #expect(AppAppearance.system.colorScheme == nil)
+}
+
+private func clearTestDefaults(_ suiteName: String, defaults: UserDefaults) {
+    defaults.removePersistentDomain(forName: suiteName)
+    defaults.synchronize()
 }
