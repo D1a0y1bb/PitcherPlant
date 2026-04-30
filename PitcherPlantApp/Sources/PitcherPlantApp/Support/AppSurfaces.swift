@@ -7,17 +7,18 @@ enum AppLayout {
     static let mainWindowChromeHeightReserve: CGFloat = 52
     static let mainWindowContentMinHeight: CGFloat = mainWindowMinHeight - mainWindowChromeHeightReserve
     static let mainWindowDefaultWidth: CGFloat = 1220
-    static let mainWindowDefaultHeight: CGFloat = 780
+    static let mainWindowDefaultHeight: CGFloat = 704
     static let sidebarMinWidth: CGFloat = 230
     static let sidebarIdealWidth: CGFloat = 260
     static let sidebarMaxWidth: CGFloat = 300
     static let contentMinWidth: CGFloat = 240
     static let contentIdealWidth: CGFloat = 620
     static let inspectorMinWidth: CGFloat = 340
-    static let inspectorIdealWidth: CGFloat = inspectorMinWidth
-    static let inspectorMaxWidth: CGFloat = 720
-    static let sidebarCollapseWidthWithInspector: CGFloat = 1160
-    static let sidebarRestoreWidthWithInspector: CGFloat = 1280
+    static let inspectorDefaultWidth: CGFloat = inspectorMinWidth
+    static let inspectorIdealWidth: CGFloat = inspectorDefaultWidth
+    static let inspectorMaxWidth: CGFloat = 440
+    static let sidebarCollapseWidthWithInspector: CGFloat = 1080
+    static let sidebarRestoreWidthWithInspector: CGFloat = mainWindowDefaultWidth
     static let sidebarCollapseWidthWithoutInspector: CGFloat = 860
     static let sidebarRestoreWidthWithoutInspector: CGFloat = 1040
     static let workspaceTableMinWidth: CGFloat = 560
@@ -234,6 +235,116 @@ struct FloatingToolbarFusionCluster<Collapsed: View, Expanded: View>: View {
 
     private var effectiveExpanded: Bool {
         isHovering || forceExpanded
+    }
+}
+
+struct SplitTrailingColumnWidthInitializer: NSViewRepresentable {
+    var width: CGFloat
+    var resetKey: String
+
+    func makeNSView(context: Context) -> SplitTrailingColumnWidthInitializerView {
+        let view = SplitTrailingColumnWidthInitializerView()
+        view.width = width
+        view.resetKey = resetKey
+        return view
+    }
+
+    func updateNSView(_ nsView: SplitTrailingColumnWidthInitializerView, context: Context) {
+        nsView.width = width
+        nsView.resetKey = resetKey
+        nsView.scheduleApply()
+    }
+}
+
+@MainActor
+final class SplitTrailingColumnWidthInitializerView: NSView {
+    var width: CGFloat = AppLayout.inspectorDefaultWidth
+    var resetKey = ""
+    private var activeKey = ""
+    private var applyCount = 0
+    private var lookupRetryCount = 0
+
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        scheduleApply()
+    }
+
+    override func layout() {
+        super.layout()
+        scheduleApply()
+    }
+
+    func scheduleApply() {
+        DispatchQueue.main.async { [weak self] in
+            self?.prepareAndApplyPreferredWidth()
+        }
+    }
+
+    private func prepareAndApplyPreferredWidth() {
+        let key = "\(resetKey)-\(Int(width.rounded()))"
+        if activeKey != key {
+            activeKey = key
+            applyCount = 0
+            lookupRetryCount = 0
+        }
+
+        applyPreferredWidth()
+    }
+
+    private func applyPreferredWidth() {
+        guard let splitView = nearestSplitView() else {
+            retryLookup()
+            return
+        }
+        guard splitView.arrangedSubviews.count >= 2, splitView.bounds.width > width else {
+            retryLookup()
+            return
+        }
+        lookupRetryCount = 0
+
+        guard applyCount < 18 else {
+            return
+        }
+        applyCount += 1
+
+        let dividerIndex = max(0, splitView.arrangedSubviews.count - 2)
+        let position = max(0, splitView.bounds.width - width - splitView.dividerThickness)
+        splitView.setPosition(position, ofDividerAt: dividerIndex)
+        splitView.adjustSubviews()
+
+        retry()
+    }
+
+    private func retryLookup() {
+        guard lookupRetryCount < 18 else {
+            return
+        }
+
+        lookupRetryCount += 1
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.04) { [weak self] in
+            self?.applyPreferredWidth()
+        }
+    }
+
+    private func retry() {
+        guard applyCount < 18 else {
+            return
+        }
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.04) { [weak self] in
+            self?.applyPreferredWidth()
+        }
+    }
+
+    private func nearestSplitView() -> NSSplitView? {
+        var candidate = superview
+        while let view = candidate {
+            if let splitView = view as? NSSplitView {
+                return splitView
+            }
+            candidate = view.superview
+        }
+        return nil
     }
 }
 

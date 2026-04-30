@@ -35,6 +35,12 @@ struct ReportsWindowView: View {
                 }
         } detail: {
             ReportEvidenceInspector()
+                .background(
+                    SplitTrailingColumnWidthInitializer(
+                        width: AppLayout.inspectorDefaultWidth,
+                        resetKey: "reports-window"
+                    )
+                )
                 .navigationSplitViewColumnWidth(
                     min: AppLayout.inspectorMinWidth,
                     ideal: AppLayout.inspectorIdealWidth,

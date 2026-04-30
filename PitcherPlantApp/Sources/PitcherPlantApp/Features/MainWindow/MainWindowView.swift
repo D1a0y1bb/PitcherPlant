@@ -29,6 +29,7 @@ struct MainWindowView: View {
         .background(WindowWidthObserver { width in
             updateWindowWidth(width)
         })
+        .background(WindowDefaultFrameCalibrator())
         .onAppear {
             NSApp.setActivationPolicy(.regular)
             NSApp.activate(ignoringOtherApps: true)
@@ -179,6 +180,13 @@ struct MainWindowView: View {
                         maxWidth: adaptiveInspectorMaxWidth,
                         maxHeight: .infinity,
                         alignment: .topLeading
+                    )
+                    .layoutPriority(-1)
+                    .background(
+                        SplitTrailingColumnWidthInitializer(
+                            width: AppLayout.inspectorDefaultWidth,
+                            resetKey: appState.selectedMainSidebar.rawValue
+                        )
                     )
                     .transition(.move(edge: .trailing).combined(with: .opacity))
                     .zIndex(2)
@@ -872,5 +880,67 @@ private final class WindowWidthObserverView: NSView {
     @objc
     private func windowDidResize(_ notification: Notification) {
         publishWindowWidth()
+    }
+}
+
+private struct WindowDefaultFrameCalibrator: NSViewRepresentable {
+    func makeNSView(context: Context) -> WindowDefaultFrameCalibratorView {
+        WindowDefaultFrameCalibratorView()
+    }
+
+    func updateNSView(_ nsView: WindowDefaultFrameCalibratorView, context: Context) {
+        nsView.scheduleCalibration()
+    }
+}
+
+@MainActor
+private final class WindowDefaultFrameCalibratorView: NSView {
+    private var didCalibrate = false
+
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        scheduleCalibration()
+    }
+
+    func scheduleCalibration() {
+        DispatchQueue.main.async { [weak self] in
+            self?.calibrate()
+        }
+    }
+
+    private func calibrate() {
+        guard didCalibrate == false, let window else {
+            return
+        }
+        guard window.styleMask.contains(.fullScreen) == false else {
+            didCalibrate = true
+            return
+        }
+
+        let targetFrameSize = CGSize(
+            width: AppLayout.mainWindowDefaultWidth,
+            height: AppLayout.mainWindowDefaultHeight
+        )
+        let frame = window.frame
+        guard abs(frame.width - targetFrameSize.width) > 1 || abs(frame.height - targetFrameSize.height) > 1 else {
+            didCalibrate = true
+            return
+        }
+
+        var nextFrame = frame
+        let center = CGPoint(x: frame.midX, y: frame.midY)
+        nextFrame.size = targetFrameSize
+        nextFrame.origin.x = center.x - targetFrameSize.width / 2
+        nextFrame.origin.y = center.y - targetFrameSize.height / 2
+
+        if let visibleFrame = window.screen?.visibleFrame ?? NSScreen.main?.visibleFrame {
+            let maxX = visibleFrame.maxX - nextFrame.width
+            let maxY = visibleFrame.maxY - nextFrame.height
+            nextFrame.origin.x = min(max(nextFrame.origin.x, visibleFrame.minX), maxX)
+            nextFrame.origin.y = min(max(nextFrame.origin.y, visibleFrame.minY), maxY)
+        }
+
+        window.setFrame(nextFrame, display: true, animate: false)
+        didCalibrate = true
     }
 }
