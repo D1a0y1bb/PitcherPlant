@@ -2,6 +2,7 @@ import AppKit
 import SwiftUI
 
 private let inspectorColumnAnimation = Animation.smooth(duration: 0.32, extraBounce: 0)
+private let titlePopoverToolbarLayerOffset: CGFloat = 50
 
 struct MainWindowView: View {
     @Environment(AppState.self) private var appState
@@ -16,7 +17,7 @@ struct MainWindowView: View {
     @State private var reportToolbarSearchPresented = false
     @State private var reportToolbarSearchExpanded = false
     @State private var titleSelectorPresented = false
-    @State private var titleSelectorFrame: CGRect = .zero
+    @State private var titleSelectorGlobalFrame: CGRect = .zero
     private let layoutPolicy = MainWindowLayoutPolicy()
 
     var body: some View {
@@ -88,7 +89,10 @@ struct MainWindowView: View {
         .toolbarBackgroundVisibility(.hidden, for: .windowToolbar)
         .overlay {
             GeometryReader { proxy in
-                mainWindowToolbarOverlay(topSafeAreaInset: proxy.safeAreaInsets.top)
+                mainWindowToolbarOverlay(
+                    topSafeAreaInset: proxy.safeAreaInsets.top,
+                    rootGlobalFrame: proxy.frame(in: .global)
+                )
                     .ignoresSafeArea(.container, edges: .top)
             }
         }
@@ -368,24 +372,37 @@ struct MainWindowView: View {
                     accessibilityLabel: appState.t("toolbar.titleSelector"),
                     isPresented: $titleSelectorPresented
                 )
-                .background(WindowLocalFrameObserver(frame: $titleSelectorFrame))
+                .background(GlobalFrameObserver(frame: $titleSelectorGlobalFrame))
             }
             .animation(AppMotion.toolbarGlassAppear, value: sidebarCollapsed)
         }
         .sharedBackgroundVisibility(.hidden)
     }
 
-    private func mainWindowToolbarOverlay(topSafeAreaInset: CGFloat) -> some View {
+    private func mainWindowToolbarOverlay(topSafeAreaInset: CGFloat, rootGlobalFrame: CGRect) -> some View {
         ZStack(alignment: .topLeading) {
             mainWindowTrailingToolbarOverlay(topSafeAreaInset: topSafeAreaInset)
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
 
-            if titleSelectorPresented, titleSelectorFrame != .zero {
+            if titleSelectorPresented, titleSelectorGlobalFrame != .zero {
+                Button {
+                    withAnimation(AppMotion.toolbarGlassAppear) {
+                        titleSelectorPresented = false
+                    }
+                } label: {
+                    Color.clear
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityHidden(true)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .zIndex(20)
+
                 MainToolbarTitlePopover()
                     .padding(4)
                     .offset(
-                        x: titleSelectorFrame.minX,
-                        y: titleSelectorFrame.maxY + 6
+                        x: titleSelectorGlobalFrame.minX - rootGlobalFrame.minX,
+                        y: titleSelectorGlobalFrame.maxY - rootGlobalFrame.minY + titlePopoverToolbarLayerOffset
                     )
                     .transition(.floatingToolbarPopoverPresence)
                     .zIndex(30)
@@ -534,9 +551,16 @@ private enum MainToolbarModeSelection {
     case quick
 }
 
+private enum MainToolbarTemplateSelection {
+    case defaultAudit
+    case evidenceReview
+    case fastScreening
+}
+
 private struct MainToolbarTitlePopover: View {
     @Environment(AppState.self) private var appState
     @State private var selectedMode: MainToolbarModeSelection = .standard
+    @State private var selectedTemplate: MainToolbarTemplateSelection = .defaultAudit
     @State private var templatesExpanded = false
     @State private var temporaryScanEnabled = false
 
@@ -587,26 +611,56 @@ private struct MainToolbarTitlePopover: View {
                     }
                 }
 
+                if templatesExpanded {
+                    VStack(alignment: .leading, spacing: 3) {
+                        MainToolbarTemplateRow(
+                            title: appState.t("toolbar.mode.template.default"),
+                            subtitle: appState.t("toolbar.mode.template.default.subtitle"),
+                            isSelected: selectedTemplate == .defaultAudit
+                        ) {
+                            selectTemplate(.defaultAudit)
+                        }
+                        MainToolbarTemplateRow(
+                            title: appState.t("toolbar.mode.template.review"),
+                            subtitle: appState.t("toolbar.mode.template.review.subtitle"),
+                            isSelected: selectedTemplate == .evidenceReview
+                        ) {
+                            selectTemplate(.evidenceReview)
+                        }
+                        MainToolbarTemplateRow(
+                            title: appState.t("toolbar.mode.template.fast"),
+                            subtitle: appState.t("toolbar.mode.template.fast.subtitle"),
+                            isSelected: selectedTemplate == .fastScreening
+                        ) {
+                            selectTemplate(.fastScreening)
+                        }
+                    }
+                    .padding(.leading, 6)
+                    .transition(.opacity.combined(with: .scale(scale: 0.98, anchor: .top)))
+                }
+
                 Divider()
                     .padding(.vertical, 2)
 
-                MainToolbarPanelIconRow(
+                MainToolbarPanelToggleRow(
                     title: appState.t("toolbar.mode.temporary"),
                     systemImage: "wand.and.stars",
-                    showsToggle: true,
-                    isToggled: temporaryScanEnabled
-                ) {
-                    withAnimation(AppMotion.toolbarGlassAppear) {
-                        temporaryScanEnabled.toggle()
-                    }
-                }
+                    isOn: $temporaryScanEnabled
+                )
             }
+            .animation(AppMotion.toolbarGlassAppear, value: templatesExpanded)
         }
     }
 
     private func selectMode(_ mode: MainToolbarModeSelection) {
         withAnimation(AppMotion.toolbarGlassAppear) {
             selectedMode = mode
+        }
+    }
+
+    private func selectTemplate(_ template: MainToolbarTemplateSelection) {
+        withAnimation(AppMotion.toolbarGlassAppear) {
+            selectedTemplate = template
         }
     }
 }
@@ -665,14 +719,111 @@ private struct MainToolbarModeRow: View {
     }
 }
 
+private struct MainToolbarTemplateRow: View {
+    let title: String
+    let subtitle: String
+    let isSelected: Bool
+    var action: () -> Void = {}
+    @State private var isHovering = false
+
+    var body: some View {
+        Button {
+            action()
+        } label: {
+            HStack(spacing: 7) {
+                Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
+                    .font(.system(size: 10.5, weight: .semibold))
+                    .symbolRenderingMode(.hierarchical)
+                    .foregroundStyle(isSelected ? Color.accentColor : Color.secondary)
+                    .frame(width: 15)
+
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(title)
+                        .font(.system(size: 11.5, weight: .semibold))
+                        .foregroundStyle(.primary)
+                    Text(subtitle)
+                        .font(.system(size: 9.5, weight: .medium))
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .padding(.horizontal, 8)
+            .frame(height: 31)
+            .background {
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .fill(Color.primary.opacity(rowFillAlpha))
+            }
+            .contentShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+        }
+        .buttonStyle(FloatingToolbarPanelButtonStyle(cornerRadius: 10))
+        .accessibilityLabel(title)
+        .onHover { hovering in
+            withAnimation(AppMotion.toolbarGlassHover) {
+                isHovering = hovering
+            }
+        }
+    }
+
+    private var rowFillAlpha: Double {
+        if isSelected {
+            return isHovering ? 0.10 : 0.06
+        }
+        return isHovering ? 0.06 : 0
+    }
+}
+
+private struct MainToolbarPanelToggleRow: View {
+    let title: String
+    let systemImage: String
+    @Binding var isOn: Bool
+    @State private var isHovering = false
+
+    var body: some View {
+        Toggle(isOn: $isOn) {
+            HStack(spacing: 8) {
+                Image(systemName: systemImage)
+                    .font(.system(size: 12, weight: .medium))
+                    .frame(width: 18)
+                    .foregroundStyle(isOn ? Color.accentColor : Color.secondary)
+                Text(title)
+                    .font(.system(size: 12, weight: .semibold))
+                    .lineLimit(1)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .toggleStyle(.switch)
+        .tint(.accentColor)
+        .padding(.horizontal, 9)
+        .frame(height: 34)
+        .background {
+            RoundedRectangle(cornerRadius: 11, style: .continuous)
+                .fill(Color.primary.opacity(rowFillAlpha))
+        }
+        .contentShape(RoundedRectangle(cornerRadius: 11, style: .continuous))
+        .onHover { hovering in
+            withAnimation(AppMotion.toolbarGlassHover) {
+                isHovering = hovering
+            }
+        }
+        .animation(AppMotion.toolbarGlassHover, value: isOn)
+        .accessibilityLabel(title)
+    }
+
+    private var rowFillAlpha: Double {
+        if isOn {
+            return isHovering ? 0.11 : 0.07
+        }
+        return isHovering ? 0.07 : 0
+    }
+}
+
 private struct MainToolbarPanelIconRow: View {
     let title: String
     let systemImage: String
     var trailingSystemImage: String?
     var isActive = false
     var isExpanded = false
-    var showsToggle = false
-    var isToggled = false
     var action: () -> Void = {}
     @State private var isHovering = false
 
@@ -695,17 +846,6 @@ private struct MainToolbarPanelIconRow: View {
                         .foregroundStyle(.secondary)
                         .rotationEffect(.degrees(isExpanded ? 180 : 0))
                 }
-                if showsToggle {
-                    Capsule()
-                        .fill(isToggled ? Color.primary.opacity(0.24) : Color.secondary.opacity(0.18))
-                        .frame(width: 34, height: 20)
-                        .overlay(alignment: isToggled ? .trailing : .leading) {
-                            Circle()
-                                .fill(.primary.opacity(isToggled ? 0.30 : 0.13))
-                                .frame(width: 16, height: 16)
-                                .padding(.horizontal, 2)
-                        }
-                }
             }
             .padding(.horizontal, 9)
             .frame(height: 34)
@@ -723,99 +863,26 @@ private struct MainToolbarPanelIconRow: View {
             }
         }
         .animation(AppMotion.toolbarGlassHover, value: isExpanded)
-        .animation(AppMotion.toolbarGlassHover, value: isToggled)
     }
 
     private var rowFillAlpha: Double {
-        if isActive || isToggled {
+        if isActive {
             return isHovering ? 0.11 : 0.07
         }
         return isHovering ? 0.07 : 0
     }
 }
 
-private struct WindowLocalFrameObserver: NSViewRepresentable {
+private struct GlobalFrameObserver: View {
     @Binding var frame: CGRect
 
-    func makeNSView(context: Context) -> WindowLocalFrameObserverView {
-        let view = WindowLocalFrameObserverView()
-        view.onChange = { frame = $0 }
-        return view
-    }
-
-    func updateNSView(_ nsView: WindowLocalFrameObserverView, context: Context) {
-        nsView.onChange = { frame = $0 }
-        nsView.publishFrame()
-    }
-}
-
-@MainActor
-private final class WindowLocalFrameObserverView: NSView {
-    var onChange: (CGRect) -> Void = { _ in }
-    private var lastFrame: CGRect = .zero
-    private weak var observedWindow: NSWindow?
-
-    override func viewDidMoveToWindow() {
-        super.viewDidMoveToWindow()
-        observe(window)
-        publishFrame()
-    }
-
-    override func layout() {
-        super.layout()
-        publishFrame()
-    }
-
-    deinit {
-        NotificationCenter.default.removeObserver(self)
-    }
-
-    func publishFrame() {
-        guard let window, let contentView = window.contentView else {
-            return
-        }
-
-        let rect = convert(bounds, to: contentView)
-        let y: CGFloat
-        if contentView.isFlipped {
-            y = rect.minY
-        } else {
-            y = contentView.bounds.height - rect.maxY
-        }
-
-        let nextFrame = CGRect(x: rect.minX, y: y, width: rect.width, height: rect.height)
-            .integral
-        guard nextFrame != lastFrame else {
-            return
-        }
-
-        lastFrame = nextFrame
-        onChange(nextFrame)
-    }
-
-    private func observe(_ window: NSWindow?) {
-        guard observedWindow !== window else {
-            return
-        }
-
-        NotificationCenter.default.removeObserver(self, name: NSWindow.didResizeNotification, object: observedWindow)
-        observedWindow = window
-
-        guard let window else {
-            return
-        }
-
-        NotificationCenter.default.addObserver(
-            self,
-            selector: #selector(windowDidResize(_:)),
-            name: NSWindow.didResizeNotification,
-            object: window
-        )
-    }
-
-    @objc
-    private func windowDidResize(_ notification: Notification) {
-        publishFrame()
+    var body: some View {
+        Color.clear
+            .onGeometryChange(for: CGRect.self) { proxy in
+                proxy.frame(in: .global).integral
+            } action: { newFrame in
+                frame = newFrame
+            }
     }
 }
 
