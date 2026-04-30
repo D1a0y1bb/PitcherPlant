@@ -141,7 +141,12 @@ struct MainSidebarToolbarControls: View {
                 toggleSidebar()
             }
 
-            FloatingToolbarIconButton(appState.t("toolbar.newScan"), systemImage: "plus") {
+            FloatingToolbarIconButton(
+                appState.t("toolbar.newScan"),
+                systemImage: "square.and.pencil",
+                symbolRenderingMode: .monochrome,
+                symbolOffset: CGSize(width: 0, height: -0.5)
+            ) {
                 showNewAuditComposer()
             }
         }

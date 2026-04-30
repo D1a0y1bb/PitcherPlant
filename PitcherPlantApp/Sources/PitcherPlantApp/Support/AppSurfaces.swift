@@ -353,6 +353,8 @@ struct FloatingToolbarIconButton: View {
     let systemImage: String
     let role: ButtonRole?
     let isProminent: Bool
+    let symbolRenderingMode: SymbolRenderingMode
+    let symbolOffset: CGSize
     let action: () -> Void
     @State private var isHovering = false
 
@@ -361,12 +363,16 @@ struct FloatingToolbarIconButton: View {
         systemImage: String,
         role: ButtonRole? = nil,
         isProminent: Bool = false,
+        symbolRenderingMode: SymbolRenderingMode = .hierarchical,
+        symbolOffset: CGSize = .zero,
         action: @escaping () -> Void
     ) {
         self.title = title
         self.systemImage = systemImage
         self.role = role
         self.isProminent = isProminent
+        self.symbolRenderingMode = symbolRenderingMode
+        self.symbolOffset = symbolOffset
         self.action = action
     }
 
@@ -376,7 +382,9 @@ struct FloatingToolbarIconButton: View {
                 systemImage: systemImage,
                 role: role,
                 isProminent: isProminent,
-                isHovering: isHovering
+                isHovering: isHovering,
+                symbolRenderingMode: symbolRenderingMode,
+                symbolOffset: symbolOffset
             )
         }
         .buttonStyle(FloatingToolbarButtonStyle())
@@ -777,13 +785,16 @@ private struct FloatingToolbarIconGlyph: View {
     let role: ButtonRole?
     let isProminent: Bool
     let isHovering: Bool
+    var symbolRenderingMode: SymbolRenderingMode = .hierarchical
+    var symbolOffset: CGSize = .zero
 
     var body: some View {
         Image(systemName: systemImage)
             .font(.system(size: 15, weight: .medium))
-            .symbolRenderingMode(.hierarchical)
+            .symbolRenderingMode(symbolRenderingMode)
             .foregroundStyle(role == .destructive ? Color.red : Color.primary)
             .frame(width: 29, height: 26)
+            .offset(symbolOffset)
             .background {
                 Capsule()
                     .fill(hoverFill)

@@ -445,6 +445,7 @@ struct MainWindowView: View {
                 FloatingToolbarSearchField(
                     text: $reportSearchText,
                     prompt: appState.t("reports.searchPrompt"),
+                    width: 200,
                     isExpanded: $reportToolbarSearchExpanded,
                     collapsesWhenInactive: true
                 )
