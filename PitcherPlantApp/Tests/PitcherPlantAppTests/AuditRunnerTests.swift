@@ -76,6 +76,20 @@ func auditRunnerEmitsLargeRunWarningAndSummary() async throws {
 
 @Test
 @MainActor
+func appStateCancelAuditUpdatesRunningStateImmediately() async throws {
+    let root = FileManager.default.temporaryDirectory
+        .appendingPathComponent("pitcherplant-cancel-state-\(UUID().uuidString)", isDirectory: true)
+    try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+    let appState = AppState(workspaceRoot: root)
+
+    appState.isRunningAudit = true
+    appState.cancelAudit()
+
+    #expect(appState.isRunningAudit == false)
+}
+
+@Test
+@MainActor
 func auditRunnerCancellationAndAppStateMessageAreUserReadable() async throws {
     let root = FileManager.default.temporaryDirectory
         .appendingPathComponent("pitcherplant-cancel-\(UUID().uuidString)", isDirectory: true)

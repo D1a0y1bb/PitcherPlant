@@ -92,6 +92,7 @@ final class AppState {
     var isRunningAudit = false
     var isImportingSubmissionPackage = false
     private var currentAuditTask: Task<AuditReport?, Never>?
+    private var currentAuditWorkerTask: Task<AuditRunResult, Error>?
 
     init(workspaceRoot: URL? = nil) {
         let resolvedRoot = workspaceRoot ?? ProjectLocator().workspaceRoot()
@@ -262,9 +263,13 @@ final class AppState {
             return
         }
         currentAuditTask = Task {
-            let report = await startAudit()
-            currentAuditTask = nil
-            return report
+            defer {
+                currentAuditWorkerTask?.cancel()
+                currentAuditWorkerTask = nil
+                isRunningAudit = false
+                currentAuditTask = nil
+            }
+            return await startAudit()
         }
     }
 
@@ -273,9 +278,13 @@ final class AppState {
             return
         }
         currentAuditTask = Task {
-            let report = await processQueuedAudits()
-            currentAuditTask = nil
-            return report
+            defer {
+                currentAuditWorkerTask?.cancel()
+                currentAuditWorkerTask = nil
+                isRunningAudit = false
+                currentAuditTask = nil
+            }
+            return await processQueuedAudits()
         }
     }
 
@@ -285,10 +294,12 @@ final class AppState {
     }
 
     func cancelAudit() {
-        guard isRunningAudit else {
+        guard isRunningAudit || currentAuditTask != nil || currentAuditWorkerTask != nil else {
             return
         }
         currentAuditTask?.cancel()
+        currentAuditWorkerTask?.cancel()
+        isRunningAudit = false
     }
 
     func toggleAudit() {
@@ -796,7 +807,7 @@ final class AppState {
 
     @discardableResult
     func startAudit() async -> AuditReport? {
-        guard !isRunningAudit else {
+        guard !Task.isCancelled, !isRunningAudit else {
             return nil
         }
         isRunningAudit = true
@@ -821,7 +832,7 @@ final class AppState {
 
     @discardableResult
     private func processQueuedAudits() async -> AuditReport? {
-        guard !isRunningAudit else {
+        guard !Task.isCancelled, !isRunningAudit else {
             return nil
         }
         isRunningAudit = true
@@ -873,7 +884,7 @@ final class AppState {
                     message: message
                 )
             }
-            let result = try await Task.detached(priority: .userInitiated) {
+            let auditWorkerTask = Task.detached(priority: .userInitiated) {
                 try await AuditRunner().run(
                     configuration: configuration,
                     importedFingerprints: historicalFingerprints,
@@ -884,7 +895,11 @@ final class AppState {
                     progress: progressHandler
                 )
             }
-            .value
+            currentAuditWorkerTask = auditWorkerTask
+            defer { currentAuditWorkerTask = nil }
+
+            let result = try await auditWorkerTask.value
+            try Task.checkCancellation()
 
             job = jobs.first(where: { $0.id == progressFallbackJob.id }) ?? job
             job = job.completed(reportID: result.report.id, summaryMessage: Self.auditSummaryMessage(for: result.summary))

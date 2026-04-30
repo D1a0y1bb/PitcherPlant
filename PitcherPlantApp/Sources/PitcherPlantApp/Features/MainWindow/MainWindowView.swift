@@ -6,18 +6,20 @@ private let inspectorColumnAnimation = Animation.smooth(duration: 0.32, extraBou
 struct MainWindowView: View {
     @Environment(AppState.self) private var appState
     @SceneStorage("pitcherplant.inspectorVisible") private var inspectorVisible = false
+    @Namespace private var mainToolbarGlassNamespace
     @State private var columnVisibility: NavigationSplitViewVisibility = .all
     @State private var autoCollapsedSidebar = false
     @State private var applyingSidebarPolicy = false
     @State private var windowWidth: CGFloat = 0
     @State private var settingsSearchText = ""
+    @State private var reportSearchText = ""
+    @State private var reportToolbarSearchPresented = false
+    @State private var reportToolbarSearchExpanded = false
     private let layoutPolicy = MainWindowLayoutPolicy()
 
     var body: some View {
-        @Bindable var state = appState
-
         NavigationSplitView(columnVisibility: $columnVisibility) {
-            sidebar(selection: $state.selectedMainSidebar)
+            sidebar(selection: animatedSidebarSelection)
         } detail: {
             detailColumn
         }
@@ -30,6 +32,7 @@ struct MainWindowView: View {
             NSApp.activate(ignoringOtherApps: true)
             inspectorVisible = appState.appSettings.showInspectorByDefault
             applySidebarPolicy(windowWidth: windowWidth)
+            updateReportToolbarSearchPresentation(animated: false)
         }
         .onChange(of: inspectorVisible) { _, visible in
             if appState.selectedMainSidebar.allowsInspector {
@@ -44,7 +47,11 @@ struct MainWindowView: View {
             if appState.selectedMainSidebar != .settings {
                 settingsSearchText = ""
             }
+            if !shouldShowReportToolbarSearch {
+                reportSearchText = ""
+            }
             applySidebarPolicy(windowWidth: windowWidth)
+            updateReportToolbarSearchPresentation(animated: true)
         }
         .onChange(of: appState.appSettings.showInspectorByDefault) { _, visible in
             if !appState.selectedMainSidebar.allowsInspector {
@@ -72,6 +79,7 @@ struct MainWindowView: View {
         .toolbar {
             mainToolbarItems
         }
+        .animation(AppMotion.toolbarGlassAppear, value: appState.selectedMainSidebar)
         .toolbarBackgroundVisibility(.hidden, for: .windowToolbar)
         .alert(item: noticeBinding) { notice in
             Alert(
@@ -102,6 +110,20 @@ struct MainWindowView: View {
 
     private var sidebarCollapsed: Bool {
         columnVisibility == .detailOnly
+    }
+
+    private var shouldShowReportToolbarSearch: Bool {
+        appState.selectedMainSidebar == .reports || appState.selectedMainSidebar.reportSectionKind != nil
+    }
+
+    private var animatedSidebarSelection: Binding<MainSidebarItem> {
+        Binding {
+            appState.selectedMainSidebar
+        } set: { item in
+            withAnimation(AppMotion.toolbarGlassAppear) {
+                appState.selectedMainSidebar = item
+            }
+        }
     }
 
     private func sidebar(selection: Binding<MainSidebarItem>) -> some View {
@@ -262,44 +284,123 @@ struct MainWindowView: View {
         }
     }
 
+    private func updateReportToolbarSearchPresentation(animated: Bool) {
+        guard shouldShowReportToolbarSearch else {
+            withAnimation(AppMotion.toolbarGlassAppear) {
+                reportToolbarSearchExpanded = false
+                reportToolbarSearchPresented = false
+            }
+            return
+        }
+
+        withAnimation(AppMotion.toolbarGlassAppear) {
+            reportToolbarSearchPresented = true
+            reportToolbarSearchExpanded = false
+        }
+    }
+
     @ToolbarContentBuilder
     private var mainToolbarItems: some ToolbarContent {
         ToolbarSpacer(.flexible, placement: .primaryAction)
 
         ToolbarItem(placement: .primaryAction) {
-            FloatingToolbarButtonGroup {
-                FloatingToolbarIconButton(
-                    isInspectorColumnVisible ? appState.t("toolbar.hideInspector") : appState.t("toolbar.showInspector"),
-                    systemImage: isInspectorColumnVisible ? "sidebar.right" : "sidebar.trailing"
-                ) {
-                    withAnimation(inspectorColumnAnimation) {
-                        inspectorVisible.toggle()
+            FloatingToolbarFusionCluster(spacing: 10, forceExpanded: reportToolbarSearchExpanded) {
+                FloatingToolbarButtonGroup {
+                    mainToolbarUtilityButtons
+                    mainToolbarAuditButton
+                    mainToolbarSettingsButton
+                    if shouldShowReportToolbarSearch, reportToolbarSearchPresented {
+                        FloatingToolbarSearchTriggerButton(
+                            title: appState.t("reports.searchPrompt"),
+                            isExpanded: $reportToolbarSearchExpanded
+                        )
                     }
                 }
-                .disabled(!appState.selectedMainSidebar.allowsInspector)
-
-                FloatingToolbarIconButton(appState.t("toolbar.reload"), systemImage: "arrow.clockwise") {
-                    Task { await appState.reload() }
+                .glassEffectID("main-toolbar-actions-collapsed", in: mainToolbarGlassNamespace)
+                .glassEffectTransition(.matchedGeometry)
+            } expanded: {
+                FloatingToolbarButtonGroup {
+                    mainToolbarUtilityButtons
                 }
-                .keyboardShortcut("r", modifiers: .command)
+                .glassEffectID("main-toolbar-utility-actions", in: mainToolbarGlassNamespace)
+                .glassEffectTransition(.matchedGeometry)
 
-                FloatingToolbarIconButton(
-                    appState.isRunningAudit ? appState.t("toolbar.cancel") : appState.t("toolbar.start"),
-                    systemImage: appState.isRunningAudit ? "stop.fill" : "play.fill",
-                    role: appState.isRunningAudit ? .destructive : nil,
-                    isProminent: true
-                ) {
-                    appState.toggleAudit()
+                FloatingToolbarButtonGroup {
+                    mainToolbarAuditButton
                 }
-                .keyboardShortcut(.return, modifiers: .command)
+                .glassEffectID("main-toolbar-primary-action", in: mainToolbarGlassNamespace)
+                .glassEffectTransition(.matchedGeometry)
 
-                FloatingToolbarIconButton(appState.t("toolbar.settings"), systemImage: "gear") {
-                    appState.selectedMainSidebar = .settings
+                FloatingToolbarButtonGroup {
+                    mainToolbarSettingsButton
                 }
-                .keyboardShortcut(",", modifiers: .command)
+                .glassEffectID("main-toolbar-settings-action", in: mainToolbarGlassNamespace)
+                .glassEffectTransition(.matchedGeometry)
+
+                if shouldShowReportToolbarSearch, reportToolbarSearchPresented {
+                    FloatingToolbarSearchField(
+                        text: $reportSearchText,
+                        prompt: appState.t("reports.searchPrompt"),
+                        isExpanded: $reportToolbarSearchExpanded,
+                        collapsesWhenInactive: true
+                    )
+                        .glassEffectID("main-toolbar-search-action", in: mainToolbarGlassNamespace)
+                        .glassEffectTransition(.matchedGeometry)
+                        .transition(.floatingToolbarSearchPresence)
+                }
             }
+            .animation(AppMotion.toolbarGlassAppear, value: reportToolbarSearchPresented)
+            .animation(AppMotion.toolbarSearchExpand, value: reportToolbarSearchExpanded)
+            .animation(AppMotion.toolbarGlassAppear, value: appState.selectedMainSidebar)
         }
         .sharedBackgroundVisibility(.hidden)
+    }
+
+    @ViewBuilder
+    private var mainToolbarUtilityButtons: some View {
+        FloatingToolbarIconButton(
+            isInspectorColumnVisible ? appState.t("toolbar.hideInspector") : appState.t("toolbar.showInspector"),
+            systemImage: isInspectorColumnVisible ? "sidebar.right" : "sidebar.trailing"
+        ) {
+            withAnimation(inspectorColumnAnimation) {
+                inspectorVisible.toggle()
+            }
+        }
+        .disabled(!appState.selectedMainSidebar.allowsInspector)
+
+        FloatingToolbarIconButton(appState.t("toolbar.reload"), systemImage: "arrow.clockwise") {
+            Task { await appState.reload() }
+        }
+        .keyboardShortcut("r", modifiers: .command)
+    }
+
+    @ViewBuilder
+    private var mainToolbarAuditButton: some View {
+        let auditIsRunning = appState.isRunningAudit
+        FloatingToolbarIconButton(
+            auditIsRunning ? appState.t("toolbar.cancel") : appState.t("toolbar.start"),
+            systemImage: auditIsRunning ? "stop.fill" : "play.fill",
+            role: auditIsRunning ? .destructive : nil,
+            isProminent: true
+        ) {
+            if appState.isRunningAudit {
+                appState.cancelAudit()
+            } else {
+                appState.beginAudit()
+            }
+        }
+        .id(auditIsRunning)
+        .keyboardShortcut(.return, modifiers: .command)
+    }
+
+    @ViewBuilder
+    private var mainToolbarSettingsButton: some View {
+        FloatingToolbarIconButton(appState.t("toolbar.settings"), systemImage: "gear") {
+            withAnimation(AppMotion.toolbarGlassAppear) {
+                appState.selectedMainSidebar = .settings
+            }
+        }
+        .keyboardShortcut(",", modifiers: .command)
     }
 
     @ViewBuilder
@@ -312,11 +413,11 @@ struct MainWindowView: View {
         case .history:
             JobHistoryView()
         case .reports:
-            ReportsInlineView()
+            ReportsInlineView(reportQuery: $reportSearchText)
         case .allEvidence, .favoriteEvidence, .watchedEvidence:
             EvidenceCollectionView(scope: appState.selectedMainSidebar.evidenceCollectionScope ?? .all)
         case .textEvidence, .codeEvidence, .imageEvidence, .metadataEvidence, .dedupEvidence, .crossBatchEvidence:
-            EvidenceFocusedReportsView(kind: appState.selectedMainSidebar.reportSectionKind)
+            EvidenceFocusedReportsView(kind: appState.selectedMainSidebar.reportSectionKind, reportQuery: $reportSearchText)
         case .fingerprints:
             FingerprintLibraryView()
         case .whitelist:

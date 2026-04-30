@@ -1,6 +1,6 @@
 import Foundation
 
-struct AuditRunResult {
+struct AuditRunResult: Sendable {
     let report: AuditReport
     let fingerprints: [FingerprintRecord]
     let summary: AuditRunSummary

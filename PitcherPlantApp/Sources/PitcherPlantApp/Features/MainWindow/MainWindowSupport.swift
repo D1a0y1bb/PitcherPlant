@@ -3,9 +3,10 @@ import SwiftUI
 struct EvidenceFocusedReportsView: View {
     @Environment(AppState.self) private var appState
     let kind: ReportSectionKind?
+    @Binding var reportQuery: String
 
     var body: some View {
-        ReportsInlineView()
+        ReportsInlineView(reportQuery: $reportQuery)
             .onAppear {
                 focusEvidenceKind()
             }

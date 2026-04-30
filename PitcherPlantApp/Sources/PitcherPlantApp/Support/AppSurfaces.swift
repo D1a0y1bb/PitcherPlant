@@ -154,6 +154,45 @@ struct FloatingToolbarCluster<Content: View>: View {
     }
 }
 
+struct FloatingToolbarFusionCluster<Collapsed: View, Expanded: View>: View {
+    var spacing: CGFloat = 10
+    var forceExpanded = false
+    @ViewBuilder var collapsed: Collapsed
+    @ViewBuilder var expanded: Expanded
+    @State private var isHovering = false
+
+    var body: some View {
+        GlassEffectContainer(spacing: spacing) {
+            content
+        }
+        .onHover { hovering in
+            withAnimation(AppMotion.toolbarGlassFusion) {
+                isHovering = hovering
+            }
+        }
+        .animation(AppMotion.toolbarGlassFusion, value: effectiveExpanded)
+    }
+
+    @ViewBuilder
+    private var content: some View {
+        if effectiveExpanded {
+            HStack(alignment: .center, spacing: spacing) {
+                expanded
+            }
+            .transition(.floatingToolbarFusion)
+        } else {
+            HStack(alignment: .center, spacing: 0) {
+                collapsed
+            }
+            .transition(.floatingToolbarFusion)
+        }
+    }
+
+    private var effectiveExpanded: Bool {
+        isHovering || forceExpanded
+    }
+}
+
 struct FloatingToolbarIconButton: View {
     let title: String
     let systemImage: String
@@ -185,11 +224,13 @@ struct FloatingToolbarIconButton: View {
                 isHovering: isHovering
             )
         }
-        .buttonStyle(.plain)
+        .buttonStyle(FloatingToolbarButtonStyle())
         .help(title)
         .accessibilityLabel(title)
         .onHover { hovering in
-            isHovering = hovering
+            withAnimation(AppMotion.toolbarGlassHover) {
+                isHovering = hovering
+            }
         }
     }
 }
@@ -224,12 +265,14 @@ struct FloatingToolbarMenuButton<Content: View>: View {
                 isHovering: isHovering
             )
         }
-        .buttonStyle(.plain)
+        .buttonStyle(FloatingToolbarButtonStyle())
         .menuIndicator(.hidden)
         .help(title)
         .accessibilityLabel(title)
         .onHover { hovering in
-            isHovering = hovering
+            withAnimation(AppMotion.toolbarGlassHover) {
+                isHovering = hovering
+            }
         }
     }
 }
@@ -237,21 +280,54 @@ struct FloatingToolbarMenuButton<Content: View>: View {
 struct FloatingToolbarSearchField: View {
     @Binding var text: String
     let prompt: String
-    var width: CGFloat = 320
+    var width: CGFloat = 240
+    @Binding var isExpanded: Bool
+    var collapsesWhenInactive = false
     @FocusState private var isFocused: Bool
+    @State private var isHovering = false
+    @State private var isExpansionLocked = false
+    @State private var isHoverExpansionReady = false
+    @State private var hoverExpansionReadyToken = 0
+    @State private var expansionLockToken = 0
+    @State private var collapseToken = 0
+
+    init(text: Binding<String>, prompt: String, width: CGFloat = 240, isExpanded: Bool = true) {
+        self._text = text
+        self.prompt = prompt
+        self.width = width
+        self._isExpanded = .constant(isExpanded)
+        self.collapsesWhenInactive = false
+    }
+
+    init(
+        text: Binding<String>,
+        prompt: String,
+        width: CGFloat = 240,
+        isExpanded: Binding<Bool>,
+        collapsesWhenInactive: Bool = true
+    ) {
+        self._text = text
+        self.prompt = prompt
+        self.width = width
+        self._isExpanded = isExpanded
+        self.collapsesWhenInactive = collapsesWhenInactive
+    }
 
     var body: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: isExpanded ? 8 : 0) {
             Image(systemName: "magnifyingglass")
                 .font(.system(size: 15, weight: .medium))
                 .foregroundStyle(.secondary)
 
-            TextField(prompt, text: $text)
-                .textFieldStyle(.plain)
-                .focused($isFocused)
-                .font(.body)
+            if isExpanded {
+                TextField(prompt, text: $text)
+                    .textFieldStyle(.plain)
+                    .focused($isFocused)
+                    .font(.body)
+                    .transition(.opacity.combined(with: .scale(scale: 0.96, anchor: .leading)))
+            }
 
-            if text.isEmpty == false {
+            if isExpanded, text.isEmpty == false {
                 Button {
                     text = ""
                 } label: {
@@ -264,9 +340,184 @@ struct FloatingToolbarSearchField: View {
                 .accessibilityLabel("Clear")
             }
         }
-        .frame(width: width, height: 36)
-        .padding(.horizontal, 11)
+        .frame(width: isExpanded ? width : 36, height: 36)
+        .padding(.horizontal, isExpanded ? 11 : 0)
         .floatingToolbarCapsule(isFocused: isFocused)
+        .scaleEffect(isFocused ? 1.015 : 1, anchor: .center)
+        .contentShape(Capsule())
+        .onTapGesture {
+            guard collapsesWhenInactive, isExpanded == false else {
+                return
+            }
+            expandSearch()
+            Task { @MainActor in
+                try? await Task.sleep(nanoseconds: 160_000_000)
+                isFocused = true
+            }
+        }
+        .onHover { hovering in
+            isHovering = hovering
+            updateExpansionForInteraction()
+        }
+        .onAppear {
+            prepareHoverExpansionReadiness()
+        }
+        .onDisappear {
+            hoverExpansionReadyToken += 1
+            isHoverExpansionReady = false
+            isHovering = false
+        }
+        .onChange(of: isFocused) { _, _ in
+            updateExpansionForInteraction()
+        }
+        .onChange(of: text) { _, _ in
+            updateExpansionForInteraction()
+        }
+        .animation(AppMotion.toolbarGlassHover, value: isFocused)
+        .animation(AppMotion.toolbarSearchExpand, value: isExpanded)
+    }
+
+    private func updateExpansionForInteraction() {
+        guard collapsesWhenInactive else {
+            return
+        }
+        if isFocused || text.isEmpty == false {
+            expandSearch()
+            return
+        }
+
+        if isHovering {
+            if isHoverExpansionReady {
+                expandSearch()
+            }
+            return
+        }
+
+        scheduleCollapseIfInactive()
+    }
+
+    private func prepareHoverExpansionReadiness() {
+        guard collapsesWhenInactive else {
+            return
+        }
+
+        hoverExpansionReadyToken += 1
+        let token = hoverExpansionReadyToken
+        isHoverExpansionReady = false
+
+        if text.isEmpty == false {
+            isHoverExpansionReady = true
+            expandSearch()
+            return
+        }
+
+        Task { @MainActor in
+            try? await Task.sleep(nanoseconds: AppMotion.toolbarSearchHoverSettleDelay)
+            guard hoverExpansionReadyToken == token else {
+                return
+            }
+            isHoverExpansionReady = true
+            updateExpansionForInteraction()
+        }
+    }
+
+    private func expandSearch() {
+        collapseToken += 1
+        guard isExpanded == false else {
+            return
+        }
+        withAnimation(AppMotion.toolbarSearchExpand) {
+            isExpanded = true
+        }
+        lockExpansionDuringAnimation()
+    }
+
+    private func lockExpansionDuringAnimation() {
+        expansionLockToken += 1
+        let token = expansionLockToken
+        isExpansionLocked = true
+
+        Task { @MainActor in
+            try? await Task.sleep(nanoseconds: AppMotion.toolbarSearchExpansionLockDelay)
+            guard expansionLockToken == token else {
+                return
+            }
+            isExpansionLocked = false
+            scheduleCollapseIfInactive()
+        }
+    }
+
+    private func scheduleCollapseIfInactive() {
+        guard isExpansionLocked == false else {
+            return
+        }
+
+        collapseToken += 1
+        let token = collapseToken
+
+        Task { @MainActor in
+            try? await Task.sleep(nanoseconds: AppMotion.toolbarSearchCollapseDelay)
+            guard collapseToken == token else {
+                return
+            }
+            guard isHovering == false, isFocused == false, text.isEmpty else {
+                return
+            }
+            withAnimation(AppMotion.toolbarSearchExpand) {
+                isExpanded = false
+            }
+        }
+    }
+}
+
+struct FloatingToolbarSearchTriggerButton: View {
+    let title: String
+    @Binding var isExpanded: Bool
+    @State private var isHovering = false
+
+    var body: some View {
+        Button {
+            expand()
+        } label: {
+            FloatingToolbarIconGlyph(
+                systemImage: "magnifyingglass",
+                role: nil,
+                isProminent: false,
+                isHovering: isHovering
+            )
+        }
+        .buttonStyle(FloatingToolbarButtonStyle())
+        .help(title)
+        .accessibilityLabel(title)
+        .onHover { hovering in
+            withAnimation(AppMotion.toolbarGlassHover) {
+                isHovering = hovering
+            }
+        }
+    }
+
+    private func expand() {
+        guard isExpanded == false else {
+            return
+        }
+        withAnimation(AppMotion.toolbarSearchExpand) {
+            isExpanded = true
+        }
+    }
+}
+
+private struct FloatingToolbarButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .background {
+                Capsule()
+                    .fill(Color.primary.opacity(configuration.isPressed ? 0.10 : 0))
+                    .padding(.horizontal, -1)
+                    .padding(.vertical, -1)
+            }
+            .scaleEffect(configuration.isPressed ? 0.94 : 1, anchor: .center)
+            .shadow(color: Color.primary.opacity(configuration.isPressed ? 0.10 : 0), radius: 9, y: 0)
+            .animation(AppMotion.toolbarGlassPress, value: configuration.isPressed)
     }
 }
 
@@ -290,7 +541,7 @@ private struct FloatingToolbarIconGlyph: View {
             }
             .contentShape(Capsule())
             .opacity(isEnabled ? 1 : 0.36)
-            .animation(.smooth(duration: 0.12), value: isHovering)
+            .animation(AppMotion.toolbarGlassHover, value: isHovering)
     }
 
     private var hoverFill: Color {
@@ -313,6 +564,50 @@ extension View {
         }
         .glassEffect(.clear.interactive(), in: Capsule())
         .compositingGroup()
+    }
+}
+
+enum AppMotion {
+    static let toolbarGlassAppear = Animation.smooth(duration: 0.46, extraBounce: 0.08)
+    static let toolbarGlassFusion = Animation.smooth(duration: 0.82, extraBounce: 0.22)
+    static let toolbarGlassHover = Animation.smooth(duration: 0.22, extraBounce: 0.10)
+    static let toolbarGlassPress = Animation.smooth(duration: 0.20, extraBounce: 0.38)
+    static let toolbarSearchHoverSettleDelay: UInt64 = 620_000_000
+    static let toolbarSearchExpansionLockDelay: UInt64 = 1_250_000_000
+    static let toolbarSearchCollapseDelay: UInt64 = 260_000_000
+    static let toolbarSearchExpand = Animation.smooth(duration: 1.18, extraBounce: 0.20)
+}
+
+extension AnyTransition {
+    static var floatingToolbarFusion: AnyTransition {
+        .asymmetric(
+            insertion: .opacity.combined(with: .scale(scale: 0.96, anchor: .center)),
+            removal: .opacity.combined(with: .scale(scale: 0.98, anchor: .center))
+        )
+    }
+
+    static var floatingToolbarSearchPresence: AnyTransition {
+        .asymmetric(
+            insertion: .modifier(
+                active: FloatingToolbarSearchPresenceModifier(progress: 0),
+                identity: FloatingToolbarSearchPresenceModifier(progress: 1)
+            ),
+            removal: .modifier(
+                active: FloatingToolbarSearchPresenceModifier(progress: 0),
+                identity: FloatingToolbarSearchPresenceModifier(progress: 1)
+            )
+        )
+    }
+}
+
+private struct FloatingToolbarSearchPresenceModifier: ViewModifier {
+    let progress: Double
+
+    func body(content: Content) -> some View {
+        content
+            .opacity(progress)
+            .scaleEffect(0.985 + progress * 0.015, anchor: .trailing)
+            .blur(radius: (1 - progress) * 2)
     }
 }
 

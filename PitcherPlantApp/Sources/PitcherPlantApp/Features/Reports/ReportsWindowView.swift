@@ -2,7 +2,10 @@ import SwiftUI
 
 struct ReportsWindowView: View {
     @Environment(AppState.self) private var appState
+    @Namespace private var reportToolbarGlassNamespace
     @State private var reportQuery = ""
+    @State private var toolbarSearchPresented = false
+    @State private var toolbarSearchExpanded = false
 
     private var filteredReports: [AuditReport] {
         appState.reports.filter { $0.matchesLibrarySearch(reportQuery) }
@@ -41,6 +44,7 @@ struct ReportsWindowView: View {
         .navigationSplitViewStyle(.balanced)
         .onAppear {
             syncVisibleReportSelection()
+            presentToolbarSearch()
         }
         .onChange(of: reportQuery) { _, _ in syncVisibleReportSelection() }
         .onChange(of: appState.reports.map(\.id)) { _, _ in syncVisibleReportSelection() }
@@ -48,48 +52,106 @@ struct ReportsWindowView: View {
             ToolbarSpacer(.flexible, placement: .primaryAction)
 
             ToolbarItem(placement: .primaryAction) {
-                FloatingToolbarCluster {
+                FloatingToolbarFusionCluster(spacing: 10, forceExpanded: toolbarSearchExpanded) {
                     FloatingToolbarButtonGroup {
-                        FloatingToolbarMenuButton(appState.t("settings.exportReport"), systemImage: "square.and.arrow.up") {
-                            Button { appState.exportSelectedReportAsHTML() } label: {
-                                Label("HTML", systemImage: "chevron.left.forwardslash.chevron.right")
-                            }
-                            Button { appState.exportSelectedReportAsPDF() } label: {
-                                Label("PDF", systemImage: "doc.richtext")
-                            }
-                            Button { appState.exportSelectedReportAsCSV() } label: {
-                                Label("CSV", systemImage: "tablecells")
-                            }
-                            Button { appState.exportSelectedReportAsJSON() } label: {
-                                Label("JSON", systemImage: "curlybraces")
-                            }
-                            Button { appState.exportSelectedReportAsMarkdown() } label: {
-                                Label("Markdown", systemImage: "doc.plaintext")
-                            }
-                            Button { appState.exportSelectedReportAsEvidenceBundle() } label: {
-                                Label(appState.t("settings.exportBundle"), systemImage: "archivebox")
-                            }
-                        }
-
-                        FloatingToolbarIconButton(appState.t("settings.openFinder"), systemImage: "folder") {
-                            appState.openSelectedReportSource()
-                        }
-
-                        FloatingToolbarIconButton(appState.t("command.deleteReport"), systemImage: "trash", role: .destructive) {
-                            Task { await appState.removeSelectedReport() }
-                        }
-
-                        FloatingToolbarIconButton(appState.t("toolbar.reload"), systemImage: "arrow.clockwise") {
-                            Task { await appState.reload() }
+                        reportWindowFileButtons
+                        reportWindowDeleteButton
+                        reportWindowReloadButton
+                        if toolbarSearchPresented {
+                            FloatingToolbarSearchTriggerButton(
+                                title: appState.t("reports.searchPrompt"),
+                                isExpanded: $toolbarSearchExpanded
+                            )
                         }
                     }
+                    .glassEffectID("report-window-actions-collapsed", in: reportToolbarGlassNamespace)
+                    .glassEffectTransition(.matchedGeometry)
+                } expanded: {
+                    FloatingToolbarButtonGroup {
+                        reportWindowFileButtons
+                    }
+                    .glassEffectID("report-window-file-actions", in: reportToolbarGlassNamespace)
+                    .glassEffectTransition(.matchedGeometry)
 
-                    FloatingToolbarSearchField(text: $reportQuery, prompt: appState.t("reports.searchPrompt"))
+                    FloatingToolbarButtonGroup {
+                        reportWindowDeleteButton
+                    }
+                    .glassEffectID("report-window-delete-action", in: reportToolbarGlassNamespace)
+                    .glassEffectTransition(.matchedGeometry)
+
+                    FloatingToolbarButtonGroup {
+                        reportWindowReloadButton
+                    }
+                    .glassEffectID("report-window-reload-action", in: reportToolbarGlassNamespace)
+                    .glassEffectTransition(.matchedGeometry)
+
+                    if toolbarSearchPresented {
+                        FloatingToolbarSearchField(
+                            text: $reportQuery,
+                            prompt: appState.t("reports.searchPrompt"),
+                            isExpanded: $toolbarSearchExpanded,
+                            collapsesWhenInactive: true
+                        )
+                        .glassEffectID("report-window-search-action", in: reportToolbarGlassNamespace)
+                        .glassEffectTransition(.matchedGeometry)
+                        .transition(.floatingToolbarSearchPresence)
+                    }
                 }
+                .animation(AppMotion.toolbarGlassAppear, value: toolbarSearchPresented)
+                .animation(AppMotion.toolbarSearchExpand, value: toolbarSearchExpanded)
             }
             .sharedBackgroundVisibility(.hidden)
         }
         .toolbarBackgroundVisibility(.hidden, for: .windowToolbar)
+    }
+
+    private func presentToolbarSearch() {
+        withAnimation(AppMotion.toolbarGlassAppear) {
+            toolbarSearchPresented = true
+            toolbarSearchExpanded = false
+        }
+    }
+
+    @ViewBuilder
+    private var reportWindowFileButtons: some View {
+        FloatingToolbarMenuButton(appState.t("settings.exportReport"), systemImage: "square.and.arrow.up") {
+            Button { appState.exportSelectedReportAsHTML() } label: {
+                Label("HTML", systemImage: "chevron.left.forwardslash.chevron.right")
+            }
+            Button { appState.exportSelectedReportAsPDF() } label: {
+                Label("PDF", systemImage: "doc.richtext")
+            }
+            Button { appState.exportSelectedReportAsCSV() } label: {
+                Label("CSV", systemImage: "tablecells")
+            }
+            Button { appState.exportSelectedReportAsJSON() } label: {
+                Label("JSON", systemImage: "curlybraces")
+            }
+            Button { appState.exportSelectedReportAsMarkdown() } label: {
+                Label("Markdown", systemImage: "doc.plaintext")
+            }
+            Button { appState.exportSelectedReportAsEvidenceBundle() } label: {
+                Label(appState.t("settings.exportBundle"), systemImage: "archivebox")
+            }
+        }
+
+        FloatingToolbarIconButton(appState.t("settings.openFinder"), systemImage: "folder") {
+            appState.openSelectedReportSource()
+        }
+    }
+
+    @ViewBuilder
+    private var reportWindowDeleteButton: some View {
+        FloatingToolbarIconButton(appState.t("command.deleteReport"), systemImage: "trash", role: .destructive) {
+            Task { await appState.removeSelectedReport() }
+        }
+    }
+
+    @ViewBuilder
+    private var reportWindowReloadButton: some View {
+        FloatingToolbarIconButton(appState.t("toolbar.reload"), systemImage: "arrow.clockwise") {
+            Task { await appState.reload() }
+        }
     }
 
     private func syncVisibleReportSelection() {
@@ -106,7 +168,7 @@ struct ReportsWindowView: View {
 }
 struct ReportsInlineView: View {
     @Environment(AppState.self) private var appState
-    @State private var reportQuery = ""
+    @Binding var reportQuery: String
 
     private var filteredReports: [AuditReport] {
         appState.reports.filter { $0.matchesLibrarySearch(reportQuery) }
@@ -128,12 +190,6 @@ struct ReportsInlineView: View {
         }
         .onChange(of: reportQuery) { _, _ in syncVisibleReportSelection() }
         .onChange(of: appState.reports.map(\.id)) { _, _ in syncVisibleReportSelection() }
-        .toolbar {
-            ToolbarItem(placement: .primaryAction) {
-                FloatingToolbarSearchField(text: $reportQuery, prompt: appState.t("reports.searchPrompt"))
-            }
-            .sharedBackgroundVisibility(.hidden)
-        }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
 
