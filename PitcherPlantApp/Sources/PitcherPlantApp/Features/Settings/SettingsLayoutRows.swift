@@ -18,19 +18,17 @@ struct SettingsGroup<Content: View>: View {
     @ViewBuilder var content: Content
 
     var body: some View {
-        LiquidGlassSurface(
-            padding: EdgeInsets(top: 12, leading: 0, bottom: 0, trailing: 0)
-        ) {
-            VStack(spacing: 0) {
-                Text(title)
-                    .font(AppTypography.sectionTitle)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.horizontal, SettingsLayout.horizontalPadding)
-                    .padding(.bottom, 4)
+        VStack(spacing: 0) {
+            Text(title)
+                .font(AppTypography.sectionTitle)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, SettingsLayout.horizontalPadding)
+                .padding(.bottom, 8)
 
-                content
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
+            Divider()
+                .padding(.horizontal, SettingsLayout.horizontalPadding)
+
+            content
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }

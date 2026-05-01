@@ -101,14 +101,12 @@ struct AppPageShell<Content: View>: View {
 
     var body: some View {
         ScrollView {
-            GlassEffectContainer(spacing: spacing) {
-                VStack(alignment: .leading, spacing: spacing) {
-                    content
-                }
-                .padding(.horizontal, AppLayout.pagePadding)
-                .padding(.vertical, 22)
-                .frame(maxWidth: .infinity, alignment: .topLeading)
+            VStack(alignment: .leading, spacing: spacing) {
+                content
             }
+            .padding(.horizontal, AppLayout.pagePadding)
+            .padding(.vertical, 22)
+            .frame(maxWidth: .infinity, alignment: .topLeading)
         }
         .scrollIndicators(.hidden)
         .scrollClipDisabled()
@@ -123,38 +121,110 @@ struct AppSectionPanel<Content: View>: View {
     @ViewBuilder var content: Content
 
     var body: some View {
-        LiquidGlassSurface(
-            padding: EdgeInsets(top: 14, leading: 16, bottom: 16, trailing: 16)
-        ) {
-            VStack(alignment: .leading, spacing: 10) {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(title)
-                        .font(AppTypography.sectionTitle)
-                    if subtitle.isEmpty == false {
-                        Text(subtitle)
-                            .font(AppTypography.metadata)
-                            .foregroundStyle(.secondary)
-                            .lineLimit(1)
-                    }
-                }
-
-                content
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(contentPadding)
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
+        ContentPlainSection(title: title, subtitle: subtitle, contentPadding: contentPadding) {
+            content
         }
+    }
+}
+
+struct ContentPlainSection<Content: View>: View {
+    let title: String
+    var subtitle: String = ""
+    var contentPadding: CGFloat = 0
+    @ViewBuilder var content: Content
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            VStack(alignment: .leading, spacing: 3) {
+                Text(title)
+                    .font(AppTypography.sectionTitle)
+                if subtitle.isEmpty == false {
+                    Text(subtitle)
+                        .font(AppTypography.metadata)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
+            }
+
+            Divider()
+
+            content
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(contentPadding)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 
 struct AppToolbarBand<Content: View>: View {
     var padding: EdgeInsets = EdgeInsets(top: 12, leading: 12, bottom: 12, trailing: 12)
     @ViewBuilder var content: Content
+    @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
-        LiquidGlassSurface(padding: padding, cornerRadius: 16, isInteractive: true) {
-            content
+        content
+            .padding(padding)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background {
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .fill(controlBandFill)
+            }
+            .overlay {
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .strokeBorder(Color.primary.opacity(colorScheme == .dark ? 0.10 : 0.08), lineWidth: 0.75)
+            }
+    }
+
+    private var controlBandFill: Color {
+        if colorScheme == .dark {
+            return Color.white.opacity(0.035)
         }
+        return Color.black.opacity(0.025)
+    }
+}
+
+struct InspectorReadableGlassPanel<Content: View>: View {
+    var padding: EdgeInsets = EdgeInsets(top: 14, leading: 14, bottom: 14, trailing: 14)
+    var cornerRadius: CGFloat = 16
+    @ViewBuilder var content: Content
+    @Environment(\.colorScheme) private var colorScheme
+
+    var body: some View {
+        let shape = RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+
+        content
+            .padding(padding)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background {
+                ZStack {
+                    shape
+                        .fill(.regularMaterial)
+                    shape
+                        .fill(readabilityFill)
+                }
+            }
+            .overlay {
+                shape
+                    .strokeBorder(Color.primary.opacity(strokeAlpha), lineWidth: 0.75)
+            }
+            .glassEffect(.regular, in: shape)
+            .shadow(color: Color.black.opacity(shadowAlpha), radius: 12, y: 7)
+            .compositingGroup()
+    }
+
+    private var readabilityFill: Color {
+        if colorScheme == .dark {
+            return Color.black.opacity(0.30)
+        }
+        return Color(nsColor: NSColor.windowBackgroundColor.withAlphaComponent(0.58))
+    }
+
+    private var strokeAlpha: Double {
+        colorScheme == .dark ? 0.16 : 0.11
+    }
+
+    private var shadowAlpha: Double {
+        colorScheme == .dark ? 0.14 : 0.045
     }
 }
 
@@ -1016,9 +1086,7 @@ struct AppInspectorPanel<Content: View>: View {
     @ViewBuilder var content: Content
 
     var body: some View {
-        LiquidGlassSurface(
-            padding: EdgeInsets(top: 14, leading: 14, bottom: 14, trailing: 14)
-        ) {
+        InspectorReadableGlassPanel {
             VStack(alignment: .leading, spacing: 10) {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(title)
@@ -1105,20 +1173,27 @@ struct InspectorEmptyState: View {
     let systemImage: String
 
     var body: some View {
-        VStack(spacing: 14) {
-            Image(systemName: systemImage)
-                .font(.system(size: 48, weight: .regular))
-                .foregroundStyle(.tertiary)
-            Text(title)
-                .font(.title2.weight(.semibold))
-                .foregroundStyle(.primary)
-            Text(subtitle)
-                .font(AppTypography.supporting)
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
-                .fixedSize(horizontal: false, vertical: true)
+        InspectorReadableGlassPanel(
+            padding: EdgeInsets(top: 28, leading: 22, bottom: 28, trailing: 22),
+            cornerRadius: 18
+        ) {
+            VStack(spacing: 14) {
+                Image(systemName: systemImage)
+                    .font(.system(size: 42, weight: .regular))
+                    .foregroundStyle(.tertiary)
+                Text(title)
+                    .font(.title3.weight(.semibold))
+                    .foregroundStyle(.primary)
+                Text(subtitle)
+                    .font(AppTypography.supporting)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .frame(maxWidth: .infinity, alignment: .center)
         }
-        .padding(32)
+        .frame(maxWidth: 300)
+        .padding(20)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
     }
 }
