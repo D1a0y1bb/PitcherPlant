@@ -93,7 +93,7 @@ private struct ReportInspectorScrollView<Content: View>: View {
             }
             .scrollIndicators(.hidden)
             .scrollClipDisabled()
-            .scrollEdgeEffectStyle(.hard, for: .top)
+            .scrollEdgeEffectStyle(.soft, for: .top)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         }
     }

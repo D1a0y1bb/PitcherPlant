@@ -367,7 +367,7 @@ struct SettingsRootView: View {
         }
         .scrollIndicators(.hidden)
         .scrollClipDisabled()
-        .scrollEdgeEffectStyle(.hard, for: .top)
+        .scrollEdgeEffectStyle(.soft, for: .top)
         .environment(\.settingsSearchQuery, searchText)
     }
 

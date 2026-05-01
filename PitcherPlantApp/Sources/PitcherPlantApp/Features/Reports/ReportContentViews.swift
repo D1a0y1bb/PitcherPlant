@@ -248,7 +248,7 @@ struct ReportSectionReadingView: View {
         }
         .scrollIndicators(.hidden)
         .scrollClipDisabled()
-        .scrollEdgeEffectStyle(.hard, for: .top)
+        .scrollEdgeEffectStyle(.soft, for: .top)
         .frame(minHeight: AppLayout.reportListMinHeight, maxHeight: .infinity)
     }
 }
@@ -529,7 +529,7 @@ struct EvidenceList: View {
             }
             .scrollIndicators(.hidden)
             .scrollClipDisabled()
-            .scrollEdgeEffectStyle(.hard, for: .top)
+            .scrollEdgeEffectStyle(.soft, for: .top)
             .frame(minHeight: AppLayout.reportListMinHeight, maxHeight: .infinity)
         } else {
             AppHorizontalOverflow(minWidth: AppLayout.evidenceTableMinWidth) {

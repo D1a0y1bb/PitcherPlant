@@ -895,7 +895,7 @@ struct JobInspectorView: View {
             }
             .scrollIndicators(.hidden)
             .scrollClipDisabled()
-            .scrollEdgeEffectStyle(.hard, for: .top)
+            .scrollEdgeEffectStyle(.soft, for: .top)
         } else {
             InspectorEmptyState(
                 title: appState.t("job.noSelection"),

@@ -112,7 +112,7 @@ struct AppPageShell<Content: View>: View {
         }
         .scrollIndicators(.hidden)
         .scrollClipDisabled()
-        .scrollEdgeEffectStyle(.hard, for: .top)
+        .scrollEdgeEffectStyle(.soft, for: .top)
     }
 }
 
