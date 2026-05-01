@@ -1,3 +1,4 @@
+import Darwin
 import Foundation
 
 struct AuditAssistantConfiguration: Codable, Hashable, Sendable {
@@ -29,6 +30,7 @@ struct AuditAssistantService {
         case missingEndpoint
         case invalidEndpoint
         case emptyResponse
+        case timeout
 
         var errorDescription: String? {
             switch self {
@@ -36,6 +38,7 @@ struct AuditAssistantService {
             case .missingEndpoint: return "缺少本地命令或 API 地址。"
             case .invalidEndpoint: return "API 地址格式无效。"
             case .emptyResponse: return "审计助手没有返回内容。"
+            case .timeout: return "审计助手执行超时。"
             }
         }
     }
@@ -82,32 +85,8 @@ struct AuditAssistantService {
 
         let payloadData = try JSONEncoder().encode(payload(for: row, review: review))
 
-        return try await withTimeout(seconds: configuration.timeoutSeconds) {
-            let process = Process()
-            process.executableURL = URL(fileURLWithPath: "/bin/zsh")
-            process.arguments = ["-lc", command]
-
-            let input = Pipe()
-            let output = Pipe()
-            let error = Pipe()
-            process.standardInput = input
-            process.standardOutput = output
-            process.standardError = error
-
-            try process.run()
-            input.fileHandleForWriting.write(payloadData)
-            input.fileHandleForWriting.closeFile()
-            process.waitUntilExit()
-
-            let stdout = output.fileHandleForReading.readDataToEndOfFile()
-            let stderr = error.fileHandleForReading.readDataToEndOfFile()
-            let text = String(data: stdout.isEmpty ? stderr : stdout, encoding: .utf8)?
-                .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-            guard text.isEmpty == false else {
-                throw AssistantError.emptyResponse
-            }
-            return text
-        }
+        return try await LocalCommandExecution(command: command, payloadData: payloadData)
+            .run(timeoutSeconds: configuration.timeoutSeconds)
     }
 
     private func externalAPIExplanation(
@@ -141,21 +120,78 @@ struct AuditAssistantService {
         return text
     }
 
-    private func withTimeout<T: Sendable>(seconds: Double, operation: @escaping @Sendable () async throws -> T) async throws -> T {
-        try await withThrowingTaskGroup(of: T.self) { group in
-            group.addTask {
-                try await operation()
+    private final class LocalCommandExecution: @unchecked Sendable {
+        private let command: String
+        private let payloadData: Data
+        private let process = Process()
+        private let input = Pipe()
+        private let output = Pipe()
+        private let error = Pipe()
+        private var processID: pid_t?
+
+        init(command: String, payloadData: Data) {
+            self.command = command
+            self.payloadData = payloadData
+        }
+
+        func run(timeoutSeconds: Double) async throws -> String {
+            process.executableURL = URL(fileURLWithPath: "/bin/zsh")
+            process.arguments = ["-lc", command]
+            process.standardInput = input
+            process.standardOutput = output
+            process.standardError = error
+
+            try process.run()
+            processID = process.processIdentifier
+            _ = setpgid(process.processIdentifier, process.processIdentifier)
+            input.fileHandleForWriting.write(payloadData)
+            input.fileHandleForWriting.closeFile()
+
+            return try await withThrowingTaskGroup(of: String.self) { group in
+                group.addTask {
+                    try self.waitForOutput()
+                }
+                group.addTask {
+                    let duration = UInt64(max(timeoutSeconds, 0.1) * 1_000_000_000)
+                    try await Task.sleep(nanoseconds: duration)
+                    self.terminate()
+                    throw AssistantError.timeout
+                }
+
+                do {
+                    guard let result = try await group.next() else {
+                        throw AssistantError.timeout
+                    }
+                    group.cancelAll()
+                    return result
+                } catch {
+                    group.cancelAll()
+                    terminate()
+                    throw error
+                }
             }
-            group.addTask {
-                let duration = UInt64(max(seconds, 1) * 1_000_000_000)
-                try await Task.sleep(nanoseconds: duration)
-                throw CancellationError()
+        }
+
+        private func waitForOutput() throws -> String {
+            process.waitUntilExit()
+            let stdout = output.fileHandleForReading.readDataToEndOfFile()
+            let stderr = error.fileHandleForReading.readDataToEndOfFile()
+            let text = String(data: stdout.isEmpty ? stderr : stdout, encoding: .utf8)?
+                .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            guard text.isEmpty == false else {
+                throw AssistantError.emptyResponse
             }
-            guard let result = try await group.next() else {
-                throw CancellationError()
+            return text
+        }
+
+        private func terminate() {
+            guard process.isRunning else {
+                return
             }
-            group.cancelAll()
-            return result
+            if let processID {
+                kill(-processID, SIGTERM)
+            }
+            process.terminate()
         }
     }
 }

@@ -263,6 +263,12 @@ enum AuditStage: String, Codable, CaseIterable {
 }
 
 struct AuditConfiguration: Codable, Hashable, Sendable {
+    static let standardTextThreshold = 0.75
+    static let standardImageThreshold = 5
+    static let standardDedupThreshold = 0.85
+    static let standardSimhashThreshold = 4
+    static let defaultReportNameTemplate = "{dir}_PitcherPlant_{date}.html"
+
     var directoryPath: String
     var outputDirectoryPath: String
     var reportNameTemplate: String
@@ -296,11 +302,11 @@ struct AuditConfiguration: Codable, Hashable, Sendable {
         return AuditConfiguration(
             directoryPath: defaultInputDirectory(for: root).path,
             outputDirectoryPath: defaultOutputDirectory(for: root).path,
-            reportNameTemplate: "{dir}_PitcherPlant_{date}.html",
-            textThreshold: 0.75,
-            imageThreshold: 5,
-            dedupThreshold: 0.85,
-            simhashThreshold: 4,
+            reportNameTemplate: defaultReportNameTemplate,
+            textThreshold: standardTextThreshold,
+            imageThreshold: standardImageThreshold,
+            dedupThreshold: standardDedupThreshold,
+            simhashThreshold: standardSimhashThreshold,
             useVisionOCR: true,
             whitelistMode: .mark
         )
@@ -316,6 +322,89 @@ struct AuditConfiguration: Codable, Hashable, Sendable {
 
     static func defaultOutputDirectory(for root: URL) -> URL {
         root.appendingPathComponent("GeneratedReports/full", isDirectory: true)
+    }
+}
+
+enum AuditToolbarScanMode: String, CaseIterable, Sendable {
+    case auto
+    case deep
+    case standard
+    case quick
+}
+
+enum AuditToolbarTemplate: String, CaseIterable, Sendable {
+    case defaultAudit
+    case evidenceReview
+    case fastScreening
+}
+
+extension AuditConfiguration {
+    private static let temporaryReportPrefix = "temporary_"
+
+    var toolbarTemporaryScanEnabled: Bool {
+        reportNameTemplate.hasPrefix(Self.temporaryReportPrefix)
+    }
+
+    mutating func applyToolbarScanMode(_ mode: AuditToolbarScanMode) {
+        switch mode {
+        case .auto, .standard:
+            applyStandardScanProfile()
+        case .deep:
+            textThreshold = 0.67
+            dedupThreshold = 0.78
+            imageThreshold = 8
+            simhashThreshold = 7
+            useVisionOCR = true
+            whitelistMode = .mark
+        case .quick:
+            textThreshold = 0.86
+            dedupThreshold = 0.92
+            imageThreshold = 3
+            simhashThreshold = 2
+            useVisionOCR = false
+            whitelistMode = .mark
+        }
+    }
+
+    mutating func applyToolbarTemplate(_ template: AuditToolbarTemplate) {
+        let temporaryEnabled = toolbarTemporaryScanEnabled
+        switch template {
+        case .defaultAudit:
+            applyStandardScanProfile()
+            reportNameTemplate = Self.defaultReportNameTemplate
+        case .evidenceReview:
+            textThreshold = 0.70
+            dedupThreshold = 0.80
+            imageThreshold = 8
+            simhashThreshold = 6
+            useVisionOCR = true
+            whitelistMode = .mark
+            reportNameTemplate = "{dir}_EvidenceReview_{date}.html"
+        case .fastScreening:
+            applyToolbarScanMode(.quick)
+            reportNameTemplate = "{dir}_QuickScreen_{date}.html"
+        }
+        setToolbarTemporaryScanEnabled(temporaryEnabled)
+    }
+
+    mutating func setToolbarTemporaryScanEnabled(_ enabled: Bool) {
+        if enabled {
+            guard toolbarTemporaryScanEnabled == false else {
+                return
+            }
+            reportNameTemplate = Self.temporaryReportPrefix + reportNameTemplate
+        } else if toolbarTemporaryScanEnabled {
+            reportNameTemplate.removeFirst(Self.temporaryReportPrefix.count)
+        }
+    }
+
+    private mutating func applyStandardScanProfile() {
+        textThreshold = Self.standardTextThreshold
+        imageThreshold = Self.standardImageThreshold
+        dedupThreshold = Self.standardDedupThreshold
+        simhashThreshold = Self.standardSimhashThreshold
+        useVisionOCR = true
+        whitelistMode = .mark
     }
 }
 

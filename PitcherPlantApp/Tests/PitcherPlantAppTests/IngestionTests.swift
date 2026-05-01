@@ -1,5 +1,6 @@
 import Foundation
 import Testing
+import ZIPFoundation
 @testable import PitcherPlantApp
 
 @Test
@@ -49,6 +50,37 @@ func ingestionFallsBackForMislabeledTextDocxAndSkipsBrokenDocx() throws {
 }
 
 @Test
+func officeIngestionEnforcesArchiveEntryLimits() throws {
+    let root = FileManager.default.temporaryDirectory
+        .appendingPathComponent("pitcherplant-office-limits-\(UUID().uuidString)", isDirectory: true)
+    try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+    let docxURL = root.appendingPathComponent("oversized.docx")
+    do {
+        let archive = try Archive(url: docxURL, accessMode: .create, pathEncoding: nil)
+        try addZipFile(to: archive, path: "word/document.xml", contents: String(repeating: "x", count: 4_096))
+    }
+
+    var configuration = AuditConfiguration.defaults(for: root)
+    configuration.directoryPath = root.path
+    var limits = DocumentIngestionLimits()
+    limits.maxEntryCount = 0
+
+    do {
+        _ = try DocumentIngestionService(configuration: configuration, limits: limits).ingestDocuments(in: root)
+        Issue.record("Office 包条目数量超过限制时应该失败")
+    } catch let error as DocumentIngestionLimitError {
+        switch error {
+        case .archiveEntryCountExceeded:
+            break
+        default:
+            Issue.record("预期 Office 包条目数量限制错误，实际为 \(error)")
+        }
+    } catch {
+        Issue.record("预期 Office 包条目数量限制错误，实际为 \(error)")
+    }
+}
+
+@Test
 func normalizerRemovesBoilerplateNoisePatternsDuringIngestion() throws {
     let root = FileManager.default.temporaryDirectory
         .appendingPathComponent("pitcherplant-normalizer-\(UUID().uuidString)", isDirectory: true)
@@ -60,4 +92,13 @@ func normalizerRemovesBoilerplateNoisePatternsDuringIngestion() throws {
     let document = try #require(DocumentIngestionService(configuration: configuration).ingestDocuments(in: root).first)
 
     #expect(document.cleanText == "useful evidence")
+}
+
+private func addZipFile(to archive: Archive, path: String, contents: String) throws {
+    let data = Data(contents.utf8)
+    try archive.addEntry(with: path, type: .file, uncompressedSize: Int64(data.count), compressionMethod: .deflate) { position, size in
+        let start = Int(position)
+        let end = min(start + size, data.count)
+        return data.subdata(in: start..<end)
+    }
 }

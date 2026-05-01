@@ -17,6 +17,13 @@ struct AppNotice: Identifiable, Equatable {
     let tone: Tone
 }
 
+struct DatabaseRecoveryState: Identifiable, Equatable {
+    let id = UUID()
+    let failedRootPath: String
+    let fallbackRootPath: String
+    let message: String
+}
+
 struct EvidenceCollectionItem: Identifiable, Hashable, Sendable {
     let id: String
     let reportID: UUID
@@ -88,6 +95,7 @@ final class AppState {
     var draftConfiguration: AuditConfiguration
     var latestReport: AuditReport?
     var initializationMessage: String?
+    var databaseRecovery: DatabaseRecoveryState?
     var notice: AppNotice?
     var isRunningAudit = false
     var isImportingSubmissionPackage = false
@@ -103,19 +111,26 @@ final class AppState {
         let databaseResult = Self.makeDatabase(rootDirectory: resolvedRoot)
         self.database = databaseResult.database
         self.initializationMessage = databaseResult.message
+        self.databaseRecovery = databaseResult.recovery
         self.draftConfiguration = AppPreferences.loadDraftConfiguration(for: resolvedRoot)
     }
 
-    private static func makeDatabase(rootDirectory: URL) -> (database: DatabaseStore, message: String?) {
+    private static func makeDatabase(rootDirectory: URL) -> (database: DatabaseStore, message: String?, recovery: DatabaseRecoveryState?) {
         do {
-            return (try DatabaseStore(rootDirectory: rootDirectory), nil)
+            return (try DatabaseStore(rootDirectory: rootDirectory), nil, nil)
         } catch {
             let fallbackRoot = FileManager.default.temporaryDirectory
                 .appendingPathComponent("PitcherPlant", isDirectory: true)
                 .appendingPathComponent("AppStateFallback", isDirectory: true)
             do {
                 let database = try DatabaseStore(rootDirectory: fallbackRoot)
-                return (database, "数据库已切换到临时可写目录：\(error.localizedDescription)")
+                let message = "主数据库初始化失败：\(error.localizedDescription)"
+                let recovery = DatabaseRecoveryState(
+                    failedRootPath: rootDirectory.path,
+                    fallbackRootPath: fallbackRoot.path,
+                    message: message
+                )
+                return (database, "数据库等待恢复处理：\(error.localizedDescription)", recovery)
             } catch {
                 preconditionFailure("PitcherPlant database initialization failed: \(error)")
             }
@@ -126,6 +141,9 @@ final class AppState {
         guard !hasBootstrapped else {
             return
         }
+        guard databaseRecovery == nil else {
+            return
+        }
         hasBootstrapped = true
         do {
             try await database.prepare()
@@ -134,6 +152,48 @@ final class AppState {
             showNotice(title: t("notice.bootstrapFailed"), message: error.localizedDescription, tone: .error)
         }
         await reload()
+    }
+
+    func continueWithTemporaryDatabase() {
+        databaseRecovery = nil
+        showNotice(
+            title: "已进入临时数据库模式",
+            message: "本次会话写入临时目录，重启后需要重新确认或选择可写工作区。",
+            tone: .info
+        )
+        Task {
+            await bootstrapIfNeeded()
+        }
+    }
+
+    func revealDatabaseRecoveryWorkspace() {
+        guard let databaseRecovery else {
+            return
+        }
+        let root = URL(fileURLWithPath: databaseRecovery.failedRootPath)
+        NSWorkspace.shared.activateFileViewerSelecting([root])
+    }
+
+    func backupFailedDatabase() {
+        guard let databaseRecovery else {
+            return
+        }
+        let supportDirectory = URL(fileURLWithPath: databaseRecovery.failedRootPath)
+            .appendingPathComponent(".pitcherplant-macos", isDirectory: true)
+        let databaseURL = supportDirectory.appendingPathComponent("PitcherPlantMac.sqlite")
+        guard FileManager.default.fileExists(atPath: databaseURL.path) else {
+            showNotice(title: "未找到可备份数据库", message: databaseURL.path, tone: .error)
+            return
+        }
+
+        let timestamp = DateFormatter.pitcherPlantFileName.string(from: .now)
+        let backupURL = supportDirectory.appendingPathComponent("PitcherPlantMac-\(timestamp).sqlite.backup")
+        do {
+            try FileManager.default.copyItem(at: databaseURL, to: backupURL)
+            showNotice(title: "数据库备份完成", message: backupURL.path, tone: .success)
+        } catch {
+            showNotice(title: "数据库备份失败", message: error.localizedDescription, tone: .error)
+        }
     }
 
     func reload() async {

@@ -96,6 +96,11 @@ struct MainWindowView: View {
                     .ignoresSafeArea(.container, edges: .top)
             }
         }
+        .overlay {
+            if let recovery = appState.databaseRecovery {
+                DatabaseRecoveryBlockingView(recovery: recovery)
+            }
+        }
         .alert(item: noticeBinding) { notice in
             Alert(
                 title: Text(notice.title),
@@ -545,23 +550,89 @@ struct MainWindowView: View {
     }
 }
 
-private enum MainToolbarModeSelection {
-    case auto
-    case deep
-    case standard
-    case quick
-}
+private struct DatabaseRecoveryBlockingView: View {
+    @Environment(AppState.self) private var appState
+    let recovery: DatabaseRecoveryState
 
-private enum MainToolbarTemplateSelection {
-    case defaultAudit
-    case evidenceReview
-    case fastScreening
+    var body: some View {
+        ZStack {
+            Rectangle()
+                .fill(.black.opacity(0.18))
+                .ignoresSafeArea()
+
+            VStack(alignment: .leading, spacing: 16) {
+                HStack(spacing: 12) {
+                    Image(systemName: "externaldrive.badge.exclamationmark")
+                        .font(.system(size: 26, weight: .semibold))
+                        .foregroundStyle(.orange)
+
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("数据库需要恢复")
+                            .font(.title3.weight(.semibold))
+                        Text("主数据库无法打开，应用已暂停写入当前工作区。")
+                            .font(AppTypography.supporting)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+
+                VStack(alignment: .leading, spacing: 8) {
+                    recoveryPathRow("工作区", recovery.failedRootPath)
+                    recoveryPathRow("临时库", recovery.fallbackRootPath)
+                    Text(recovery.message)
+                        .font(AppTypography.metadata)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                HStack(spacing: 10) {
+                    Button {
+                        appState.backupFailedDatabase()
+                    } label: {
+                        Label("备份数据库", systemImage: "externaldrive.badge.plus")
+                    }
+
+                    Button {
+                        appState.revealDatabaseRecoveryWorkspace()
+                    } label: {
+                        Label("打开工作区", systemImage: "folder")
+                    }
+
+                    Button(role: .destructive) {
+                        appState.continueWithTemporaryDatabase()
+                    } label: {
+                        Label("确认临时模式", systemImage: "exclamationmark.triangle")
+                    }
+                }
+                .buttonStyle(.bordered)
+            }
+            .padding(24)
+            .frame(width: 560, alignment: .leading)
+            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+            .overlay {
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .strokeBorder(Color.primary.opacity(0.12), lineWidth: 0.75)
+            }
+            .shadow(color: .black.opacity(0.16), radius: 18, y: 10)
+        }
+    }
+
+    private func recoveryPathRow(_ title: String, _ path: String) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(title)
+                .font(AppTypography.metadata.weight(.semibold))
+            Text(path)
+                .font(.system(.caption, design: .monospaced))
+                .foregroundStyle(.secondary)
+                .textSelection(.enabled)
+                .lineLimit(2)
+        }
+    }
 }
 
 private struct MainToolbarTitlePopover: View {
     @Environment(AppState.self) private var appState
-    @State private var selectedMode: MainToolbarModeSelection = .standard
-    @State private var selectedTemplate: MainToolbarTemplateSelection = .defaultAudit
+    @State private var selectedMode: AuditToolbarScanMode = .standard
+    @State private var selectedTemplate: AuditToolbarTemplate = .defaultAudit
     @State private var templatesExpanded = false
     @State private var temporaryScanEnabled = false
 
@@ -646,22 +717,50 @@ private struct MainToolbarTitlePopover: View {
                 MainToolbarPanelToggleRow(
                     title: appState.t("toolbar.mode.temporary"),
                     systemImage: "wand.and.stars",
-                    isOn: $temporaryScanEnabled
+                    isOn: temporaryScanBinding
                 )
             }
             .animation(AppMotion.toolbarGlassAppear, value: templatesExpanded)
         }
-    }
-
-    private func selectMode(_ mode: MainToolbarModeSelection) {
-        withAnimation(AppMotion.toolbarGlassAppear) {
-            selectedMode = mode
+        .onAppear {
+            temporaryScanEnabled = appState.draftConfiguration.toolbarTemporaryScanEnabled
         }
     }
 
-    private func selectTemplate(_ template: MainToolbarTemplateSelection) {
+    private var temporaryScanBinding: Binding<Bool> {
+        Binding {
+            temporaryScanEnabled
+        } set: { enabled in
+            setTemporaryScanEnabled(enabled)
+        }
+    }
+
+    private func selectMode(_ mode: AuditToolbarScanMode) {
+        withAnimation(AppMotion.toolbarGlassAppear) {
+            selectedMode = mode
+        }
+        appState.updateDraft { configuration in
+            configuration.applyToolbarScanMode(mode)
+            configuration.setToolbarTemporaryScanEnabled(temporaryScanEnabled)
+        }
+    }
+
+    private func selectTemplate(_ template: AuditToolbarTemplate) {
         withAnimation(AppMotion.toolbarGlassAppear) {
             selectedTemplate = template
+        }
+        appState.updateDraft { configuration in
+            configuration.applyToolbarTemplate(template)
+        }
+        temporaryScanEnabled = appState.draftConfiguration.toolbarTemporaryScanEnabled
+    }
+
+    private func setTemporaryScanEnabled(_ enabled: Bool) {
+        withAnimation(AppMotion.toolbarGlassAppear) {
+            temporaryScanEnabled = enabled
+        }
+        appState.updateDraft { configuration in
+            configuration.setToolbarTemporaryScanEnabled(enabled)
         }
     }
 }

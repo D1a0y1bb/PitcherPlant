@@ -109,7 +109,12 @@ jobs:
             TAG_NAME="${GITHUB_REF_NAME}"
           fi
 
-          if [ -z "$DISTRIBUTION" ]; then
+          if [ "${{ github.event_name }}" = "push" ]; then
+            DRY_RUN="false"
+            if [ -z "$DISTRIBUTION" ]; then
+              DISTRIBUTION="developer-id"
+            fi
+          elif [ -z "$DISTRIBUTION" ]; then
             DISTRIBUTION="ad-hoc"
           fi
 
@@ -121,10 +126,6 @@ jobs:
               exit 2
               ;;
           esac
-
-          if [ "${{ github.event_name }}" = "push" ]; then
-            DRY_RUN="false"
-          fi
 
           if [ "$DRY_RUN" = "true" ]; then
             PUBLISH_RELEASE="false"
@@ -138,6 +139,11 @@ jobs:
             SIGNED_RELEASE="true"
           else
             SIGNED_RELEASE="false"
+          fi
+
+          if [ "$PUBLISH_RELEASE" = "true" ] && [ "$DISTRIBUTION" != "developer-id" ]; then
+            echo "Publishing a GitHub Release requires developer-id distribution."
+            exit 2
           fi
 
           case "$TAG_NAME" in

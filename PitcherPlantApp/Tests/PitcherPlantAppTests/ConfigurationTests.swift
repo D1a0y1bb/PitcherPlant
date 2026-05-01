@@ -11,6 +11,46 @@ func configurationDefaultsBuildPaths() {
 }
 
 @Test
+func toolbarScanModesWriteRealAuditConfiguration() {
+    let root = URL(fileURLWithPath: "/tmp/pitcherplant")
+    var configuration = AuditConfiguration.defaults(for: root)
+
+    configuration.applyToolbarScanMode(.quick)
+
+    #expect(configuration.textThreshold > AuditConfiguration.standardTextThreshold)
+    #expect(configuration.dedupThreshold > AuditConfiguration.standardDedupThreshold)
+    #expect(configuration.imageThreshold < AuditConfiguration.standardImageThreshold)
+    #expect(configuration.simhashThreshold < AuditConfiguration.standardSimhashThreshold)
+    #expect(configuration.useVisionOCR == false)
+
+    configuration.applyToolbarTemplate(.evidenceReview)
+    #expect(configuration.reportNameTemplate.contains("EvidenceReview"))
+    #expect(configuration.useVisionOCR == true)
+    #expect(configuration.imageThreshold > AuditConfiguration.standardImageThreshold)
+
+    configuration.setToolbarTemporaryScanEnabled(true)
+    #expect(configuration.toolbarTemporaryScanEnabled == true)
+    #expect(configuration.reportNameTemplate.hasPrefix("temporary_"))
+
+    configuration.setToolbarTemporaryScanEnabled(false)
+    #expect(configuration.toolbarTemporaryScanEnabled == false)
+    #expect(configuration.reportNameTemplate.hasPrefix("temporary_") == false)
+}
+
+@Test
+func releaseWorkflowPublishesOnlyDeveloperIDArtifacts() throws {
+    let root = try testWorkspaceRoot()
+    let workflow = try String(
+        contentsOf: root.appendingPathComponent(".github/workflows/release.yml"),
+        encoding: .utf8
+    )
+
+    #expect(workflow.contains("DISTRIBUTION=\"developer-id\""))
+    #expect(workflow.contains("Publishing a GitHub Release requires developer-id distribution."))
+    #expect(workflow.contains("./script/package_release.sh --distribution developer-id --notarize"))
+}
+
+@Test
 func projectLocatorUsesSavedWorkspaceAndCreatesDefaultDirectories() throws {
     let suiteName = "pitcherplant.locator.tests.\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))

@@ -6,40 +6,85 @@ import ZIPFoundation
 
 protocol DocumentParser: Sendable {
     var supportedExtensions: Set<String> { get }
-    func parse(_ url: URL, configuration: AuditConfiguration) throws -> ParsedDocument?
+    func parse(_ url: URL, configuration: AuditConfiguration, limits: DocumentIngestionLimits) throws -> ParsedDocument?
+}
+
+struct DocumentIngestionLimits: Hashable, Sendable {
+    var maxEntryCount: Int = 10_000
+    var maxSingleFileBytes: Int64 = 256 * 1024 * 1024
+    var maxTotalExpandedBytes: Int64 = 2 * 1024 * 1024 * 1024
+    var maxScannedFileCount: Int = 20_000
+
+    init() {}
+
+    init(importOptions: SubmissionImportOptions) {
+        maxEntryCount = importOptions.maxEntryCount
+        maxSingleFileBytes = importOptions.maxSingleFileBytes
+        maxTotalExpandedBytes = importOptions.maxTotalExpandedBytes
+        maxScannedFileCount = importOptions.maxScannedFileCount
+    }
+}
+
+enum DocumentIngestionLimitError: LocalizedError, Equatable, Sendable {
+    case scannedFileCountExceeded(limit: Int)
+    case fileTooLarge(path: String, bytes: Int64, limit: Int64)
+    case archiveEntryCountExceeded(path: String, limit: Int)
+    case archiveEntryTooLarge(path: String, bytes: Int64, limit: Int64)
+    case archiveExpandedSizeExceeded(path: String, limit: Int64)
+
+    var errorDescription: String? {
+        switch self {
+        case .scannedFileCountExceeded(let limit):
+            return "扫描文件数量超过限制：\(limit)"
+        case .fileTooLarge(let path, let bytes, let limit):
+            return "文件大小超过限制：\(path) \(bytes)/\(limit) 字节"
+        case .archiveEntryCountExceeded(let path, let limit):
+            return "Office 包条目数量超过限制：\(path) \(limit)"
+        case .archiveEntryTooLarge(let path, let bytes, let limit):
+            return "Office 包条目大小超过限制：\(path) \(bytes)/\(limit) 字节"
+        case .archiveExpandedSizeExceeded(let path, let limit):
+            return "Office 包展开大小超过限制：\(path) \(limit) 字节"
+        }
+    }
 }
 
 private struct ClosureDocumentParser: DocumentParser, Sendable {
     let supportedExtensions: Set<String>
-    let parseDocument: @Sendable (URL, AuditConfiguration) throws -> ParsedDocument?
+    let parseDocument: @Sendable (URL, AuditConfiguration, DocumentIngestionLimits) throws -> ParsedDocument?
 
-    func parse(_ url: URL, configuration: AuditConfiguration) throws -> ParsedDocument? {
-        try parseDocument(url, configuration)
+    func parse(_ url: URL, configuration: AuditConfiguration, limits: DocumentIngestionLimits) throws -> ParsedDocument? {
+        try parseDocument(url, configuration, limits)
     }
 }
 
 struct DocumentIngestionService {
     let configuration: AuditConfiguration
+    let limits: DocumentIngestionLimits
+
+    init(configuration: AuditConfiguration, limits: DocumentIngestionLimits = DocumentIngestionLimits()) {
+        self.configuration = configuration
+        self.limits = limits
+    }
 
     private static let parserRegistry: [any DocumentParser] = [
-        ClosureDocumentParser(supportedExtensions: ["md", "txt"]) { url, configuration in
+        ClosureDocumentParser(supportedExtensions: ["md", "txt"]) { url, configuration, _ in
             let ext = url.pathExtension.lowercased()
             let content = try readLossyText(at: url)
             return DocumentIngestionService(configuration: configuration)
                 .buildDocument(url: url, ext: ext, content: content, author: "", images: [])
         },
-        ClosureDocumentParser(supportedExtensions: ["html", "htm"]) { url, configuration in
+        ClosureDocumentParser(supportedExtensions: ["html", "htm"]) { url, configuration, _ in
             let ext = url.pathExtension.lowercased()
             let content = HTMLTextExtractor.plainText(from: try readLossyText(at: url))
             return DocumentIngestionService(configuration: configuration)
                 .buildDocument(url: url, ext: ext, content: content, author: "", images: [])
         },
-        ClosureDocumentParser(supportedExtensions: ["rtf"]) { url, configuration in
+        ClosureDocumentParser(supportedExtensions: ["rtf"]) { url, configuration, _ in
             let content = readRTFText(at: url)
             return DocumentIngestionService(configuration: configuration)
                 .buildDocument(url: url, ext: "rtf", content: content, author: "", images: [])
         },
-        ClosureDocumentParser(supportedExtensions: ["pdf"]) { url, configuration in
+        ClosureDocumentParser(supportedExtensions: ["pdf"]) { url, configuration, _ in
             let service = DocumentIngestionService(configuration: configuration)
             guard let document = PDFDocument(url: url) else { return nil }
             let content = document.string ?? ""
@@ -47,17 +92,17 @@ struct DocumentIngestionService {
             let images = service.parsePDFImages(document: document, sourceURL: url)
             return service.buildDocument(url: url, ext: "pdf", content: content, author: author, images: images)
         },
-        ClosureDocumentParser(supportedExtensions: ["docx"]) { url, configuration in
-            try DocumentIngestionService(configuration: configuration).parseDocx(at: url)
+        ClosureDocumentParser(supportedExtensions: ["docx"]) { url, configuration, limits in
+            try DocumentIngestionService(configuration: configuration, limits: limits).parseDocx(at: url)
         },
-        ClosureDocumentParser(supportedExtensions: ["pptx"]) { url, configuration in
-            try DocumentIngestionService(configuration: configuration).parsePptx(at: url)
+        ClosureDocumentParser(supportedExtensions: ["pptx"]) { url, configuration, limits in
+            try DocumentIngestionService(configuration: configuration, limits: limits).parsePptx(at: url)
         },
-        ClosureDocumentParser(supportedExtensions: imageExtensions) { url, configuration in
-            DocumentIngestionService(configuration: configuration)
+        ClosureDocumentParser(supportedExtensions: imageExtensions) { url, configuration, limits in
+            DocumentIngestionService(configuration: configuration, limits: limits)
                 .parseStandaloneImage(at: url, ext: url.pathExtension.lowercased())
         },
-        ClosureDocumentParser(supportedExtensions: sourceCodeExtensions) { url, configuration in
+        ClosureDocumentParser(supportedExtensions: sourceCodeExtensions) { url, configuration, _ in
             let ext = url.pathExtension.lowercased()
             let content = try readLossyText(at: url)
             return DocumentIngestionService(configuration: configuration)
@@ -69,6 +114,7 @@ struct DocumentIngestionService {
         let enumerator = FileManager.default.enumerator(at: directory, includingPropertiesForKeys: nil)
         var documents: [ParsedDocument] = []
         let supportedExtensions = Self.supportedExtensions
+        var scannedFileCount = 0
 
         while let url = enumerator?.nextObject() as? URL {
             guard url.lastPathComponent.hasPrefix("~$") == false else {
@@ -77,11 +123,19 @@ struct DocumentIngestionService {
             guard supportedExtensions.contains(url.pathExtension.lowercased()) else {
                 continue
             }
+            scannedFileCount += 1
+            guard scannedFileCount <= limits.maxScannedFileCount else {
+                throw DocumentIngestionLimitError.scannedFileCountExceeded(limit: limits.maxScannedFileCount)
+            }
             do {
+                try validateFileSize(at: url)
                 if let document = try parseDocument(at: url) {
                     documents.append(document)
                 }
             } catch {
+                if error is DocumentIngestionLimitError {
+                    throw error
+                }
                 if let document = parseMislabeledTextDocument(at: url, error: error) {
                     documents.append(document)
                 } else {
@@ -98,40 +152,30 @@ struct DocumentIngestionService {
         guard let parser = Self.parserRegistry.first(where: { $0.supportedExtensions.contains(ext) }) else {
             return nil
         }
-        return try parser.parse(url, configuration: configuration)
+        return try parser.parse(url, configuration: configuration, limits: limits)
     }
 
     private func parseDocx(at url: URL) throws -> ParsedDocument? {
         let archive = try Archive(url: url, accessMode: .read, pathEncoding: nil)
+        var tracker = try ArchiveExtractionTracker(archive: archive, sourcePath: url.path, limits: limits)
         var content = ""
         var author = ""
         var lastModifiedBy = ""
         var images: [ParsedImage] = []
 
         if let entry = archive["word/document.xml"] {
-            var data = Data()
-            _ = try? archive.extract(entry) { part in
-                data.append(part)
-            }
+            let data = try tracker.data(for: entry, in: archive)
             content = XMLTextExtractor.plainText(from: data)
         }
 
         if let entry = archive["docProps/core.xml"] {
-            var data = Data()
-            _ = try? archive.extract(entry) { part in
-                data.append(part)
-            }
+            let data = try tracker.data(for: entry, in: archive)
             author = XMLTextExtractor.metadataValue(named: "dc:creator", in: data)
             lastModifiedBy = XMLTextExtractor.metadataValue(named: "cp:lastModifiedBy", in: data)
         }
 
         for entry in archive where entry.path.hasPrefix("word/media/") {
-            var data = Data()
-            guard (try? archive.extract(entry) { part in
-                data.append(part)
-            }) != nil else {
-                continue
-            }
+            let data = try tracker.data(for: entry, in: archive)
             images.append(ParsedImage(
                 source: entry.path,
                 perceptualHash: ImageHashing.perceptualHash(for: data),
@@ -147,22 +191,19 @@ struct DocumentIngestionService {
 
     private func parsePptx(at url: URL) throws -> ParsedDocument? {
         let archive = try Archive(url: url, accessMode: .read, pathEncoding: nil)
+        var tracker = try ArchiveExtractionTracker(archive: archive, sourcePath: url.path, limits: limits)
         var slideTexts: [(String, String)] = []
         var images: [ParsedImage] = []
 
         for entry in archive {
             if entry.path.hasPrefix("ppt/slides/"), entry.path.hasSuffix(".xml") {
-                var data = Data()
-                _ = try? archive.extract(entry) { part in data.append(part) }
+                let data = try tracker.data(for: entry, in: archive)
                 let text = XMLTextExtractor.plainText(from: data)
                 if text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false {
                     slideTexts.append((entry.path, text))
                 }
             } else if entry.path.hasPrefix("ppt/media/") {
-                var data = Data()
-                guard (try? archive.extract(entry) { part in data.append(part) }) != nil else {
-                    continue
-                }
+                let data = try tracker.data(for: entry, in: archive)
                 images.append(parsedImage(source: entry.path, data: data))
             }
         }
@@ -175,6 +216,9 @@ struct DocumentIngestionService {
     }
 
     private func parseStandaloneImage(at url: URL, ext: String) -> ParsedDocument? {
+        guard (try? validateFileSize(at: url)) != nil else {
+            return nil
+        }
         guard let data = try? Data(contentsOf: url) else {
             return nil
         }
@@ -191,6 +235,21 @@ struct DocumentIngestionService {
         }
         let content = Self.decodeLossyText(data)
         return buildDocument(url: url, ext: "docx", content: content, author: "", images: [])
+    }
+
+    private func validateFileSize(at url: URL) throws {
+        let values = try url.resourceValues(forKeys: [.fileSizeKey])
+        guard let fileSize = values.fileSize else {
+            return
+        }
+        let bytes = Int64(fileSize)
+        guard bytes <= limits.maxSingleFileBytes else {
+            throw DocumentIngestionLimitError.fileTooLarge(
+                path: url.lastPathComponent,
+                bytes: bytes,
+                limit: limits.maxSingleFileBytes
+            )
+        }
     }
 
     private func buildDocument(
@@ -567,6 +626,77 @@ final class PDFEmbeddedImageExtractor {
             )
         default:
             return nil
+        }
+    }
+}
+
+private struct ArchiveExtractionTracker {
+    private let sourcePath: String
+    private let limits: DocumentIngestionLimits
+    private var expandedBytes: UInt64 = 0
+
+    init(archive: Archive, sourcePath: String, limits: DocumentIngestionLimits) throws {
+        self.sourcePath = sourcePath
+        self.limits = limits
+
+        var entryCount = 0
+        for entry in archive {
+            entryCount += 1
+            guard entryCount <= limits.maxEntryCount else {
+                throw DocumentIngestionLimitError.archiveEntryCountExceeded(
+                    path: sourcePath,
+                    limit: limits.maxEntryCount
+                )
+            }
+            try Self.validateEntrySize(entry, sourcePath: sourcePath, limits: limits)
+        }
+    }
+
+    mutating func data(for entry: Entry, in archive: Archive) throws -> Data {
+        try Self.validateEntrySize(entry, sourcePath: entry.path, limits: limits)
+        var data = Data()
+        _ = try archive.extract(entry) { part in
+            try append(part, to: &data, sourcePath: entry.path)
+        }
+        return data
+    }
+
+    private mutating func append(_ part: Data, to data: inout Data, sourcePath: String) throws {
+        let singleLimit = UInt64(max(0, limits.maxSingleFileBytes))
+        let totalLimit = UInt64(max(0, limits.maxTotalExpandedBytes))
+        let partSize = UInt64(part.count)
+        let currentSize = UInt64(data.count)
+
+        guard currentSize <= singleLimit, partSize <= singleLimit - currentSize else {
+            throw DocumentIngestionLimitError.archiveEntryTooLarge(
+                path: sourcePath,
+                bytes: Int64(currentSize + partSize),
+                limit: limits.maxSingleFileBytes
+            )
+        }
+        guard partSize <= totalLimit, expandedBytes <= totalLimit - partSize else {
+            throw DocumentIngestionLimitError.archiveExpandedSizeExceeded(
+                path: self.sourcePath,
+                limit: limits.maxTotalExpandedBytes
+            )
+        }
+
+        expandedBytes += partSize
+        data.append(part)
+    }
+
+    private static func validateEntrySize(
+        _ entry: Entry,
+        sourcePath: String,
+        limits: DocumentIngestionLimits
+    ) throws {
+        let singleLimit = UInt64(max(0, limits.maxSingleFileBytes))
+        guard entry.uncompressedSize <= singleLimit else {
+            throw DocumentIngestionLimitError.archiveEntryTooLarge(
+                path: sourcePath,
+                bytes: Int64(entry.uncompressedSize),
+                limit: limits.maxSingleFileBytes
+            )
         }
     }
 }
