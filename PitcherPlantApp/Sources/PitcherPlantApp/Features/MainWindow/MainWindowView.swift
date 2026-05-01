@@ -566,8 +566,8 @@ private struct MainToolbarTitlePopover: View {
     @State private var temporaryScanEnabled = false
 
     var body: some View {
-        FloatingToolbarPopoverPanel(width: 260) {
-            VStack(alignment: .leading, spacing: 4) {
+        FloatingToolbarPopoverPanel(width: 300) {
+            VStack(alignment: .leading, spacing: 6) {
                 MainToolbarModeRow(
                     title: appState.t("toolbar.mode.auto"),
                     subtitle: appState.t("toolbar.mode.auto.subtitle"),
@@ -598,7 +598,7 @@ private struct MainToolbarTitlePopover: View {
                 }
 
                 Divider()
-                    .padding(.vertical, 2)
+                    .padding(.vertical, 3)
 
                 MainToolbarPanelIconRow(
                     title: appState.t("toolbar.mode.templates"),
@@ -613,7 +613,7 @@ private struct MainToolbarTitlePopover: View {
                 }
 
                 if templatesExpanded {
-                    VStack(alignment: .leading, spacing: 3) {
+                    VStack(alignment: .leading, spacing: 4) {
                         MainToolbarTemplateRow(
                             title: appState.t("toolbar.mode.template.default"),
                             subtitle: appState.t("toolbar.mode.template.default.subtitle"),
@@ -641,7 +641,7 @@ private struct MainToolbarTitlePopover: View {
                 }
 
                 Divider()
-                    .padding(.vertical, 2)
+                    .padding(.vertical, 3)
 
                 MainToolbarPanelToggleRow(
                     title: appState.t("toolbar.mode.temporary"),
@@ -677,13 +677,13 @@ private struct MainToolbarModeRow: View {
         Button {
             action()
         } label: {
-            HStack(alignment: .center, spacing: 8) {
+            HStack(alignment: .center, spacing: 10) {
                 VStack(alignment: .leading, spacing: 1) {
                     Text(title)
-                        .font(.system(size: 12.5, weight: .semibold))
+                        .font(.system(size: 13, weight: .semibold))
                         .foregroundStyle(.primary)
                     Text(subtitle)
-                        .font(.system(size: 10.5, weight: .medium))
+                        .font(.system(size: 11.5, weight: .medium))
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
                 }
@@ -695,8 +695,8 @@ private struct MainToolbarModeRow: View {
                         .foregroundStyle(.primary)
                 }
             }
-            .padding(.horizontal, 9)
-            .frame(height: 38)
+            .padding(.horizontal, 10)
+            .frame(height: 44)
             .background {
                 RoundedRectangle(cornerRadius: 11, style: .continuous)
                     .fill(Color.primary.opacity(rowFillAlpha))
@@ -714,9 +714,9 @@ private struct MainToolbarModeRow: View {
 
     private var rowFillAlpha: Double {
         if isSelected {
-            return isHovering ? 0.11 : 0.07
+            return isHovering ? 0.16 : 0.12
         }
-        return isHovering ? 0.07 : 0
+        return isHovering ? 0.10 : 0
     }
 }
 
@@ -731,26 +731,26 @@ private struct MainToolbarTemplateRow: View {
         Button {
             action()
         } label: {
-            HStack(spacing: 7) {
+            HStack(spacing: 8) {
                 Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
-                    .font(.system(size: 10.5, weight: .semibold))
+                    .font(.system(size: 11, weight: .semibold))
                     .symbolRenderingMode(.hierarchical)
                     .foregroundStyle(isSelected ? Color.accentColor : Color.secondary)
-                    .frame(width: 15)
+                    .frame(width: 16)
 
                 VStack(alignment: .leading, spacing: 1) {
                     Text(title)
-                        .font(.system(size: 11.5, weight: .semibold))
+                        .font(.system(size: 12, weight: .semibold))
                         .foregroundStyle(.primary)
                     Text(subtitle)
-                        .font(.system(size: 9.5, weight: .medium))
+                        .font(.system(size: 10.5, weight: .medium))
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .padding(.horizontal, 8)
-            .frame(height: 31)
+            .padding(.horizontal, 9)
+            .frame(height: 36)
             .background {
                 RoundedRectangle(cornerRadius: 10, style: .continuous)
                     .fill(Color.primary.opacity(rowFillAlpha))
@@ -768,9 +768,9 @@ private struct MainToolbarTemplateRow: View {
 
     private var rowFillAlpha: Double {
         if isSelected {
-            return isHovering ? 0.10 : 0.06
+            return isHovering ? 0.15 : 0.11
         }
-        return isHovering ? 0.06 : 0
+        return isHovering ? 0.09 : 0
     }
 }
 
@@ -782,21 +782,21 @@ private struct MainToolbarPanelToggleRow: View {
 
     var body: some View {
         Toggle(isOn: $isOn) {
-            HStack(spacing: 8) {
+            HStack(spacing: 10) {
                 Image(systemName: systemImage)
                     .font(.system(size: 12, weight: .medium))
                     .frame(width: 18)
                     .foregroundStyle(isOn ? Color.accentColor : Color.secondary)
                 Text(title)
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.system(size: 12.5, weight: .semibold))
                     .lineLimit(1)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         }
         .toggleStyle(.switch)
         .tint(.accentColor)
-        .padding(.horizontal, 9)
-        .frame(height: 34)
+        .padding(.horizontal, 10)
+        .frame(height: 38)
         .background {
             RoundedRectangle(cornerRadius: 11, style: .continuous)
                 .fill(Color.primary.opacity(rowFillAlpha))
@@ -813,9 +813,9 @@ private struct MainToolbarPanelToggleRow: View {
 
     private var rowFillAlpha: Double {
         if isOn {
-            return isHovering ? 0.11 : 0.07
+            return isHovering ? 0.16 : 0.12
         }
-        return isHovering ? 0.07 : 0
+        return isHovering ? 0.10 : 0
     }
 }
 
@@ -832,13 +832,13 @@ private struct MainToolbarPanelIconRow: View {
         Button {
             action()
         } label: {
-            HStack(spacing: 8) {
+            HStack(spacing: 10) {
                 Image(systemName: systemImage)
                     .font(.system(size: 12, weight: .medium))
                     .frame(width: 18)
                     .foregroundStyle(.secondary)
                 Text(title)
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.system(size: 12.5, weight: .semibold))
                     .lineLimit(1)
                 Spacer()
                 if let trailingSystemImage {
@@ -848,8 +848,8 @@ private struct MainToolbarPanelIconRow: View {
                         .rotationEffect(.degrees(isExpanded ? 180 : 0))
                 }
             }
-            .padding(.horizontal, 9)
-            .frame(height: 34)
+            .padding(.horizontal, 10)
+            .frame(height: 38)
             .background {
                 RoundedRectangle(cornerRadius: 11, style: .continuous)
                     .fill(Color.primary.opacity(rowFillAlpha))
@@ -868,9 +868,9 @@ private struct MainToolbarPanelIconRow: View {
 
     private var rowFillAlpha: Double {
         if isActive {
-            return isHovering ? 0.11 : 0.07
+            return isHovering ? 0.16 : 0.12
         }
-        return isHovering ? 0.07 : 0
+        return isHovering ? 0.10 : 0
     }
 }
 

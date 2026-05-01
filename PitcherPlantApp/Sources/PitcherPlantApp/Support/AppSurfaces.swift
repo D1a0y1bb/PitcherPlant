@@ -503,15 +503,16 @@ struct FloatingToolbarPopoverPanel<Content: View>: View {
     var width: CGFloat = 260
     var cornerRadius: CGFloat = 20
     @ViewBuilder var content: Content
+    @Environment(\.colorScheme) private var colorScheme
     @State private var isHovering = false
 
     var body: some View {
         GlassEffectContainer(spacing: 8) {
             content
-                .padding(.horizontal, 10)
-                .padding(.vertical, 10)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 12)
                 .frame(width: width, alignment: .leading)
-                .floatingToolbarRoundedPanel(cornerRadius: cornerRadius, isHovered: isHovering)
+                .floatingToolbarRoundedPanel(cornerRadius: cornerRadius, isHovered: isHovering, colorScheme: colorScheme)
                 .onHover { hovering in
                     withAnimation(AppMotion.toolbarGlassHover) {
                         isHovering = hovering
@@ -831,18 +832,26 @@ extension View {
     func floatingToolbarRoundedPanel(
         cornerRadius: CGFloat,
         isFocused: Bool = false,
-        isHovered: Bool = false
+        isHovered: Bool = false,
+        colorScheme: ColorScheme = .light
     ) -> some View {
-        background {
-            RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                .fill(Color(nsColor: NSColor.controlBackgroundColor.withAlphaComponent(capsuleFillAlpha(isFocused: isFocused, isHovered: isHovered))))
+        let shape = RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+
+        return background {
+            ZStack {
+                shape
+                    .fill(.regularMaterial)
+                shape
+                    .fill(panelReadabilityFill(colorScheme: colorScheme, isFocused: isFocused, isHovered: isHovered))
+            }
         }
         .overlay {
-            RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                .strokeBorder(Color(nsColor: NSColor.separatorColor.withAlphaComponent(capsuleStrokeAlpha(isFocused: isFocused, isHovered: isHovered))), lineWidth: 0.75)
+            shape
+                .strokeBorder(Color(nsColor: NSColor.separatorColor.withAlphaComponent(panelStrokeAlpha(isFocused: isFocused, isHovered: isHovered))), lineWidth: 0.75)
         }
-        .contentShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
-        .glassEffect(.clear.interactive(), in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+        .contentShape(shape)
+        .glassEffect(.regular.interactive(), in: shape)
+        .shadow(color: Color.black.opacity(panelShadowAlpha(isFocused: isFocused, isHovered: isHovered)), radius: 26, y: 14)
         .compositingGroup()
     }
 
@@ -864,6 +873,53 @@ extension View {
             return 0.19
         }
         return 0.11
+    }
+
+    private func panelReadabilityFill(colorScheme: ColorScheme, isFocused: Bool, isHovered: Bool) -> Color {
+        if colorScheme == .dark {
+            return Color.black.opacity(panelDarkReadabilityFillAlpha(isFocused: isFocused, isHovered: isHovered))
+        }
+        return Color(nsColor: NSColor.windowBackgroundColor.withAlphaComponent(panelLightReadabilityFillAlpha(isFocused: isFocused, isHovered: isHovered)))
+    }
+
+    private func panelLightReadabilityFillAlpha(isFocused: Bool, isHovered: Bool) -> CGFloat {
+        if isFocused {
+            return 0.82
+        }
+        if isHovered {
+            return 0.78
+        }
+        return 0.74
+    }
+
+    private func panelDarkReadabilityFillAlpha(isFocused: Bool, isHovered: Bool) -> Double {
+        if isFocused {
+            return 0.54
+        }
+        if isHovered {
+            return 0.50
+        }
+        return 0.46
+    }
+
+    private func panelStrokeAlpha(isFocused: Bool, isHovered: Bool) -> CGFloat {
+        if isFocused {
+            return 0.36
+        }
+        if isHovered {
+            return 0.31
+        }
+        return 0.24
+    }
+
+    private func panelShadowAlpha(isFocused: Bool, isHovered: Bool) -> Double {
+        if isFocused {
+            return 0.17
+        }
+        if isHovered {
+            return 0.15
+        }
+        return 0.13
     }
 }
 
