@@ -43,13 +43,11 @@ enum ReportExporter {
         try htmlString(from: report).write(to: url, atomically: true, encoding: .utf8)
     }
 
-    @MainActor
     static func exportPDF(report: AuditReport, to url: URL) throws {
         let data = try pdfData(from: report)
         try data.write(to: url)
     }
 
-    @MainActor
     private static func pdfData(from report: AuditReport) throws -> Data {
         let pageSize = CGSize(width: 612, height: 792)
         let margin: CGFloat = 48
@@ -179,7 +177,6 @@ enum ReportExporter {
         try ReportMarkdownFormatter.string(from: report).write(to: url, atomically: true, encoding: .utf8)
     }
 
-    @MainActor
     static func exportEvidenceBundle(report: AuditReport, to url: URL) throws {
         try? FileManager.default.removeItem(at: url)
         let archive = try Archive(url: url, accessMode: .create, pathEncoding: nil)

@@ -33,6 +33,80 @@ func databasePersistsStructuredJobEventPayloads() async throws {
 }
 
 @Test
+func databaseStorePaginatesReportsFingerprintsAndAppendsJobEvents() async throws {
+    let root = FileManager.default.temporaryDirectory
+        .appendingPathComponent("pitcherplant-pagination-\(UUID().uuidString)", isDirectory: true)
+    try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+    let store = try DatabaseStore(rootDirectory: root)
+    try await store.prepare()
+
+    for index in 0..<3 {
+        let report = AuditReport(
+            title: "报告 \(index)",
+            sourcePath: root.appendingPathComponent("report-\(index).html").path,
+            scanDirectoryPath: root.path,
+            createdAt: Date(timeIntervalSince1970: TimeInterval(1_800 + index)),
+            metrics: [],
+            sections: [
+                ReportSection(
+                    kind: .text,
+                    title: "文本 \(index)",
+                    summary: "",
+                    table: ReportTable(headers: ["A"], rows: [
+                        ReportTableRow(columns: ["alpha-\(index)"], detailTitle: "证据 \(index)", detailBody: "shared body \(index)")
+                    ])
+                )
+            ]
+        )
+        try await store.saveReport(report)
+    }
+
+    let firstPage = try await store.loadReportsPage(limit: 2)
+    let counts = try await store.loadReportCounts()
+    let evidenceRows = try await store.loadEvidenceRows(reportID: try #require(firstPage.values.first?.id), query: "shared", limit: 10)
+
+    #expect(firstPage.totalCount == 3)
+    #expect(firstPage.values.map(\.title) == ["报告 2", "报告 1"])
+    #expect(counts.reportCount == 3)
+    #expect(counts.sectionCount == 3)
+    #expect(counts.evidenceRowCount == 3)
+    #expect(evidenceRows.totalCount == 1)
+
+    var records: [FingerprintRecord] = []
+    for index in 0..<3 {
+        records.append(FingerprintRecord(
+            filename: "file-\(index).md",
+            ext: "md",
+            author: "",
+            size: 10 + index,
+            simhash: String(format: "%016llx", UInt64(index)),
+            scanDir: "scan",
+            scannedAt: Date(timeIntervalSince1970: TimeInterval(1_900 + index)),
+            tags: index == 1 ? ["keep", "delete-me"] : ["keep"]
+        ))
+    }
+    try await store.upsertFingerprintRecords(records)
+    let fingerprintPage = try await store.loadFingerprintPage(limit: 2)
+    #expect(fingerprintPage.totalCount == 3)
+    #expect(fingerprintPage.values.map(\.filename) == ["file-2.md", "file-1.md"])
+
+    let deleted = try await store.deleteFingerprintRecords(tag: "delete-me")
+    #expect(deleted == 1)
+    #expect(try await store.loadFingerprintRecords().map(\.filename) == ["file-2.md", "file-0.md"])
+
+    var job = AuditJob(configuration: AuditConfiguration.defaults(for: root))
+    for index in 0..<25 {
+        job = job.advanced(stage: .parse, message: "event \(index)")
+        try await store.upsertJob(job)
+    }
+
+    let loadedJob = try #require(try await store.loadJobs().first)
+    #expect(loadedJob.events.count == 20)
+    #expect(try await store.debugTableRowCount(named: "audit_job_events") == 20)
+    #expect(loadedJob.events.last?.message == "event 24")
+}
+
+@Test
 func databaseStorePersistsStructuredJobEventsAndReportSections() async throws {
     let root = FileManager.default.temporaryDirectory
         .appendingPathComponent("pitcherplant-db-\(UUID().uuidString)", isDirectory: true)

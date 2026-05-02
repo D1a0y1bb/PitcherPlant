@@ -367,7 +367,71 @@ struct FingerprintAnalyzer {
     }
 }
 
+struct HammingBKTree: Sendable {
+    private struct Node: Sendable {
+        let record: FingerprintRecord
+        var children: [Int: Int]
+    }
+
+    private var nodes: [Node] = []
+
+    init(records: [FingerprintRecord]) {
+        for record in records {
+            insert(record)
+        }
+    }
+
+    func query(simhash: String, threshold: Int) -> [(record: FingerprintRecord, distance: Int)] {
+        guard nodes.isEmpty == false else {
+            return []
+        }
+        var results: [(FingerprintRecord, Int)] = []
+        queryNode(index: 0, simhash: simhash, threshold: threshold, results: &results)
+        return results
+    }
+
+    private mutating func insert(_ record: FingerprintRecord) {
+        guard nodes.isEmpty == false else {
+            nodes.append(Node(record: record, children: [:]))
+            return
+        }
+
+        var index = 0
+        while true {
+            let distance = HashDistance.hamming(record.simhash, nodes[index].record.simhash)
+            if let childIndex = nodes[index].children[distance] {
+                index = childIndex
+            } else {
+                nodes.append(Node(record: record, children: [:]))
+                nodes[index].children[distance] = nodes.count - 1
+                return
+            }
+        }
+    }
+
+    private func queryNode(
+        index: Int,
+        simhash: String,
+        threshold: Int,
+        results: inout [(FingerprintRecord, Int)]
+    ) {
+        let node = nodes[index]
+        let distance = HashDistance.hamming(simhash, node.record.simhash)
+        if distance <= threshold {
+            results.append((node.record, distance))
+        }
+
+        let lower = distance - threshold
+        let upper = distance + threshold
+        for (childDistance, childIndex) in node.children where childDistance >= lower && childDistance <= upper {
+            queryNode(index: childIndex, simhash: simhash, threshold: threshold, results: &results)
+        }
+    }
+}
+
 struct CrossBatchReuseAnalyzer {
+    private let indexedHistoricalThreshold = 2_000
+
     func analyze(
         current: [FingerprintRecord],
         historical: [FingerprintRecord],
@@ -377,10 +441,21 @@ struct CrossBatchReuseAnalyzer {
     ) -> [CrossBatchMatch] {
         let whitelist = WhitelistEvaluationService(rules: whitelistRules, mode: whitelistMode)
         var matches: [CrossBatchMatch] = []
+        let indexedHistorical = historical.count >= indexedHistoricalThreshold ? HammingBKTree(records: historical) : nil
         for record in current {
-            for previous in historical {
-                let distance = HashDistance.hamming(record.simhash, previous.simhash)
-                guard distance <= threshold else { continue }
+            let candidates: [(record: FingerprintRecord, distance: Int)]
+            if let indexedHistorical {
+                candidates = indexedHistorical.query(simhash: record.simhash, threshold: threshold)
+            } else {
+                candidates = historical.compactMap { previous in
+                    let distance = HashDistance.hamming(record.simhash, previous.simhash)
+                    return distance <= threshold ? (previous, distance) : nil
+                }
+            }
+
+            for candidate in candidates {
+                let previous = candidate.record
+                let distance = candidate.distance
 
                 let evaluation = whitelist.evaluate(crossBatch: CrossBatchMatch(
                     currentFile: record.filename,

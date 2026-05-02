@@ -18,7 +18,6 @@ struct PitcherPlantDesktopApp: App {
         WindowGroup("PitcherPlant", id: AppWindow.main.rawValue) {
             MainWindowView()
                 .stableMainWindowFrame()
-                .id(appearanceSyncKey)
                 .environment(appState)
                 .environment(\.locale, appState.effectiveLocale ?? .current)
                 .preferredColorScheme(appState.effectiveColorScheme)

@@ -372,7 +372,9 @@ struct SettingsRootView: View {
     }
 
     private var recordCounts: String {
-        "\(appState.jobs.count) \(appState.t("status.audits")) · \(appState.reports.count) \(appState.t("status.reports")) · \(appState.fingerprints.count) \(appState.t("status.fingerprints")) · \(appState.whitelistRules.count) \(appState.t("sidebar.whitelist"))"
+        let reportCount = max(appState.reportTotalCount, appState.reports.count)
+        let fingerprintCount = max(appState.fingerprintTotalCount, appState.fingerprints.count)
+        return "\(appState.jobs.count) \(appState.t("status.audits")) · \(reportCount) \(appState.t("status.reports")) · \(fingerprintCount) \(appState.t("status.fingerprints")) · \(appState.whitelistRules.count) \(appState.t("sidebar.whitelist"))"
     }
 
     private var calibrationSummaryText: String {

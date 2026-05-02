@@ -1,4 +1,72 @@
+import AppKit
 import SwiftUI
+
+@MainActor
+final class EvidenceImageCache {
+    static let shared = EvidenceImageCache()
+    private var imagesByKey: [String: NSImage] = [:]
+    private var accessOrder: [String] = []
+    private let limit = 160
+
+    func image(for base64: String) -> NSImage? {
+        let key = cacheKey(for: base64)
+        if let image = imagesByKey[key] {
+            return image
+        }
+        guard let data = Data(base64Encoded: base64), let image = NSImage(data: data) else {
+            return nil
+        }
+        imagesByKey[key] = image
+        accessOrder.append(key)
+        trimIfNeeded()
+        return image
+    }
+
+    func cachedImageCount() -> Int {
+        imagesByKey.count
+    }
+
+    private func trimIfNeeded() {
+        while accessOrder.count > limit, let key = accessOrder.first {
+            accessOrder.removeFirst()
+            imagesByKey.removeValue(forKey: key)
+        }
+    }
+
+    private func cacheKey(for value: String) -> String {
+        "\(value.count):\(value.prefix(80)):\(value.suffix(80))"
+    }
+}
+
+actor CodeDiffCache {
+    static let shared = CodeDiffCache()
+    private var rowsByKey: [String: [CodeLineDiffRow]] = [:]
+    private var accessOrder: [String] = []
+    private let limit = 80
+
+    func rows(left: String, right: String) -> [CodeLineDiffRow] {
+        let key = Self.key(left: left, right: right)
+        if let rows = rowsByKey[key] {
+            return rows
+        }
+        let rows = CodeLineDiffBuilder.rows(left: left, right: right)
+        rowsByKey[key] = rows
+        accessOrder.append(key)
+        trimIfNeeded()
+        return rows
+    }
+
+    nonisolated static func key(left: String, right: String) -> String {
+        "\(left.count):\(left.prefix(96)):\(left.suffix(96))|\(right.count):\(right.prefix(96)):\(right.suffix(96))"
+    }
+
+    private func trimIfNeeded() {
+        while accessOrder.count > limit, let key = accessOrder.first {
+            accessOrder.removeFirst()
+            rowsByKey.removeValue(forKey: key)
+        }
+    }
+}
 
 struct ReportEvidenceInspector: View {
     @Environment(AppState.self) private var appState
@@ -756,8 +824,7 @@ struct ImageEvidenceDetailView: View {
     }
 
     private func decodedImage(_ value: String) -> NSImage? {
-        guard let data = Data(base64Encoded: value) else { return nil }
-        return NSImage(data: data)
+        EvidenceImageCache.shared.image(for: value)
     }
 }
 
@@ -982,9 +1049,11 @@ private struct CodeDiffSummaryView: View {
 private struct CodeLineDiffView: View {
     let left: String
     let right: String
+    @State private var rows: [CodeLineDiffRow] = []
+    @State private var isLoading = true
 
-    private var rows: [CodeLineDiffRow] {
-        CodeLineDiffBuilder.rows(left: left, right: right)
+    private var cacheKey: String {
+        CodeDiffCache.key(left: left, right: right)
     }
 
     var body: some View {
@@ -993,33 +1062,44 @@ private struct CodeLineDiffView: View {
                 .font(AppTypography.tableHeader)
                 .foregroundStyle(.secondary)
 
-            ScrollView([.horizontal, .vertical]) {
-                Grid(alignment: .leading, horizontalSpacing: 8, verticalSpacing: 2) {
-                    GridRow {
-                        diffHeader("L")
-                        diffHeader("左侧")
-                        diffHeader("R")
-                        diffHeader("右侧")
-                        diffHeader("状态")
-                    }
-
-                    ForEach(Array(rows.enumerated()), id: \.offset) { _, row in
+            if isLoading {
+                ProgressView()
+                    .controlSize(.small)
+                    .frame(maxWidth: .infinity, minHeight: 120, alignment: .center)
+            } else {
+                ScrollView([.horizontal, .vertical]) {
+                    Grid(alignment: .leading, horizontalSpacing: 8, verticalSpacing: 2) {
                         GridRow {
-                            lineNumber(row.leftLineNumber)
-                            diffCell(row.leftText, change: row.change, side: .left)
-                            lineNumber(row.rightLineNumber)
-                            diffCell(row.rightText, change: row.change, side: .right)
-                            Text(row.change.title)
-                                .font(AppTypography.metadata.weight(.medium))
-                                .foregroundStyle(.secondary)
-                                .lineLimit(1)
+                            diffHeader("L")
+                            diffHeader("左侧")
+                            diffHeader("R")
+                            diffHeader("右侧")
+                            diffHeader("状态")
+                        }
+
+                        ForEach(Array(rows.enumerated()), id: \.offset) { _, row in
+                            GridRow {
+                                lineNumber(row.leftLineNumber)
+                                diffCell(row.leftText, change: row.change, side: .left)
+                                lineNumber(row.rightLineNumber)
+                                diffCell(row.rightText, change: row.change, side: .right)
+                                Text(row.change.title)
+                                    .font(AppTypography.metadata.weight(.medium))
+                                    .foregroundStyle(.secondary)
+                                    .lineLimit(1)
+                            }
                         }
                     }
+                    .padding(8)
                 }
-                .padding(8)
+                .scrollIndicators(.hidden)
+                .frame(minHeight: 120, maxHeight: 220)
             }
-            .scrollIndicators(.hidden)
-            .frame(minHeight: 120, maxHeight: 220)
+        }
+        .task(id: cacheKey) {
+            isLoading = true
+            rows = await CodeDiffCache.shared.rows(left: left, right: right)
+            isLoading = false
         }
     }
 

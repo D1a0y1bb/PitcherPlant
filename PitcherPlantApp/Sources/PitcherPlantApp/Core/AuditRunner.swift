@@ -18,9 +18,14 @@ struct AuditRunner {
         let directoryURL = URL(fileURLWithPath: configuration.directoryPath)
         try await progress(.scan, AuditStage.scan.displayTitle)
         let ingestion = DocumentIngestionService(configuration: configuration)
+        let preflight = try ingestion.preflight(in: directoryURL, historicalFingerprintCount: importedFingerprints.count)
+        if let message = preflight.warningMessage(limits: limits) {
+            try await progress(.scan, message)
+        }
+        try Task.checkCancellation()
         let documents = try ingestion.ingestDocuments(in: directoryURL)
         try await progress(.parse, "\(AuditStage.parse.displayTitle)：\(documents.count) 个文档")
-        let featureResult = DocumentFeatureStore().buildFeatureResult(
+        let featureResult = try DocumentFeatureStore().buildFeatureResultCheckingCancellation(
             for: documents,
             scanID: scanID,
             batchID: batchID,
@@ -129,7 +134,13 @@ struct AuditRunner {
             duration: Date().timeIntervalSince(startedAt),
             recallStats: recallStats
         )
-        return AuditRunResult(report: report, fingerprints: currentFingerprints, summary: summary, documentFeatureResult: featureResult)
+        return AuditRunResult(
+            report: report,
+            fingerprints: currentFingerprints,
+            summary: summary,
+            documentFeatureResult: featureResult,
+            documents: documents
+        )
     }
 
     private func warnIfLargeRun(

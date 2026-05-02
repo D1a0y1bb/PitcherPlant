@@ -83,7 +83,9 @@ final class AppState {
 
     var jobs: [AuditJob] = []
     var reports: [AuditReport] = []
+    var reportTotalCount = 0
     var fingerprints: [FingerprintRecord] = []
+    var fingerprintTotalCount = 0
     var whitelistRules: [WhitelistRule] = []
     var configurationPresets: [AuditConfigurationPreset] = []
     var exportRecords: [ExportRecord] = []
@@ -101,6 +103,8 @@ final class AppState {
     var isImportingSubmissionPackage = false
     private var currentAuditTask: Task<AuditReport?, Never>?
     private var currentAuditWorkerTask: Task<AuditRunResult, Error>?
+    private static let reportPageLimit = 500
+    private static let fingerprintPageLimit = 500
 
     init(workspaceRoot: URL? = nil) {
         let resolvedRoot = workspaceRoot ?? ProjectLocator().workspaceRoot()
@@ -200,9 +204,18 @@ final class AppState {
         do {
             jobs = try await database.loadJobs()
             evidenceReviews = try await database.loadEvidenceReviews()
-            let loadedReports = try await database.loadReports()
+            let reportPage = try await database.loadReportsPage(limit: Self.reportPageLimit)
+            var loadedReports = reportPage.values
+            reportTotalCount = reportPage.totalCount
+            if let selectedReportID,
+               loadedReports.contains(where: { $0.id == selectedReportID }) == false,
+               let selectedReport = try await database.loadReport(id: selectedReportID) {
+                loadedReports.append(selectedReport)
+            }
             reports = loadedReports.map(reportWithReviews)
-            fingerprints = try await database.loadFingerprintRecords()
+            let fingerprintPage = try await database.loadFingerprintPage(limit: Self.fingerprintPageLimit)
+            fingerprints = fingerprintPage.values
+            fingerprintTotalCount = fingerprintPage.totalCount
             whitelistRules = try await database.loadWhitelistRules()
             configurationPresets = AppPreferences.loadPresets(for: workspaceRoot)
             exportRecords = try await database.loadExportRecords(limit: 20)
@@ -727,27 +740,35 @@ final class AppState {
     }
 
     func exportFingerprintPackage(records selectedRecords: [FingerprintRecord]? = nil, tags: [String] = []) {
-        let recordsToExport = selectedRecords ?? fingerprints
-        guard !recordsToExport.isEmpty else {
-            showNotice(title: t("notice.fingerprintExportFailed"), message: t("fingerprints.empty"), tone: .error)
-            return
-        }
-
         let panel = NSSavePanel()
         panel.allowedContentTypes = [.zip]
         panel.nameFieldStringValue = "PitcherPlant-Fingerprints-\(Self.safeTimestamp()).zip"
         if panel.runModal() == .OK, let url = panel.url {
-            do {
-                try FingerprintPackageService().exportPackage(
-                    records: recordsToExport,
-                    to: url,
-                    packageName: "PitcherPlant Fingerprints",
-                    tags: tags,
-                    source: "PitcherPlant macOS"
-                )
-                showNotice(title: t("notice.fingerprintExportSucceeded"), message: url.path, tone: .success)
-            } catch {
-                showNotice(title: t("notice.fingerprintExportFailed"), message: error.localizedDescription, tone: .error)
+            Task {
+                do {
+                    let recordsToExport: [FingerprintRecord]
+                    if let selectedRecords {
+                        recordsToExport = selectedRecords
+                    } else {
+                        recordsToExport = try await database.loadFingerprintRecords()
+                    }
+                    guard recordsToExport.isEmpty == false else {
+                        showNotice(title: t("notice.fingerprintExportFailed"), message: t("fingerprints.empty"), tone: .error)
+                        return
+                    }
+                    try await Task.detached(priority: .userInitiated) {
+                        try FingerprintPackageService().exportPackage(
+                            records: recordsToExport,
+                            to: url,
+                            packageName: "PitcherPlant Fingerprints",
+                            tags: tags,
+                            source: "PitcherPlant macOS"
+                        )
+                    }.value
+                    showNotice(title: t("notice.fingerprintExportSucceeded"), message: url.path, tone: .success)
+                } catch {
+                    showNotice(title: t("notice.fingerprintExportFailed"), message: error.localizedDescription, tone: .error)
+                }
             }
         }
     }
@@ -792,26 +813,24 @@ final class AppState {
         panel.allowedContentTypes = [contentType(for: format)]
         panel.nameFieldStringValue = "\(report.title).\(fileExtension(for: format))"
         if panel.runModal() == .OK, let url = panel.url {
-            do {
-                try export(report: report, format: format, to: url)
-                Task {
-                    do {
-                        try await database.recordExport(
-                            ExportRecord(
-                                reportID: report.id,
-                                reportTitle: report.title,
-                                format: format,
-                                destinationPath: url.path
-                            )
+            Task {
+                do {
+                    try await Task.detached(priority: .userInitiated) {
+                        try Self.export(report: report, format: format, to: url)
+                    }.value
+                    try await database.recordExport(
+                        ExportRecord(
+                            reportID: report.id,
+                            reportTitle: report.title,
+                            format: format,
+                            destinationPath: url.path
                         )
-                        await reload()
-                        showNotice(title: t("notice.exportSucceeded"), message: url.path, tone: .success)
-                    } catch {
-                        showNotice(title: t("notice.exportRecordFailed"), message: error.localizedDescription, tone: .error)
-                    }
+                    )
+                    await reload()
+                    showNotice(title: t("notice.exportSucceeded"), message: url.path, tone: .success)
+                } catch {
+                    showNotice(title: t("notice.exportFailed"), message: error.localizedDescription, tone: .error)
                 }
-            } catch {
-                showNotice(title: t("notice.exportFailed"), message: error.localizedDescription, tone: .error)
             }
         }
     }
@@ -930,7 +949,7 @@ final class AppState {
             try await database.upsertJob(job)
             await reload()
 
-            let historicalFingerprints = fingerprints
+            let historicalFingerprints = try await database.loadFingerprintRecords()
             let rules = whitelistRules
             let cachedFeatures = try await database.loadDocumentFeatures(batchID: job.batchID)
             let progressFallbackJob = job
@@ -983,13 +1002,7 @@ final class AppState {
                     _ = try await database.deleteDocumentFeatures(ids: featureResult.orphanedFeatureIDs)
                 }
             }
-            let whitelistDocumentsTask = Task.detached(priority: .utility) {
-                try DocumentIngestionService(configuration: configuration)
-                    .ingestDocuments(in: URL(fileURLWithPath: configuration.directoryPath))
-            }
-            if let documents = try? await whitelistDocumentsTask.value {
-                refreshWhitelistSuggestions(from: documents)
-            }
+            refreshWhitelistSuggestions(from: result.documents)
             if selectCompletedReport {
                 selectReportForInlineReview(result.report)
             }
@@ -1274,7 +1287,7 @@ final class AppState {
         return rowCopy
     }
 
-    private func export(report: AuditReport, format: ExportRecord.Format, to url: URL) throws {
+    nonisolated private static func export(report: AuditReport, format: ExportRecord.Format, to url: URL) throws {
         switch format {
         case .html:
             try ReportExporter.exportHTML(report: report, to: url)

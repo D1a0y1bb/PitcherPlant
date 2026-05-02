@@ -6,6 +6,7 @@ private let titlePopoverToolbarLayerOffset: CGFloat = 50
 
 struct MainWindowView: View {
     @Environment(AppState.self) private var appState
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @SceneStorage("pitcherplant.inspectorVisible") private var inspectorVisible = false
     @Namespace private var mainToolbarGlassNamespace
     @State private var columnVisibility: NavigationSplitViewVisibility = .all
@@ -65,7 +66,7 @@ struct MainWindowView: View {
         }
         .onChange(of: appState.inspectorRequestID) { _, _ in
             if appState.selectedMainSidebar.allowsInspector {
-                withAnimation(inspectorColumnAnimation) {
+                withAnimation(motion(inspectorColumnAnimation)) {
                     inspectorVisible = true
                 }
             }
@@ -75,7 +76,7 @@ struct MainWindowView: View {
             guard appState.selectedMainSidebar.allowsInspector else {
                 return
             }
-            withAnimation(inspectorColumnAnimation) {
+            withAnimation(motion(inspectorColumnAnimation)) {
                 inspectorVisible.toggle()
             }
             applySidebarPolicy(windowWidth: windowWidth)
@@ -85,7 +86,7 @@ struct MainWindowView: View {
         }
         .toolbar(removing: .sidebarToggle)
         .toolbar(removing: .title)
-        .animation(AppMotion.toolbarGlassAppear, value: appState.selectedMainSidebar)
+        .animation(motion(AppMotion.toolbarGlassAppear), value: appState.selectedMainSidebar)
         .toolbarBackgroundVisibility(.hidden, for: .windowToolbar)
         .overlay {
             GeometryReader { proxy in
@@ -136,11 +137,15 @@ struct MainWindowView: View {
         appState.selectedMainSidebar == .reports || appState.selectedMainSidebar.reportSectionKind != nil
     }
 
+    private func motion(_ animation: Animation) -> Animation? {
+        AppMotion.enabled(animation, reduceMotion: reduceMotion)
+    }
+
     private var animatedSidebarSelection: Binding<MainSidebarItem> {
         Binding {
             appState.selectedMainSidebar
         } set: { item in
-            withAnimation(AppMotion.toolbarGlassAppear) {
+            withAnimation(motion(AppMotion.toolbarGlassAppear)) {
                 appState.selectedMainSidebar = item
             }
         }
@@ -167,7 +172,7 @@ struct MainWindowView: View {
             ideal: detailColumnIdealWidth,
             max: .infinity
         )
-        .animation(inspectorColumnAnimation, value: isInspectorColumnVisible)
+        .animation(motion(inspectorColumnAnimation), value: isInspectorColumnVisible)
     }
 
     private var detailSplitColumn: some View {
@@ -289,14 +294,14 @@ struct MainWindowView: View {
 
     private func updateReportToolbarSearchPresentation(animated: Bool) {
         guard shouldShowReportToolbarSearch else {
-            withAnimation(AppMotion.toolbarGlassAppear) {
+            withAnimation(motion(AppMotion.toolbarGlassAppear)) {
                 reportToolbarSearchExpanded = false
                 reportToolbarSearchPresented = false
             }
             return
         }
 
-        withAnimation(AppMotion.toolbarGlassAppear) {
+        withAnimation(motion(AppMotion.toolbarGlassAppear)) {
             reportToolbarSearchPresented = true
             reportToolbarSearchExpanded = false
         }
@@ -306,7 +311,7 @@ struct MainWindowView: View {
         if sidebarCollapsed {
             expandWindowForSidebarIfNeeded()
         }
-        withAnimation(AppMotion.toolbarGlassAppear) {
+        withAnimation(motion(AppMotion.toolbarGlassAppear)) {
             autoCollapsedSidebar = false
             columnVisibility = sidebarCollapsed ? .all : .detailOnly
         }
@@ -461,9 +466,9 @@ struct MainWindowView: View {
         }
         .padding(.top, trailingToolbarTopPadding(topSafeAreaInset: topSafeAreaInset))
         .padding(.trailing, trailingToolbarTrailingPadding(topSafeAreaInset: topSafeAreaInset))
-        .animation(AppMotion.toolbarGlassAppear, value: reportToolbarSearchPresented)
-        .animation(AppMotion.toolbarSearchExpand, value: reportToolbarSearchExpanded)
-        .animation(AppMotion.toolbarGlassAppear, value: appState.selectedMainSidebar)
+        .animation(motion(AppMotion.toolbarGlassAppear), value: reportToolbarSearchPresented)
+        .animation(motion(AppMotion.toolbarSearchExpand), value: reportToolbarSearchExpanded)
+        .animation(motion(AppMotion.toolbarGlassAppear), value: appState.selectedMainSidebar)
     }
 
     private func trailingToolbarTopPadding(topSafeAreaInset: CGFloat) -> CGFloat {
@@ -484,7 +489,7 @@ struct MainWindowView: View {
             isInspectorColumnVisible ? appState.t("toolbar.hideInspector") : appState.t("toolbar.showInspector"),
             systemImage: isInspectorColumnVisible ? "sidebar.right" : "sidebar.trailing"
         ) {
-            withAnimation(inspectorColumnAnimation) {
+            withAnimation(motion(inspectorColumnAnimation)) {
                 inspectorVisible.toggle()
             }
         }

@@ -69,6 +69,23 @@ func sectionFilteringRespectsQueryFilterAndSortOrder() {
 
     let titled = section.filteredCopy(query: "", evidenceFilter: .all, sortOrder: .title)
     #expect(titled.table?.rows.map(\.detailTitle) == ["A 组", "B 组"])
+
+    let model = ReportRowsViewModel(section: section, query: "截图", filter: .withAttachments, sortOrder: .default)
+    #expect(model.totalRowCount == 2)
+    #expect(model.rows.map(\.detailTitle) == ["B 组"])
+}
+
+@Test
+@MainActor
+func evidenceImageCacheReusesDecodedImages() throws {
+    let cache = EvidenceImageCache()
+    let pixelPNG = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII="
+
+    let first = try #require(cache.image(for: pixelPNG))
+    let second = try #require(cache.image(for: pixelPNG))
+
+    #expect(first === second)
+    #expect(cache.cachedImageCount() == 1)
 }
 
 @Test

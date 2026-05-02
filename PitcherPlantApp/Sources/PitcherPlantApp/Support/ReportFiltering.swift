@@ -64,6 +64,63 @@ enum ReportEvidenceSortOrder: String, CaseIterable, Identifiable, Sendable {
     }
 }
 
+struct ReportRowsViewModel: Equatable {
+    var sectionID: UUID?
+    var query: String
+    var filter: ReportEvidenceFilter
+    var sortOrder: ReportEvidenceSortOrder
+    var rows: [ReportTableRow]
+    var totalRowCount: Int
+
+    static let empty = ReportRowsViewModel(
+        sectionID: nil,
+        query: "",
+        filter: .all,
+        sortOrder: .default,
+        rows: [],
+        totalRowCount: 0
+    )
+
+    init(
+        sectionID: UUID?,
+        query: String,
+        filter: ReportEvidenceFilter,
+        sortOrder: ReportEvidenceSortOrder,
+        rows: [ReportTableRow],
+        totalRowCount: Int
+    ) {
+        self.sectionID = sectionID
+        self.query = query
+        self.filter = filter
+        self.sortOrder = sortOrder
+        self.rows = rows
+        self.totalRowCount = totalRowCount
+    }
+
+    init(section: ReportSection?, query: String, filter: ReportEvidenceFilter, sortOrder: ReportEvidenceSortOrder) {
+        guard let section, let table = section.table else {
+            self = .empty
+            return
+        }
+        let trimmed = query.normalizedSearchQuery
+        let filteredRows = table.rows.filter { row in
+            filter.matches(row) && (trimmed.isEmpty || row.matchesSearch(trimmed))
+        }
+        self.init(
+            sectionID: section.id,
+            query: trimmed,
+            filter: filter,
+            sortOrder: sortOrder,
+            rows: sortOrder.sort(filteredRows),
+            totalRowCount: table.rows.count
+        )
+    }
+
+    var visibleRowIDs: [UUID] {
+        rows.map(\.id)
+    }
+}
+
 extension AuditReport {
     func matchesLibrarySearch(_ query: String) -> Bool {
         let trimmed = query.normalizedSearchQuery
@@ -109,7 +166,7 @@ extension ReportSection {
 }
 
 extension ReportTableRow {
-    fileprivate func matchesSearch(_ query: String) -> Bool {
+    func matchesSearch(_ query: String) -> Bool {
         searchableCorpus.localizedCaseInsensitiveContains(query)
     }
 

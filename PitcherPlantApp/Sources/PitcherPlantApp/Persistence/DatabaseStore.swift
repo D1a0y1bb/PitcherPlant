@@ -1,6 +1,19 @@
 import Foundation
 import GRDB
 
+struct DatabasePage<Element: Sendable>: Sendable {
+    let values: [Element]
+    let totalCount: Int
+    let limit: Int
+    let offset: Int
+}
+
+struct ReportCounts: Hashable, Sendable {
+    let reportCount: Int
+    let sectionCount: Int
+    let evidenceRowCount: Int
+}
+
 actor DatabaseStore {
     private let dbQueue: DatabaseQueue
     private let dbURL: URL
@@ -88,6 +101,8 @@ actor DatabaseStore {
                 table.column("id", .text).primaryKey()
                 table.column("payload", .text).notNull()
                 table.column("simhash", .text).notNull()
+                table.column("scanned_at", .datetime)
+                table.column("tag_index", .text)
             }
             try db.create(table: "whitelist_rules", ifNotExists: true) { table in
                 table.column("id", .text).primaryKey()
@@ -268,6 +283,22 @@ actor DatabaseStore {
             }
         }
 
+        migrator.registerMigration("add-fingerprint-query-columns-v1") { db in
+            try ensureColumn("scanned_at", in: "fingerprints", type: .datetime, db: db)
+            try ensureColumn("tag_index", in: "fingerprints", type: .text, db: db)
+            let rows = try Row.fetchAll(db, sql: "SELECT id, payload FROM fingerprints")
+            for row in rows {
+                let id: String = row["id"]
+                let payload: String = row["payload"]
+                let record = try JSONDecoder.pitcherPlant.decodeString(FingerprintRecord.self, from: payload)
+                try db.execute(
+                    sql: "UPDATE fingerprints SET scanned_at = ?, tag_index = ? WHERE id = ?",
+                    arguments: [record.scannedAt, fingerprintTagIndex(record.tags), id]
+                )
+            }
+            try createFingerprintIndexes(db)
+        }
+
         try migrator.migrate(dbQueue)
     }
 
@@ -298,16 +329,18 @@ actor DatabaseStore {
                     job.reportID?.uuidString,
                 ]
             )
-            try db.execute(sql: "DELETE FROM audit_job_events WHERE job_id = ?", arguments: [job.id.uuidString])
-            for event in job.events {
-                try db.execute(
-                    sql: """
-                    INSERT INTO audit_job_events (id, job_id, timestamp, message, progress, payload)
-                    VALUES (?, ?, ?, ?, ?, ?)
-                    """,
-                    arguments: [event.id.uuidString, job.id.uuidString, event.timestamp, event.message, event.progress, try JSONEncoder.pitcherPlant.encodeToString(event)]
-                )
-            }
+            try upsertJobEvents(job.events, jobID: job.id.uuidString, db: db)
+            try trimJobEvents(jobID: job.id.uuidString, keep: 20, db: db)
+        }
+    }
+
+    func appendJobEvents(jobID: UUID, events: [AuditJobEvent]) throws {
+        guard events.isEmpty == false else {
+            return
+        }
+        try dbQueue.write { db in
+            try upsertJobEvents(events, jobID: jobID.uuidString, db: db)
+            try trimJobEvents(jobID: jobID.uuidString, keep: 20, db: db)
         }
     }
 
@@ -353,16 +386,8 @@ actor DatabaseStore {
                         jobID,
                     ]
                 )
-                try db.execute(sql: "DELETE FROM audit_job_events WHERE job_id = ?", arguments: [jobID])
-                for event in job.events {
-                    try db.execute(
-                        sql: """
-                        INSERT INTO audit_job_events (id, job_id, timestamp, message, progress, payload)
-                        VALUES (?, ?, ?, ?, ?, ?)
-                        """,
-                        arguments: [event.id.uuidString, jobID, event.timestamp, event.message, event.progress, try JSONEncoder.pitcherPlant.encodeToString(event)]
-                    )
-                }
+                try upsertJobEvents(job.events, jobID: jobID, db: db)
+                try trimJobEvents(jobID: jobID, keep: 20, db: db)
             }
             return rows.count
         }
@@ -445,6 +470,78 @@ actor DatabaseStore {
         }
     }
 
+    func loadReportsPage(limit: Int, offset: Int = 0) throws -> DatabasePage<AuditReport> {
+        let sanitizedLimit = max(1, limit)
+        let sanitizedOffset = max(0, offset)
+        return try dbQueue.read { db in
+            let totalCount = try Int.fetchOne(db, sql: "SELECT COUNT(*) FROM audit_reports") ?? 0
+            let rows = try Row.fetchAll(
+                db,
+                sql: "SELECT id, payload FROM audit_reports ORDER BY created_at DESC LIMIT ? OFFSET ?",
+                arguments: [sanitizedLimit, sanitizedOffset]
+            )
+            let reportIDs = Set(rows.map { row in row["id"] as String })
+            let sectionsByReportID = try fetchSectionsByReportID(db, reportIDs: reportIDs)
+            let reports = try rows.map { row in
+                let reportID: String = row["id"]
+                var report = try JSONDecoder.pitcherPlant.decodeString(AuditReport.self, from: row["payload"])
+                if let sections = sectionsByReportID[reportID], !sections.isEmpty {
+                    report = report.replacingSections(sections)
+                }
+                return report
+            }
+            return DatabasePage(values: reports, totalCount: totalCount, limit: sanitizedLimit, offset: sanitizedOffset)
+        }
+    }
+
+    func loadReport(id: UUID) throws -> AuditReport? {
+        try dbQueue.read { db in
+            guard let row = try Row.fetchOne(db, sql: "SELECT id, payload FROM audit_reports WHERE id = ?", arguments: [id.uuidString]) else {
+                return nil
+            }
+            var report = try JSONDecoder.pitcherPlant.decodeString(AuditReport.self, from: row["payload"])
+            let sections = try fetchSectionsByReportID(db, reportIDs: [id.uuidString])[id.uuidString] ?? []
+            if sections.isEmpty == false {
+                report = report.replacingSections(sections)
+            }
+            return report
+        }
+    }
+
+    func loadReportSections(reportID: UUID) throws -> [ReportSection] {
+        try dbQueue.read { db in
+            try fetchSectionsByReportID(db, reportIDs: [reportID.uuidString])[reportID.uuidString] ?? []
+        }
+    }
+
+    func loadReportCounts() throws -> ReportCounts {
+        try dbQueue.read { db in
+            let reportCount = try Int.fetchOne(db, sql: "SELECT COUNT(*) FROM audit_reports") ?? 0
+            let sectionCount = try Int.fetchOne(db, sql: "SELECT COUNT(*) FROM report_sections") ?? 0
+            let rows = try Row.fetchAll(db, sql: "SELECT payload FROM report_sections")
+            let evidenceRowCount = try rows.reduce(0) { partial, row in
+                let section = try JSONDecoder.pitcherPlant.decodeString(ReportSection.self, from: row["payload"] as String)
+                return partial + (section.table?.rows.count ?? 0)
+            }
+            return ReportCounts(reportCount: reportCount, sectionCount: sectionCount, evidenceRowCount: evidenceRowCount)
+        }
+    }
+
+    func loadEvidenceRows(reportID: UUID, query: String = "", limit: Int, offset: Int = 0) throws -> DatabasePage<ReportTableRow> {
+        let sanitizedLimit = max(1, limit)
+        let sanitizedOffset = max(0, offset)
+        let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        return try dbQueue.read { db in
+            let sections = try fetchSectionsByReportID(db, reportIDs: [reportID.uuidString])[reportID.uuidString] ?? []
+            let rows = sections.flatMap { section in
+                section.kind == .overview ? [] : (section.table?.rows ?? [])
+            }
+            let filtered = trimmed.isEmpty ? rows : rows.filter { $0.matchesEvidenceQuery(trimmed) }
+            let page = Array(filtered.dropFirst(sanitizedOffset).prefix(sanitizedLimit))
+            return DatabasePage(values: page, totalCount: filtered.count, limit: sanitizedLimit, offset: sanitizedOffset)
+        }
+    }
+
     func deleteReport(reportID: UUID) throws {
         try dbQueue.write { db in
             try db.execute(sql: "DELETE FROM audit_reports WHERE id = ?", arguments: [reportID.uuidString])
@@ -514,10 +611,10 @@ actor DatabaseStore {
                 let payload = try JSONEncoder.pitcherPlant.encodeToString(record)
                 try db.execute(
                     sql: """
-                    INSERT OR IGNORE INTO fingerprints (id, payload, simhash)
-                    VALUES (?, ?, ?)
+                    INSERT OR IGNORE INTO fingerprints (id, payload, simhash, scanned_at, tag_index)
+                    VALUES (?, ?, ?, ?, ?)
                     """,
-                    arguments: [record.id.uuidString, payload, record.simhash]
+                    arguments: [record.id.uuidString, payload, record.simhash, record.scannedAt, fingerprintTagIndex(record.tags)]
                 )
             }
         }
@@ -532,13 +629,15 @@ actor DatabaseStore {
                 let payload = try JSONEncoder.pitcherPlant.encodeToString(record)
                 try db.execute(
                     sql: """
-                    INSERT INTO fingerprints (id, payload, simhash)
-                    VALUES (?, ?, ?)
+                    INSERT INTO fingerprints (id, payload, simhash, scanned_at, tag_index)
+                    VALUES (?, ?, ?, ?, ?)
                     ON CONFLICT(id) DO UPDATE SET
                         payload = excluded.payload,
-                        simhash = excluded.simhash
+                        simhash = excluded.simhash,
+                        scanned_at = excluded.scanned_at,
+                        tag_index = excluded.tag_index
                     """,
-                    arguments: [record.id.uuidString, payload, record.simhash]
+                    arguments: [record.id.uuidString, payload, record.simhash, record.scannedAt, fingerprintTagIndex(record.tags)]
                 )
             }
         }
@@ -546,10 +645,27 @@ actor DatabaseStore {
 
     func loadFingerprintRecords() throws -> [FingerprintRecord] {
         try dbQueue.read { db in
-            let rows = try Row.fetchAll(db, sql: "SELECT payload FROM fingerprints")
+            let rows = try Row.fetchAll(db, sql: "SELECT payload FROM fingerprints ORDER BY scanned_at DESC")
             return try rows.map { row in
                 try JSONDecoder.pitcherPlant.decodeString(FingerprintRecord.self, from: row["payload"])
-            }.sorted(by: { $0.scannedAt > $1.scannedAt })
+            }
+        }
+    }
+
+    func loadFingerprintPage(limit: Int, offset: Int = 0) throws -> DatabasePage<FingerprintRecord> {
+        let sanitizedLimit = max(1, limit)
+        let sanitizedOffset = max(0, offset)
+        return try dbQueue.read { db in
+            let totalCount = try Int.fetchOne(db, sql: "SELECT COUNT(*) FROM fingerprints") ?? 0
+            let rows = try Row.fetchAll(
+                db,
+                sql: "SELECT payload FROM fingerprints ORDER BY scanned_at DESC LIMIT ? OFFSET ?",
+                arguments: [sanitizedLimit, sanitizedOffset]
+            )
+            let records = try rows.map { row in
+                try JSONDecoder.pitcherPlant.decodeString(FingerprintRecord.self, from: row["payload"])
+            }
+            return DatabasePage(values: records, totalCount: totalCount, limit: sanitizedLimit, offset: sanitizedOffset)
         }
     }
 
@@ -560,7 +676,12 @@ actor DatabaseStore {
         }
 
         return try dbQueue.write { db in
-            let rows = try Row.fetchAll(db, sql: "SELECT id, payload FROM fingerprints")
+            let needle = "\n\(normalizedTag)\n"
+            let rows = try Row.fetchAll(
+                db,
+                sql: "SELECT id, payload FROM fingerprints WHERE instr(tag_index, ?) > 0",
+                arguments: [needle]
+            )
             let idsToDelete = try rows.compactMap { row -> String? in
                 let payload: String = row["payload"]
                 let record = try JSONDecoder.pitcherPlant.decodeString(FingerprintRecord.self, from: payload)
@@ -882,8 +1003,24 @@ actor DatabaseStore {
         return grouped
     }
 
-    private func fetchSectionsByReportID(_ db: Database) throws -> [String: [ReportSection]] {
-        let rows = try Row.fetchAll(db, sql: "SELECT report_id, payload FROM report_sections ORDER BY position ASC")
+    private func fetchSectionsByReportID(_ db: Database, reportIDs: Set<String>? = nil) throws -> [String: [ReportSection]] {
+        let rows: [Row]
+        if let reportIDs, reportIDs.isEmpty {
+            rows = []
+        } else if let reportIDs {
+            var arguments: StatementArguments = []
+            for reportID in reportIDs {
+                arguments += [reportID]
+            }
+            let placeholders = Array(repeating: "?", count: reportIDs.count).joined(separator: ",")
+            rows = try Row.fetchAll(
+                db,
+                sql: "SELECT report_id, payload FROM report_sections WHERE report_id IN (\(placeholders)) ORDER BY position ASC",
+                arguments: arguments
+            )
+        } else {
+            rows = try Row.fetchAll(db, sql: "SELECT report_id, payload FROM report_sections ORDER BY position ASC")
+        }
         var grouped: [String: [ReportSection]] = [:]
         for row in rows {
             let reportID: String = row["report_id"]
@@ -893,6 +1030,74 @@ actor DatabaseStore {
         }
         return grouped
     }
+}
+
+private extension AuditReport {
+    func replacingSections(_ sections: [ReportSection]) -> AuditReport {
+        AuditReport(
+            id: id,
+            jobID: jobID,
+            title: title,
+            sourcePath: sourcePath,
+            scanDirectoryPath: scanDirectoryPath,
+            createdAt: createdAt,
+            metrics: metrics,
+            sections: sections
+        )
+    }
+}
+
+private extension ReportTableRow {
+    func matchesEvidenceQuery(_ query: String) -> Bool {
+        let badgeCorpus = badges.map(\.title).joined(separator: "\n")
+        let attachmentCorpus = attachments
+            .flatMap { [$0.title, $0.subtitle, $0.body] }
+            .joined(separator: "\n")
+        return (columns + [detailTitle, detailBody, badgeCorpus, attachmentCorpus])
+            .joined(separator: "\n")
+            .localizedCaseInsensitiveContains(query)
+    }
+}
+
+private func upsertJobEvents(_ events: [AuditJobEvent], jobID: String, db: Database) throws {
+    for event in events {
+        try db.execute(
+            sql: """
+            INSERT INTO audit_job_events (id, job_id, timestamp, message, progress, payload)
+            VALUES (?, ?, ?, ?, ?, ?)
+            ON CONFLICT(id) DO UPDATE SET
+                job_id = excluded.job_id,
+                timestamp = excluded.timestamp,
+                message = excluded.message,
+                progress = excluded.progress,
+                payload = excluded.payload
+            """,
+            arguments: [
+                event.id.uuidString,
+                jobID,
+                event.timestamp,
+                event.message,
+                event.progress,
+                try JSONEncoder.pitcherPlant.encodeToString(event)
+            ]
+        )
+    }
+}
+
+private func trimJobEvents(jobID: String, keep: Int, db: Database) throws {
+    try db.execute(
+        sql: """
+        DELETE FROM audit_job_events
+        WHERE job_id = ?
+          AND id NOT IN (
+              SELECT id FROM audit_job_events
+              WHERE job_id = ?
+              ORDER BY timestamp DESC
+              LIMIT ?
+          )
+        """,
+        arguments: [jobID, jobID, max(1, keep)]
+    )
 }
 
 private func ensureColumn(_ name: String, in table: String, type: Database.ColumnType, db: Database) throws {
@@ -1032,6 +1237,19 @@ private func createDocumentFeatureIndexes(_ db: Database) throws {
     try db.execute(sql: "CREATE INDEX IF NOT EXISTS document_features_content_hash_idx ON document_features(content_hash)")
     try db.execute(sql: "CREATE INDEX IF NOT EXISTS document_features_feature_version_idx ON document_features(feature_version)")
     try db.execute(sql: "CREATE INDEX IF NOT EXISTS document_features_path_hash_idx ON document_features(document_path, content_hash)")
+}
+
+private func createFingerprintIndexes(_ db: Database) throws {
+    try db.execute(sql: "CREATE INDEX IF NOT EXISTS fingerprints_scanned_at_idx ON fingerprints(scanned_at)")
+    try db.execute(sql: "CREATE INDEX IF NOT EXISTS fingerprints_simhash_idx ON fingerprints(simhash)")
+}
+
+private func fingerprintTagIndex(_ tags: [String]?) -> String {
+    let normalized = Array(Set((tags ?? []).map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }.filter { $0.isEmpty == false })).sorted()
+    guard normalized.isEmpty == false else {
+        return "\n"
+    }
+    return "\n\(normalized.joined(separator: "\n"))\n"
 }
 
 private extension JSONEncoder {

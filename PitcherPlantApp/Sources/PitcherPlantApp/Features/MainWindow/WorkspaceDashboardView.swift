@@ -7,7 +7,7 @@ struct WorkspaceDashboardView: View {
         NativePage {
             NativePageHeader(
                 title: appState.t("workspace.title"),
-                subtitle: "\(appState.jobs.count) \(appState.t("status.audits")) · \(appState.reports.count) \(appState.t("status.reports")) · \(appState.fingerprints.count) \(appState.t("status.fingerprints"))",
+                subtitle: "\(appState.jobs.count) \(appState.t("status.audits")) · \(reportCount) \(appState.t("status.reports")) · \(fingerprintCount) \(appState.t("status.fingerprints"))",
                 actions: {
                     Button {
                         appState.importSubmissionPackageWithPanel()
@@ -35,8 +35,8 @@ struct WorkspaceDashboardView: View {
 
             SummaryStrip(items: [
                 SummaryItem(title: appState.t("workspace.summary.jobs"), value: "\(appState.jobs.count)", systemImage: "clock.arrow.circlepath"),
-                SummaryItem(title: appState.t("workspace.summary.reports"), value: "\(appState.reports.count)", systemImage: "doc.text"),
-                SummaryItem(title: appState.t("workspace.summary.fingerprints"), value: "\(appState.fingerprints.count)", systemImage: "number"),
+                SummaryItem(title: appState.t("workspace.summary.reports"), value: "\(reportCount)", systemImage: "doc.text"),
+                SummaryItem(title: appState.t("workspace.summary.fingerprints"), value: "\(fingerprintCount)", systemImage: "number"),
                 SummaryItem(title: appState.t("workspace.summary.whitelist"), value: "\(appState.whitelistRules.count)", systemImage: "checkmark.shield")
             ])
 
@@ -54,6 +54,14 @@ struct WorkspaceDashboardView: View {
                 }
             }
         }
+    }
+
+    private var reportCount: Int {
+        max(appState.reportTotalCount, appState.reports.count)
+    }
+
+    private var fingerprintCount: Int {
+        max(appState.fingerprintTotalCount, appState.fingerprints.count)
     }
 
     private var recentJobsSection: some View {

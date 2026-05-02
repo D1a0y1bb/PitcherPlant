@@ -3,31 +3,22 @@ import SwiftUI
 struct ReportSectionsAndEvidenceView: View {
     @Environment(AppState.self) private var appState
     var showsReportHeader = true
+    @State private var evidenceSearchText = ""
     @State private var evidenceQuery = ""
     @State private var evidenceFilter: ReportEvidenceFilter = .all
     @State private var evidenceSortOrder: ReportEvidenceSortOrder = .default
+    @State private var rowsModel = ReportRowsViewModel.empty
+    @State private var queryDebounceTask: Task<Void, Never>?
 
     private var selectedSection: ReportSection? {
         appState.selectedReportSectionModel
     }
 
-    private var filteredSection: ReportSection? {
-        selectedSection?.filteredCopy(query: evidenceQuery, evidenceFilter: evidenceFilter, sortOrder: evidenceSortOrder)
-    }
-
-    private var rows: [ReportTableRow] {
-        filteredSection?.table?.rows ?? []
-    }
-
-    private var totalRowCount: Int {
-        selectedSection?.table?.rows.count ?? 0
-    }
-
     var body: some View {
         let selectedSection = selectedSection
-        let visibleRows = rows
-        let visibleRowIDs = visibleRows.map(\.id)
-        let totalRowCount = totalRowCount
+        let visibleRows = rowsModel.rows
+        let visibleRowIDs = rowsModel.visibleRowIDs
+        let totalRowCount = rowsModel.totalRowCount
 
         if let report = appState.selectedReport {
             VStack(spacing: 14) {
@@ -42,7 +33,7 @@ struct ReportSectionsAndEvidenceView: View {
                         AppTablePanel {
                             VStack(spacing: 0) {
                                 EvidenceToolbar(
-                                    evidenceQuery: $evidenceQuery,
+                                    evidenceQuery: $evidenceSearchText,
                                     evidenceFilter: $evidenceFilter,
                                     evidenceSortOrder: $evidenceSortOrder,
                                     visibleRowCount: visibleRows.count,
@@ -65,14 +56,24 @@ struct ReportSectionsAndEvidenceView: View {
                 if appState.selectedReportSection == nil {
                     appState.selectReportSection(report.preferredEvidenceSection?.kind)
                 }
+                refreshRows()
                 syncVisibleEvidenceSelection()
             }
             .onChange(of: visibleRowIDs) { _, _ in syncVisibleEvidenceSelection() }
-            .onChange(of: appState.selectedReportSection) { _, _ in syncVisibleEvidenceSelection() }
+            .onChange(of: evidenceSearchText) { _, value in scheduleQueryUpdate(value) }
+            .onChange(of: evidenceQuery) { _, _ in refreshRows() }
+            .onChange(of: evidenceFilter) { _, _ in refreshRows() }
+            .onChange(of: evidenceSortOrder) { _, _ in refreshRows() }
+            .onChange(of: appState.selectedReportSection) { _, _ in
+                refreshRows()
+                syncVisibleEvidenceSelection()
+            }
             .onChange(of: appState.selectedReportID) { _, _ in
+                evidenceSearchText = ""
                 evidenceQuery = ""
                 evidenceFilter = .all
                 evidenceSortOrder = .default
+                refreshRows()
                 syncVisibleEvidenceSelection()
             }
         } else {
@@ -83,15 +84,33 @@ struct ReportSectionsAndEvidenceView: View {
     }
 
     private func syncVisibleEvidenceSelection() {
-        guard rows.isEmpty == false else {
+        guard rowsModel.rows.isEmpty == false else {
             appState.selectedReportRowID = nil
             return
         }
         if let selectedID = appState.selectedReportRowID,
-           rows.contains(where: { $0.id == selectedID }) {
+           rowsModel.rows.contains(where: { $0.id == selectedID }) {
             return
         }
-        appState.selectedReportRowID = rows.first?.id
+        appState.selectedReportRowID = rowsModel.rows.first?.id
+    }
+
+    private func refreshRows() {
+        rowsModel = ReportRowsViewModel(
+            section: selectedSection,
+            query: evidenceQuery,
+            filter: evidenceFilter,
+            sortOrder: evidenceSortOrder
+        )
+    }
+
+    private func scheduleQueryUpdate(_ value: String) {
+        queryDebounceTask?.cancel()
+        queryDebounceTask = Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 120_000_000)
+            guard Task.isCancelled == false else { return }
+            evidenceQuery = value
+        }
     }
 }
 
@@ -326,15 +345,13 @@ struct EvidenceToolbar: View {
 struct EvidenceCollectionView: View {
     @Environment(AppState.self) private var appState
     let scope: EvidenceCollectionScope
+    @State private var queryText = ""
     @State private var query = ""
+    @State private var visibleItems: [EvidenceCollectionItem] = []
     @State private var selectedEvidenceIDs = Set<UUID>()
-
-    private var items: [EvidenceCollectionItem] {
-        appState.evidenceCollection(for: scope).filter { $0.matchesSearch(query) }
-    }
+    @State private var queryDebounceTask: Task<Void, Never>?
 
     var body: some View {
-        let visibleItems = items
         let visibleItemIDs = visibleItems.map(\.id)
 
         VStack(alignment: .leading, spacing: 24) {
@@ -348,7 +365,7 @@ struct EvidenceCollectionView: View {
 
             AppToolbarBand {
                 HStack(spacing: 12) {
-                    TextField(appState.t("evidence.collection.searchPrompt"), text: $query)
+                    TextField(appState.t("evidence.collection.searchPrompt"), text: $queryText)
                         .textFieldStyle(.plain)
                         .padding(.horizontal, 10)
                         .frame(height: 28)
@@ -385,20 +402,48 @@ struct EvidenceCollectionView: View {
         .padding(.horizontal, AppLayout.pagePadding)
         .padding(.vertical, 22)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .onAppear { syncSelection() }
-        .onChange(of: query) { _, _ in syncSelection() }
+        .onAppear {
+            refreshItems()
+            syncSelection()
+        }
+        .onChange(of: queryText) { _, value in scheduleQueryUpdate(value) }
+        .onChange(of: query) { _, _ in
+            refreshItems()
+            syncSelection()
+        }
+        .onChange(of: appState.reports.map(\.id)) { _, _ in
+            refreshItems()
+            syncSelection()
+        }
+        .onChange(of: appState.evidenceReviews.map(\.id)) { _, _ in
+            refreshItems()
+            syncSelection()
+        }
         .onChange(of: visibleItemIDs) { _, _ in syncSelection() }
     }
 
     private func syncSelection() {
         let selectedID = selectedEvidenceIDs.first
-        guard let item = selectedID.flatMap({ id in items.first(where: { ($0.row.evidenceID ?? $0.row.id) == id }) }) ?? items.first else {
+        guard let item = selectedID.flatMap({ id in visibleItems.first(where: { ($0.row.evidenceID ?? $0.row.id) == id }) }) ?? visibleItems.first else {
             selectedEvidenceIDs = []
             appState.selectedReportRowID = nil
             return
         }
         selectedEvidenceIDs = [item.row.evidenceID ?? item.row.id]
         appState.selectEvidence(item)
+    }
+
+    private func refreshItems() {
+        visibleItems = appState.evidenceCollection(for: scope).filter { $0.matchesSearch(query) }
+    }
+
+    private func scheduleQueryUpdate(_ value: String) {
+        queryDebounceTask?.cancel()
+        queryDebounceTask = Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 120_000_000)
+            guard Task.isCancelled == false else { return }
+            query = value
+        }
     }
 }
 
@@ -700,21 +745,10 @@ struct CrossBatchEvidenceBrowser: View {
     @State private var selectedTeam = CrossBatchFilter.all
     @State private var selectedTag = CrossBatchFilter.all
     @State private var selectedStatus = CrossBatchFilter.all
+    @State private var graph = CrossBatchGraph(nodes: [], edges: [])
+    @State private var filteredGraph = CrossBatchGraph(nodes: [], edges: [])
 
     let rows: [ReportTableRow]
-
-    private var graph: CrossBatchGraph {
-        CrossBatchGraphBuilder().build(rows: rows)
-    }
-
-    private var filteredGraph: CrossBatchGraph {
-        graph.filtered(
-            batch: CrossBatchFilter.value(selectedBatch),
-            team: CrossBatchFilter.value(selectedTeam),
-            tag: CrossBatchFilter.value(selectedTag),
-            status: CrossBatchFilter.value(selectedStatus)
-        )
-    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -751,12 +785,40 @@ struct CrossBatchEvidenceBrowser: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .onAppear {
+            refreshGraphAndFiltered()
+        }
         .onChange(of: rows.map(\.id)) { _, _ in
             selectedBatch = CrossBatchFilter.all
             selectedTeam = CrossBatchFilter.all
             selectedTag = CrossBatchFilter.all
             selectedStatus = CrossBatchFilter.all
+            refreshGraphAndFiltered()
         }
+        .onChange(of: selectedBatch) { _, _ in refreshFilteredGraph() }
+        .onChange(of: selectedTeam) { _, _ in refreshFilteredGraph() }
+        .onChange(of: selectedTag) { _, _ in refreshFilteredGraph() }
+        .onChange(of: selectedStatus) { _, _ in refreshFilteredGraph() }
+    }
+
+    private func refreshGraphAndFiltered() {
+        let updatedGraph = CrossBatchGraphBuilder().build(rows: rows)
+        graph = updatedGraph
+        filteredGraph = updatedGraph.filtered(
+            batch: CrossBatchFilter.value(selectedBatch),
+            team: CrossBatchFilter.value(selectedTeam),
+            tag: CrossBatchFilter.value(selectedTag),
+            status: CrossBatchFilter.value(selectedStatus)
+        )
+    }
+
+    private func refreshFilteredGraph() {
+        filteredGraph = graph.filtered(
+            batch: CrossBatchFilter.value(selectedBatch),
+            team: CrossBatchFilter.value(selectedTeam),
+            tag: CrossBatchFilter.value(selectedTag),
+            status: CrossBatchFilter.value(selectedStatus)
+        )
     }
 }
 
@@ -874,17 +936,27 @@ struct CrossBatchListRow: View {
 
 struct CrossBatchGraphPanel: View {
     let graph: CrossBatchGraph
+    private let maxDisplayedNodes = 320
+    private let maxDisplayedEdges = 520
 
     private var currentNodes: [CrossBatchGraphNode] {
-        graph.nodes.filter { $0.kind == .document && $0.role == .current }
+        Array(graph.nodes.filter { $0.kind == .document && $0.role == .current }.prefix(maxDisplayedNodes))
     }
 
     private var historicalNodes: [CrossBatchGraphNode] {
-        graph.nodes.filter { $0.kind == .document && $0.role == .historical }
+        Array(graph.nodes.filter { $0.kind == .document && $0.role == .historical }.prefix(maxDisplayedNodes))
     }
 
     private var contextNodes: [CrossBatchGraphNode] {
-        graph.nodes.filter { $0.kind != .document }
+        Array(graph.nodes.filter { $0.kind != .document }.prefix(maxDisplayedNodes))
+    }
+
+    private var displayedEdges: [CrossBatchGraphEdge] {
+        Array(graph.edges.prefix(maxDisplayedEdges))
+    }
+
+    private var hasDisplayCap: Bool {
+        graph.nodes.count > maxDisplayedNodes * 3 || graph.edges.count > maxDisplayedEdges
     }
 
     var body: some View {
@@ -893,11 +965,19 @@ struct CrossBatchGraphPanel: View {
                 .frame(minHeight: AppLayout.reportListMinHeight, maxHeight: .infinity)
         } else {
             ScrollView([.horizontal, .vertical]) {
-                HStack(alignment: .top, spacing: 14) {
-                    CrossBatchNodeColumn(title: "当前节点", nodes: currentNodes)
-                    CrossBatchEdgeColumn(edges: graph.edges)
-                    CrossBatchNodeColumn(title: "历史节点", nodes: historicalNodes)
-                    CrossBatchNodeColumn(title: "上下文节点", nodes: contextNodes)
+                VStack(alignment: .leading, spacing: 10) {
+                    if hasDisplayCap {
+                        Label("大图谱已显示前 \(displayedEdges.count) 条边和每组前 \(maxDisplayedNodes) 个节点", systemImage: "speedometer")
+                            .font(AppTypography.metadata)
+                            .foregroundStyle(.secondary)
+                    }
+
+                    HStack(alignment: .top, spacing: 14) {
+                        CrossBatchNodeColumn(title: "当前节点", nodes: currentNodes)
+                        CrossBatchEdgeColumn(edges: displayedEdges)
+                        CrossBatchNodeColumn(title: "历史节点", nodes: historicalNodes)
+                        CrossBatchNodeColumn(title: "上下文节点", nodes: contextNodes)
+                    }
                 }
                 .padding(16)
                 .frame(maxWidth: .infinity, alignment: .topLeading)

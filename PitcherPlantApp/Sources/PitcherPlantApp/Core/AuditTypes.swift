@@ -5,6 +5,31 @@ struct AuditRunResult: Sendable {
     let fingerprints: [FingerprintRecord]
     let summary: AuditRunSummary
     let documentFeatureResult: DocumentFeatureBuildResult?
+    let documents: [ParsedDocument]
+}
+
+struct AuditRunPreflight: Hashable, Sendable {
+    let scannedFileCount: Int
+    let totalBytes: Int64
+    let historicalFingerprintCount: Int
+    let supportedFileCount: Int
+
+    var estimatedDocumentCount: Int {
+        supportedFileCount
+    }
+
+    func exceeds(_ limits: AuditRunLimits) -> Bool {
+        supportedFileCount >= limits.largeDocumentCount
+            || historicalFingerprintCount >= limits.largeHistoricalFingerprintCount
+    }
+
+    func warningMessage(limits: AuditRunLimits) -> String? {
+        guard exceeds(limits) else {
+            return nil
+        }
+        let formattedBytes = ByteCountFormatter.string(fromByteCount: totalBytes, countStyle: .file)
+        return "样本规模较大：预计文档 \(supportedFileCount) 个、扫描 \(scannedFileCount) 个文件、大小 \(formattedBytes)、历史指纹 \(historicalFingerprintCount) 条，预计耗时较长。"
+    }
 }
 
 struct AuditRunSummary: Hashable, Sendable {

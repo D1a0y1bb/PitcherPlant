@@ -187,8 +187,9 @@ struct CrossBatchGraph: Codable, Hashable, Sendable {
                 && matches(status, value: edge.status)
         }
         let nodeIDs = Set(filteredEdges.flatMap { [$0.sourceID, $0.targetID] })
+        let contextIndex = CrossBatchGraphContextIndex(edges: filteredEdges)
         let contextNodes = nodes.filter { node in
-            node.kind != .document && filteredEdges.contains { edge in node.matches(edge: edge) }
+            node.kind != .document && contextIndex.contains(node)
         }
         return CrossBatchGraph(
             nodes: nodes.filter { nodeIDs.contains($0.id) } + contextNodes.filter { nodeIDs.contains($0.id) == false },
@@ -204,6 +205,51 @@ struct CrossBatchGraph: Codable, Hashable, Sendable {
     private func matches(_ filter: String?, values: [String]) -> Bool {
         guard let filter = normalized(filter) else { return true }
         return values.contains(filter)
+    }
+}
+
+private struct CrossBatchGraphContextIndex {
+    private let currentBatches: Set<String>
+    private let currentTeams: Set<String>
+    private let currentChallenges: Set<String>
+    private let currentFingerprints: Set<String>
+    private let historicalBatches: Set<String>
+    private let historicalTeams: Set<String>
+    private let historicalChallenges: Set<String>
+    private let historicalFingerprints: Set<String>
+
+    init(edges: [CrossBatchGraphEdge]) {
+        currentBatches = Set(edges.compactMap { normalized($0.currentBatchName) })
+        currentTeams = Set(edges.compactMap { normalized($0.currentTeamName) })
+        currentChallenges = Set(edges.compactMap { normalized($0.currentChallengeName) })
+        currentFingerprints = Set(edges.compactMap { normalized($0.currentSimhash) })
+        historicalBatches = Set(edges.compactMap { normalized($0.batchName) })
+        historicalTeams = Set(edges.compactMap { normalized($0.teamName) })
+        historicalChallenges = Set(edges.compactMap { normalized($0.challengeName) })
+        historicalFingerprints = Set(edges.compactMap { normalized($0.historicalSimhash) })
+    }
+
+    func contains(_ node: CrossBatchGraphNode) -> Bool {
+        switch (node.role, node.kind) {
+        case (.current, .document), (.historical, .document):
+            return false
+        case (.current, .batch):
+            return normalized(node.batchName).map { currentBatches.contains($0) } ?? false
+        case (.current, .team):
+            return normalized(node.teamName).map { currentTeams.contains($0) } ?? false
+        case (.current, .challenge):
+            return normalized(node.challengeName).map { currentChallenges.contains($0) } ?? false
+        case (.current, .fingerprint):
+            return normalized(node.simhash).map { currentFingerprints.contains($0) } ?? false
+        case (.historical, .batch):
+            return normalized(node.batchName).map { historicalBatches.contains($0) } ?? false
+        case (.historical, .team):
+            return normalized(node.teamName).map { historicalTeams.contains($0) } ?? false
+        case (.historical, .challenge):
+            return normalized(node.challengeName).map { historicalChallenges.contains($0) } ?? false
+        case (.historical, .fingerprint):
+            return normalized(node.simhash).map { historicalFingerprints.contains($0) } ?? false
+        }
     }
 }
 

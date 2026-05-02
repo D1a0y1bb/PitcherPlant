@@ -39,6 +39,7 @@ func auditRunnerProducesNativeReportRowsForAppViewing() async throws {
     #expect(result.summary.documentCount == 2)
     #expect(result.summary.historicalFingerprintCount == 0)
     #expect(result.summary.duration >= 0)
+    #expect(result.documents.map(\.filename).sorted() == ["alpha.md", "beta.md"])
 }
 
 @Test
@@ -71,7 +72,35 @@ func auditRunnerEmitsLargeRunWarningAndSummary() async throws {
 
     #expect(result.summary.documentCount == 1)
     #expect(result.summary.historicalFingerprintCount == 1)
+    #expect(events.contains(where: { $0.0 == .scan && $0.1.contains("预计文档") }))
     #expect(events.contains(where: { $0.0 == .parsed && $0.1.contains("预计耗时较长") }))
+}
+
+@Test
+func documentIngestionStopsWhenTaskIsCancelled() async throws {
+    let root = FileManager.default.temporaryDirectory
+        .appendingPathComponent("pitcherplant-ingestion-cancel-\(UUID().uuidString)", isDirectory: true)
+    let source = root.appendingPathComponent("source", isDirectory: true)
+    try FileManager.default.createDirectory(at: source, withIntermediateDirectories: true)
+    for index in 0..<50 {
+        try "cancel \(index)".write(to: source.appendingPathComponent("sample-\(index).md"), atomically: true, encoding: .utf8)
+    }
+
+    var configuration = AuditConfiguration.defaults(for: root)
+    configuration.directoryPath = source.path
+    let task = Task.detached {
+        try DocumentIngestionService(configuration: configuration).ingestDocuments(in: source)
+    }
+    task.cancel()
+
+    var cancellationObserved = false
+    do {
+        _ = try await task.value
+        Issue.record("取消后的导入应抛出 CancellationError")
+    } catch is CancellationError {
+        cancellationObserved = true
+    }
+    #expect(cancellationObserved)
 }
 
 @Test

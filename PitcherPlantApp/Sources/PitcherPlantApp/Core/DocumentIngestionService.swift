@@ -14,6 +14,7 @@ struct DocumentIngestionLimits: Hashable, Sendable {
     var maxSingleFileBytes: Int64 = 256 * 1024 * 1024
     var maxTotalExpandedBytes: Int64 = 2 * 1024 * 1024 * 1024
     var maxScannedFileCount: Int = 20_000
+    var maxPDFPageFallbackCount: Int = 600
 
     init() {}
 
@@ -31,6 +32,7 @@ enum DocumentIngestionLimitError: LocalizedError, Equatable, Sendable {
     case archiveEntryCountExceeded(path: String, limit: Int)
     case archiveEntryTooLarge(path: String, bytes: Int64, limit: Int64)
     case archiveExpandedSizeExceeded(path: String, limit: Int64)
+    case pdfPageCountExceeded(path: String, count: Int, limit: Int)
 
     var errorDescription: String? {
         switch self {
@@ -44,6 +46,8 @@ enum DocumentIngestionLimitError: LocalizedError, Equatable, Sendable {
             return "Office 包条目大小超过限制：\(path) \(bytes)/\(limit) 字节"
         case .archiveExpandedSizeExceeded(let path, let limit):
             return "Office 包展开大小超过限制：\(path) \(limit) 字节"
+        case .pdfPageCountExceeded(let path, let count, let limit):
+            return "PDF 页数超过回退图片提取限制：\(path) \(count)/\(limit)"
         }
     }
 }
@@ -85,11 +89,13 @@ struct DocumentIngestionService {
                 .buildDocument(url: url, ext: "rtf", content: content, author: "", images: [])
         },
         ClosureDocumentParser(supportedExtensions: ["pdf"]) { url, configuration, _ in
+            try Task.checkCancellation()
             let service = DocumentIngestionService(configuration: configuration)
             guard let document = PDFDocument(url: url) else { return nil }
+            try Task.checkCancellation()
             let content = document.string ?? ""
             let author = (document.documentAttributes?[PDFDocumentAttribute.authorAttribute] as? String) ?? ""
-            let images = service.parsePDFImages(document: document, sourceURL: url)
+            let images = try service.parsePDFImages(document: document, sourceURL: url)
             return service.buildDocument(url: url, ext: "pdf", content: content, author: author, images: images)
         },
         ClosureDocumentParser(supportedExtensions: ["docx"]) { url, configuration, limits in
@@ -99,7 +105,7 @@ struct DocumentIngestionService {
             try DocumentIngestionService(configuration: configuration, limits: limits).parsePptx(at: url)
         },
         ClosureDocumentParser(supportedExtensions: imageExtensions) { url, configuration, limits in
-            DocumentIngestionService(configuration: configuration, limits: limits)
+            try DocumentIngestionService(configuration: configuration, limits: limits)
                 .parseStandaloneImage(at: url, ext: url.pathExtension.lowercased())
         },
         ClosureDocumentParser(supportedExtensions: sourceCodeExtensions) { url, configuration, _ in
@@ -117,6 +123,7 @@ struct DocumentIngestionService {
         var scannedFileCount = 0
 
         while let url = enumerator?.nextObject() as? URL {
+            try Task.checkCancellation()
             guard url.lastPathComponent.hasPrefix("~$") == false else {
                 continue
             }
@@ -147,6 +154,38 @@ struct DocumentIngestionService {
         return documents
     }
 
+    func preflight(in directory: URL, historicalFingerprintCount: Int) throws -> AuditRunPreflight {
+        let enumerator = FileManager.default.enumerator(at: directory, includingPropertiesForKeys: [.fileSizeKey])
+        let supportedExtensions = Self.supportedExtensions
+        var scannedFileCount = 0
+        var supportedFileCount = 0
+        var totalBytes: Int64 = 0
+
+        while let url = enumerator?.nextObject() as? URL {
+            try Task.checkCancellation()
+            guard url.lastPathComponent.hasPrefix("~$") == false else {
+                continue
+            }
+            scannedFileCount += 1
+            guard scannedFileCount <= limits.maxScannedFileCount else {
+                throw DocumentIngestionLimitError.scannedFileCountExceeded(limit: limits.maxScannedFileCount)
+            }
+            guard supportedExtensions.contains(url.pathExtension.lowercased()) else {
+                continue
+            }
+            supportedFileCount += 1
+            let values = try? url.resourceValues(forKeys: [.fileSizeKey])
+            totalBytes += Int64(values?.fileSize ?? 0)
+        }
+
+        return AuditRunPreflight(
+            scannedFileCount: scannedFileCount,
+            totalBytes: totalBytes,
+            historicalFingerprintCount: historicalFingerprintCount,
+            supportedFileCount: supportedFileCount
+        )
+    }
+
     private func parseDocument(at url: URL) throws -> ParsedDocument? {
         let ext = url.pathExtension.lowercased()
         guard let parser = Self.parserRegistry.first(where: { $0.supportedExtensions.contains(ext) }) else {
@@ -156,6 +195,7 @@ struct DocumentIngestionService {
     }
 
     private func parseDocx(at url: URL) throws -> ParsedDocument? {
+        try Task.checkCancellation()
         let archive = try Archive(url: url, accessMode: .read, pathEncoding: nil)
         var tracker = try ArchiveExtractionTracker(archive: archive, sourcePath: url.path, limits: limits)
         var content = ""
@@ -175,6 +215,7 @@ struct DocumentIngestionService {
         }
 
         for entry in archive where entry.path.hasPrefix("word/media/") {
+            try Task.checkCancellation()
             let data = try tracker.data(for: entry, in: archive)
             images.append(ParsedImage(
                 source: entry.path,
@@ -190,12 +231,14 @@ struct DocumentIngestionService {
     }
 
     private func parsePptx(at url: URL) throws -> ParsedDocument? {
+        try Task.checkCancellation()
         let archive = try Archive(url: url, accessMode: .read, pathEncoding: nil)
         var tracker = try ArchiveExtractionTracker(archive: archive, sourcePath: url.path, limits: limits)
         var slideTexts: [(String, String)] = []
         var images: [ParsedImage] = []
 
         for entry in archive {
+            try Task.checkCancellation()
             if entry.path.hasPrefix("ppt/slides/"), entry.path.hasSuffix(".xml") {
                 let data = try tracker.data(for: entry, in: archive)
                 let text = XMLTextExtractor.plainText(from: data)
@@ -215,13 +258,11 @@ struct DocumentIngestionService {
         return buildDocument(url: url, ext: "pptx", content: content, author: "", images: images)
     }
 
-    private func parseStandaloneImage(at url: URL, ext: String) -> ParsedDocument? {
-        guard (try? validateFileSize(at: url)) != nil else {
-            return nil
-        }
-        guard let data = try? Data(contentsOf: url) else {
-            return nil
-        }
+    private func parseStandaloneImage(at url: URL, ext: String) throws -> ParsedDocument? {
+        try Task.checkCancellation()
+        try validateFileSize(at: url)
+        let data = try Data(contentsOf: url)
+        try Task.checkCancellation()
         let image = parsedImage(source: url.lastPathComponent, data: data)
         let content = image.ocrPreview.isEmpty ? url.deletingPathExtension().lastPathComponent : image.ocrPreview
         return buildDocument(url: url, ext: ext, content: content, author: "", images: [image])
@@ -314,14 +355,22 @@ struct DocumentIngestionService {
         return Double(printable) / Double(data.count) >= 0.85
     }
 
-    private func parsePDFImages(document: PDFDocument, sourceURL: URL) -> [ParsedImage] {
-        let extracted = PDFEmbeddedImageExtractor(configuration: configuration).extract(from: sourceURL)
+    private func parsePDFImages(document: PDFDocument, sourceURL: URL) throws -> [ParsedImage] {
+        let extracted = try PDFEmbeddedImageExtractor(configuration: configuration).extract(from: sourceURL)
         if extracted.isEmpty == false {
             return extracted
         }
 
+        guard document.pageCount <= limits.maxPDFPageFallbackCount else {
+            throw DocumentIngestionLimitError.pdfPageCountExceeded(
+                path: sourceURL.lastPathComponent,
+                count: document.pageCount,
+                limit: limits.maxPDFPageFallbackCount
+            )
+        }
         var images: [ParsedImage] = []
         for index in 0..<document.pageCount {
+            try Task.checkCancellation()
             guard let page = document.page(at: index) else {
                 continue
             }
@@ -393,7 +442,7 @@ final class PDFEmbeddedImageExtractor {
         self.configuration = configuration
     }
 
-    func extract(from url: URL) -> [ParsedImage] {
+    func extract(from url: URL) throws -> [ParsedImage] {
         guard let document = CGPDFDocument(url as CFURL) else {
             return []
         }
@@ -402,6 +451,7 @@ final class PDFEmbeddedImageExtractor {
         seenSignatures = []
 
         for pageIndex in 1...document.numberOfPages {
+            try Task.checkCancellation()
             guard let page = document.page(at: pageIndex), let dictionary = page.dictionary else {
                 continue
             }
@@ -641,6 +691,7 @@ private struct ArchiveExtractionTracker {
 
         var entryCount = 0
         for entry in archive {
+            try Task.checkCancellation()
             entryCount += 1
             guard entryCount <= limits.maxEntryCount else {
                 throw DocumentIngestionLimitError.archiveEntryCountExceeded(
@@ -653,9 +704,11 @@ private struct ArchiveExtractionTracker {
     }
 
     mutating func data(for entry: Entry, in archive: Archive) throws -> Data {
+        try Task.checkCancellation()
         try Self.validateEntrySize(entry, sourcePath: entry.path, limits: limits)
         var data = Data()
         _ = try archive.extract(entry) { part in
+            try Task.checkCancellation()
             try append(part, to: &data, sourcePath: entry.path)
         }
         return data

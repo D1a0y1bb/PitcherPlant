@@ -28,6 +28,42 @@ func candidateRecallIndexesLargeSyntheticCorpusAndKeepsPositivePairs() throws {
 }
 
 @Test
+func hammingBKTreeMatchesBruteForceResults() throws {
+    let historical = (0..<2_500).map { index in
+        FingerprintRecord(
+            filename: "historical-\(index).md",
+            ext: "md",
+            author: "",
+            size: index,
+            simhash: String(format: "%016llx", UInt64(index * 17)),
+            scanDir: "history"
+        )
+    }
+    let target = String(format: "%016llx", UInt64(17 * 42))
+    let threshold = 2
+
+    let indexedIDs = Set(HammingBKTree(records: historical)
+        .query(simhash: target, threshold: threshold)
+        .map(\.record.id))
+    let bruteForceIDs = Set(historical
+        .filter { HashDistance.hamming(target, $0.simhash) <= threshold }
+        .map(\.id))
+
+    #expect(indexedIDs == bruteForceIDs)
+}
+
+@Test
+func codeLineDiffBuilderUsesBoundedPreviewForHugeInputs() {
+    let left = (0..<700).map { "left line \($0)" }.joined(separator: "\n")
+    let right = (0..<700).map { "right line \($0)" }.joined(separator: "\n")
+
+    let rows = CodeLineDiffBuilder.rows(left: left, right: right)
+
+    #expect(rows.count <= 121)
+    #expect(rows.first?.leftText.contains("快速预览") == true)
+}
+
+@Test
 func documentFeatureDatabaseNormalizesCachedPayloadAndCleansStaleRows() async throws {
     let root = FileManager.default.temporaryDirectory
         .appendingPathComponent("pitcherplant-feature-db-\(UUID().uuidString)", isDirectory: true)

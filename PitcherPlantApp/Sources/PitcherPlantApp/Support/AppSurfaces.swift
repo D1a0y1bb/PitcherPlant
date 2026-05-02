@@ -79,7 +79,6 @@ struct LiquidGlassSurface<Content: View>: View {
                 isInteractive ? .regular.interactive() : .regular,
                 in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
             )
-            .compositingGroup()
     }
 }
 
@@ -208,8 +207,7 @@ struct InspectorReadableGlassPanel<Content: View>: View {
                     .strokeBorder(Color.primary.opacity(strokeAlpha), lineWidth: 0.75)
             }
             .glassEffect(.regular, in: shape)
-            .shadow(color: Color.black.opacity(shadowAlpha), radius: 12, y: 7)
-            .compositingGroup()
+            .shadow(color: Color.black.opacity(shadowAlpha), radius: 8, y: 4)
     }
 
     private var readabilityFill: Color {
@@ -275,17 +273,18 @@ struct FloatingToolbarFusionCluster<Collapsed: View, Expanded: View>: View {
     @ViewBuilder var collapsed: Collapsed
     @ViewBuilder var expanded: Expanded
     @State private var isHovering = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         GlassEffectContainer(spacing: spacing) {
             content
         }
         .onHover { hovering in
-            withAnimation(AppMotion.toolbarGlassFusion) {
+            withAnimation(AppMotion.enabled(AppMotion.toolbarGlassFusion, reduceMotion: reduceMotion)) {
                 isHovering = hovering
             }
         }
-        .animation(AppMotion.toolbarGlassFusion, value: effectiveExpanded)
+        .animation(AppMotion.enabled(AppMotion.toolbarGlassFusion, reduceMotion: reduceMotion), value: effectiveExpanded)
     }
 
     @ViewBuilder
@@ -330,8 +329,8 @@ struct SplitTrailingColumnWidthInitializer: NSViewRepresentable {
 final class SplitTrailingColumnWidthInitializerView: NSView {
     var width: CGFloat = AppLayout.inspectorDefaultWidth
     var resetKey = ""
-    private var activeKey = ""
-    private var applyCount = 0
+    private var lastAppliedKey = ""
+    private var applyScheduled = false
     private var lookupRetryCount = 0
 
     override func viewDidMoveToWindow() {
@@ -345,20 +344,15 @@ final class SplitTrailingColumnWidthInitializerView: NSView {
     }
 
     func scheduleApply() {
+        guard applyScheduled == false else {
+            return
+        }
+        applyScheduled = true
         DispatchQueue.main.async { [weak self] in
-            self?.prepareAndApplyPreferredWidth()
+            guard let self else { return }
+            self.applyScheduled = false
+            self.applyPreferredWidth()
         }
-    }
-
-    private func prepareAndApplyPreferredWidth() {
-        let key = "\(resetKey)-\(Int(width.rounded()))"
-        if activeKey != key {
-            activeKey = key
-            applyCount = 0
-            lookupRetryCount = 0
-        }
-
-        applyPreferredWidth()
     }
 
     private func applyPreferredWidth() {
@@ -372,35 +366,24 @@ final class SplitTrailingColumnWidthInitializerView: NSView {
         }
         lookupRetryCount = 0
 
-        guard applyCount < 18 else {
+        let key = "\(resetKey)-\(Int(width.rounded()))-\(Int(splitView.bounds.width.rounded()))"
+        guard lastAppliedKey != key else {
             return
         }
-        applyCount += 1
+        lastAppliedKey = key
 
         let dividerIndex = max(0, splitView.arrangedSubviews.count - 2)
         let position = max(0, splitView.bounds.width - width - splitView.dividerThickness)
         splitView.setPosition(position, ofDividerAt: dividerIndex)
         splitView.adjustSubviews()
-
-        retry()
     }
 
     private func retryLookup() {
-        guard lookupRetryCount < 18 else {
+        guard lookupRetryCount < 6 else {
             return
         }
 
         lookupRetryCount += 1
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.04) { [weak self] in
-            self?.applyPreferredWidth()
-        }
-    }
-
-    private func retry() {
-        guard applyCount < 18 else {
-            return
-        }
-
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.04) { [weak self] in
             self?.applyPreferredWidth()
         }
@@ -605,6 +588,7 @@ struct FloatingToolbarSearchField: View {
     @State private var hoverExpansionReadyToken = 0
     @State private var expansionLockToken = 0
     @State private var collapseToken = 0
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     init(text: Binding<String>, prompt: String, width: CGFloat = 240, isExpanded: Bool = true) {
         self._text = text
@@ -688,8 +672,8 @@ struct FloatingToolbarSearchField: View {
         .onChange(of: text) { _, _ in
             updateExpansionForInteraction()
         }
-        .animation(AppMotion.toolbarGlassHover, value: isFocused)
-        .animation(AppMotion.toolbarSearchExpand, value: isExpanded)
+        .animation(AppMotion.enabled(AppMotion.toolbarGlassHover, reduceMotion: reduceMotion), value: isFocused)
+        .animation(AppMotion.enabled(AppMotion.toolbarSearchExpand, reduceMotion: reduceMotion), value: isExpanded)
     }
 
     private func updateExpansionForInteraction() {
@@ -741,7 +725,7 @@ struct FloatingToolbarSearchField: View {
         guard isExpanded == false else {
             return
         }
-        withAnimation(AppMotion.toolbarSearchExpand) {
+        withAnimation(AppMotion.enabled(AppMotion.toolbarSearchExpand, reduceMotion: reduceMotion)) {
             isExpanded = true
         }
         lockExpansionDuringAnimation()
@@ -778,7 +762,7 @@ struct FloatingToolbarSearchField: View {
             guard isHovering == false, isFocused == false, text.isEmpty else {
                 return
             }
-            withAnimation(AppMotion.toolbarSearchExpand) {
+            withAnimation(AppMotion.enabled(AppMotion.toolbarSearchExpand, reduceMotion: reduceMotion)) {
                 isExpanded = false
             }
         }
@@ -789,6 +773,7 @@ struct FloatingToolbarSearchTriggerButton: View {
     let title: String
     @Binding var isExpanded: Bool
     @State private var isHovering = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         Button {
@@ -805,7 +790,7 @@ struct FloatingToolbarSearchTriggerButton: View {
         .help(title)
         .accessibilityLabel(title)
         .onHover { hovering in
-            withAnimation(AppMotion.toolbarGlassHover) {
+            withAnimation(AppMotion.enabled(AppMotion.toolbarGlassHover, reduceMotion: reduceMotion)) {
                 isHovering = hovering
             }
         }
@@ -815,13 +800,15 @@ struct FloatingToolbarSearchTriggerButton: View {
         guard isExpanded == false else {
             return
         }
-        withAnimation(AppMotion.toolbarSearchExpand) {
+        withAnimation(AppMotion.enabled(AppMotion.toolbarSearchExpand, reduceMotion: reduceMotion)) {
             isExpanded = true
         }
     }
 }
 
 struct FloatingToolbarButtonStyle: ButtonStyle {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .background {
@@ -832,12 +819,13 @@ struct FloatingToolbarButtonStyle: ButtonStyle {
             }
             .scaleEffect(configuration.isPressed ? 0.94 : 1, anchor: .center)
             .shadow(color: Color.primary.opacity(configuration.isPressed ? 0.10 : 0), radius: 9, y: 0)
-            .animation(AppMotion.toolbarGlassPress, value: configuration.isPressed)
+            .animation(AppMotion.enabled(AppMotion.toolbarGlassPress, reduceMotion: reduceMotion), value: configuration.isPressed)
     }
 }
 
 struct FloatingToolbarPanelButtonStyle: ButtonStyle {
     var cornerRadius: CGFloat = 12
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
@@ -847,7 +835,7 @@ struct FloatingToolbarPanelButtonStyle: ButtonStyle {
             }
             .scaleEffect(configuration.isPressed ? 0.965 : 1, anchor: .center)
             .shadow(color: Color.primary.opacity(configuration.isPressed ? 0.08 : 0), radius: 8, y: 0)
-            .animation(AppMotion.toolbarGlassPress, value: configuration.isPressed)
+            .animation(AppMotion.enabled(AppMotion.toolbarGlassPress, reduceMotion: reduceMotion), value: configuration.isPressed)
     }
 }
 
@@ -1004,6 +992,10 @@ enum AppMotion {
     static let toolbarSearchExpansionLockDelay: UInt64 = 1_250_000_000
     static let toolbarSearchCollapseDelay: UInt64 = 260_000_000
     static let toolbarSearchExpand = Animation.smooth(duration: 1.18, extraBounce: 0.20)
+
+    static func enabled(_ animation: Animation, reduceMotion: Bool) -> Animation? {
+        reduceMotion ? nil : animation
+    }
 }
 
 extension AnyTransition {

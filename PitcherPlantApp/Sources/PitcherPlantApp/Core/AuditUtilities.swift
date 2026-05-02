@@ -317,13 +317,45 @@ struct CodeLineDiffRow: Hashable, Sendable {
 }
 
 enum CodeLineDiffBuilder {
+    private static let maxMatrixCells = 140_000
+    private static let maxFallbackRows = 120
+
     static func rows(left: String, right: String, contextRadius: Int = 3) -> [CodeLineDiffRow] {
         let leftLines = left.components(separatedBy: .newlines)
         let rightLines = right.components(separatedBy: .newlines)
+        guard leftLines.count * rightLines.count <= maxMatrixCells else {
+            return fallbackRows(left: leftLines, right: rightLines)
+        }
         let operations = diffOperations(left: leftLines, right: rightLines)
         let merged = mergeAdjacentEdits(operations, left: leftLines, right: rightLines)
         guard contextRadius >= 0 else { return merged }
         return compactRows(merged, contextRadius: contextRadius)
+    }
+
+    private static func fallbackRows(left: [String], right: [String]) -> [CodeLineDiffRow] {
+        let count = min(max(left.count, right.count), maxFallbackRows)
+        guard count > 0 else { return [] }
+        var rows: [CodeLineDiffRow] = [
+            CodeLineDiffRow(
+                leftLineNumber: nil,
+                rightLineNumber: nil,
+                leftText: "大代码块已启用快速预览，跳过完整逐行矩阵。",
+                rightText: "左侧 \(left.count) 行 / 右侧 \(right.count) 行",
+                change: .modified
+            )
+        ]
+        for index in 0..<count {
+            let leftText = left[safe: index] ?? ""
+            let rightText = right[safe: index] ?? ""
+            rows.append(CodeLineDiffRow(
+                leftLineNumber: index < left.count ? index + 1 : nil,
+                rightLineNumber: index < right.count ? index + 1 : nil,
+                leftText: leftText,
+                rightText: rightText,
+                change: normalizedLine(leftText) == normalizedLine(rightText) ? .unchanged : .modified
+            ))
+        }
+        return rows
     }
 
     private enum Operation: Hashable {
