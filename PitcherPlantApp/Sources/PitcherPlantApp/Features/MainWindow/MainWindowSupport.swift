@@ -29,9 +29,6 @@ struct EvidenceFocusedReportsView: View {
 struct MainSidebarView: View {
     @Binding var selection: MainSidebarItem
     @Environment(AppState.self) private var appState
-    let toggleSidebar: () -> Void
-    let showNewAuditComposer: () -> Void
-    let showsToolbarControls: Bool
 
     var body: some View {
         // Adapted from PortKiller's MIT-licensed SidebarView/FavoriteWatchButtons patterns.
@@ -66,22 +63,6 @@ struct MainSidebarView: View {
         }
         .listStyle(.sidebar)
         .scrollIndicators(.hidden)
-        .overlay {
-            if showsToolbarControls {
-                GeometryReader { proxy in
-                    MainSidebarToolbarControls(
-                        showsCapsule: false,
-                        toggleSidebar: toggleSidebar,
-                        showNewAuditComposer: showNewAuditComposer
-                    )
-                    .padding(.top, sidebarToolbarTopPadding(topSafeAreaInset: proxy.safeAreaInsets.top))
-                    .padding(.trailing, sidebarToolbarTrailingPadding(topSafeAreaInset: proxy.safeAreaInsets.top))
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
-                    .ignoresSafeArea(.container, edges: .top)
-                }
-            }
-        }
-        .toolbar(removing: .sidebarToggle)
     }
 
     private func sidebarRow(_ item: MainSidebarItem, title: String? = nil) -> some View {
@@ -119,36 +100,4 @@ struct MainSidebarView: View {
         }
     }
 
-    private func sidebarToolbarTopPadding(topSafeAreaInset: CGFloat) -> CGFloat {
-        AppLayout.floatingToolbarTopPadding(topSafeAreaInset: topSafeAreaInset)
-    }
-
-    private func sidebarToolbarTrailingPadding(topSafeAreaInset _: CGFloat) -> CGFloat {
-        4
-    }
-
-}
-
-struct MainSidebarToolbarControls: View {
-    @Environment(AppState.self) private var appState
-    var showsCapsule = true
-    let toggleSidebar: () -> Void
-    let showNewAuditComposer: () -> Void
-
-    var body: some View {
-        FloatingToolbarButtonGroup(showsCapsule: showsCapsule) {
-            FloatingToolbarIconButton(appState.t("toolbar.toggleSidebar"), systemImage: "sidebar.leading") {
-                toggleSidebar()
-            }
-
-            FloatingToolbarIconButton(
-                appState.t("toolbar.newScan"),
-                systemImage: "square.and.pencil",
-                symbolRenderingMode: .monochrome,
-                symbolOffset: CGSize(width: 0, height: -0.5)
-            ) {
-                showNewAuditComposer()
-            }
-        }
-    }
 }

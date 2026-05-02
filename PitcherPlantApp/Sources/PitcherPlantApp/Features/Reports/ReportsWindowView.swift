@@ -2,10 +2,7 @@ import SwiftUI
 
 struct ReportsWindowView: View {
     @Environment(AppState.self) private var appState
-    @Namespace private var reportToolbarGlassNamespace
     @State private var reportQuery = ""
-    @State private var toolbarSearchPresented = false
-    @State private var toolbarSearchExpanded = false
     @State private var reportQueryRefreshTask: Task<Void, Never>?
 
     private var filteredReports: [AuditReport] {
@@ -53,72 +50,15 @@ struct ReportsWindowView: View {
         .onAppear {
             refreshReportLibrary(immediate: true)
             syncVisibleReportSelection()
-            presentToolbarSearch()
         }
         .onChange(of: reportQuery) { _, _ in refreshReportLibrary() }
         .onChange(of: appState.reportLibraryReports.map(\.id)) { _, _ in syncVisibleReportSelection() }
         .toolbar {
-            ToolbarSpacer(.flexible, placement: .primaryAction)
-
-            ToolbarItem(placement: .primaryAction) {
-                FloatingToolbarFusionCluster(spacing: 10, forceExpanded: toolbarSearchExpanded) {
-                    FloatingToolbarButtonGroup {
-                        reportWindowFileButtons
-                        reportWindowDeleteButton
-                        reportWindowReloadButton
-                        if toolbarSearchPresented {
-                            FloatingToolbarSearchTriggerButton(
-                                title: appState.t("reports.searchPrompt"),
-                                isExpanded: $toolbarSearchExpanded
-                            )
-                        }
-                    }
-                    .glassEffectID("report-window-actions-collapsed", in: reportToolbarGlassNamespace)
-                    .glassEffectTransition(.matchedGeometry)
-                } expanded: {
-                    FloatingToolbarButtonGroup {
-                        reportWindowFileButtons
-                    }
-                    .glassEffectID("report-window-file-actions", in: reportToolbarGlassNamespace)
-                    .glassEffectTransition(.matchedGeometry)
-
-                    FloatingToolbarButtonGroup {
-                        reportWindowDeleteButton
-                    }
-                    .glassEffectID("report-window-delete-action", in: reportToolbarGlassNamespace)
-                    .glassEffectTransition(.matchedGeometry)
-
-                    FloatingToolbarButtonGroup {
-                        reportWindowReloadButton
-                    }
-                    .glassEffectID("report-window-reload-action", in: reportToolbarGlassNamespace)
-                    .glassEffectTransition(.matchedGeometry)
-
-                    if toolbarSearchPresented {
-                        FloatingToolbarSearchField(
-                            text: $reportQuery,
-                            prompt: appState.t("reports.searchPrompt"),
-                            isExpanded: $toolbarSearchExpanded,
-                            collapsesWhenInactive: true
-                        )
-                        .glassEffectID("report-window-search-action", in: reportToolbarGlassNamespace)
-                        .glassEffectTransition(.matchedGeometry)
-                        .transition(.floatingToolbarSearchPresence)
-                    }
-                }
-                .animation(AppMotion.toolbarGlassAppear, value: toolbarSearchPresented)
-                .animation(AppMotion.toolbarSearchExpand, value: toolbarSearchExpanded)
-            }
-            .sharedBackgroundVisibility(.hidden)
+            reportWindowToolbarItems
         }
-        .toolbarBackgroundVisibility(.hidden, for: .windowToolbar)
-    }
-
-    private func presentToolbarSearch() {
-        withAnimation(AppMotion.toolbarGlassAppear) {
-            toolbarSearchPresented = true
-            toolbarSearchExpanded = false
-        }
+        .navigationTitle(appState.t("sidebar.reports"))
+        .searchable(text: $reportQuery, placement: .toolbar, prompt: appState.t("reports.searchPrompt"))
+        .background(ToolbarCustomizationDisabler().frame(width: 0, height: 0))
     }
 
     private func refreshReportLibrary(immediate: Bool = false) {
@@ -134,45 +74,66 @@ struct ReportsWindowView: View {
         }
     }
 
-    @ViewBuilder
-    private var reportWindowFileButtons: some View {
-        FloatingToolbarMenuButton(appState.t("settings.exportReport"), systemImage: "square.and.arrow.up") {
-            Button { appState.exportSelectedReportAsHTML() } label: {
-                Label("HTML", systemImage: "chevron.left.forwardslash.chevron.right")
+    @ToolbarContentBuilder
+    private var reportWindowToolbarItems: some ToolbarContent {
+        ToolbarItem(placement: .primaryAction) {
+            Menu {
+                Button { appState.exportSelectedReportAsHTML() } label: {
+                    Label("HTML", systemImage: "chevron.left.forwardslash.chevron.right")
+                }
+                Button { appState.exportSelectedReportAsPDF() } label: {
+                    Label("PDF", systemImage: "doc.richtext")
+                }
+                Button { appState.exportSelectedReportAsCSV() } label: {
+                    Label("CSV", systemImage: "tablecells")
+                }
+                Button { appState.exportSelectedReportAsJSON() } label: {
+                    Label("JSON", systemImage: "curlybraces")
+                }
+                Button { appState.exportSelectedReportAsMarkdown() } label: {
+                    Label("Markdown", systemImage: "doc.plaintext")
+                }
+                Button { appState.exportSelectedReportAsEvidenceBundle() } label: {
+                    Label(appState.t("settings.exportBundle"), systemImage: "archivebox")
+                }
+            } label: {
+                Label(appState.t("settings.exportReport"), systemImage: "square.and.arrow.up")
             }
-            Button { appState.exportSelectedReportAsPDF() } label: {
-                Label("PDF", systemImage: "doc.richtext")
-            }
-            Button { appState.exportSelectedReportAsCSV() } label: {
-                Label("CSV", systemImage: "tablecells")
-            }
-            Button { appState.exportSelectedReportAsJSON() } label: {
-                Label("JSON", systemImage: "curlybraces")
-            }
-            Button { appState.exportSelectedReportAsMarkdown() } label: {
-                Label("Markdown", systemImage: "doc.plaintext")
-            }
-            Button { appState.exportSelectedReportAsEvidenceBundle() } label: {
-                Label(appState.t("settings.exportBundle"), systemImage: "archivebox")
-            }
+            .disabled(appState.selectedReport == nil)
+            .help(appState.t("settings.exportReport"))
+            .accessibilityLabel(appState.t("settings.exportReport"))
         }
 
-        FloatingToolbarIconButton(appState.t("settings.openFinder"), systemImage: "folder") {
-            appState.openSelectedReportSource()
+        ToolbarItem(placement: .primaryAction) {
+            Button {
+                appState.openSelectedReportSource()
+            } label: {
+                Label(appState.t("settings.openFinder"), systemImage: "folder")
+            }
+            .disabled(appState.selectedReport == nil)
+            .help(appState.t("settings.openFinder"))
+            .accessibilityLabel(appState.t("settings.openFinder"))
         }
-    }
 
-    @ViewBuilder
-    private var reportWindowDeleteButton: some View {
-        FloatingToolbarIconButton(appState.t("command.deleteReport"), systemImage: "trash", role: .destructive) {
-            Task { await appState.removeSelectedReport() }
+        ToolbarItem(placement: .primaryAction) {
+            Button(role: .destructive) {
+                Task { await appState.removeSelectedReport() }
+            } label: {
+                Label(appState.t("command.deleteReport"), systemImage: "trash")
+            }
+            .disabled(appState.selectedReport == nil)
+            .help(appState.t("command.deleteReport"))
+            .accessibilityLabel(appState.t("command.deleteReport"))
         }
-    }
 
-    @ViewBuilder
-    private var reportWindowReloadButton: some View {
-        FloatingToolbarIconButton(appState.t("toolbar.reload"), systemImage: "arrow.clockwise") {
-            Task { await appState.reload() }
+        ToolbarItem(placement: .primaryAction) {
+            Button {
+                Task { await appState.reload() }
+            } label: {
+                Label(appState.t("toolbar.reload"), systemImage: "arrow.clockwise")
+            }
+            .help(appState.t("toolbar.reload"))
+            .accessibilityLabel(appState.t("toolbar.reload"))
         }
     }
 

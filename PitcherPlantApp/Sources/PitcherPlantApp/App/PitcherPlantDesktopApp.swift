@@ -27,6 +27,7 @@ struct PitcherPlantDesktopApp: App {
                 }
         }
         .defaultSize(width: AppLayout.mainWindowDefaultWidth, height: AppLayout.mainWindowDefaultHeight)
+        .windowStyle(.titleBar)
         .windowResizability(.contentMinSize)
         .defaultLaunchBehavior(.presented)
         .commands {

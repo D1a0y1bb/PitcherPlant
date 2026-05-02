@@ -2,26 +2,17 @@ import AppKit
 import SwiftUI
 
 private let inspectorColumnAnimation = Animation.smooth(duration: 0.32, extraBounce: 0)
-private let titlePopoverPanelWidth: CGFloat = 300
-private let titlePopoverOuterPadding: CGFloat = 4
-private let titlePopoverToolbarLayerOffset: CGFloat = 50
-private let titlePopoverWindowMargin: CGFloat = 12
 
 struct MainWindowView: View {
     @Environment(AppState.self) private var appState
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @SceneStorage("pitcherplant.inspectorVisible") private var inspectorVisible = false
-    @Namespace private var mainToolbarGlassNamespace
     @State private var columnVisibility: NavigationSplitViewVisibility = .all
     @State private var autoCollapsedSidebar = false
     @State private var applyingSidebarPolicy = false
     @State private var windowWidth: CGFloat = 0
     @State private var settingsSearchText = ""
     @State private var reportSearchText = ""
-    @State private var reportToolbarSearchPresented = false
-    @State private var reportToolbarSearchExpanded = false
-    @State private var titleSelectorPresented = false
-    @State private var titleSelectorGlobalFrame: CGRect = .zero
     private let layoutPolicy = MainWindowLayoutPolicy()
 
     var body: some View {
@@ -40,7 +31,6 @@ struct MainWindowView: View {
             NSApp.activate(ignoringOtherApps: true)
             inspectorVisible = appState.appSettings.showInspectorByDefault
             applySidebarPolicy(windowWidth: windowWidth)
-            updateReportToolbarSearchPresentation(animated: false)
         }
         .onChange(of: inspectorVisible) { _, visible in
             if appState.selectedMainSidebar.allowsInspector {
@@ -59,7 +49,6 @@ struct MainWindowView: View {
                 reportSearchText = ""
             }
             applySidebarPolicy(windowWidth: windowWidth)
-            updateReportToolbarSearchPresentation(animated: true)
         }
         .onChange(of: appState.appSettings.showInspectorByDefault) { _, visible in
             if !appState.selectedMainSidebar.allowsInspector {
@@ -87,19 +76,13 @@ struct MainWindowView: View {
         .toolbar {
             mainToolbarItems
         }
-        .toolbar(removing: .sidebarToggle)
-        .toolbar(removing: .title)
-        .animation(motion(AppMotion.toolbarGlassAppear), value: appState.selectedMainSidebar)
-        .toolbarBackgroundVisibility(.hidden, for: .windowToolbar)
-        .overlay {
-            GeometryReader { proxy in
-                mainWindowToolbarOverlay(
-                    topSafeAreaInset: proxy.safeAreaInsets.top,
-                    rootGlobalFrame: proxy.frame(in: .global)
-                )
-                    .ignoresSafeArea(.container, edges: .top)
-            }
-        }
+        .navigationTitle("PitcherPlant")
+        .reportToolbarSearch(
+            isPresented: shouldShowReportToolbarSearch,
+            text: $reportSearchText,
+            prompt: appState.t("reports.searchPrompt")
+        )
+        .background(ToolbarCustomizationDisabler().frame(width: 0, height: 0))
         .overlay {
             if let recovery = appState.databaseRecovery {
                 DatabaseRecoveryBlockingView(recovery: recovery)
@@ -156,10 +139,7 @@ struct MainWindowView: View {
 
     private func sidebar(selection: Binding<MainSidebarItem>) -> some View {
         MainSidebarView(
-            selection: selection,
-            toggleSidebar: toggleSidebarColumn,
-            showNewAuditComposer: showNewAuditComposer,
-            showsToolbarControls: !sidebarCollapsed
+            selection: selection
         )
             .navigationSplitViewColumnWidth(
                 min: AppLayout.sidebarMinWidth,
@@ -295,70 +275,6 @@ struct MainWindowView: View {
         }
     }
 
-    private func updateReportToolbarSearchPresentation(animated: Bool) {
-        guard shouldShowReportToolbarSearch else {
-            withAnimation(motion(AppMotion.toolbarGlassAppear)) {
-                reportToolbarSearchExpanded = false
-                reportToolbarSearchPresented = false
-            }
-            return
-        }
-
-        withAnimation(motion(AppMotion.toolbarGlassAppear)) {
-            reportToolbarSearchPresented = true
-            reportToolbarSearchExpanded = false
-        }
-    }
-
-    private func toggleSidebarColumn() {
-        if sidebarCollapsed {
-            expandWindowForSidebarIfNeeded()
-        }
-        withAnimation(motion(AppMotion.toolbarGlassAppear)) {
-            autoCollapsedSidebar = false
-            columnVisibility = sidebarCollapsed ? .all : .detailOnly
-        }
-    }
-
-    private func expandWindowForSidebarIfNeeded() {
-        guard let window = NSApp.keyWindow ?? NSApp.mainWindow else {
-            return
-        }
-        guard window.styleMask.contains(.fullScreen) == false else {
-            return
-        }
-
-        let safeWidth = isInspectorColumnVisible
-            ? AppLayout.sidebarRestoreWidthWithInspector
-            : AppLayout.sidebarRestoreWidthWithoutInspector
-        let currentWidth = max(windowWidth, window.frame.width)
-        guard currentWidth < safeWidth else {
-            return
-        }
-
-        resizeWindow(window, toWidth: safeWidth)
-    }
-
-    private func resizeWindow(_ window: NSWindow, toWidth requestedWidth: CGFloat) {
-        var frame = window.frame
-        let visibleFrame = window.screen?.visibleFrame ?? NSScreen.main?.visibleFrame
-        let targetWidth = min(requestedWidth, visibleFrame?.width ?? requestedWidth)
-        let delta = targetWidth - frame.width
-        guard delta > 0 else {
-            return
-        }
-
-        frame.size.width = targetWidth
-        frame.origin.x -= delta / 2
-
-        if let visibleFrame {
-            let maxX = visibleFrame.maxX - frame.width
-            frame.origin.x = min(max(frame.origin.x, visibleFrame.minX), maxX)
-        }
-
-        window.setFrame(frame, display: true, animate: true)
-    }
-
     private func showNewAuditComposer() {
         withAnimation(AppMotion.toolbarGlassAppear) {
             appState.selectedMainSidebar = .newAudit
@@ -368,177 +284,78 @@ struct MainWindowView: View {
 
     @ToolbarContentBuilder
     private var mainToolbarItems: some ToolbarContent {
-        ToolbarItem(placement: .navigation) {
-            FloatingToolbarCluster(spacing: 10) {
-                if sidebarCollapsed {
-                    MainSidebarToolbarControls(
-                        showsCapsule: true,
-                        toggleSidebar: toggleSidebarColumn,
-                        showNewAuditComposer: showNewAuditComposer
-                    )
-                    .transition(.floatingToolbarFusion)
-                }
+        ToolbarItem(placement: .primaryAction) {
+            NativeScanOptionsMenu()
+        }
 
-                FloatingToolbarTitleSelector(
-                    title: "PitcherPlant",
-                    subtitle: "",
-                    accessibilityLabel: appState.t("toolbar.titleSelector"),
-                    isPresented: $titleSelectorPresented
+        ToolbarItem(placement: .primaryAction) {
+            Button {
+                showNewAuditComposer()
+            } label: {
+                Label(appState.t("toolbar.newScan"), systemImage: "square.and.pencil")
+            }
+            .help(appState.t("toolbar.newScan"))
+            .accessibilityLabel(appState.t("toolbar.newScan"))
+        }
+
+        ToolbarItem(placement: .primaryAction) {
+            Button {
+                withAnimation(motion(inspectorColumnAnimation)) {
+                    inspectorVisible.toggle()
+                }
+            } label: {
+                Label(
+                    isInspectorColumnVisible ? appState.t("toolbar.hideInspector") : appState.t("toolbar.showInspector"),
+                    systemImage: isInspectorColumnVisible ? "sidebar.right" : "sidebar.trailing"
                 )
-                .background(GlobalFrameObserver(frame: $titleSelectorGlobalFrame))
             }
-            .animation(AppMotion.toolbarGlassAppear, value: sidebarCollapsed)
+            .disabled(!appState.selectedMainSidebar.allowsInspector)
+            .help(isInspectorColumnVisible ? appState.t("toolbar.hideInspector") : appState.t("toolbar.showInspector"))
+            .accessibilityLabel(isInspectorColumnVisible ? appState.t("toolbar.hideInspector") : appState.t("toolbar.showInspector"))
         }
-        .sharedBackgroundVisibility(.hidden)
-    }
 
-    private func mainWindowToolbarOverlay(topSafeAreaInset: CGFloat, rootGlobalFrame: CGRect) -> some View {
-        ZStack(alignment: .topLeading) {
-            mainWindowTrailingToolbarOverlay(topSafeAreaInset: topSafeAreaInset)
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
-
-            if titleSelectorPresented, titleSelectorGlobalFrame != .zero {
-                Button {
-                    withAnimation(AppMotion.toolbarPopoverDismiss) {
-                        titleSelectorPresented = false
-                    }
-                } label: {
-                    Color.clear
-                        .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-                .accessibilityHidden(true)
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .zIndex(20)
-
-                MainToolbarTitlePopover()
-                    .padding(titlePopoverOuterPadding)
-                    .offset(
-                        x: titlePopoverXOffset(rootGlobalFrame: rootGlobalFrame),
-                        y: titleSelectorGlobalFrame.maxY - rootGlobalFrame.minY + titlePopoverToolbarLayerOffset
-                    )
-                    .transition(.floatingToolbarPopoverPresence)
-                    .zIndex(30)
+        ToolbarItem(placement: .primaryAction) {
+            Button {
+                Task { await appState.reload() }
+            } label: {
+                Label(appState.t("toolbar.reload"), systemImage: "arrow.clockwise")
             }
+            .keyboardShortcut("r", modifiers: .command)
+            .help(appState.t("toolbar.reload"))
+            .accessibilityLabel(appState.t("toolbar.reload"))
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .animation(titleSelectorPresented ? AppMotion.toolbarPopoverPresent : AppMotion.toolbarPopoverDismiss, value: titleSelectorPresented)
-    }
 
-    private func titlePopoverXOffset(rootGlobalFrame: CGRect) -> CGFloat {
-        let totalPopoverWidth = titlePopoverPanelWidth + titlePopoverOuterPadding * 2
-        let centeredX = titleSelectorGlobalFrame.midX - rootGlobalFrame.minX - totalPopoverWidth / 2
-        let maxX = max(titlePopoverWindowMargin, rootGlobalFrame.width - totalPopoverWidth - titlePopoverWindowMargin)
-
-        return min(max(centeredX, titlePopoverWindowMargin), maxX)
-    }
-
-    private func mainWindowTrailingToolbarOverlay(topSafeAreaInset: CGFloat) -> some View {
-        FloatingToolbarFusionCluster(spacing: 10, forceExpanded: reportToolbarSearchExpanded) {
-            FloatingToolbarButtonGroup {
-                mainToolbarUtilityButtons
-                mainToolbarAuditButton
-                mainToolbarSettingsButton
-                if shouldShowReportToolbarSearch, reportToolbarSearchPresented {
-                    FloatingToolbarSearchTriggerButton(
-                        title: appState.t("reports.searchPrompt"),
-                        isExpanded: $reportToolbarSearchExpanded
-                    )
+        ToolbarItem(placement: .primaryAction) {
+            Button(role: appState.isRunningAudit ? .destructive : nil) {
+                if appState.isRunningAudit {
+                    appState.cancelAudit()
+                } else {
+                    appState.beginAudit()
                 }
-            }
-            .glassEffectID("main-toolbar-actions-collapsed", in: mainToolbarGlassNamespace)
-            .glassEffectTransition(.matchedGeometry)
-        } expanded: {
-            FloatingToolbarButtonGroup {
-                mainToolbarUtilityButtons
-            }
-            .glassEffectID("main-toolbar-utility-actions", in: mainToolbarGlassNamespace)
-            .glassEffectTransition(.matchedGeometry)
-
-            FloatingToolbarButtonGroup {
-                mainToolbarAuditButton
-                mainToolbarSettingsButton
-            }
-            .glassEffectID("main-toolbar-primary-actions", in: mainToolbarGlassNamespace)
-            .glassEffectTransition(.matchedGeometry)
-
-            if shouldShowReportToolbarSearch, reportToolbarSearchPresented {
-                FloatingToolbarSearchField(
-                    text: $reportSearchText,
-                    prompt: appState.t("reports.searchPrompt"),
-                    width: 200,
-                    isExpanded: $reportToolbarSearchExpanded,
-                    collapsesWhenInactive: true
+            } label: {
+                Label(
+                    appState.isRunningAudit ? appState.t("toolbar.cancel") : appState.t("toolbar.start"),
+                    systemImage: appState.isRunningAudit ? "stop.fill" : "play.fill"
                 )
-                    .glassEffectID("main-toolbar-search-action", in: mainToolbarGlassNamespace)
-                    .glassEffectTransition(.matchedGeometry)
-                    .transition(.floatingToolbarSearchPresence)
             }
+            .id(appState.isRunningAudit)
+            .keyboardShortcut(.return, modifiers: .command)
+            .help(appState.isRunningAudit ? appState.t("toolbar.cancel") : appState.t("toolbar.start"))
+            .accessibilityLabel(appState.isRunningAudit ? appState.t("toolbar.cancel") : appState.t("toolbar.start"))
         }
-        .padding(.top, trailingToolbarTopPadding(topSafeAreaInset: topSafeAreaInset))
-        .padding(.trailing, trailingToolbarTrailingPadding(topSafeAreaInset: topSafeAreaInset))
-        .animation(motion(AppMotion.toolbarGlassAppear), value: reportToolbarSearchPresented)
-        .animation(motion(AppMotion.toolbarSearchExpand), value: reportToolbarSearchExpanded)
-        .animation(motion(AppMotion.toolbarGlassAppear), value: appState.selectedMainSidebar)
-    }
 
-    private func trailingToolbarTopPadding(topSafeAreaInset: CGFloat) -> CGFloat {
-        AppLayout.floatingToolbarTopPadding(topSafeAreaInset: topSafeAreaInset)
-    }
-
-    private func trailingToolbarTrailingPadding(topSafeAreaInset: CGFloat) -> CGFloat {
-        AppLayout.curvedToolbarTrailingPadding(
-            base: 14,
-            topPadding: trailingToolbarTopPadding(topSafeAreaInset: topSafeAreaInset),
-            cornerRadius: AppLayout.floatingToolbarWindowCornerRadius
-        )
-    }
-
-    @ViewBuilder
-    private var mainToolbarUtilityButtons: some View {
-        FloatingToolbarIconButton(
-            isInspectorColumnVisible ? appState.t("toolbar.hideInspector") : appState.t("toolbar.showInspector"),
-            systemImage: isInspectorColumnVisible ? "sidebar.right" : "sidebar.trailing"
-        ) {
-            withAnimation(motion(inspectorColumnAnimation)) {
-                inspectorVisible.toggle()
+        ToolbarItem(placement: .primaryAction) {
+            Button {
+                withAnimation(AppMotion.toolbarGlassAppear) {
+                    appState.selectedMainSidebar = .settings
+                }
+            } label: {
+                Label(appState.t("toolbar.settings"), systemImage: "gear")
             }
+            .keyboardShortcut(",", modifiers: .command)
+            .help(appState.t("toolbar.settings"))
+            .accessibilityLabel(appState.t("toolbar.settings"))
         }
-        .disabled(!appState.selectedMainSidebar.allowsInspector)
-
-        FloatingToolbarIconButton(appState.t("toolbar.reload"), systemImage: "arrow.clockwise") {
-            Task { await appState.reload() }
-        }
-        .keyboardShortcut("r", modifiers: .command)
-    }
-
-    @ViewBuilder
-    private var mainToolbarAuditButton: some View {
-        let auditIsRunning = appState.isRunningAudit
-        FloatingToolbarIconButton(
-            auditIsRunning ? appState.t("toolbar.cancel") : appState.t("toolbar.start"),
-            systemImage: auditIsRunning ? "stop.fill" : "play.fill",
-            role: auditIsRunning ? .destructive : nil,
-            isProminent: true
-        ) {
-            if appState.isRunningAudit {
-                appState.cancelAudit()
-            } else {
-                appState.beginAudit()
-            }
-        }
-        .id(auditIsRunning)
-        .keyboardShortcut(.return, modifiers: .command)
-    }
-
-    @ViewBuilder
-    private var mainToolbarSettingsButton: some View {
-        FloatingToolbarIconButton(appState.t("toolbar.settings"), systemImage: "gear") {
-            withAnimation(AppMotion.toolbarGlassAppear) {
-                appState.selectedMainSidebar = .settings
-            }
-        }
-        .keyboardShortcut(",", modifiers: .command)
     }
 
     @ViewBuilder
@@ -645,360 +462,108 @@ private struct DatabaseRecoveryBlockingView: View {
     }
 }
 
-private struct MainToolbarTitlePopover: View {
+private struct NativeScanOptionsMenu: View {
     @Environment(AppState.self) private var appState
-    @State private var selectedMode: AuditToolbarScanMode = .standard
-    @State private var selectedTemplate: AuditToolbarTemplate = .defaultAudit
-    @State private var templatesExpanded = false
-    @State private var temporaryScanEnabled = false
+    @SceneStorage("pitcherplant.toolbar.scanMode") private var selectedModeRaw = AuditToolbarScanMode.standard.rawValue
+    @SceneStorage("pitcherplant.toolbar.template") private var selectedTemplateRaw = AuditToolbarTemplate.defaultAudit.rawValue
 
     var body: some View {
-        FloatingToolbarPopoverPanel(width: titlePopoverPanelWidth) {
-            VStack(alignment: .leading, spacing: 6) {
-                MainToolbarModeRow(
-                    title: appState.t("toolbar.mode.auto"),
-                    subtitle: appState.t("toolbar.mode.auto.subtitle"),
-                    isSelected: selectedMode == .auto
-                ) {
-                    selectMode(.auto)
-                }
-                MainToolbarModeRow(
-                    title: appState.t("toolbar.mode.deep"),
-                    subtitle: appState.t("toolbar.mode.deep.subtitle"),
-                    isSelected: selectedMode == .deep
-                ) {
-                    selectMode(.deep)
-                }
-                MainToolbarModeRow(
-                    title: appState.t("toolbar.mode.standard"),
-                    subtitle: appState.t("toolbar.mode.standard.subtitle"),
-                    isSelected: selectedMode == .standard
-                ) {
-                    selectMode(.standard)
-                }
-                MainToolbarModeRow(
-                    title: appState.t("toolbar.mode.quick"),
-                    subtitle: appState.t("toolbar.mode.quick.subtitle"),
-                    isSelected: selectedMode == .quick
-                ) {
-                    selectMode(.quick)
-                }
-
-                Divider()
-                    .padding(.vertical, 3)
-
-                MainToolbarPanelIconRow(
-                    title: appState.t("toolbar.mode.templates"),
-                    systemImage: "slider.horizontal.3",
-                    trailingSystemImage: "chevron.down",
-                    isActive: templatesExpanded,
-                    isExpanded: templatesExpanded
-                ) {
-                    withAnimation(AppMotion.toolbarGlassAppear) {
-                        templatesExpanded.toggle()
-                    }
-                }
-
-                if templatesExpanded {
-                    VStack(alignment: .leading, spacing: 4) {
-                        MainToolbarTemplateRow(
-                            title: appState.t("toolbar.mode.template.default"),
-                            subtitle: appState.t("toolbar.mode.template.default.subtitle"),
-                            isSelected: selectedTemplate == .defaultAudit
-                        ) {
-                            selectTemplate(.defaultAudit)
-                        }
-                        MainToolbarTemplateRow(
-                            title: appState.t("toolbar.mode.template.review"),
-                            subtitle: appState.t("toolbar.mode.template.review.subtitle"),
-                            isSelected: selectedTemplate == .evidenceReview
-                        ) {
-                            selectTemplate(.evidenceReview)
-                        }
-                        MainToolbarTemplateRow(
-                            title: appState.t("toolbar.mode.template.fast"),
-                            subtitle: appState.t("toolbar.mode.template.fast.subtitle"),
-                            isSelected: selectedTemplate == .fastScreening
-                        ) {
-                            selectTemplate(.fastScreening)
-                        }
-                    }
-                    .padding(.leading, 6)
-                    .transition(.opacity.combined(with: .scale(scale: 0.98, anchor: .top)))
-                }
-
-                Divider()
-                    .padding(.vertical, 3)
-
-                MainToolbarPanelToggleRow(
-                    title: appState.t("toolbar.mode.temporary"),
-                    systemImage: "wand.and.stars",
-                    isOn: temporaryScanBinding
-                )
+        Menu {
+            Section(appState.t("toolbar.titleSelector")) {
+                scanModeButton(.auto)
+                scanModeButton(.deep)
+                scanModeButton(.standard)
+                scanModeButton(.quick)
             }
-            .animation(AppMotion.toolbarGlassAppear, value: templatesExpanded)
+
+            Section(appState.t("toolbar.mode.templates")) {
+                templateButton(.defaultAudit)
+                templateButton(.evidenceReview)
+                templateButton(.fastScreening)
+            }
+
+            Toggle(isOn: temporaryScanBinding) {
+                Label(appState.t("toolbar.mode.temporary"), systemImage: "wand.and.stars")
+            }
+        } label: {
+            Label(appState.t("toolbar.titleSelector"), systemImage: "slider.horizontal.3")
         }
-        .onAppear {
-            temporaryScanEnabled = appState.draftConfiguration.toolbarTemporaryScanEnabled
+        .help(appState.t("toolbar.titleSelector"))
+        .accessibilityLabel(appState.t("toolbar.titleSelector"))
+    }
+
+    private func scanModeButton(_ mode: AuditToolbarScanMode) -> some View {
+        Button {
+            selectMode(mode)
+        } label: {
+            Label(scanModeTitle(mode), systemImage: selectedMode == mode ? "checkmark.circle.fill" : "circle")
         }
+    }
+
+    private func templateButton(_ template: AuditToolbarTemplate) -> some View {
+        Button {
+            selectTemplate(template)
+        } label: {
+            Label(templateTitle(template), systemImage: selectedTemplate == template ? "checkmark.circle.fill" : "circle")
+        }
+    }
+
+    private var selectedMode: AuditToolbarScanMode {
+        AuditToolbarScanMode(rawValue: selectedModeRaw) ?? .standard
+    }
+
+    private var selectedTemplate: AuditToolbarTemplate {
+        AuditToolbarTemplate(rawValue: selectedTemplateRaw) ?? .defaultAudit
     }
 
     private var temporaryScanBinding: Binding<Bool> {
         Binding {
-            temporaryScanEnabled
+            appState.draftConfiguration.toolbarTemporaryScanEnabled
         } set: { enabled in
-            setTemporaryScanEnabled(enabled)
+            appState.updateDraft { configuration in
+                configuration.setToolbarTemporaryScanEnabled(enabled)
+            }
         }
     }
 
     private func selectMode(_ mode: AuditToolbarScanMode) {
-        withAnimation(AppMotion.toolbarGlassAppear) {
-            selectedMode = mode
-        }
+        selectedModeRaw = mode.rawValue
+        let temporaryEnabled = appState.draftConfiguration.toolbarTemporaryScanEnabled
         appState.updateDraft { configuration in
             configuration.applyToolbarScanMode(mode)
-            configuration.setToolbarTemporaryScanEnabled(temporaryScanEnabled)
+            configuration.setToolbarTemporaryScanEnabled(temporaryEnabled)
         }
     }
 
     private func selectTemplate(_ template: AuditToolbarTemplate) {
-        withAnimation(AppMotion.toolbarGlassAppear) {
-            selectedTemplate = template
-        }
+        selectedTemplateRaw = template.rawValue
         appState.updateDraft { configuration in
             configuration.applyToolbarTemplate(template)
         }
-        temporaryScanEnabled = appState.draftConfiguration.toolbarTemporaryScanEnabled
     }
 
-    private func setTemporaryScanEnabled(_ enabled: Bool) {
-        withAnimation(AppMotion.toolbarGlassAppear) {
-            temporaryScanEnabled = enabled
-        }
-        appState.updateDraft { configuration in
-            configuration.setToolbarTemporaryScanEnabled(enabled)
-        }
-    }
-}
-
-private struct MainToolbarModeRow: View {
-    let title: String
-    let subtitle: String
-    let isSelected: Bool
-    var action: () -> Void = {}
-    @State private var isHovering = false
-
-    var body: some View {
-        Button {
-            action()
-        } label: {
-            HStack(alignment: .center, spacing: 10) {
-                VStack(alignment: .leading, spacing: 1) {
-                    Text(title)
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundStyle(.primary)
-                    Text(subtitle)
-                        .font(.system(size: 11.5, weight: .medium))
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-
-                if isSelected {
-                    Image(systemName: "checkmark")
-                        .font(.system(size: 11, weight: .semibold))
-                        .foregroundStyle(.primary)
-                }
-            }
-            .padding(.horizontal, 10)
-            .frame(height: 44)
-            .background {
-                RoundedRectangle(cornerRadius: 11, style: .continuous)
-                    .fill(Color.primary.opacity(rowFillAlpha))
-            }
-            .contentShape(RoundedRectangle(cornerRadius: 11, style: .continuous))
-        }
-        .buttonStyle(FloatingToolbarPanelButtonStyle(cornerRadius: 11))
-        .accessibilityLabel(title)
-        .onHover { hovering in
-            withAnimation(AppMotion.toolbarGlassHover) {
-                isHovering = hovering
-            }
+    private func scanModeTitle(_ mode: AuditToolbarScanMode) -> String {
+        switch mode {
+        case .auto:
+            appState.t("toolbar.mode.auto")
+        case .deep:
+            appState.t("toolbar.mode.deep")
+        case .standard:
+            appState.t("toolbar.mode.standard")
+        case .quick:
+            appState.t("toolbar.mode.quick")
         }
     }
 
-    private var rowFillAlpha: Double {
-        if isSelected {
-            return isHovering ? 0.16 : 0.12
+    private func templateTitle(_ template: AuditToolbarTemplate) -> String {
+        switch template {
+        case .defaultAudit:
+            appState.t("toolbar.mode.template.default")
+        case .evidenceReview:
+            appState.t("toolbar.mode.template.review")
+        case .fastScreening:
+            appState.t("toolbar.mode.template.fast")
         }
-        return isHovering ? 0.10 : 0
-    }
-}
-
-private struct MainToolbarTemplateRow: View {
-    let title: String
-    let subtitle: String
-    let isSelected: Bool
-    var action: () -> Void = {}
-    @State private var isHovering = false
-
-    var body: some View {
-        Button {
-            action()
-        } label: {
-            HStack(spacing: 8) {
-                Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
-                    .font(.system(size: 11, weight: .semibold))
-                    .symbolRenderingMode(.hierarchical)
-                    .foregroundStyle(isSelected ? Color.accentColor : Color.secondary)
-                    .frame(width: 16)
-
-                VStack(alignment: .leading, spacing: 1) {
-                    Text(title)
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(.primary)
-                    Text(subtitle)
-                        .font(.system(size: 10.5, weight: .medium))
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-            }
-            .padding(.horizontal, 9)
-            .frame(height: 36)
-            .background {
-                RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .fill(Color.primary.opacity(rowFillAlpha))
-            }
-            .contentShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-        }
-        .buttonStyle(FloatingToolbarPanelButtonStyle(cornerRadius: 10))
-        .accessibilityLabel(title)
-        .onHover { hovering in
-            withAnimation(AppMotion.toolbarGlassHover) {
-                isHovering = hovering
-            }
-        }
-    }
-
-    private var rowFillAlpha: Double {
-        if isSelected {
-            return isHovering ? 0.15 : 0.11
-        }
-        return isHovering ? 0.09 : 0
-    }
-}
-
-private struct MainToolbarPanelToggleRow: View {
-    let title: String
-    let systemImage: String
-    @Binding var isOn: Bool
-    @State private var isHovering = false
-
-    var body: some View {
-        Toggle(isOn: $isOn) {
-            HStack(spacing: 10) {
-                Image(systemName: systemImage)
-                    .font(.system(size: 12, weight: .medium))
-                    .frame(width: 18)
-                    .foregroundStyle(isOn ? Color.accentColor : Color.secondary)
-                Text(title)
-                    .font(.system(size: 12.5, weight: .semibold))
-                    .lineLimit(1)
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-        }
-        .toggleStyle(.switch)
-        .tint(.accentColor)
-        .padding(.horizontal, 10)
-        .frame(height: 38)
-        .background {
-            RoundedRectangle(cornerRadius: 11, style: .continuous)
-                .fill(Color.primary.opacity(rowFillAlpha))
-        }
-        .contentShape(RoundedRectangle(cornerRadius: 11, style: .continuous))
-        .onHover { hovering in
-            withAnimation(AppMotion.toolbarGlassHover) {
-                isHovering = hovering
-            }
-        }
-        .animation(AppMotion.toolbarGlassHover, value: isOn)
-        .accessibilityLabel(title)
-    }
-
-    private var rowFillAlpha: Double {
-        if isOn {
-            return isHovering ? 0.16 : 0.12
-        }
-        return isHovering ? 0.10 : 0
-    }
-}
-
-private struct MainToolbarPanelIconRow: View {
-    let title: String
-    let systemImage: String
-    var trailingSystemImage: String?
-    var isActive = false
-    var isExpanded = false
-    var action: () -> Void = {}
-    @State private var isHovering = false
-
-    var body: some View {
-        Button {
-            action()
-        } label: {
-            HStack(spacing: 10) {
-                Image(systemName: systemImage)
-                    .font(.system(size: 12, weight: .medium))
-                    .frame(width: 18)
-                    .foregroundStyle(.secondary)
-                Text(title)
-                    .font(.system(size: 12.5, weight: .semibold))
-                    .lineLimit(1)
-                Spacer()
-                if let trailingSystemImage {
-                    Image(systemName: trailingSystemImage)
-                        .font(.system(size: 10.5, weight: .semibold))
-                        .foregroundStyle(.secondary)
-                        .rotationEffect(.degrees(isExpanded ? 180 : 0))
-                }
-            }
-            .padding(.horizontal, 10)
-            .frame(height: 38)
-            .background {
-                RoundedRectangle(cornerRadius: 11, style: .continuous)
-                    .fill(Color.primary.opacity(rowFillAlpha))
-            }
-            .contentShape(RoundedRectangle(cornerRadius: 11, style: .continuous))
-        }
-        .buttonStyle(FloatingToolbarPanelButtonStyle(cornerRadius: 11))
-        .accessibilityLabel(title)
-        .onHover { hovering in
-            withAnimation(AppMotion.toolbarGlassHover) {
-                isHovering = hovering
-            }
-        }
-        .animation(AppMotion.toolbarGlassHover, value: isExpanded)
-    }
-
-    private var rowFillAlpha: Double {
-        if isActive {
-            return isHovering ? 0.16 : 0.12
-        }
-        return isHovering ? 0.10 : 0
-    }
-}
-
-private struct GlobalFrameObserver: View {
-    @Binding var frame: CGRect
-
-    var body: some View {
-        Color.clear
-            .onGeometryChange(for: CGRect.self) { proxy in
-                proxy.frame(in: .global).integral
-            } action: { newFrame in
-                frame = newFrame
-            }
     }
 }
 
