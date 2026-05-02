@@ -7,10 +7,13 @@ BUNDLE_ID="com.pitcherplant.desktop"
 SCHEME="PitcherPlantApp"
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+REPO_ROOT="$(cd "$ROOT_DIR/.." && pwd)"
 PROJECT_PATH="$ROOT_DIR/PitcherPlantApp.xcodeproj"
 DERIVED_DATA_PATH="$ROOT_DIR/.build/xcode"
 APP_BUNDLE="$DERIVED_DATA_PATH/Build/Products/Debug/$APP_NAME.app"
 APP_BINARY="$APP_BUNDLE/Contents/MacOS/$APP_NAME"
+
+export PITCHERPLANT_WORKSPACE_ROOT="${PITCHERPLANT_WORKSPACE_ROOT:-$REPO_ROOT}"
 
 pkill -x "$APP_NAME" >/dev/null 2>&1 || true
 

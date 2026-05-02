@@ -2,7 +2,10 @@ import AppKit
 import SwiftUI
 
 private let inspectorColumnAnimation = Animation.smooth(duration: 0.32, extraBounce: 0)
+private let titlePopoverPanelWidth: CGFloat = 300
+private let titlePopoverOuterPadding: CGFloat = 4
 private let titlePopoverToolbarLayerOffset: CGFloat = 50
+private let titlePopoverWindowMargin: CGFloat = 12
 
 struct MainWindowView: View {
     @Environment(AppState.self) private var appState
@@ -409,9 +412,9 @@ struct MainWindowView: View {
                 .zIndex(20)
 
                 MainToolbarTitlePopover()
-                    .padding(4)
+                    .padding(titlePopoverOuterPadding)
                     .offset(
-                        x: titleSelectorGlobalFrame.minX - rootGlobalFrame.minX,
+                        x: titlePopoverXOffset(rootGlobalFrame: rootGlobalFrame),
                         y: titleSelectorGlobalFrame.maxY - rootGlobalFrame.minY + titlePopoverToolbarLayerOffset
                     )
                     .transition(.floatingToolbarPopoverPresence)
@@ -420,6 +423,14 @@ struct MainWindowView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .animation(titleSelectorPresented ? AppMotion.toolbarPopoverPresent : AppMotion.toolbarPopoverDismiss, value: titleSelectorPresented)
+    }
+
+    private func titlePopoverXOffset(rootGlobalFrame: CGRect) -> CGFloat {
+        let totalPopoverWidth = titlePopoverPanelWidth + titlePopoverOuterPadding * 2
+        let centeredX = titleSelectorGlobalFrame.midX - rootGlobalFrame.minX - totalPopoverWidth / 2
+        let maxX = max(titlePopoverWindowMargin, rootGlobalFrame.width - totalPopoverWidth - titlePopoverWindowMargin)
+
+        return min(max(centeredX, titlePopoverWindowMargin), maxX)
     }
 
     private func mainWindowTrailingToolbarOverlay(topSafeAreaInset: CGFloat) -> some View {
@@ -642,7 +653,7 @@ private struct MainToolbarTitlePopover: View {
     @State private var temporaryScanEnabled = false
 
     var body: some View {
-        FloatingToolbarPopoverPanel(width: 300) {
+        FloatingToolbarPopoverPanel(width: titlePopoverPanelWidth) {
             VStack(alignment: .leading, spacing: 6) {
                 MainToolbarModeRow(
                     title: appState.t("toolbar.mode.auto"),

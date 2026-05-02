@@ -125,8 +125,12 @@ struct AuditAssistantService {
         private let payloadData: Data
         private let process = Process()
         private let input = Pipe()
-        private let output = Pipe()
-        private let error = Pipe()
+        private let outputFileURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("pitcherplant-assistant-\(UUID().uuidString).stdout")
+        private let errorFileURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("pitcherplant-assistant-\(UUID().uuidString).stderr")
+        private var outputFileHandle: FileHandle?
+        private var errorFileHandle: FileHandle?
         private var processID: pid_t?
 
         init(command: String, payloadData: Data) {
@@ -135,11 +139,16 @@ struct AuditAssistantService {
         }
 
         func run(timeoutSeconds: Double) async throws -> String {
+            try prepareOutputFiles()
+            defer {
+                cleanupOutputFiles()
+            }
+
             process.executableURL = URL(fileURLWithPath: "/bin/zsh")
             process.arguments = ["-lc", command]
             process.standardInput = input
-            process.standardOutput = output
-            process.standardError = error
+            process.standardOutput = outputFileHandle
+            process.standardError = errorFileHandle
 
             try process.run()
             processID = process.processIdentifier
@@ -147,35 +156,27 @@ struct AuditAssistantService {
             input.fileHandleForWriting.write(payloadData)
             input.fileHandleForWriting.closeFile()
 
-            return try await withThrowingTaskGroup(of: String.self) { group in
-                group.addTask {
-                    try self.waitForOutput()
-                }
-                group.addTask {
-                    let duration = UInt64(max(timeoutSeconds, 0.1) * 1_000_000_000)
-                    try await Task.sleep(nanoseconds: duration)
-                    self.terminate()
-                    throw AssistantError.timeout
-                }
-
-                do {
-                    guard let result = try await group.next() else {
+            let deadline = Date().addingTimeInterval(max(timeoutSeconds, 0.1))
+            do {
+                while process.isRunning {
+                    if Date() >= deadline {
+                        terminate()
                         throw AssistantError.timeout
                     }
-                    group.cancelAll()
-                    return result
-                } catch {
-                    group.cancelAll()
-                    terminate()
-                    throw error
+                    try await Task.sleep(nanoseconds: 20_000_000)
                 }
+            } catch {
+                terminate()
+                throw error
             }
+
+            return try readOutput()
         }
 
-        private func waitForOutput() throws -> String {
-            process.waitUntilExit()
-            let stdout = output.fileHandleForReading.readDataToEndOfFile()
-            let stderr = error.fileHandleForReading.readDataToEndOfFile()
+        private func readOutput() throws -> String {
+            closeOutputFiles()
+            let stdout = (try? Data(contentsOf: outputFileURL)) ?? Data()
+            let stderr = (try? Data(contentsOf: errorFileURL)) ?? Data()
             let text = String(data: stdout.isEmpty ? stderr : stdout, encoding: .utf8)?
                 .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
             guard text.isEmpty == false else {
@@ -184,14 +185,99 @@ struct AuditAssistantService {
             return text
         }
 
+        private func prepareOutputFiles() throws {
+            _ = FileManager.default.createFile(atPath: outputFileURL.path, contents: nil)
+            _ = FileManager.default.createFile(atPath: errorFileURL.path, contents: nil)
+            outputFileHandle = try FileHandle(forWritingTo: outputFileURL)
+            errorFileHandle = try FileHandle(forWritingTo: errorFileURL)
+        }
+
+        private func closeOutputFiles() {
+            outputFileHandle?.closeFile()
+            outputFileHandle = nil
+            errorFileHandle?.closeFile()
+            errorFileHandle = nil
+        }
+
+        private func cleanupOutputFiles() {
+            closeOutputFiles()
+            try? FileManager.default.removeItem(at: outputFileURL)
+            try? FileManager.default.removeItem(at: errorFileURL)
+        }
+
         private func terminate() {
             guard process.isRunning else {
                 return
             }
-            if let processID {
-                kill(-processID, SIGTERM)
-            }
+            let descendantIDs = descendantProcessIDs(of: process.processIdentifier)
+            signal(descendantIDs, SIGTERM)
+            signalProcessGroup(SIGTERM)
             process.terminate()
+
+            let deadline = Date().addingTimeInterval(0.2)
+            while process.isRunning && Date() < deadline {
+                Thread.sleep(forTimeInterval: 0.02)
+            }
+
+            let remainingDescendantIDs = descendantProcessIDs(of: process.processIdentifier)
+            signal(Set(descendantIDs + remainingDescendantIDs), SIGKILL)
+            signalProcessGroup(SIGKILL)
+        }
+
+        private func signal<S: Sequence>(_ processIDs: S, _ signal: Int32) where S.Element == pid_t {
+            for processID in processIDs where processID > 0 {
+                kill(processID, signal)
+            }
+        }
+
+        private func signalProcessGroup(_ signal: Int32) {
+            if let processID {
+                kill(-processID, signal)
+            }
+            if process.isRunning {
+                kill(process.processIdentifier, signal)
+            }
+        }
+
+        private func descendantProcessIDs(of rootID: pid_t) -> [pid_t] {
+            let snapshotProcess = Process()
+            snapshotProcess.executableURL = URL(fileURLWithPath: "/bin/ps")
+            snapshotProcess.arguments = ["-axo", "pid=,ppid="]
+            let snapshotOutput = Pipe()
+            snapshotProcess.standardOutput = snapshotOutput
+            snapshotProcess.standardError = Pipe()
+
+            do {
+                try snapshotProcess.run()
+            } catch {
+                return []
+            }
+            snapshotProcess.waitUntilExit()
+
+            let data = snapshotOutput.fileHandleForReading.readDataToEndOfFile()
+            guard let output = String(data: data, encoding: .utf8) else {
+                return []
+            }
+
+            let pairs: [(pid_t, pid_t)] = output.split(separator: "\n").compactMap { line in
+                let fields = line.split(separator: " ", maxSplits: 1, omittingEmptySubsequences: true)
+                guard fields.count == 2,
+                      let processID = pid_t(String(fields[0])),
+                      let parentID = pid_t(String(fields[1])) else {
+                    return nil
+                }
+                return (processID, parentID)
+            }
+
+            let childrenByParent = Dictionary(grouping: pairs, by: \.1)
+                .mapValues { $0.map(\.0) }
+            var descendants: [pid_t] = []
+            var stack = childrenByParent[rootID] ?? []
+            while let processID = stack.popLast() {
+                descendants.append(processID)
+                stack.append(contentsOf: childrenByParent[processID] ?? [])
+            }
+            return descendants
         }
     }
 }

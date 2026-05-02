@@ -89,6 +89,14 @@ func evidenceImageCacheReusesDecodedImages() throws {
 }
 
 @Test
+func codeDiffCacheKeyUsesFullContentDigest() {
+    let left = "same-prefix-\(String(repeating: "a", count: 128))-same-suffix"
+    let right = "same-prefix-\(String(repeating: "b", count: 128))-same-suffix"
+
+    #expect(CodeDiffCache.key(left: left, right: "x") != CodeDiffCache.key(left: right, right: "x"))
+}
+
+@Test
 func auditReportPrefersBusinessEvidenceForInlineReview() throws {
     let overviewRow = ReportTableRow(columns: ["总览", "", "1"], detailTitle: "总览行", detailBody: "总览")
     let textRow = ReportTableRow(columns: ["a.md", "b.md", "0.91"], detailTitle: "文本证据", detailBody: "文本相似")
