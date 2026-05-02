@@ -3,6 +3,7 @@ import SwiftUI
 struct ReportLibrarySidebar: View {
     @Environment(AppState.self) private var appState
     let reports: [AuditReport]
+    let totalCount: Int
     @Binding var reportQuery: String
 
     var body: some View {
@@ -13,7 +14,7 @@ struct ReportLibrarySidebar: View {
                         Text(appState.t("reports.title"))
                             .font(AppTypography.sectionTitle)
                         Spacer()
-                        Text("\(reports.count)")
+                        Text(countText)
                             .font(AppTypography.metadata)
                             .foregroundStyle(.secondary)
                     }
@@ -52,6 +53,10 @@ struct ReportLibrarySidebar: View {
             .padding(.horizontal, 12)
             .padding(.bottom, 12)
         }
+    }
+
+    private var countText: String {
+        totalCount > reports.count ? "\(reports.count)/\(totalCount)" : "\(reports.count)"
     }
 }
 

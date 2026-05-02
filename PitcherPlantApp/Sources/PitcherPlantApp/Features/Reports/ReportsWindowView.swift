@@ -6,15 +6,17 @@ struct ReportsWindowView: View {
     @State private var reportQuery = ""
     @State private var toolbarSearchPresented = false
     @State private var toolbarSearchExpanded = false
+    @State private var reportQueryRefreshTask: Task<Void, Never>?
 
     private var filteredReports: [AuditReport] {
-        appState.reports.filter { $0.matchesLibrarySearch(reportQuery) }
+        appState.reportLibraryReports
     }
 
     var body: some View {
         NavigationSplitView {
             ReportLibrarySidebar(
                 reports: filteredReports,
+                totalCount: appState.reportLibraryTotalCount,
                 reportQuery: $reportQuery
             )
             .navigationSplitViewColumnWidth(
@@ -49,11 +51,12 @@ struct ReportsWindowView: View {
         }
         .navigationSplitViewStyle(.balanced)
         .onAppear {
+            refreshReportLibrary(immediate: true)
             syncVisibleReportSelection()
             presentToolbarSearch()
         }
-        .onChange(of: reportQuery) { _, _ in syncVisibleReportSelection() }
-        .onChange(of: appState.reports.map(\.id)) { _, _ in syncVisibleReportSelection() }
+        .onChange(of: reportQuery) { _, _ in refreshReportLibrary() }
+        .onChange(of: appState.reportLibraryReports.map(\.id)) { _, _ in syncVisibleReportSelection() }
         .toolbar {
             ToolbarSpacer(.flexible, placement: .primaryAction)
 
@@ -118,6 +121,19 @@ struct ReportsWindowView: View {
         }
     }
 
+    private func refreshReportLibrary(immediate: Bool = false) {
+        reportQueryRefreshTask?.cancel()
+        let query = reportQuery
+        reportQueryRefreshTask = Task { @MainActor in
+            if immediate == false {
+                try? await Task.sleep(nanoseconds: 120_000_000)
+            }
+            guard Task.isCancelled == false else { return }
+            await appState.refreshReportLibrary(query: query)
+            syncVisibleReportSelection()
+        }
+    }
+
     @ViewBuilder
     private var reportWindowFileButtons: some View {
         FloatingToolbarMenuButton(appState.t("settings.exportReport"), systemImage: "square.and.arrow.up") {
@@ -175,9 +191,10 @@ struct ReportsWindowView: View {
 struct ReportsInlineView: View {
     @Environment(AppState.self) private var appState
     @Binding var reportQuery: String
+    @State private var reportQueryRefreshTask: Task<Void, Never>?
 
     private var filteredReports: [AuditReport] {
-        appState.reports.filter { $0.matchesLibrarySearch(reportQuery) }
+        appState.reportLibraryReports
     }
 
     var body: some View {
@@ -192,11 +209,25 @@ struct ReportsInlineView: View {
         }
         .padding(AppLayout.pagePadding)
         .onAppear {
+            refreshReportLibrary(immediate: true)
             syncVisibleReportSelection()
         }
-        .onChange(of: reportQuery) { _, _ in syncVisibleReportSelection() }
-        .onChange(of: appState.reports.map(\.id)) { _, _ in syncVisibleReportSelection() }
+        .onChange(of: reportQuery) { _, _ in refreshReportLibrary() }
+        .onChange(of: appState.reportLibraryReports.map(\.id)) { _, _ in syncVisibleReportSelection() }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+    }
+
+    private func refreshReportLibrary(immediate: Bool = false) {
+        reportQueryRefreshTask?.cancel()
+        let query = reportQuery
+        reportQueryRefreshTask = Task { @MainActor in
+            if immediate == false {
+                try? await Task.sleep(nanoseconds: 120_000_000)
+            }
+            guard Task.isCancelled == false else { return }
+            await appState.refreshReportLibrary(query: query)
+            syncVisibleReportSelection()
+        }
     }
 
     private func syncVisibleReportSelection() {

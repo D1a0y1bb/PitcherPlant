@@ -80,26 +80,25 @@ struct FingerprintLibraryView: View {
     @State private var cleanupTag = ""
     @State private var importTags = ""
     @State private var exportTags = ""
+    @State private var cleanupMatchCount = 0
+    @State private var fingerprintQueryRefreshTask: Task<Void, Never>?
+    @State private var cleanupCountRefreshTask: Task<Void, Never>?
 
-    private var filteredRecords: [FingerprintRecord] {
-        guard query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false else { return appState.fingerprints }
-        return appState.fingerprints.filter { record in
-            [record.filename, record.ext, record.author, record.scanDir, record.simhash, record.batchName ?? "", record.challengeName ?? "", record.teamName ?? "", (record.tags ?? []).joined(separator: " ")]
-                .joined(separator: " ")
-                .localizedCaseInsensitiveContains(query)
-        }
+    private var displayedRecords: [FingerprintRecord] {
+        appState.fingerprintLibraryRecords
     }
 
     var body: some View {
         VStack(spacing: 14) {
-            SearchHeader(title: appState.t("sidebar.fingerprints"), count: filteredRecords.count, query: $query, prompt: appState.t("fingerprints.searchPrompt"))
+            SearchHeader(title: appState.t("sidebar.fingerprints"), count: appState.fingerprintLibraryTotalCount, query: $query, prompt: appState.t("fingerprints.searchPrompt"))
 
             FingerprintActionsView(
                 importTags: $importTags,
                 exportTags: $exportTags,
                 cleanupTag: $cleanupTag,
                 cleanupMatchCount: cleanupMatchCount,
-                filteredRecords: filteredRecords,
+                exportMatchCount: appState.fingerprintLibraryTotalCount,
+                query: query,
                 parsedTags: parsedTags,
                 cleanup: confirmAndDeleteFingerprints
             )
@@ -107,7 +106,7 @@ struct FingerprintLibraryView: View {
             AppHorizontalOverflow(minWidth: AppLayout.fingerprintTableMinWidth) {
                 VStack(alignment: .leading, spacing: 6) {
                     FingerprintListHeader()
-                    List(filteredRecords) { record in
+                    List(displayedRecords) { record in
                         FingerprintLibraryRow(
                             record: record,
                             context: fingerprintContext(record)
@@ -118,7 +117,7 @@ struct FingerprintLibraryView: View {
                     .scrollIndicators(.hidden)
                     .frame(
                         minHeight: 180,
-                        idealHeight: nativeTableIdealHeight(rowCount: filteredRecords.count, minHeight: 220, maxHeight: 360),
+                        idealHeight: nativeTableIdealHeight(rowCount: displayedRecords.count, minHeight: 220, maxHeight: 360),
                         maxHeight: .infinity
                     )
                 }
@@ -127,14 +126,12 @@ struct FingerprintLibraryView: View {
         }
         .padding(AppLayout.pagePadding)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-    }
-
-    private var cleanupMatchCount: Int {
-        let tag = cleanupTag.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard tag.isEmpty == false else { return 0 }
-        return appState.fingerprints.filter { record in
-            record.tags?.contains(where: { $0.caseInsensitiveCompare(tag) == .orderedSame }) == true
-        }.count
+        .onAppear {
+            refreshFingerprintLibrary(immediate: true)
+            refreshCleanupMatchCount(immediate: true)
+        }
+        .onChange(of: query) { _, _ in refreshFingerprintLibrary() }
+        .onChange(of: cleanupTag) { _, _ in refreshCleanupMatchCount() }
     }
 
     private func parsedTags(_ value: String) -> [String] {
@@ -162,7 +159,35 @@ struct FingerprintLibraryView: View {
         alert.addButton(withTitle: "取消")
         guard alert.runModal() == .alertFirstButtonReturn else { return }
         cleanupTag = ""
-        Task { await appState.deleteFingerprints(tag: trimmed) }
+        Task { @MainActor in
+            await appState.deleteFingerprints(tag: trimmed)
+            await appState.refreshFingerprintLibrary(query: query)
+            cleanupMatchCount = await appState.fingerprintCount(tag: cleanupTag)
+        }
+    }
+
+    private func refreshFingerprintLibrary(immediate: Bool = false) {
+        fingerprintQueryRefreshTask?.cancel()
+        let query = query
+        fingerprintQueryRefreshTask = Task { @MainActor in
+            if immediate == false {
+                try? await Task.sleep(nanoseconds: 120_000_000)
+            }
+            guard Task.isCancelled == false else { return }
+            await appState.refreshFingerprintLibrary(query: query)
+        }
+    }
+
+    private func refreshCleanupMatchCount(immediate: Bool = false) {
+        cleanupCountRefreshTask?.cancel()
+        let tag = cleanupTag
+        cleanupCountRefreshTask = Task { @MainActor in
+            if immediate == false {
+                try? await Task.sleep(nanoseconds: 120_000_000)
+            }
+            guard Task.isCancelled == false else { return }
+            cleanupMatchCount = await appState.fingerprintCount(tag: tag)
+        }
     }
 }
 
@@ -237,7 +262,8 @@ private struct FingerprintActionsView: View {
     @Binding var exportTags: String
     @Binding var cleanupTag: String
     let cleanupMatchCount: Int
-    let filteredRecords: [FingerprintRecord]
+    let exportMatchCount: Int
+    let query: String
     let parsedTags: (String) -> [String]
     let cleanup: (String, Int) -> Void
 
@@ -289,11 +315,11 @@ private struct FingerprintActionsView: View {
                 .textFieldStyle(.roundedBorder)
                 .frame(width: 240)
             Button {
-                appState.exportFingerprintPackage(records: filteredRecords, tags: parsedTags(exportTags))
+                appState.exportFingerprintPackage(query: query, tags: parsedTags(exportTags))
             } label: {
                 Label(appState.t("fingerprints.exportPackage"), systemImage: "square.and.arrow.up")
             }
-            .disabled(filteredRecords.isEmpty)
+            .disabled(exportMatchCount == 0)
         }
     }
 

@@ -1,15 +1,12 @@
 <p align="center">
   <img src="Docs/READMEAssets/app-icon.png" width="120" alt="PitcherPlant app icon" />
 </p>
-<h1 align="center">PitcherPlant（猪笼草）</h1>
+
+<h1 align="center">PitcherPlant</h1>
 
 <p align="center">
-  <strong>macOS 原生 WriteUP 审计工作台</strong>
+  <strong>Native macOS WriteUP audit workbench for security competitions.</strong>
 </p>
-<p align="center">
-  一切比赛的初衷是为了选拔人才，而选拔人才最基本要务就是公平。面向安全竞赛提交的 WriteUP 进行快速审计、专为Macos 26+开发适配，让公平真切落实、让赛事组织方更好的ban掉作弊违规的参赛选手和组织。吊椅宝宝来 Github 只为了三件事：公平，公平，还是TM的公平！
-</p>
-
 
 <p align="center">
   <img alt="macOS 26+" src="https://img.shields.io/badge/macOS-26%2B-111827?logo=apple&logoColor=white">
@@ -20,129 +17,145 @@
 </p>
 
 <p align="center">
-  <a href="#快速开始">快速开始</a>
-  · <a href="#功能亮点">功能亮点</a>
-  · <a href="#检测模型">检测模型</a>
-  · <a href="#架构">架构</a>
-  · <a href="#开发命令">开发命令</a>
+  <a href="#overview">Overview</a>
+  · <a href="#features">Features</a>
+  · <a href="#quick-start">Quick Start</a>
+  · <a href="#workflow">Workflow</a>
+  · <a href="#architecture">Architecture</a>
+  · <a href="#development">Development</a>
+  · <a href="README.zh-CN.md">简体中文</a>
 </p>
 
----
+## Overview
 
-## 猪笼草
+PitcherPlant is a local-first macOS app for auditing security competition WriteUP submissions. It scans a submission directory, extracts text, code snippets, Office/PDF metadata, embedded images, standalone images, and SimHash fingerprints, then builds a structured evidence report for human review.
 
-PitcherPlant（猪笼草）是一款本地运行的 macOS 审计应用。通过读取比赛 WriteUP 目录，提取正文、代码片段、Office/PDF 元数据、嵌入图片和 SimHash 指纹，帮助审计人员定位疑似复用、改写和跨批次重复提交。这是吊椅宝宝在之前某场比赛凌晨 4 点审计近 1200 份 WriteUP 时突发奇想而想做的一件事。能不能做个好用一点的工具呢？或许真的有许多比赛主办方从来不审计，或者许多东西只是一个形式，但是我们最初的目的依旧是：比赛是为了选拔人才，选拔人才最基本的就是公平。
+The app is built for organizers and reviewers who need to find suspicious reuse, rewritten reports, duplicated submissions, reused images, shared metadata, and cross-batch repetition across historical fingerprints. All core data is stored locally in SQLite through GRDB.
 
-<table>
-  <tr>
-    <td><strong>本地原生</strong><br>SwiftUI 桌面应用，数据默认保存在工作区本地 SQLite。</td>
-    <td><strong>面向 WriteUP</strong><br>围绕 CTF/安全竞赛提交材料复核组织审计流程。</td>
-  </tr>
-  <tr>
-    <td><strong>多证据链</strong><br>文本、代码、图片、元数据、重复提交和历史指纹统一进入报告。</td>
-    <td><strong>可追溯</strong><br>报告、任务、指纹、白名单和导出记录持久化保存。</td>
-  </tr>
-</table>
+## Features
 
-
-## 功能亮点
-
-| 能力 | 说明 |
+| Area | Capability |
 | --- | --- |
-| 文档摄取 | 递归扫描审计目录，读取 `pdf`、`docx`、`md`、`txt`、`html`、`rtf`、`pptx`、源码文件和独立图片，跳过 `~$draft.docx` 这类 Office 临时文件。 |
-| DOCX 解析 | 提取正文、作者、最后修改者和 `word/media/*` 嵌入图片。 |
-| PDF 解析 | 通过 PDFKit 提取文本和作者元数据，读取内嵌图片流，并使用页级缩略图兜底。 |
-| 文本相似 | 基于 TF-IDF 与 cosine similarity 比对清洗后的 WriteUP 文本。 |
-| 代码相似 | 提取 fenced code 与启发式代码片段，计算词元与结构相似度。 |
-| 图片复用 | 基于 pHash、aHash、dHash 的汉明距离匹配图片证据。 |
-| 元数据碰撞 | 按作者和最后修改者字段聚合可疑交叉来源。 |
-| 跨批次复用 | 保存 SimHash 指纹，并与历史批次指纹做位差匹配。 |
-| 白名单 | 支持作者、文件名、文本片段、代码模板、图片 Hash、元数据和路径规则。 |
-| 批量导入 | 支持 ZIP、嵌套目录和队伍目录识别，导入后生成队列任务并串行执行。 |
-| 证据复核 | 证据行支持确认、误报、忽略、加入白名单、严重度覆盖和备注持久化。 |
-| 报告中心 | 展示总览、文本、代码、图片、元数据、重复、指纹、跨批次章节，并按风险排序查看。 |
-| 导出 | 支持 HTML、PDF、CSV、JSON、Markdown 和 Evidence Bundle ZIP。 |
+| Native desktop | SwiftUI macOS app with a workspace dashboard, audit queue, report center, evidence inspector, fingerprint library, whitelist library, and settings surface. |
+| Local persistence | Reports, jobs, evidence review state, fingerprints, whitelist rules, imports, and export records are stored in a local SQLite database. |
+| Document ingestion | Recursively scans `pdf`, `docx`, `pptx`, `md`, `txt`, `html`, `htm`, `rtf`, source files, and standalone images. Office temporary files such as `~$draft.docx` are skipped. |
+| DOCX/PPTX parsing | Extracts document text, author metadata, last-modified-by metadata, slide text, and embedded media from Office archives. |
+| PDF parsing | Extracts text and author metadata with PDFKit, reads embedded image streams, and uses page thumbnails as a fallback. |
+| Text similarity | Uses TF-IDF with word and character n-grams plus cosine similarity to detect suspiciously similar WriteUP text. |
+| Code similarity | Extracts fenced code and heuristic code blocks, then compares lexical shingles, structural tokens, and shared token coverage. |
+| Image reuse | Computes perceptual hash, average hash, and difference hash values, then compares image evidence with Hamming distance. |
+| Metadata collisions | Groups suspicious overlaps in author and last-modified-by fields. |
+| Cross-batch reuse | Stores SimHash fingerprints and compares new submissions against historical batches with exact Hamming-distance semantics. |
+| Whitelist workflow | Supports author, filename, text fragment, code template, image hash, metadata, and path rules. Matches can be marked or hidden. |
+| Batch import | Imports ZIP files, nested folders, and team directories into queued audit jobs. Jobs run serially and can be retried. |
+| Evidence review | Evidence rows support confirmed, false positive, ignored, favorite, watched, severity override, notes, and whitelist actions. |
+| Report center | Shows overview, text, code, image, metadata, deduplication, fingerprint, and cross-batch sections with risk sorting and detail inspection. |
+| Export | Exports HTML, PDF, CSV, JSON, Markdown, and Evidence Bundle ZIP packages. |
+| Large workspace handling | Uses paged database reads, incremental job event writes, audit preflight checks, cancellable parsing loops, report filtering caches, image caches, code diff caches, and bounded graph rendering. |
 
-## 快速开始
+## Supported Inputs
 
-从仓库根目录打开 workspace：
+| Type | Extensions |
+| --- | --- |
+| Documents | `pdf`, `docx`, `pptx`, `md`, `txt`, `html`, `htm`, `rtf` |
+| Source code | `py`, `c`, `cc`, `cpp`, `h`, `hpp`, `java`, `go`, `js`, `jsx`, `ts`, `tsx`, `swift`, `sh`, `bash`, `zsh`, `rb`, `rs`, `php`, `cs`, `kt`, `sql`, `m`, `mm` |
+| Images | `png`, `jpg`, `jpeg`, `gif`, `bmp`, `tiff`, `webp` |
+| Batch imports | ZIP archives and nested submission directories |
+
+## Quick Start
+
+Open the workspace from the repository root:
 
 ```bash
 open PitcherPlant.xcworkspace
 ```
 
-在 Xcode 中选择 `PitcherPlantApp` scheme，运行目标选择 `My Mac`，然后启动应用。
+In Xcode, select the `PitcherPlantApp` scheme, choose `My Mac` as the run destination, and launch the app.
 
-命令行构建并启动：
+Build and run from the command line:
 
 ```bash
 cd PitcherPlantApp
 ./script/build_and_run.sh
 ```
 
-验证应用进程：
+Build, launch, and verify that the app process is running:
 
 ```bash
 cd PitcherPlantApp
 ./script/build_and_run.sh --verify
 ```
 
-运行脚本使用 `xcodebuild` 构建 Debug 版本，并启动以下 app bundle：
+The helper script builds the Debug app with `xcodebuild` and launches:
 
 ```text
 PitcherPlantApp/.build/xcode/Build/Products/Debug/PitcherPlant.app
 ```
 
-## 使用流程
+## Workflow
 
 ```mermaid
 flowchart LR
-    A["选择审计目录"] --> B["解析文档与图片"]
-    B --> C["文本 / 代码 / 图片 / 元数据分析"]
-    C --> D["生成结构化报告"]
-    D --> E["报告中心复核"]
-    E --> F["维护白名单与历史指纹"]
-    E --> G["导出 HTML / PDF / CSV / JSON / Markdown / Bundle"]
+    A["Choose audit directory"] --> B["Parse documents and images"]
+    B --> C["Analyze text, code, image, metadata, and fingerprints"]
+    C --> D["Generate structured report"]
+    D --> E["Review evidence in Report Center"]
+    E --> F["Maintain whitelist and historical fingerprints"]
+    E --> G["Export HTML, PDF, CSV, JSON, Markdown, or Bundle"]
 ```
 
-1. 打开应用，进入工作台查看任务、报告、指纹和白名单数量。
-2. 进入 **新建审计**。
-3. 设置审计目录、输出目录和报告文件名模板。
-4. 调整文本阈值、重复阈值、图片阈值、SimHash 阈值、Vision OCR 和白名单模式。
-5. 启动审计任务。
-6. 在 **报告中心** 查看证据章节、风险排序、详情、附件和指纹记录。
-7. 对证据执行确认、误报、忽略、白名单和备注复核。
-8. 批量提交包可从 **新建审计** 导入，系统会生成队列任务并串行运行。
-9. 将选中报告导出为 HTML、PDF、CSV、JSON、Markdown 或 Evidence Bundle ZIP。
+1. Open PitcherPlant and review workspace counts for jobs, reports, fingerprints, and whitelist rules.
+2. Open **New Audit**.
+3. Choose the audit directory, output directory, and report file name template.
+4. Adjust text similarity, deduplication, image hash distance, SimHash distance, Vision OCR, and whitelist behavior.
+5. Start the audit job.
+6. Review findings in **Report Center** by evidence type, risk score, section, and search query.
+7. Open evidence in the inspector to compare text, code, image attachments, metadata, source references, and review notes.
+8. Mark evidence as confirmed, false positive, ignored, favorite, or watched.
+9. Add whitelist rules when repeated legitimate templates or known sources appear.
+10. Export the selected report as HTML, PDF, CSV, JSON, Markdown, or Evidence Bundle ZIP.
 
-## 检测模型
+## Detection Model
 
-| 模块 | 输入 | 方法 | 输出 |
+| Analyzer | Input | Method | Output |
 | --- | --- | --- | --- |
-| `TextSimilarityAnalyzer` | 清洗后的正文 | TF-IDF + cosine similarity | 文本相似文件对 |
-| `CodeSimilarityAnalyzer` | fenced code 与启发式代码片段 | lexical shingles + structural tokens | 代码结构相似证据 |
-| `ImageReuseAnalyzer` | DOCX/PDF 图片 | pHash / aHash / dHash 位差 | 图片复用证据与缩略图 |
-| `MetadataCollisionAnalyzer` | 作者与最后修改者 | 字段聚合与通用作者过滤 | 元数据碰撞记录 |
-| `DedupAnalyzer` | 清洗后的正文 | 更严格文本阈值 | 近重复文件对 |
-| `CrossBatchReuseAnalyzer` | 当前与历史 SimHash | 汉明距离 + 白名单规则 | 跨批次复用记录 |
+| `TextSimilarityAnalyzer` | Normalized document text | TF-IDF, word n-grams, character n-grams, cosine similarity | Similar WriteUP pairs with shared context attachments |
+| `CodeSimilarityAnalyzer` | Fenced code and heuristic code blocks | Lexical shingles, structural signatures, shared token ratio | Similar code pairs with token and structure details |
+| `ImageReuseAnalyzer` | Embedded and standalone images | pHash, aHash, dHash, Hamming distance | Reused-image evidence with thumbnails and source references |
+| `MetadataCollisionAnalyzer` | Author and last-modified-by metadata | Field grouping with common-author filtering | Metadata collision rows |
+| `DedupAnalyzer` | Normalized document text | Stricter text similarity threshold | Near-duplicate file pairs |
+| `FingerprintAnalyzer` | Parsed document text | SimHash fingerprinting | Current-batch fingerprint records |
+| `CrossBatchReuseAnalyzer` | Current and historical SimHash records | Hamming distance with direct scan or BK-tree index | Cross-batch reuse matches |
 
-## 配置
+Evidence is decision support for reviewers. Final enforcement decisions should consider competition rules, context, and manual verification.
 
-默认配置来自 `AuditConfiguration.defaults(for:)`：
+## Configuration
 
-| 配置项 | 默认值 |
+Default values come from `AuditConfiguration.defaults(for:)`.
+
+| Setting | Default |
 | --- | --- |
-| 输入目录 | `Fixtures/WriteupSamples/date` |
-| 输出目录 | `GeneratedReports/full` |
-| 报告文件名模板 | `{dir}_PitcherPlant_{date}.html` |
-| 文本相似阈值 | `0.75` |
-| 重复检测阈值 | `0.85` |
-| 图片哈希位差阈值 | `5` |
-| SimHash 位差阈值 | `4` |
-| Vision OCR | 开启 |
-| 白名单模式 | 标记命中项 |
+| Input directory | `Fixtures/WriteupSamples/date` |
+| Output directory | `GeneratedReports/full` |
+| Report name template | `{dir}_PitcherPlant_{date}.html` |
+| Text similarity threshold | `0.75` |
+| Deduplication threshold | `0.85` |
+| Image hash distance threshold | `5` |
+| SimHash distance threshold | `4` |
+| Vision OCR | Enabled |
+| Whitelist mode | Mark matches |
 
-## 架构
+The toolbar also exposes scan profiles:
+
+| Profile | Behavior |
+| --- | --- |
+| Standard | Uses the default thresholds above. |
+| Deep | Lowers text and deduplication thresholds, increases image and SimHash distance, keeps OCR enabled. |
+| Quick | Raises text and deduplication thresholds, tightens image and SimHash distance, disables OCR. |
+| Evidence Review | Tunes thresholds for broader review and uses the `{dir}_EvidenceReview_{date}.html` report template. |
+| Fast Screening | Uses quick scanning and the `{dir}_QuickScreen_{date}.html` report template. |
+
+## Architecture
 
 ```text
 PitcherPlant/
@@ -167,53 +180,55 @@ PitcherPlant/
     └── Tests/PitcherPlantAppTests/
 ```
 
-| 路径 | 职责 |
+| Path | Responsibility |
 | --- | --- |
-| `App/` | SwiftUI 应用入口、共享状态、菜单命令 |
-| `Core/` | 文档摄取、审计运行器、分析器、报告导出 |
-| `Features/` | 主窗口、报告中心、设置页 |
-| `Models/` | 审计、报告、设置、指纹、白名单模型 |
-| `Persistence/` | GRDB 数据库和结构升级 |
-| `Support/` | 工作区定位、本地化、主题、报告过滤 |
-| `Tests/PitcherPlantAppTests/` | 摄取、分析器、报告、数据库、导入测试 |
+| `App/` | SwiftUI app entry point, shared app state, commands, and window setup. |
+| `Core/` | Document ingestion, analyzers, audit runner, risk scoring, report assembly, export, batch import, and fingerprint packaging. |
+| `Features/` | Main window, workspace dashboard, report center, evidence inspector, libraries, and settings views. |
+| `Models/` | Audit configuration, jobs, reports, evidence, settings, fingerprints, and whitelist models. |
+| `Persistence/` | GRDB-backed SQLite store, schema migrations, paged reads, event writes, and review-state persistence. |
+| `Support/` | Workspace discovery, localization, theme, layout surfaces, typography, filtering, and environment helpers. |
+| `Tests/PitcherPlantAppTests/` | Unit and integration tests for ingestion, analyzers, reports, persistence, imports, cancellation, caching, and performance-sensitive helpers. |
 
-审计流水线：
+Audit pipeline:
 
 ```mermaid
 flowchart TD
-    A["AuditConfiguration"] --> B["DocumentIngestionService"]
-    B --> C["TextSimilarityAnalyzer"]
-    B --> D["CodeSimilarityAnalyzer"]
-    B --> E["ImageReuseAnalyzer"]
-    B --> F["MetadataCollisionAnalyzer"]
-    B --> G["DedupAnalyzer"]
-    B --> H["FingerprintAnalyzer"]
-    H --> I["CrossBatchReuseAnalyzer"]
-    C --> J["ReportAssembler"]
-    D --> J
-    E --> J
-    F --> J
-    G --> J
-    I --> J
-    J --> K["ReportExporter"]
-    J --> L["DatabaseStore"]
+    A["AuditConfiguration"] --> B["AuditRunPreflight"]
+    B --> C["DocumentIngestionService"]
+    C --> D["DocumentFeatureStore"]
+    D --> E["TextSimilarityAnalyzer"]
+    D --> F["CodeSimilarityAnalyzer"]
+    C --> G["ImageReuseAnalyzer"]
+    C --> H["MetadataCollisionAnalyzer"]
+    D --> I["DedupAnalyzer"]
+    D --> J["FingerprintAnalyzer"]
+    J --> K["CrossBatchReuseAnalyzer"]
+    E --> L["ReportAssembler"]
+    F --> L
+    G --> L
+    H --> L
+    I --> L
+    K --> L
+    L --> M["ReportExporter"]
+    L --> N["DatabaseStore"]
 ```
 
-## 数据存储
+## Data Storage
 
-PitcherPlant 启动时解析工作区根目录。首选数据库位置：
+PitcherPlant resolves a workspace root at launch. The preferred database location is:
 
 ```text
 .pitcherplant-macos/PitcherPlantMac.sqlite
 ```
 
-工作区写入受限时使用：
+When the workspace is read-only, the fallback location is:
 
 ```text
 ~/Library/Application Support/PitcherPlant/.pitcherplant-macos/PitcherPlantMac.sqlite
 ```
 
-本地生成目录：
+Local generated paths:
 
 ```text
 .pitcherplant-macos/
@@ -221,68 +236,108 @@ GeneratedReports/
 PitcherPlantApp/.build/
 PitcherPlantApp/.pitcherplant-macos/
 PitcherPlantApp/reports/
+PitcherPlantApp/build/
 ```
 
-这些路径已加入 `.gitignore`。
+These paths are ignored by Git.
 
-## 开发命令
+## Development
 
-安装 XcodeGen：
+Install XcodeGen:
 
 ```bash
 brew install xcodegen
 ```
 
-生成 Xcode 工程：
+Regenerate the Xcode project:
 
 ```bash
 cd PitcherPlantApp
 xcodegen generate
 ```
 
-运行 SwiftPM 测试：
+Run SwiftPM tests:
 
 ```bash
 cd PitcherPlantApp
-swift package clean
 swift test
 ```
 
-构建 macOS App：
-
-```bash
-cd PitcherPlantApp
-xcodebuild -project PitcherPlantApp.xcodeproj -scheme PitcherPlantApp -destination 'platform=macOS' build
-```
-
-运行 Xcode scheme 测试：
+Run Xcode scheme tests:
 
 ```bash
 cd PitcherPlantApp
 xcodebuild -project PitcherPlantApp.xcodeproj -scheme PitcherPlantApp -destination 'platform=macOS' test
 ```
 
-命名关系：
+Build the Release app:
 
-| 场景 | 名称 |
+```bash
+cd PitcherPlantApp
+xcodebuild -project PitcherPlantApp.xcodeproj -scheme PitcherPlantApp -destination 'platform=macOS' -configuration Release build
+```
+
+Check whitespace before committing:
+
+```bash
+git diff --check
+```
+
+Project naming:
+
+| Context | Name |
 | --- | --- |
-| SwiftPM executable target/product | `PitcherPlantApp` |
+| SwiftPM package | `PitcherPlantApp` |
+| SwiftPM executable product | `PitcherPlantApp` |
 | Xcode scheme | `PitcherPlantApp` |
-| App bundle/product | `PitcherPlant` |
+| App bundle and product | `PitcherPlant` |
+| Bundle identifier | `com.pitcherplant.desktop` |
 
-依赖锁定：
+Dependencies:
 
-| 依赖 | 版本 |
-| --- | --- |
-| `GRDB.swift` | 7.10.0 |
-| `ZIPFoundation` | 0.9.20 |
+| Dependency | Version policy | Current resolved version |
+| --- | --- | --- |
+| `GRDB.swift` | from `7.0.0` | `7.10.0` |
+| `ZIPFoundation` | from `0.9.19` | `0.9.20` |
 
-## 当前进度
+## Release
 
-- 已落地：批量提交包导入、队列串行执行、失败任务重试、证据复核持久化、证据级风险聚合、扩展输入解析、扩展导出、白名单建议、候选召回、指纹包导入导出、标签清理、可选审计辅助解释、CI 和发布 workflow。
-- 已补齐：证据查看器高亮与跳转、代码逐行 diff、图片证据来源展示、跨批次复用图谱、校准 fixture、性能指标基线和 ad-hoc 发布打包验证。
-- 发布说明：当前 Release workflow 默认生成 ad-hoc 签名 ZIP/DMG，不依赖 Apple Developer 付费账号；后续如配置 Developer ID 证书和公证 secrets，可切换到 `developer-id` 分发模式。详见 [Docs/RELEASE.md](Docs/RELEASE.md)。
+Create local ad-hoc release artifacts:
+
+```bash
+cd PitcherPlantApp
+./script/package_release.sh --distribution ad-hoc
+```
+
+Artifacts are written to:
+
+```text
+PitcherPlantApp/build/export/PitcherPlant.app
+PitcherPlantApp/build/dist/PitcherPlant-macOS.zip
+PitcherPlantApp/build/dist/PitcherPlant-macOS.dmg
+PitcherPlantApp/build/dist/PitcherPlant.xcarchive.zip
+PitcherPlantApp/build/dist/PitcherPlant-dSYMs.zip
+PitcherPlantApp/build/dist/PitcherPlant-macOS-checksums.txt
+PitcherPlantApp/build/dist/release-notes.md
+```
+
+The release script performs archive, export, ZIP/DMG packaging, code-sign verification, DMG verification, unpack checks, mount checks, and SHA-256 checksum generation.
+
+Developer ID distribution is available through:
+
+```bash
+cd PitcherPlantApp
+./script/package_release.sh --distribution developer-id --notarize
+```
+
+Required Developer ID environment variables are documented in [Docs/RELEASE.md](Docs/RELEASE.md).
+
+## Related Docs
+
+- [Project structure](Docs/PROJECT_STRUCTURE.md)
+- [Release and acceptance](Docs/RELEASE.md)
+- [Third-party notices](Docs/THIRD_PARTY_NOTICES.md)
 
 ## License
 
-本项目采用 MIT License，详见 [LICENSE](LICENSE)。
+PitcherPlant is released under the MIT License. See [LICENSE](LICENSE).

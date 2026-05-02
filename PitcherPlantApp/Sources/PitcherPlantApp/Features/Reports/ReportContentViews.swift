@@ -415,7 +415,7 @@ struct EvidenceCollectionView: View {
             refreshItems()
             syncSelection()
         }
-        .onChange(of: appState.evidenceReviews.map(\.id)) { _, _ in
+        .onChange(of: appState.evidenceReviewRevision) { _, _ in
             refreshItems()
             syncSelection()
         }

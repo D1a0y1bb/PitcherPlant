@@ -494,6 +494,30 @@ actor DatabaseStore {
         }
     }
 
+    func searchReports(query: String, limit: Int, offset: Int = 0) throws -> DatabasePage<AuditReport> {
+        let sanitizedLimit = max(1, limit)
+        let sanitizedOffset = max(0, offset)
+        let trimmed = query.normalizedSearchQuery
+        guard trimmed.isEmpty == false else {
+            return try loadReportsPage(limit: sanitizedLimit, offset: sanitizedOffset)
+        }
+
+        return try dbQueue.read { db in
+            let rows = try Row.fetchAll(db, sql: "SELECT id, payload FROM audit_reports ORDER BY created_at DESC")
+            let sectionsByReportID = try fetchSectionsByReportID(db)
+            let matchingReports = try rows.compactMap { row -> AuditReport? in
+                let reportID: String = row["id"]
+                var report = try JSONDecoder.pitcherPlant.decodeString(AuditReport.self, from: row["payload"])
+                if let sections = sectionsByReportID[reportID], sections.isEmpty == false {
+                    report = report.replacingSections(sections)
+                }
+                return report.matchesLibrarySearch(trimmed) ? report : nil
+            }
+            let page = Array(matchingReports.dropFirst(sanitizedOffset).prefix(sanitizedLimit))
+            return DatabasePage(values: page, totalCount: matchingReports.count, limit: sanitizedLimit, offset: sanitizedOffset)
+        }
+    }
+
     func loadReport(id: UUID) throws -> AuditReport? {
         try dbQueue.read { db in
             guard let row = try Row.fetchOne(db, sql: "SELECT id, payload FROM audit_reports WHERE id = ?", arguments: [id.uuidString]) else {
@@ -666,6 +690,56 @@ actor DatabaseStore {
                 try JSONDecoder.pitcherPlant.decodeString(FingerprintRecord.self, from: row["payload"])
             }
             return DatabasePage(values: records, totalCount: totalCount, limit: sanitizedLimit, offset: sanitizedOffset)
+        }
+    }
+
+    func searchFingerprintRecords(query: String, limit: Int, offset: Int = 0) throws -> DatabasePage<FingerprintRecord> {
+        let sanitizedLimit = max(1, limit)
+        let sanitizedOffset = max(0, offset)
+        let trimmed = query.normalizedSearchQuery
+        guard trimmed.isEmpty == false else {
+            return try loadFingerprintPage(limit: sanitizedLimit, offset: sanitizedOffset)
+        }
+
+        return try dbQueue.read { db in
+            let rows = try Row.fetchAll(db, sql: "SELECT payload FROM fingerprints ORDER BY scanned_at DESC")
+            let matchingRecords = try rows.compactMap { row -> FingerprintRecord? in
+                let record = try JSONDecoder.pitcherPlant.decodeString(FingerprintRecord.self, from: row["payload"])
+                return record.matchesLibrarySearch(trimmed) ? record : nil
+            }
+            let page = Array(matchingRecords.dropFirst(sanitizedOffset).prefix(sanitizedLimit))
+            return DatabasePage(values: page, totalCount: matchingRecords.count, limit: sanitizedLimit, offset: sanitizedOffset)
+        }
+    }
+
+    func loadFingerprintRecords(matching query: String) throws -> [FingerprintRecord] {
+        let trimmed = query.normalizedSearchQuery
+        guard trimmed.isEmpty == false else {
+            return try loadFingerprintRecords()
+        }
+
+        return try dbQueue.read { db in
+            let rows = try Row.fetchAll(db, sql: "SELECT payload FROM fingerprints ORDER BY scanned_at DESC")
+            return try rows.compactMap { row in
+                let record = try JSONDecoder.pitcherPlant.decodeString(FingerprintRecord.self, from: row["payload"])
+                return record.matchesLibrarySearch(trimmed) ? record : nil
+            }
+        }
+    }
+
+    func countFingerprintRecords(tag: String) throws -> Int {
+        let normalizedTag = tag.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard normalizedTag.isEmpty == false else {
+            return 0
+        }
+
+        return try dbQueue.read { db in
+            let needle = "\n\(normalizedTag)\n"
+            return try Int.fetchOne(
+                db,
+                sql: "SELECT COUNT(*) FROM fingerprints WHERE instr(tag_index, ?) > 0",
+                arguments: [needle]
+            ) ?? 0
         }
     }
 
@@ -1056,6 +1130,24 @@ private extension ReportTableRow {
         return (columns + [detailTitle, detailBody, badgeCorpus, attachmentCorpus])
             .joined(separator: "\n")
             .localizedCaseInsensitiveContains(query)
+    }
+}
+
+private extension FingerprintRecord {
+    func matchesLibrarySearch(_ query: String) -> Bool {
+        [
+            filename,
+            ext,
+            author,
+            scanDir,
+            simhash,
+            batchName ?? "",
+            challengeName ?? "",
+            teamName ?? "",
+            (tags ?? []).joined(separator: " ")
+        ]
+        .joined(separator: " ")
+        .localizedCaseInsensitiveContains(query)
     }
 }
 

@@ -1,4 +1,5 @@
 import AppKit
+import CryptoKit
 import SwiftUI
 
 @MainActor
@@ -34,7 +35,7 @@ final class EvidenceImageCache {
     }
 
     private func cacheKey(for value: String) -> String {
-        "\(value.count):\(value.prefix(80)):\(value.suffix(80))"
+        stableContentDigest(value)
     }
 }
 
@@ -57,7 +58,7 @@ actor CodeDiffCache {
     }
 
     nonisolated static func key(left: String, right: String) -> String {
-        "\(left.count):\(left.prefix(96)):\(left.suffix(96))|\(right.count):\(right.prefix(96)):\(right.suffix(96))"
+        "\(stableContentDigest(left))|\(stableContentDigest(right))"
     }
 
     private func trimIfNeeded() {
@@ -66,6 +67,11 @@ actor CodeDiffCache {
             rowsByKey.removeValue(forKey: key)
         }
     }
+}
+
+private func stableContentDigest(_ value: String) -> String {
+    let digest = SHA256.hash(data: Data(value.utf8))
+    return digest.map { String(format: "%02x", $0) }.joined()
 }
 
 struct ReportEvidenceInspector: View {

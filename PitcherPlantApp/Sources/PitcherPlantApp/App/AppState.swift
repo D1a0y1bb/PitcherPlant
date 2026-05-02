@@ -84,12 +84,17 @@ final class AppState {
     var jobs: [AuditJob] = []
     var reports: [AuditReport] = []
     var reportTotalCount = 0
+    var reportLibraryReports: [AuditReport] = []
+    var reportLibraryTotalCount = 0
     var fingerprints: [FingerprintRecord] = []
     var fingerprintTotalCount = 0
+    var fingerprintLibraryRecords: [FingerprintRecord] = []
+    var fingerprintLibraryTotalCount = 0
     var whitelistRules: [WhitelistRule] = []
     var configurationPresets: [AuditConfigurationPreset] = []
     var exportRecords: [ExportRecord] = []
     var evidenceReviews: [EvidenceReview] = []
+    var evidenceReviewRevision = 0
     var submissionBatches: [SubmissionBatch] = []
     var whitelistSuggestions: [WhitelistSuggestion] = []
     var appSettings: AppSettings
@@ -213,9 +218,13 @@ final class AppState {
                 loadedReports.append(selectedReport)
             }
             reports = loadedReports.map(reportWithReviews)
+            reportLibraryReports = reports
+            reportLibraryTotalCount = reportTotalCount
             let fingerprintPage = try await database.loadFingerprintPage(limit: Self.fingerprintPageLimit)
             fingerprints = fingerprintPage.values
             fingerprintTotalCount = fingerprintPage.totalCount
+            fingerprintLibraryRecords = fingerprints
+            fingerprintLibraryTotalCount = fingerprintTotalCount
             whitelistRules = try await database.loadWhitelistRules()
             configurationPresets = AppPreferences.loadPresets(for: workspaceRoot)
             exportRecords = try await database.loadExportRecords(limit: 20)
@@ -232,6 +241,7 @@ final class AppState {
             if let report = selectedReport, selectedReportSection == nil {
                 selectedReportSection = report.preferredEvidenceSection?.kind
             }
+            evidenceReviewRevision += 1
             syncReportSelection()
         } catch {
             showNotice(title: t("notice.reloadFailed"), message: error.localizedDescription, tone: .error)
@@ -248,6 +258,7 @@ final class AppState {
 
     var selectedReport: AuditReport? {
         reports.first(where: { $0.id == selectedReportID })
+            ?? reportLibraryReports.first(where: { $0.id == selectedReportID })
     }
 
     var selectedReportSectionModel: ReportSection? {
@@ -291,6 +302,40 @@ final class AppState {
 
     func requestInspectorToggle() {
         inspectorToggleRequestID = UUID()
+    }
+
+    func refreshReportLibrary(query: String = "") async {
+        do {
+            let page = try await database.searchReports(query: query, limit: Self.reportPageLimit)
+            reportLibraryReports = page.values.map(reportWithReviews)
+            reportLibraryTotalCount = page.totalCount
+            if query.normalizedSearchQuery.isEmpty {
+                reports = reportLibraryReports
+                reportTotalCount = page.totalCount
+                latestReport = reports.sorted(by: { $0.createdAt > $1.createdAt }).first
+            }
+            syncReportSelection()
+        } catch {
+            showNotice(title: t("notice.reloadFailed"), message: error.localizedDescription, tone: .error)
+        }
+    }
+
+    func refreshFingerprintLibrary(query: String = "") async {
+        do {
+            let page = try await database.searchFingerprintRecords(query: query, limit: Self.fingerprintPageLimit)
+            fingerprintLibraryRecords = page.values
+            fingerprintLibraryTotalCount = page.totalCount
+            if query.normalizedSearchQuery.isEmpty {
+                fingerprints = page.values
+                fingerprintTotalCount = page.totalCount
+            }
+        } catch {
+            showNotice(title: t("notice.reloadFailed"), message: error.localizedDescription, tone: .error)
+        }
+    }
+
+    func fingerprintCount(tag: String) async -> Int {
+        (try? await database.countFingerprintRecords(tag: tag)) ?? 0
     }
 
     var effectiveLocale: Locale? {
@@ -739,7 +784,7 @@ final class AppState {
         }
     }
 
-    func exportFingerprintPackage(records selectedRecords: [FingerprintRecord]? = nil, tags: [String] = []) {
+    func exportFingerprintPackage(records selectedRecords: [FingerprintRecord]? = nil, query: String? = nil, tags: [String] = []) {
         let panel = NSSavePanel()
         panel.allowedContentTypes = [.zip]
         panel.nameFieldStringValue = "PitcherPlant-Fingerprints-\(Self.safeTimestamp()).zip"
@@ -749,6 +794,8 @@ final class AppState {
                     let recordsToExport: [FingerprintRecord]
                     if let selectedRecords {
                         recordsToExport = selectedRecords
+                    } else if let query {
+                        recordsToExport = try await database.loadFingerprintRecords(matching: query)
                     } else {
                         recordsToExport = try await database.loadFingerprintRecords()
                     }

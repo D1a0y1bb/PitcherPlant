@@ -64,6 +64,7 @@ func databaseStorePaginatesReportsFingerprintsAndAppendsJobEvents() async throws
     let firstPage = try await store.loadReportsPage(limit: 2)
     let counts = try await store.loadReportCounts()
     let evidenceRows = try await store.loadEvidenceRows(reportID: try #require(firstPage.values.first?.id), query: "shared", limit: 10)
+    let olderSearch = try await store.searchReports(query: "shared body 0", limit: 2)
 
     #expect(firstPage.totalCount == 3)
     #expect(firstPage.values.map(\.title) == ["报告 2", "报告 1"])
@@ -71,6 +72,8 @@ func databaseStorePaginatesReportsFingerprintsAndAppendsJobEvents() async throws
     #expect(counts.sectionCount == 3)
     #expect(counts.evidenceRowCount == 3)
     #expect(evidenceRows.totalCount == 1)
+    #expect(olderSearch.totalCount == 1)
+    #expect(olderSearch.values.first?.title == "报告 0")
 
     var records: [FingerprintRecord] = []
     for index in 0..<3 {
@@ -87,8 +90,12 @@ func databaseStorePaginatesReportsFingerprintsAndAppendsJobEvents() async throws
     }
     try await store.upsertFingerprintRecords(records)
     let fingerprintPage = try await store.loadFingerprintPage(limit: 2)
+    let olderFingerprintSearch = try await store.searchFingerprintRecords(query: "file-0", limit: 2)
     #expect(fingerprintPage.totalCount == 3)
     #expect(fingerprintPage.values.map(\.filename) == ["file-2.md", "file-1.md"])
+    #expect(olderFingerprintSearch.totalCount == 1)
+    #expect(olderFingerprintSearch.values.first?.filename == "file-0.md")
+    #expect(try await store.countFingerprintRecords(tag: "keep") == 3)
 
     let deleted = try await store.deleteFingerprintRecords(tag: "delete-me")
     #expect(deleted == 1)

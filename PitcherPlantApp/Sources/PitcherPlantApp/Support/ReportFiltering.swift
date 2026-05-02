@@ -199,7 +199,7 @@ private extension ReportBadge.Tone {
     }
 }
 
-private extension String {
+extension String {
     var normalizedSearchQuery: String {
         trimmingCharacters(in: .whitespacesAndNewlines)
     }
