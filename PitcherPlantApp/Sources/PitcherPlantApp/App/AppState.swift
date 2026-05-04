@@ -104,12 +104,17 @@ final class AppState {
     var initializationMessage: String?
     var databaseRecovery: DatabaseRecoveryState?
     var notice: AppNotice?
+    var availableUpdate: UpdateCheckResult?
+    var lastUpdateCheckDate: Date?
     var isRunningAudit = false
     var isImportingSubmissionPackage = false
     private var currentAuditTask: Task<AuditReport?, Never>?
     private var currentAuditWorkerTask: Task<AuditRunResult, Error>?
+    private var updateMonitorTask: Task<Void, Never>?
+    private let appUpdater = AppUpdater()
     private static let reportPageLimit = 500
     private static let fingerprintPageLimit = 500
+    private static let updateMonitorIntervalSeconds: UInt64 = 30 * 60
 
     init(workspaceRoot: URL? = nil) {
         let resolvedRoot = workspaceRoot ?? ProjectLocator().workspaceRoot()
@@ -117,14 +122,14 @@ final class AppState {
         let settings = AppPreferences.loadAppSettings()
         self.appSettings = settings
         self.selectedMainSidebar = .workspace
-        let databaseResult = Self.makeDatabase(rootDirectory: resolvedRoot)
+        let databaseResult = Self.makeDatabase(rootDirectory: resolvedRoot, language: settings.language)
         self.database = databaseResult.database
         self.initializationMessage = databaseResult.message
         self.databaseRecovery = databaseResult.recovery
         self.draftConfiguration = AppPreferences.loadDraftConfiguration(for: resolvedRoot)
     }
 
-    private static func makeDatabase(rootDirectory: URL) -> (database: DatabaseStore, message: String?, recovery: DatabaseRecoveryState?) {
+    private static func makeDatabase(rootDirectory: URL, language: AppLanguage) -> (database: DatabaseStore, message: String?, recovery: DatabaseRecoveryState?) {
         do {
             return (try DatabaseStore(rootDirectory: rootDirectory), nil, nil)
         } catch {
@@ -133,17 +138,25 @@ final class AppState {
                 .appendingPathComponent("AppStateFallback", isDirectory: true)
             do {
                 let database = try DatabaseStore(rootDirectory: fallbackRoot)
-                let message = "主数据库初始化失败：\(error.localizedDescription)"
+                let message = localized("database.recovery.initFailed", language: language, error.localizedDescription)
                 let recovery = DatabaseRecoveryState(
                     failedRootPath: rootDirectory.path,
                     fallbackRootPath: fallbackRoot.path,
                     message: message
                 )
-                return (database, "数据库等待恢复处理：\(error.localizedDescription)", recovery)
+                return (database, localized("database.recovery.pending", language: language, error.localizedDescription), recovery)
             } catch {
                 preconditionFailure("PitcherPlant database initialization failed: \(error)")
             }
         }
+    }
+
+    nonisolated private static func localized(_ key: String, language: AppLanguage, _ arguments: CVarArg...) -> String {
+        String(
+            format: LocalizationStrings.text(key, language: language),
+            locale: LocalizationStrings.locale(for: language),
+            arguments: arguments
+        )
     }
 
     func bootstrapIfNeeded() async {
@@ -156,7 +169,7 @@ final class AppState {
         hasBootstrapped = true
         do {
             try await database.prepare()
-            _ = try await database.markInterruptedJobs()
+            _ = try await database.markInterruptedJobs(message: t("database.recovery.interrupted"))
         } catch {
             showNotice(title: t("notice.bootstrapFailed"), message: error.localizedDescription, tone: .error)
         }
@@ -166,8 +179,8 @@ final class AppState {
     func continueWithTemporaryDatabase() {
         databaseRecovery = nil
         showNotice(
-            title: "已进入临时数据库模式",
-            message: "本次会话写入临时目录，重启后需要重新确认或选择可写工作区。",
+            title: t("database.recovery.temporaryTitle"),
+            message: t("database.recovery.temporaryMessage"),
             tone: .info
         )
         Task {
@@ -191,7 +204,7 @@ final class AppState {
             .appendingPathComponent(".pitcherplant-macos", isDirectory: true)
         let databaseURL = supportDirectory.appendingPathComponent("PitcherPlantMac.sqlite")
         guard FileManager.default.fileExists(atPath: databaseURL.path) else {
-            showNotice(title: "未找到可备份数据库", message: databaseURL.path, tone: .error)
+            showNotice(title: t("database.recovery.backupMissing"), message: databaseURL.path, tone: .error)
             return
         }
 
@@ -199,9 +212,9 @@ final class AppState {
         let backupURL = supportDirectory.appendingPathComponent("PitcherPlantMac-\(timestamp).sqlite.backup")
         do {
             try FileManager.default.copyItem(at: databaseURL, to: backupURL)
-            showNotice(title: "数据库备份完成", message: backupURL.path, tone: .success)
+            showNotice(title: t("database.recovery.backupSucceeded"), message: backupURL.path, tone: .success)
         } catch {
-            showNotice(title: "数据库备份失败", message: error.localizedDescription, tone: .error)
+            showNotice(title: t("database.recovery.backupFailed"), message: error.localizedDescription, tone: .error)
         }
     }
 
@@ -292,8 +305,13 @@ final class AppState {
     }
 
     func updateSettings(_ transform: (inout AppSettings) -> Void) {
+        let previousLanguage = appSettings.language
         transform(&appSettings)
         AppPreferences.saveAppSettings(appSettings)
+        if appSettings.language != previousLanguage {
+            AppLanguageRuntime.apply(appSettings.language)
+        }
+        SystemMenuLocalizer.schedule(appState: self)
     }
 
     func requestInspector() {
@@ -302,6 +320,51 @@ final class AppState {
 
     func requestInspectorToggle() {
         inspectorToggleRequestID = UUID()
+    }
+
+    func startUpdateMonitoring() {
+        guard updateMonitorTask == nil else {
+            return
+        }
+        updateMonitorTask = Task {
+            await performSilentUpdateCheck()
+            while !Task.isCancelled {
+                try? await Task.sleep(nanoseconds: Self.updateMonitorIntervalSeconds * 1_000_000_000)
+                await performSilentUpdateCheck()
+            }
+        }
+    }
+
+    func checkForUpdatesManually() {
+        NSApp.activate(ignoringOtherApps: true)
+        appUpdater.checkForUpdates()
+    }
+
+    func presentAvailableUpdate() {
+        guard availableUpdate != nil else {
+            return
+        }
+        NSApp.activate(ignoringOtherApps: true)
+        appUpdater.checkForUpdates()
+    }
+
+    private func performSilentUpdateCheck() async {
+        do {
+            let result = try await UpdateCheckService().check()
+            guard !Task.isCancelled else {
+                return
+            }
+            lastUpdateCheckDate = result.checkedAt
+            switch result.availability {
+            case .updateAvailable:
+                availableUpdate = result
+            case .upToDate, .unknown:
+                availableUpdate = nil
+            }
+        } catch is CancellationError {
+        } catch {
+            availableUpdate = nil
+        }
     }
 
     func refreshReportLibrary(query: String = "") async {
@@ -777,8 +840,10 @@ final class AppState {
             let result = try FingerprintPackageService().importPackage(from: url, additionalTags: tags)
             try await database.upsertFingerprintRecords(result.records)
             await reload()
-            let skipped = result.skippedCount > 0 ? "，跳过 \(result.skippedCount) 条无效记录" : ""
-            showNotice(title: t("notice.fingerprintImportSucceeded"), message: "导入 \(result.importedCount) 条指纹\(skipped)", tone: .success)
+            let message = result.skippedCount > 0
+                ? tf("notice.fingerprintImportSucceededWithSkippedMessage", result.importedCount, result.skippedCount)
+                : tf("notice.fingerprintImportSucceededMessage", result.importedCount)
+            showNotice(title: t("notice.fingerprintImportSucceeded"), message: message, tone: .success)
         } catch {
             showNotice(title: t("notice.fingerprintImportFailed"), message: error.localizedDescription, tone: .error)
         }
@@ -824,7 +889,7 @@ final class AppState {
         do {
             let deletedCount = try await database.deleteFingerprintRecords(tag: tag)
             await reload()
-            showNotice(title: t("notice.fingerprintCleanupSucceeded"), message: "清理 \(deletedCount) 条指纹", tone: .success)
+            showNotice(title: t("notice.fingerprintCleanupSucceeded"), message: tf("notice.fingerprintCleanupSucceededMessage", deletedCount), tone: .success)
         } catch {
             showNotice(title: t("notice.fingerprintCleanupFailed"), message: error.localizedDescription, tone: .error)
         }
@@ -924,7 +989,7 @@ final class AppState {
                 try await database.upsertJob(job)
             }
             await reload()
-            showNotice(title: t("notice.importSucceeded"), message: "\(result.items.count) 个提交已入队", tone: .success)
+            showNotice(title: t("notice.importSucceeded"), message: tf("notice.importQueuedSubmissionsMessage", result.items.count), tone: .success)
             beginQueuedAudits()
         } catch {
             showNotice(title: t("notice.importFailed"), message: error.localizedDescription, tone: .error)
@@ -1028,7 +1093,7 @@ final class AppState {
             try Task.checkCancellation()
 
             job = jobs.first(where: { $0.id == progressFallbackJob.id }) ?? job
-            job = job.completed(reportID: result.report.id, summaryMessage: Self.auditSummaryMessage(for: result.summary))
+            job = job.completed(reportID: result.report.id, summaryMessage: auditSummaryMessage(for: result.summary))
             try await database.upsertJob(job)
             replaceJobInMemory(job)
             try await database.saveReport(result.report)
@@ -1062,7 +1127,7 @@ final class AppState {
             }
             return result.report
         } catch {
-            job = job.failed(Self.auditFailureMessage(for: error))
+            job = job.failed(auditFailureMessage(for: error))
             try? await database.upsertJob(job)
             replaceJobInMemory(job)
             await reload()
@@ -1100,23 +1165,46 @@ final class AppState {
         notice = AppNotice(title: title, message: message, tone: tone)
     }
 
-    nonisolated static func auditFailureMessage(for error: Error) -> String {
+    func auditFailureMessage(for error: Error) -> String {
+        Self.auditFailureMessage(for: error, language: appSettings.language)
+    }
+
+    func auditSummaryMessage(for summary: AuditRunSummary) -> String {
+        Self.auditSummaryMessage(for: summary, language: appSettings.language)
+    }
+
+    nonisolated static func auditFailureMessage(for error: Error, language: AppLanguage = .zhHans) -> String {
         if error is CancellationError {
-            return "审计已取消。"
+            return localized("audit.failure.cancelled", language: language)
         }
         return error.localizedDescription
     }
 
-    nonisolated static func auditSummaryMessage(for summary: AuditRunSummary) -> String {
-        let duration = summary.duration.formatted(.number.precision(.fractionLength(1)))
-        let base = "完成：\(summary.documentCount) 个文档 / \(summary.imageCount) 张图片 / \(summary.historicalFingerprintCount) 条历史指纹，耗时 \(duration) 秒"
+    nonisolated static func auditSummaryMessage(for summary: AuditRunSummary, language: AppLanguage = .zhHans) -> String {
+        let locale = LocalizationStrings.locale(for: language)
+        let duration = String(format: "%.1f", locale: locale, summary.duration)
+        let base = localized(
+            "audit.summary.base",
+            language: language,
+            summary.documentCount,
+            summary.imageCount,
+            summary.historicalFingerprintCount,
+            duration
+        )
         guard summary.recallStats.isEmpty == false else {
             return base
         }
         let candidatePairs = summary.recallStats.reduce(0) { $0 + $1.candidatePairCount }
         let possiblePairs = summary.recallStats.reduce(0) { $0 + $1.possiblePairCount }
         let elapsed = summary.recallStats.reduce(0) { $0 + $1.elapsedMilliseconds }
-        return "\(base)；候选召回 \(candidatePairs)/\(possiblePairs) 对，耗时 \(elapsed.formatted(.number.precision(.fractionLength(1))))ms"
+        return localized(
+            "audit.summary.recall",
+            language: language,
+            base,
+            candidatePairs,
+            possiblePairs,
+            String(format: "%.1f", locale: locale, elapsed)
+        )
     }
 
     nonisolated private static func safeTimestamp() -> String {
@@ -1157,7 +1245,7 @@ final class AppState {
     private func refreshWhitelistSuggestions(from documents: [ParsedDocument]) {
         let statuses = AppPreferences.loadWhitelistSuggestionStatuses()
         let existingRules = Set(whitelistRules.map { "\($0.type.rawValue):\($0.pattern)" })
-        let suggestions = WhitelistSuggestionService()
+        let suggestions = WhitelistSuggestionService(reasons: whitelistSuggestionReasons())
             .suggest(from: documents)
             .map { suggestion in
                 var copy = suggestion
@@ -1170,6 +1258,16 @@ final class AppState {
             }
         whitelistSuggestions = suggestions
         AppPreferences.saveWhitelistSuggestions(suggestions)
+    }
+
+    func whitelistSuggestionReasons() -> WhitelistSuggestionService.Reasons {
+        WhitelistSuggestionService.Reasons(
+            textTemplate: t("whitelist.reason.textTemplate"),
+            codeTemplate: t("whitelist.reason.codeTemplate"),
+            imageHash: t("whitelist.reason.imageHash"),
+            metadata: t("whitelist.reason.metadata"),
+            pathPattern: t("whitelist.reason.pathPattern")
+        )
     }
 
     private func setWhitelistSuggestionStatus(_ suggestion: WhitelistSuggestion, status: WhitelistSuggestionStatus) async {

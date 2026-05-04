@@ -6,6 +6,11 @@ struct AppVersionInfo: Equatable {
     let build: String
     let bundleIdentifier: String
     let releaseTag: String?
+    let minimumSystemVersion: String
+    let copyright: String
+    let sourceRepositoryURL: URL?
+    let releasesURL: URL?
+    let updateCheckURL: URL?
 
     static var current: AppVersionInfo {
         AppVersionInfo(bundle: .main)
@@ -20,6 +25,10 @@ struct AppVersionInfo: Equatable {
             return displayVersion
         }
         return "\(displayVersion) (\(build))"
+    }
+
+    var comparableVersion: String {
+        releaseTag ?? version
     }
 
     init(bundle: Bundle) {
@@ -41,6 +50,11 @@ struct AppVersionInfo: Equatable {
         build = Self.firstString(for: ["CFBundleVersion"], in: infoDictionary) ?? "Unknown"
         self.bundleIdentifier = bundleIdentifier ?? "Unknown"
         releaseTag = Self.firstString(for: ["PPReleaseTag"], in: infoDictionary)
+        minimumSystemVersion = Self.firstString(for: ["LSMinimumSystemVersion"], in: infoDictionary) ?? "Unknown"
+        copyright = Self.firstString(for: ["NSHumanReadableCopyright"], in: infoDictionary) ?? ""
+        sourceRepositoryURL = Self.firstURL(for: ["PPSourceRepositoryURL"], in: infoDictionary)
+        releasesURL = Self.firstURL(for: ["PPReleasesURL"], in: infoDictionary)
+        updateCheckURL = Self.firstURL(for: ["PPUpdateCheckURL"], in: infoDictionary)
     }
 
     private static func firstString(for keys: [String], in infoDictionary: [String: Any]) -> String? {
@@ -48,10 +62,19 @@ struct AppVersionInfo: Equatable {
             let value = infoDictionary[key] as? String
             return value?.trimmingCharacters(in: .whitespacesAndNewlines)
         }
-        .first { !$0.isEmpty }
+        .first { !$0.isEmpty && !Self.isUnresolvedBuildSetting($0) }
+    }
+
+    private static func firstURL(for keys: [String], in infoDictionary: [String: Any]) -> URL? {
+        firstString(for: keys, in: infoDictionary)
+            .flatMap(URL.init(string:))
     }
 
     private static func displayReleaseTag(_ tag: String) -> String {
         tag.hasPrefix("v") ? String(tag.dropFirst()) : tag
+    }
+
+    private static func isUnresolvedBuildSetting(_ value: String) -> Bool {
+        value.hasPrefix("$(") && value.hasSuffix(")")
     }
 }

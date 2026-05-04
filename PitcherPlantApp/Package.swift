@@ -13,6 +13,7 @@ let package = Package(
     dependencies: [
         .package(url: "https://github.com/groue/GRDB.swift", from: "7.0.0"),
         .package(url: "https://github.com/weichsel/ZIPFoundation", from: "0.9.19"),
+        .package(url: "https://github.com/sparkle-project/Sparkle", from: "2.9.1"),
     ],
     targets: [
         .executableTarget(
@@ -20,6 +21,7 @@ let package = Package(
             dependencies: [
                 .product(name: "GRDB", package: "GRDB.swift"),
                 "ZIPFoundation",
+                .product(name: "Sparkle", package: "Sparkle"),
             ],
             path: "Sources/PitcherPlantApp"
         ),

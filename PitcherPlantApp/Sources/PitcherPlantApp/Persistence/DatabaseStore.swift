@@ -360,7 +360,7 @@ actor DatabaseStore {
     }
 
     @discardableResult
-    func markInterruptedJobs(message: String = "上次审计运行被中断，请重新开始审计。") throws -> Int {
+    func markInterruptedJobs(message: String) throws -> Int {
         try dbQueue.write { db in
             let rows = try Row.fetchAll(db, sql: "SELECT id, payload FROM audit_jobs WHERE status = ?", arguments: [AuditJobStatus.running.rawValue])
             for row in rows {

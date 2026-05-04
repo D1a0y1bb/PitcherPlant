@@ -13,7 +13,13 @@ func mainWindowLaunchAndInspectorDefaultSizesUseVisualBaseline() {
 @Test
 func settingsRootChromePaddingMatchesPresentationContext() {
     #expect(SettingsRootPresentation.standalone.topPadding == 28)
-    #expect(SettingsRootPresentation.embeddedInTransparentTitlebar.topPadding == AppLayout.titlebarScrollContentTopPadding)
+    #expect(SettingsRootPresentation.standalone.topScrollEdgeBarHeight == 0)
+    #expect(SettingsRootPresentation.embeddedInTransparentTitlebar.topPadding == 24)
+    #expect(
+        SettingsRootPresentation.embeddedInTransparentTitlebar.topPadding
+            + SettingsRootPresentation.embeddedInTransparentTitlebar.topScrollEdgeBarHeight
+            == AppLayout.titlebarScrollContentTopPadding
+    )
 }
 
 @Test

@@ -3,11 +3,16 @@ import AppKit
 
 @MainActor
 private enum PitcherPlantRuntime {
-    static let appState = AppState()
+    static let languageBootstrap: Void = AppLanguageRuntime.applySavedLanguagePreference()
+    static let appState: AppState = {
+        _ = languageBootstrap
+        return AppState()
+    }()
 }
 
 @main
 struct PitcherPlantDesktopApp: App {
+    @NSApplicationDelegateAdaptor(PitcherPlantAppDelegate.self) private var appDelegate
     private let appState = PitcherPlantRuntime.appState
     @Environment(\.openWindow) private var openWindow
     private var appearanceSyncKey: String {
@@ -22,6 +27,8 @@ struct PitcherPlantDesktopApp: App {
                 .environment(\.locale, appState.effectiveLocale ?? .current)
                 .preferredColorScheme(appState.effectiveColorScheme)
                 .modifier(AppAppearanceSyncModifier(appearance: appState.appSettings.appearance, syncKey: appearanceSyncKey))
+                .modifier(SystemMenuLocalizationModifier(appState: appState, syncKey: appearanceSyncKey))
+                .appHidesScrollIndicators()
                 .task {
                     await appState.bootstrapIfNeeded()
                 }
@@ -34,6 +41,12 @@ struct PitcherPlantDesktopApp: App {
             CommandGroup(replacing: .appInfo) {
                 Button(appState.t("about.menuTitle")) {
                     showAboutPanel()
+                }
+            }
+
+            CommandGroup(after: .appInfo) {
+                Button(appState.t("about.checkUpdates")) {
+                    appState.checkForUpdatesManually()
                 }
             }
 
@@ -53,6 +66,8 @@ struct PitcherPlantDesktopApp: App {
                 .environment(\.locale, appState.effectiveLocale ?? .current)
                 .preferredColorScheme(appState.effectiveColorScheme)
                 .modifier(AppAppearanceSyncModifier(appearance: appState.appSettings.appearance, syncKey: appearanceSyncKey))
+                .modifier(SystemMenuLocalizationModifier(appState: appState, syncKey: appearanceSyncKey))
+                .appHidesScrollIndicators()
                 .task {
                     await appState.bootstrapIfNeeded()
                 }
@@ -63,6 +78,7 @@ struct PitcherPlantDesktopApp: App {
                 .environment(appState)
                 .environment(\.locale, appState.effectiveLocale ?? .current)
                 .preferredColorScheme(appState.effectiveColorScheme)
+                .appHidesScrollIndicators()
         } label: {
             if appState.appSettings.showMenuBarExtra {
                 Image(systemName: "leaf")
@@ -104,6 +120,78 @@ private struct AppAppearanceSyncModifier: ViewModifier {
     @MainActor
     private func applyAppearance() {
         NSApp.appearance = appearance.nsAppearance
+    }
+}
+
+private struct SystemMenuLocalizationModifier: ViewModifier {
+    let appState: AppState
+    let syncKey: String
+
+    func body(content: Content) -> some View {
+        content
+            .onAppear {
+                SystemMenuLocalizer.schedule(appState: appState)
+            }
+            .onChange(of: syncKey) { _, _ in
+                SystemMenuLocalizer.schedule(appState: appState)
+            }
+    }
+}
+
+private final class PitcherPlantAppDelegate: NSObject, NSApplicationDelegate {
+    func applicationWillFinishLaunching(_ notification: Notification) {
+        AppLanguageRuntime.applySavedLanguagePreference()
+    }
+
+    func applicationDidFinishLaunching(_ notification: Notification) {
+        SystemMenuLocalizer.schedule(appState: PitcherPlantRuntime.appState)
+    }
+
+    func applicationDidBecomeActive(_ notification: Notification) {
+        SystemMenuLocalizer.schedule(appState: PitcherPlantRuntime.appState)
+    }
+}
+
+enum SystemMenuLocalizer {
+    @MainActor
+    static func schedule(appState: AppState) {
+        apply(appState: appState)
+        Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 120_000_000)
+            apply(appState: appState)
+            try? await Task.sleep(nanoseconds: 280_000_000)
+            apply(appState: appState)
+            try? await Task.sleep(nanoseconds: 700_000_000)
+            apply(appState: appState)
+        }
+    }
+
+    @MainActor
+    private static func apply(appState: AppState) {
+        guard let items = NSApp.mainMenu?.items, items.count >= 4 else {
+            return
+        }
+
+        setTitle(appState.t("systemMenu.file"), at: 1, in: items)
+        setTitle(appState.t("systemMenu.edit"), at: 2, in: items)
+        setTitle(appState.t("systemMenu.view"), at: 3, in: items)
+        setTitle(appState.t("app.taskMenu"), at: 4, in: items)
+        setTitle(appState.t("app.viewMenu"), at: 5, in: items)
+        setTitle(appState.t("app.reviewMenu"), at: 6, in: items)
+        setTitle(appState.t("app.reportMenu"), at: 7, in: items)
+        if items.count >= 9 {
+            setTitle(appState.t("systemMenu.window"), at: items.count - 2, in: items)
+            setTitle(appState.t("systemMenu.help"), at: items.count - 1, in: items)
+        }
+    }
+
+    @MainActor
+    private static func setTitle(_ title: String, at index: Int, in items: [NSMenuItem]) {
+        guard items.indices.contains(index) else {
+            return
+        }
+        items[index].title = title
+        items[index].submenu?.title = title
     }
 }
 

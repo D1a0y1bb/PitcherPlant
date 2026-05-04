@@ -27,8 +27,8 @@ struct PitcherPlantCommands: Commands {
             .keyboardShortcut("l", modifiers: [.command, .shift])
         }
 
-        CommandMenu("视图") {
-            Button("显示或隐藏检查器") {
+        CommandMenu(appState.t("app.viewMenu")) {
+            Button(appState.t("command.toggleInspector")) {
                 appState.requestInspectorToggle()
                 showMainWindow()
             }
@@ -36,26 +36,26 @@ struct PitcherPlantCommands: Commands {
             .disabled(!appState.selectedMainSidebar.allowsInspector)
         }
 
-        CommandMenu("复核") {
-            Button("确认违规") {
+        CommandMenu(appState.t("app.reviewMenu")) {
+            Button(appState.t("review.confirm")) {
                 Task { await appState.quickReviewSelectedEvidence(.confirmed) }
             }
             .keyboardShortcut("a", modifiers: [])
             .disabled(appState.selectedReportRow == nil)
 
-            Button("标记误报") {
+            Button(appState.t("review.falsePositive")) {
                 Task { await appState.quickReviewSelectedEvidence(.falsePositive) }
             }
             .keyboardShortcut("f", modifiers: [])
             .disabled(appState.selectedReportRow == nil)
 
-            Button("忽略证据") {
+            Button(appState.t("review.ignore")) {
                 Task { await appState.quickReviewSelectedEvidence(.ignored) }
             }
             .keyboardShortcut("i", modifiers: [])
             .disabled(appState.selectedReportRow == nil)
 
-            Button("加入白名单") {
+            Button(appState.t("review.whitelist")) {
                 Task { await appState.quickReviewSelectedEvidence(.whitelisted) }
             }
             .keyboardShortcut("w", modifiers: [])

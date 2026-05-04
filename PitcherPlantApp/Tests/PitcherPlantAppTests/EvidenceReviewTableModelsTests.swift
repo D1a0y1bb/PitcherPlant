@@ -52,7 +52,7 @@ func evidenceReviewTableRowsMapReportEvidenceForAuditorScanning() throws {
     #expect(sorted[0].scoreText == "93.00%")
     #expect(sorted[0].riskLevel == .high)
     #expect(sorted[0].reviewDecision == .pending)
-    #expect(sorted[0].whitelistStatusText == "白名单降权")
+    #expect(sorted[0].whitelistStatus == .marked)
 }
 
 @Test

@@ -379,12 +379,12 @@ struct DocumentFeatureStore {
         batchID: UUID? = nil,
         cachedFeatures: [DocumentFeature] = []
     ) -> DocumentFeatureBuildResult {
-        try! buildFeatureResult(
+        buildFeatureResult(
             for: documents,
             scanID: scanID,
             batchID: batchID,
             cachedFeatures: cachedFeatures,
-            checksCancellation: false
+            cancellationCheck: {}
         )
     }
 
@@ -399,7 +399,9 @@ struct DocumentFeatureStore {
             scanID: scanID,
             batchID: batchID,
             cachedFeatures: cachedFeatures,
-            checksCancellation: true
+            cancellationCheck: {
+                try Task.checkCancellation()
+            }
         )
     }
 
@@ -408,8 +410,8 @@ struct DocumentFeatureStore {
         scanID: UUID?,
         batchID: UUID?,
         cachedFeatures: [DocumentFeature],
-        checksCancellation: Bool
-    ) throws -> DocumentFeatureBuildResult {
+        cancellationCheck: () throws -> Void
+    ) rethrows -> DocumentFeatureBuildResult {
         let buildDate = now()
         let cachedByPath = Dictionary(grouping: cachedFeatures, by: \.documentPath).compactMapValues { features in
             features.max(by: { $0.updatedAt < $1.updatedAt })
@@ -421,9 +423,7 @@ struct DocumentFeatureStore {
         let currentPaths = Set(documents.map { $0.url.path })
 
         for document in documents {
-            if checksCancellation {
-                try Task.checkCancellation()
-            }
+            try cancellationCheck()
             let candidate = DocumentFeature(document: document, scanID: scanID, batchID: batchID, updatedAt: buildDate)
             if let cached = cachedByPath[candidate.documentPath], cached.isReusable(for: candidate) {
                 features.append(cached.refreshed(scanID: scanID, batchID: batchID, updatedAt: buildDate))

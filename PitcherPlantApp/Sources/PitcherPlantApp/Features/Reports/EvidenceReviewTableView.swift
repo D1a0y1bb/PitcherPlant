@@ -8,20 +8,20 @@ struct EvidenceReviewTableView: View {
 
     var body: some View {
         Table(rows, selection: $selection) {
-            TableColumn("风险") { row in
-                Label(row.riskLevel.title, systemImage: riskImage(for: row.riskLevel))
+            TableColumn(appState.t("evidence.table.risk")) { row in
+                Label(appState.title(for: row.riskLevel), systemImage: riskImage(for: row.riskLevel))
                     .foregroundStyle(riskStyle(for: row.riskLevel))
-                    .accessibilityLabel("风险 \(row.riskLevel.title)，分数 \(row.scoreText)")
+                    .accessibilityLabel(Text(appState.tf("evidence.table.accessibility.riskScore", appState.title(for: row.riskLevel), row.scoreText)))
             }
             .width(86)
 
-            TableColumn("类型") { row in
-                Label(row.evidenceType.title, systemImage: row.evidenceType.sectionKind.systemImage)
+            TableColumn(appState.t("evidence.table.type")) { row in
+                Label(appState.title(for: row.evidenceType), systemImage: row.evidenceType.sectionKind.systemImage)
                     .foregroundStyle(.secondary)
             }
             .width(90)
 
-            TableColumn("对象 A") { row in
+            TableColumn(appState.t("reports.objectA")) { row in
                 Button {
                     select(row, opensInspector: true)
                 } label: {
@@ -30,64 +30,64 @@ struct EvidenceReviewTableView: View {
                         .truncationMode(.middle)
                 }
                 .buttonStyle(.plain)
-                .help("打开证据详情")
+                .help(appState.t("evidence.table.openDetails"))
             }
             .width(min: 160, ideal: 220)
 
-            TableColumn("对象 B") { row in
+            TableColumn(appState.t("reports.objectB")) { row in
                 Text(row.rightObject)
                     .lineLimit(1)
                     .truncationMode(.middle)
             }
             .width(min: 150, ideal: 210)
 
-            TableColumn("题目 / 章节") { row in
+            TableColumn(appState.t("evidence.table.challengeSection")) { row in
                 Text(row.challengeText)
                     .lineLimit(1)
                     .truncationMode(.middle)
             }
             .width(min: 120, ideal: 160)
 
-            TableColumn("分数") { row in
+            TableColumn(appState.t("common.score")) { row in
                 Text(row.scoreText)
                     .font(AppTypography.metadata.monospacedDigit())
                     .foregroundStyle(.secondary)
-                    .accessibilityLabel("分数 \(row.scoreText)")
+                    .accessibilityLabel(Text(appState.tf("evidence.table.accessibility.score", row.scoreText)))
             }
             .width(78)
 
-            TableColumn("命中规则") { row in
+            TableColumn(appState.t("evidence.table.rule")) { row in
                 Text(row.ruleText)
                     .lineLimit(1)
                     .truncationMode(.tail)
             }
             .width(min: 180, ideal: 260)
 
-            TableColumn("复核") { row in
-                Text(row.reviewDecision.title)
+            TableColumn(appState.t("reports.review")) { row in
+                Text(appState.title(for: row.reviewDecision))
                     .foregroundStyle(row.reviewDecision.badgeTone.semanticStyle)
-                    .accessibilityLabel("复核状态 \(row.reviewDecision.title)")
+                    .accessibilityLabel(Text(appState.tf("evidence.table.accessibility.reviewStatus", appState.title(for: row.reviewDecision))))
             }
             .width(92)
 
-            TableColumn("白名单") { row in
-                Text(row.whitelistStatusText)
+            TableColumn(appState.t("sidebar.whitelist")) { row in
+                Text(appState.title(for: row.whitelistStatus ?? .clear))
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
             }
             .width(118)
         }
         .contextMenu(forSelectionType: UUID.self) { selectedIDs in
-            Button("确认违规") {
+            Button(appState.t("review.confirm")) {
                 Task { await apply(.confirmed, selectedIDs: selectedIDs) }
             }
-            Button("标记误报") {
+            Button(appState.t("review.falsePositive")) {
                 Task { await apply(.falsePositive, selectedIDs: selectedIDs) }
             }
-            Button("忽略证据") {
+            Button(appState.t("review.ignore")) {
                 Task { await apply(.ignored, selectedIDs: selectedIDs) }
             }
-            Button("加入白名单") {
+            Button(appState.t("review.whitelist")) {
                 Task { await apply(.whitelisted, selectedIDs: selectedIDs) }
             }
         } primaryAction: { selectedIDs in

@@ -14,6 +14,8 @@ CHECK_DIR="$BUILD_DIR/checks"
 DISTRIBUTION="ad-hoc"
 NOTARIZE="false"
 RELEASE_TAG="${RELEASE_TAG:-}"
+RELEASE_BUILD_NUMBER="${RELEASE_BUILD_NUMBER:-${GITHUB_RUN_NUMBER:-}}"
+RELEASE_DOWNLOAD_BASE_URL="${RELEASE_DOWNLOAD_BASE_URL:-}"
 
 usage() {
   cat <<USAGE
@@ -81,6 +83,11 @@ require_env() {
   fi
 }
 
+XCODEBUILD_RELEASE_SETTINGS=()
+if [[ -n "$RELEASE_BUILD_NUMBER" ]]; then
+  XCODEBUILD_RELEASE_SETTINGS+=(CURRENT_PROJECT_VERSION="$RELEASE_BUILD_NUMBER")
+fi
+
 archive_ad_hoc() {
   xcodebuild archive \
     -project "$PROJECT_PATH" \
@@ -88,6 +95,7 @@ archive_ad_hoc() {
     -configuration "$CONFIGURATION" \
     -archivePath "$ARCHIVE_PATH" \
     PP_RELEASE_TAG="$RELEASE_TAG" \
+    "${XCODEBUILD_RELEASE_SETTINGS[@]}" \
     CODE_SIGN_STYLE=Manual \
     CODE_SIGN_IDENTITY="-"
 
@@ -103,6 +111,7 @@ archive_developer_id() {
     -configuration "$CONFIGURATION" \
     -archivePath "$ARCHIVE_PATH" \
     PP_RELEASE_TAG="$RELEASE_TAG" \
+    "${XCODEBUILD_RELEASE_SETTINGS[@]}" \
     DEVELOPMENT_TEAM="$APPLE_TEAM_ID" \
     CODE_SIGN_STYLE=Manual \
     CODE_SIGN_IDENTITY="$APPLE_SIGNING_IDENTITY" \
@@ -242,17 +251,84 @@ generate_checksums_and_notes() {
 PitcherPlant macOS release.
 
 - Distribution: Developer ID signed and notarized.
-- Artifacts: ZIP, DMG, xcarchive, dSYM archive, SHA-256 checksums.
+- Artifacts: ZIP, DMG, Sparkle appcast, xcarchive, dSYM archive, SHA-256 checksums.
 NOTES
   else
     cat > "$DIST_DIR/release-notes.md" <<NOTES
 PitcherPlant macOS ad-hoc release.
 
 - Distribution: ad-hoc signed, not notarized.
-- Artifacts: ZIP, DMG, xcarchive, dSYM archive, SHA-256 checksums.
+- Artifacts: ZIP, DMG, Sparkle appcast, xcarchive, dSYM archive, SHA-256 checksums.
 - Gatekeeper may require Control-click > Open, System Settings > Privacy & Security > Open Anyway, or removing quarantine for local testing.
 NOTES
   fi
+}
+
+generate_appcast() {
+  local app_bundle="$EXPORT_DIR/$APP_NAME.app"
+  local zip_path="$DIST_DIR/$APP_NAME-macOS.zip"
+  local appcast_path="$DIST_DIR/appcast.xml"
+  local release_base_url="$RELEASE_DOWNLOAD_BASE_URL"
+
+  if [[ -z "$release_base_url" && -n "${GITHUB_REPOSITORY:-}" && -n "$RELEASE_TAG" ]]; then
+    release_base_url="https://github.com/${GITHUB_REPOSITORY}/releases/download/${RELEASE_TAG}"
+  fi
+  if [[ -z "$release_base_url" ]]; then
+    release_base_url="https://github.com/D1a0y1bb/PitcherPlant/releases/download/${RELEASE_TAG:-local}"
+  fi
+
+  python3 - "$app_bundle" "$zip_path" "$appcast_path" "$release_base_url" "$RELEASE_TAG" <<'PY'
+import datetime
+import email.utils
+import html
+import plistlib
+import sys
+from pathlib import Path
+
+app_bundle = Path(sys.argv[1])
+zip_path = Path(sys.argv[2])
+appcast_path = Path(sys.argv[3])
+release_base_url = sys.argv[4].rstrip("/")
+release_tag = sys.argv[5]
+
+with (app_bundle / "Contents" / "Info.plist").open("rb") as fh:
+    info = plistlib.load(fh)
+
+short_version = str(info.get("CFBundleShortVersionString", "0.0.0"))
+bundle_version = str(info.get("CFBundleVersion", short_version))
+minimum_system_version = str(info.get("LSMinimumSystemVersion", ""))
+title = release_tag or f"PitcherPlant {short_version}"
+archive_name = zip_path.name
+archive_url = f"{release_base_url}/{archive_name}"
+archive_length = zip_path.stat().st_size
+pub_date = email.utils.format_datetime(datetime.datetime.now(datetime.timezone.utc))
+
+minimum_system_version_xml = ""
+if minimum_system_version:
+    minimum_system_version_xml = f"\n            <sparkle:minimumSystemVersion>{html.escape(minimum_system_version)}</sparkle:minimumSystemVersion>"
+
+appcast = f"""<?xml version="1.0" encoding="utf-8"?>
+<rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle">
+    <channel>
+        <title>PitcherPlant Updates</title>
+        <link>https://github.com/D1a0y1bb/PitcherPlant/releases</link>
+        <description>PitcherPlant macOS app updates</description>
+        <language>zh-Hans</language>
+        <item>
+            <title>{html.escape(title)}</title>
+            <pubDate>{pub_date}</pubDate>
+            <sparkle:version>{html.escape(bundle_version)}</sparkle:version>
+            <sparkle:shortVersionString>{html.escape(short_version)}</sparkle:shortVersionString>{minimum_system_version_xml}
+            <enclosure
+                url="{html.escape(archive_url, quote=True)}"
+                length="{archive_length}"
+                type="application/octet-stream" />
+        </item>
+    </channel>
+</rss>
+"""
+appcast_path.write_text(appcast, encoding="utf-8")
+PY
 }
 
 rm -rf "$BUILD_DIR/archive" "$EXPORT_DIR" "$DIST_DIR" "$CHECK_DIR" "$BUILD_DIR/dmg" "$BUILD_DIR/empty-dSYMs"
@@ -270,5 +346,6 @@ package_app
 notarize_dmg_if_requested
 verify_artifacts
 generate_checksums_and_notes
+generate_appcast
 
 printf 'Created release artifacts in %s\n' "$DIST_DIR"

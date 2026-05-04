@@ -245,7 +245,7 @@ func databaseStoreMarksInterruptedRunningJobs() async throws {
     job = job.advanced(stage: .parsed, message: "解析文档完成")
     try await store.upsertJob(job)
 
-    let marked = try await store.markInterruptedJobs()
+    let marked = try await store.markInterruptedJobs(message: "上次审计运行被中断，请重新开始审计。")
     let loadedJob = try #require(try await store.loadJobs().first)
 
     #expect(marked == 1)

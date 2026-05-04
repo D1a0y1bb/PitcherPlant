@@ -37,10 +37,18 @@ enum LocalizationStrings {
     private static let zhHans: [String: String] = [
         "app.taskMenu": "任务",
         "app.reportMenu": "报告",
+        "app.viewMenu": "视图",
+        "app.reviewMenu": "复核",
+        "systemMenu.file": "文件",
+        "systemMenu.edit": "编辑",
+        "systemMenu.view": "显示",
+        "systemMenu.window": "窗口",
+        "systemMenu.help": "帮助",
         "command.showWorkspace": "显示工作台",
         "command.startAudit": "开始审计",
         "command.cancelAudit": "取消审计",
         "command.reloadData": "重新加载数据",
+        "command.toggleInspector": "显示或隐藏检查器",
         "command.openReports": "打开报告中心",
         "command.openLatestReport": "打开最近报告",
         "command.showLatestInFinder": "在 Finder 显示最近报告",
@@ -58,6 +66,9 @@ enum LocalizationStrings {
         "toolbar.hideSearch": "收起搜索",
         "toolbar.titleMode.standard": "PitcherPlant",
         "toolbar.titleSelector": "扫描模式",
+        "update.button.title": "更新",
+        "update.button.help": "发现新版本",
+        "update.button.accessibility": "发现新版本，查看更新",
         "toolbar.mode.auto": "自动",
         "toolbar.mode.auto.subtitle": "自动决定扫描策略",
         "toolbar.mode.deep": "深度",
@@ -119,11 +130,18 @@ enum LocalizationStrings {
         "notice.importFailed": "导入失败",
         "notice.retryFailed": "重试失败",
         "notice.fingerprintImportSucceeded": "指纹导入完成",
+        "notice.fingerprintImportSucceededMessage": "导入 %d 条指纹",
+        "notice.fingerprintImportSucceededWithSkippedMessage": "导入 %d 条指纹，跳过 %d 条无效记录",
         "notice.fingerprintImportFailed": "指纹导入失败",
         "notice.fingerprintExportSucceeded": "指纹导出完成",
         "notice.fingerprintExportFailed": "指纹导出失败",
         "notice.fingerprintCleanupSucceeded": "指纹清理完成",
+        "notice.fingerprintCleanupSucceededMessage": "清理 %d 条指纹",
         "notice.fingerprintCleanupFailed": "指纹清理失败",
+        "notice.importQueuedSubmissionsMessage": "%d 个提交已入队",
+        "audit.failure.cancelled": "审计已取消。",
+        "audit.summary.base": "完成：%d 个文档 / %d 张图片 / %d 条历史指纹，耗时 %@ 秒",
+        "audit.summary.recall": "%@；候选召回 %d/%d 对，耗时 %@ms",
         "stage.queued": "等待开始",
         "stage.initialize": "初始化",
         "stage.scan": "扫描文件",
@@ -183,11 +201,39 @@ enum LocalizationStrings {
         "fingerprints.exportPackage": "导出指纹包",
         "fingerprints.cleanupTag": "输入标签",
         "fingerprints.cleanup": "清理标签",
+        "fingerprints.context": "批次 / 队伍",
+        "fingerprints.tags": "标签",
+        "fingerprints.importTagsPrompt": "导入标签，逗号分隔",
+        "fingerprints.exportTagsPrompt": "导出包标签，逗号分隔",
+        "fingerprints.matchCount": "%d 条命中",
+        "fingerprints.cleanupConfirmTitle": "确认清理指纹标签",
+        "fingerprints.cleanupConfirmMessage": "标签 %@ 当前命中 %d 条指纹。清理后会从本地指纹库移除这些记录。",
         "fingerprints.empty": "指纹库为空",
         "whitelist.searchPrompt": "搜索规则",
         "whitelist.type": "类型",
         "whitelist.newRule": "新增规则",
+        "whitelist.rule": "规则",
         "whitelist.save": "保存",
+        "whitelist.suggestions": "白名单建议",
+        "whitelist.suggestions.failed": "建议生成失败：%@",
+        "whitelist.noMatchedSuggestions": "暂无匹配建议",
+        "whitelist.noMatchedSuggestionsDescription": "刷新建议后可接受或忽略候选规则",
+        "whitelist.existingRules": "现有规则",
+        "whitelist.noMatchedRules": "暂无匹配规则",
+        "whitelist.noMatchedRulesDescription": "可在上方输入规则并保存",
+        "whitelist.suggestionStatus": "建议状态",
+        "whitelist.suggestionStatus.pending": "待处理",
+        "whitelist.suggestionStatus.accepted": "已接受",
+        "whitelist.suggestionStatus.dismissed": "已忽略",
+        "whitelist.reason.textTemplate": "多份 WriteUP 反复出现，适合作为公共题面或模板片段",
+        "whitelist.reason.codeTemplate": "结构化代码模板重复出现",
+        "whitelist.reason.imageHash": "图片 hash 高频重复，可能是官方截图或公共素材",
+        "whitelist.reason.metadata": "元数据在多份文件中出现，适合降权处理",
+        "whitelist.reason.pathPattern": "路径目录名重复出现，适合做导入忽略或降权规则",
+        "whitelist.generating": "生成中",
+        "whitelist.refreshSuggestions": "刷新建议",
+        "whitelist.acceptPending": "批量接受",
+        "whitelist.pendingCount": "%d 条待处理",
         "whitelist.author": "作者",
         "whitelist.filename": "文件名",
         "whitelist.textSnippet": "文本片段",
@@ -199,6 +245,10 @@ enum LocalizationStrings {
         "job.runQueue": "运行队列",
         "job.retry": "重试任务",
         "job.timeline": "执行时间线",
+        "job.stage": "阶段",
+        "job.failures": "失败",
+        "job.failedFiles": "失败文件",
+        "job.copyDiagnostics": "复制错误诊断",
         "job.noSelection": "未选择任务",
         "job.noSelectionDescription": "在历史任务中选择一项后查看详情。",
         "common.countSuffix": "条",
@@ -206,12 +256,23 @@ enum LocalizationStrings {
         "common.open": "打开",
         "common.refresh": "刷新",
         "common.new": "新建",
+        "common.import": "导入",
         "common.quit": "退出",
         "common.finder": "Finder",
         "common.delete": "删除",
         "common.export": "导出",
         "common.cancel": "取消",
         "common.search": "搜索",
+        "common.file": "文件",
+        "common.progress": "进度",
+        "common.status": "状态",
+        "common.actions": "操作",
+        "common.count": "次数",
+        "common.times": "%d 次",
+        "common.itemCount": "%d 条",
+        "common.unlabeled": "未标注",
+        "common.samples": "样本",
+        "common.seconds": "秒",
         "common.score": "分数",
         "common.type": "类型",
         "common.badge": "标记",
@@ -254,6 +315,39 @@ enum LocalizationStrings {
         "settings.simhashThresholdDescription": "跨批次 SimHash 允许位差",
         "settings.visionOCRDescription": "使用系统 Vision 识别 PDF 和图片文字",
         "settings.whitelistModeDescription": "白名单命中后标记或隐藏对应结果",
+        "settings.calibration": "校准",
+        "settings.calibrationPreset": "阈值预设",
+        "settings.calibrationEvaluation": "校准评估",
+        "settings.applyPreset": "应用预设",
+        "settings.runCalibration": "运行校准",
+        "settings.calibrationStatus": "校准状态",
+        "settings.calibrationSummary": "样本 %d · Precision %.2f · Recall %.2f · F1 %.2f",
+        "settings.calibrationDescription": "基于校准 fixture 展示 Precision、Recall 和 F1",
+        "settings.calibrationMissingManifest": "未找到校准清单：Resources/Calibration/manifest.json",
+        "settings.calibrationThreshold": "阈值",
+        "settings.calibrationRowAccessibility": "%@，样本 %d，Precision %@，Recall %@，F1 %@",
+        "settings.auditAssistant": "审计助手",
+        "settings.auditAssistantMode": "助手模式",
+        "settings.auditAssistantModeDescription": "选择关闭、本地命令或外部 API",
+        "settings.auditAssistantTimeout": "超时时间",
+        "settings.auditAssistantTimeoutDescription": "本地命令和外部 API 的最大等待秒数",
+        "settings.auditAssistantKeychain": "Keychain 引用",
+        "settings.auditAssistantKeychainDescription": "外部 API 凭据引用，将作为 X-PitcherPlant-Credential-Ref 请求头传递",
+        "settings.auditAssistantEndpointCommand": "Endpoint / Command",
+        "settings.auditAssistantLocalCommand": "本地命令",
+        "settings.auditAssistantAPIEndpoint": "API Endpoint",
+        "settings.auditAssistantDisabledSubtitle": "配置会保留，启用模式后生效",
+        "settings.auditAssistantLocalSubtitle": "通过 zsh -lc 执行，证据 payload 会写入标准输入",
+        "settings.auditAssistantAPISubtitle": "以 POST JSON 请求发送证据 payload",
+        "calibration.preset.conservative": "保守",
+        "calibration.preset.conservative.subtitle": "提高阈值，优先降低误报",
+        "calibration.preset.balanced": "均衡",
+        "calibration.preset.balanced.subtitle": "使用当前默认阈值",
+        "calibration.preset.aggressive": "激进",
+        "calibration.preset.aggressive.subtitle": "降低文本阈值，提高可疑召回",
+        "auditAssistant.mode.disabled": "关闭",
+        "auditAssistant.mode.localCommand": "本地命令",
+        "auditAssistant.mode.externalAPI": "外部 API",
         "settings.preferInAppReports": "默认打开 App 内报告中心",
         "settings.preferInAppReportsDescription": "优先在 App 内查看审计结果",
         "settings.defaultExportFormat": "默认导出格式",
@@ -332,9 +426,55 @@ enum LocalizationStrings {
         "reports.rows": "条",
         "reports.structuredRecords": "条结构化记录",
         "reports.sectionNoStructuredEvidence": "该章节暂无结构化证据。",
+        "database.recovery.initFailed": "主数据库初始化失败：%@",
+        "database.recovery.pending": "数据库等待恢复处理：%@",
+        "database.recovery.interrupted": "上次审计运行被中断，请重新开始审计。",
+        "database.recovery.title": "数据库需要恢复",
+        "database.recovery.description": "主数据库无法打开，应用已暂停写入当前工作区。",
+        "database.recovery.workspace": "工作区",
+        "database.recovery.temporary": "临时库",
+        "database.recovery.backupButton": "备份数据库",
+        "database.recovery.openWorkspace": "打开工作区",
+        "database.recovery.confirmTemporary": "确认临时模式",
+        "database.recovery.temporaryTitle": "已进入临时数据库模式",
+        "database.recovery.temporaryMessage": "本次会话写入临时目录，重启后需要重新确认或选择可写工作区。",
+        "database.recovery.backupMissing": "未找到可备份数据库",
+        "database.recovery.backupSucceeded": "数据库备份完成",
+        "database.recovery.backupFailed": "数据库备份失败",
+        "evidence.table.risk": "风险",
+        "evidence.table.type": "类型",
+        "evidence.table.challengeSection": "题目 / 章节",
+        "evidence.table.rule": "命中规则",
+        "evidence.table.openDetails": "打开证据详情",
+        "evidence.table.accessibility.riskScore": "风险 %@，分数 %@",
+        "evidence.table.accessibility.score": "分数 %@",
+        "evidence.table.accessibility.reviewStatus": "复核状态 %@",
+        "evidence.reviewSort.riskDescending": "风险优先",
+        "evidence.reviewSort.scoreDescending": "分数优先",
+        "evidence.reviewSort.titleAscending": "标题",
+        "evidence.reviewSort.reviewStatus": "复核状态",
+        "evidence.type.text": "文本",
+        "evidence.type.code": "代码",
+        "evidence.type.image": "图片",
+        "evidence.type.metadata": "元数据",
+        "evidence.type.dedup": "重复",
+        "evidence.type.crossBatch": "跨批次",
+        "risk.none": "未评级",
+        "risk.low": "低",
+        "risk.medium": "中",
+        "risk.high": "高",
+        "review.status.pending": "待复核",
+        "review.status.confirmed": "确认违规",
+        "review.status.falsePositive": "误报",
+        "review.status.ignored": "忽略",
+        "review.status.whitelisted": "白名单",
+        "whitelist.status.clear": "未命中白名单",
+        "whitelist.status.marked": "白名单降权",
+        "whitelist.status.hidden": "白名单隐藏",
         "review.confirm": "确认违规",
         "review.falsePositive": "误报",
         "review.whitelist": "加入白名单",
+        "review.ignore": "忽略证据",
         "review.decision": "复核结论",
         "review.severity": "风险等级",
         "review.save": "保存复核",
@@ -347,6 +487,7 @@ enum LocalizationStrings {
         "section.fingerprints": "指纹",
         "section.crossBatch": "跨批次",
         "about.menuTitle": "关于 PitcherPlant",
+        "about.checkUpdates": "检查更新...",
         "about.credits": "吊椅宝宝的竞赛 WriteUP 审计工具",
         "menu.recentAudits": "最近审计",
         "menu.noAudits": "暂无审计",
@@ -359,10 +500,18 @@ enum LocalizationStrings {
     private static let english: [String: String] = [
         "app.taskMenu": "Tasks",
         "app.reportMenu": "Reports",
+        "app.viewMenu": "View",
+        "app.reviewMenu": "Review",
+        "systemMenu.file": "File",
+        "systemMenu.edit": "Edit",
+        "systemMenu.view": "View",
+        "systemMenu.window": "Window",
+        "systemMenu.help": "Help",
         "command.showWorkspace": "Show Workspace",
         "command.startAudit": "Start Audit",
         "command.cancelAudit": "Cancel Audit",
         "command.reloadData": "Reload Data",
+        "command.toggleInspector": "Show or Hide Inspector",
         "command.openReports": "Open Reports",
         "command.openLatestReport": "Open Latest Report",
         "command.showLatestInFinder": "Reveal Latest in Finder",
@@ -441,11 +590,18 @@ enum LocalizationStrings {
         "notice.importFailed": "Import Failed",
         "notice.retryFailed": "Retry Failed",
         "notice.fingerprintImportSucceeded": "Fingerprint Import Complete",
+        "notice.fingerprintImportSucceededMessage": "Imported %d fingerprints",
+        "notice.fingerprintImportSucceededWithSkippedMessage": "Imported %d fingerprints, skipped %d invalid records",
         "notice.fingerprintImportFailed": "Fingerprint Import Failed",
         "notice.fingerprintExportSucceeded": "Fingerprint Export Complete",
         "notice.fingerprintExportFailed": "Fingerprint Export Failed",
         "notice.fingerprintCleanupSucceeded": "Fingerprint Cleanup Complete",
+        "notice.fingerprintCleanupSucceededMessage": "Cleaned up %d fingerprints",
         "notice.fingerprintCleanupFailed": "Fingerprint Cleanup Failed",
+        "notice.importQueuedSubmissionsMessage": "%d submissions queued",
+        "audit.failure.cancelled": "Audit cancelled.",
+        "audit.summary.base": "Completed: %d documents / %d images / %d historical fingerprints, took %@ seconds",
+        "audit.summary.recall": "%@; candidate recall %d/%d pairs, took %@ms",
         "stage.queued": "Waiting",
         "stage.initialize": "Initializing",
         "stage.scan": "Scanning files",
@@ -505,11 +661,39 @@ enum LocalizationStrings {
         "fingerprints.exportPackage": "Export Fingerprints",
         "fingerprints.cleanupTag": "Tag",
         "fingerprints.cleanup": "Clean Tag",
+        "fingerprints.context": "Batch / Team",
+        "fingerprints.tags": "Tags",
+        "fingerprints.importTagsPrompt": "Import tags, comma separated",
+        "fingerprints.exportTagsPrompt": "Export package tags, comma separated",
+        "fingerprints.matchCount": "%d matches",
+        "fingerprints.cleanupConfirmTitle": "Confirm Fingerprint Tag Cleanup",
+        "fingerprints.cleanupConfirmMessage": "Tag %@ matches %d fingerprints. Cleanup removes these records from the local fingerprint library.",
         "fingerprints.empty": "Fingerprint library is empty",
         "whitelist.searchPrompt": "Search rules",
         "whitelist.type": "Type",
         "whitelist.newRule": "New Rule",
+        "whitelist.rule": "Rule",
         "whitelist.save": "Save",
+        "whitelist.suggestions": "Whitelist Suggestions",
+        "whitelist.suggestions.failed": "Suggestion generation failed: %@",
+        "whitelist.noMatchedSuggestions": "No Matching Suggestions",
+        "whitelist.noMatchedSuggestionsDescription": "Refresh suggestions, then accept or ignore candidate rules.",
+        "whitelist.existingRules": "Existing Rules",
+        "whitelist.noMatchedRules": "No Matching Rules",
+        "whitelist.noMatchedRulesDescription": "Enter a rule above and save it.",
+        "whitelist.suggestionStatus": "Suggestion Status",
+        "whitelist.suggestionStatus.pending": "Pending",
+        "whitelist.suggestionStatus.accepted": "Accepted",
+        "whitelist.suggestionStatus.dismissed": "Ignored",
+        "whitelist.reason.textTemplate": "Repeated across multiple WriteUPs; suitable as a shared prompt or template snippet",
+        "whitelist.reason.codeTemplate": "Structured code template appears repeatedly",
+        "whitelist.reason.imageHash": "Image hash appears frequently; likely an official screenshot or shared asset",
+        "whitelist.reason.metadata": "Metadata appears across multiple files and is suitable for downgrading",
+        "whitelist.reason.pathPattern": "Directory names repeat and are suitable for import ignore or downgrade rules",
+        "whitelist.generating": "Generating",
+        "whitelist.refreshSuggestions": "Refresh Suggestions",
+        "whitelist.acceptPending": "Accept Pending",
+        "whitelist.pendingCount": "%d pending",
         "whitelist.author": "Author",
         "whitelist.filename": "Filename",
         "whitelist.textSnippet": "Text Snippet",
@@ -521,6 +705,10 @@ enum LocalizationStrings {
         "job.runQueue": "Run Queue",
         "job.retry": "Retry Task",
         "job.timeline": "Timeline",
+        "job.stage": "Stage",
+        "job.failures": "Failures",
+        "job.failedFiles": "Failed Files",
+        "job.copyDiagnostics": "Copy Error Diagnostics",
         "job.noSelection": "No Task Selected",
         "job.noSelectionDescription": "Select a history item to inspect details.",
         "common.countSuffix": "items",
@@ -528,12 +716,23 @@ enum LocalizationStrings {
         "common.open": "Open",
         "common.refresh": "Refresh",
         "common.new": "New",
+        "common.import": "Import",
         "common.quit": "Quit",
         "common.finder": "Finder",
         "common.delete": "Delete",
         "common.export": "Export",
         "common.cancel": "Cancel",
         "common.search": "Search",
+        "common.file": "File",
+        "common.progress": "Progress",
+        "common.status": "Status",
+        "common.actions": "Actions",
+        "common.count": "Count",
+        "common.times": "%d times",
+        "common.itemCount": "%d items",
+        "common.unlabeled": "Unlabeled",
+        "common.samples": "Samples",
+        "common.seconds": "sec",
         "common.score": "Score",
         "common.type": "Type",
         "common.badge": "Tag",
@@ -576,6 +775,39 @@ enum LocalizationStrings {
         "settings.simhashThresholdDescription": "Allowed SimHash bit delta for cross-batch checks",
         "settings.visionOCRDescription": "Use system Vision to recognize text in PDFs and images",
         "settings.whitelistModeDescription": "Mark or hide results that match whitelist rules",
+        "settings.calibration": "Calibration",
+        "settings.calibrationPreset": "Threshold Preset",
+        "settings.calibrationEvaluation": "Calibration Evaluation",
+        "settings.applyPreset": "Apply Preset",
+        "settings.runCalibration": "Run Calibration",
+        "settings.calibrationStatus": "Calibration Status",
+        "settings.calibrationSummary": "Samples %d · Precision %.2f · Recall %.2f · F1 %.2f",
+        "settings.calibrationDescription": "Show Precision, Recall, and F1 from calibration fixtures",
+        "settings.calibrationMissingManifest": "Calibration manifest not found: Resources/Calibration/manifest.json",
+        "settings.calibrationThreshold": "Threshold",
+        "settings.calibrationRowAccessibility": "%@, samples %d, Precision %@, Recall %@, F1 %@",
+        "settings.auditAssistant": "Audit Assistant",
+        "settings.auditAssistantMode": "Assistant Mode",
+        "settings.auditAssistantModeDescription": "Choose Off, local command, or external API",
+        "settings.auditAssistantTimeout": "Timeout",
+        "settings.auditAssistantTimeoutDescription": "Maximum wait time for local commands and external APIs",
+        "settings.auditAssistantKeychain": "Keychain Reference",
+        "settings.auditAssistantKeychainDescription": "External API credential reference passed as the X-PitcherPlant-Credential-Ref request header",
+        "settings.auditAssistantEndpointCommand": "Endpoint / Command",
+        "settings.auditAssistantLocalCommand": "Local Command",
+        "settings.auditAssistantAPIEndpoint": "API Endpoint",
+        "settings.auditAssistantDisabledSubtitle": "Configuration is preserved and takes effect after enabling a mode",
+        "settings.auditAssistantLocalSubtitle": "Runs through zsh -lc with the evidence payload written to standard input",
+        "settings.auditAssistantAPISubtitle": "Sends the evidence payload as a POST JSON request",
+        "calibration.preset.conservative": "Conservative",
+        "calibration.preset.conservative.subtitle": "Raise thresholds to reduce false positives",
+        "calibration.preset.balanced": "Balanced",
+        "calibration.preset.balanced.subtitle": "Use the current default thresholds",
+        "calibration.preset.aggressive": "Aggressive",
+        "calibration.preset.aggressive.subtitle": "Lower text thresholds to improve suspicious recall",
+        "auditAssistant.mode.disabled": "Off",
+        "auditAssistant.mode.localCommand": "Local Command",
+        "auditAssistant.mode.externalAPI": "External API",
         "settings.preferInAppReports": "Open Reports In App",
         "settings.preferInAppReportsDescription": "Prefer the in-app report center for audit results",
         "settings.defaultExportFormat": "Default Export Format",
@@ -654,9 +886,55 @@ enum LocalizationStrings {
         "reports.rows": "rows",
         "reports.structuredRecords": "structured records",
         "reports.sectionNoStructuredEvidence": "This section has no structured evidence.",
+        "database.recovery.initFailed": "Main database initialization failed: %@",
+        "database.recovery.pending": "Database recovery required: %@",
+        "database.recovery.interrupted": "The previous audit run was interrupted. Start the audit again.",
+        "database.recovery.title": "Database Recovery Required",
+        "database.recovery.description": "The main database cannot be opened. Writes to the current workspace are paused.",
+        "database.recovery.workspace": "Workspace",
+        "database.recovery.temporary": "Temporary Store",
+        "database.recovery.backupButton": "Back Up Database",
+        "database.recovery.openWorkspace": "Open Workspace",
+        "database.recovery.confirmTemporary": "Use Temporary Mode",
+        "database.recovery.temporaryTitle": "Temporary Database Mode",
+        "database.recovery.temporaryMessage": "This session writes to a temporary directory. Confirm again or choose a writable workspace after restart.",
+        "database.recovery.backupMissing": "No Database to Back Up",
+        "database.recovery.backupSucceeded": "Database Backup Complete",
+        "database.recovery.backupFailed": "Database Backup Failed",
+        "evidence.table.risk": "Risk",
+        "evidence.table.type": "Type",
+        "evidence.table.challengeSection": "Challenge / Section",
+        "evidence.table.rule": "Matched Rule",
+        "evidence.table.openDetails": "Open evidence details",
+        "evidence.table.accessibility.riskScore": "Risk %@, score %@",
+        "evidence.table.accessibility.score": "Score %@",
+        "evidence.table.accessibility.reviewStatus": "Review status %@",
+        "evidence.reviewSort.riskDescending": "Risk First",
+        "evidence.reviewSort.scoreDescending": "Score First",
+        "evidence.reviewSort.titleAscending": "Title",
+        "evidence.reviewSort.reviewStatus": "Review Status",
+        "evidence.type.text": "Text",
+        "evidence.type.code": "Code",
+        "evidence.type.image": "Image",
+        "evidence.type.metadata": "Metadata",
+        "evidence.type.dedup": "Duplicate",
+        "evidence.type.crossBatch": "Cross Batch",
+        "risk.none": "Unrated",
+        "risk.low": "Low",
+        "risk.medium": "Medium",
+        "risk.high": "High",
+        "review.status.pending": "Pending",
+        "review.status.confirmed": "Confirmed",
+        "review.status.falsePositive": "False Positive",
+        "review.status.ignored": "Ignored",
+        "review.status.whitelisted": "Whitelisted",
+        "whitelist.status.clear": "No Whitelist Match",
+        "whitelist.status.marked": "Whitelist Downgraded",
+        "whitelist.status.hidden": "Whitelist Hidden",
         "review.confirm": "Confirm",
         "review.falsePositive": "False Positive",
         "review.whitelist": "Whitelist",
+        "review.ignore": "Ignore Evidence",
         "review.decision": "Decision",
         "review.severity": "Risk Level",
         "review.save": "Save Review",
@@ -669,19 +947,31 @@ enum LocalizationStrings {
         "section.fingerprints": "Fingerprints",
         "section.crossBatch": "Cross Batch",
         "about.menuTitle": "About PitcherPlant",
+        "about.checkUpdates": "Check for Updates...",
         "about.credits": "D1a0y1bb's Competition WriteUP Audit Tool",
         "menu.recentAudits": "Recent Audits",
         "menu.noAudits": "No Audits",
         "menu.noAuditsDescription": "Start an audit from the main window",
         "menu.noReports": "No Reports",
         "menu.noReportsDescription": "Finished audits appear here",
-        "menu.searchPrompt": "Search audits and reports..."
+        "menu.searchPrompt": "Search audits and reports...",
+        "update.button.title": "Update",
+        "update.button.help": "New version available",
+        "update.button.accessibility": "New version available, view update"
     ]
 }
 
 extension AppState {
     func t(_ key: String) -> String {
         LocalizationStrings.text(key, language: appSettings.language)
+    }
+
+    func tf(_ key: String, _ arguments: CVarArg...) -> String {
+        String(
+            format: t(key),
+            locale: effectiveLocale ?? .current,
+            arguments: arguments
+        )
     }
 
     func title(for item: MainSidebarItem) -> String {
@@ -696,8 +986,36 @@ extension AppState {
         t(status.localizationKey)
     }
 
+    func title(for stage: AuditStage) -> String {
+        t(stage.localizationKey)
+    }
+
     func title(for mode: AuditConfiguration.WhitelistMode) -> String {
         t(mode.localizationKey)
+    }
+
+    func title(for preset: AuditCalibrationPreset) -> String {
+        switch preset {
+        case .conservative: return t("calibration.preset.conservative")
+        case .balanced: return t("calibration.preset.balanced")
+        case .aggressive: return t("calibration.preset.aggressive")
+        }
+    }
+
+    func subtitle(for preset: AuditCalibrationPreset) -> String {
+        switch preset {
+        case .conservative: return t("calibration.preset.conservative.subtitle")
+        case .balanced: return t("calibration.preset.balanced.subtitle")
+        case .aggressive: return t("calibration.preset.aggressive.subtitle")
+        }
+    }
+
+    func title(for mode: AuditAssistantConfiguration.Mode) -> String {
+        switch mode {
+        case .disabled: return t("auditAssistant.mode.disabled")
+        case .localCommand: return t("auditAssistant.mode.localCommand")
+        case .externalAPI: return t("auditAssistant.mode.externalAPI")
+        }
     }
 
     func title(for type: WhitelistRule.RuleType) -> String {
@@ -705,19 +1023,57 @@ extension AppState {
     }
 
     func title(for filter: ReportEvidenceFilter) -> String {
-        switch filter {
-        case .all: return t("reports.evidenceFilter.all")
-        case .highRisk: return t("reports.evidenceFilter.highRisk")
-        case .withAttachments: return t("reports.evidenceFilter.attachments")
-        }
+        t(filter.localizationKey)
     }
 
     func title(for sortOrder: ReportEvidenceSortOrder) -> String {
-        switch sortOrder {
-        case .default: return t("reports.sort.default")
-        case .severity: return t("reports.sort.severity")
-        case .title: return t("reports.sort.title")
+        t(sortOrder.localizationKey)
+    }
+
+    func title(for sortOrder: EvidenceReviewTableSortOrder) -> String {
+        t(sortOrder.localizationKey)
+    }
+
+    func title(for type: EvidenceType) -> String {
+        switch type {
+        case .text: return t("evidence.type.text")
+        case .code: return t("evidence.type.code")
+        case .image: return t("evidence.type.image")
+        case .metadata: return t("evidence.type.metadata")
+        case .dedup: return t("evidence.type.dedup")
+        case .crossBatch: return t("evidence.type.crossBatch")
         }
+    }
+
+    func title(for level: RiskLevel) -> String {
+        switch level {
+        case .none: return t("risk.none")
+        case .low: return t("risk.low")
+        case .medium: return t("risk.medium")
+        case .high: return t("risk.high")
+        }
+    }
+
+    func title(for decision: EvidenceDecision) -> String {
+        switch decision {
+        case .pending: return t("review.status.pending")
+        case .confirmed: return t("review.status.confirmed")
+        case .falsePositive: return t("review.status.falsePositive")
+        case .ignored: return t("review.status.ignored")
+        case .whitelisted: return t("review.status.whitelisted")
+        }
+    }
+
+    func title(for status: WhitelistEvaluation.Status) -> String {
+        switch status {
+        case .clear: return t("whitelist.status.clear")
+        case .marked: return t("whitelist.status.marked")
+        case .hidden: return t("whitelist.status.hidden")
+        }
+    }
+
+    func title(for status: WhitelistSuggestionStatus) -> String {
+        t(status.localizationKey)
     }
 
     func title(for kind: ReportSectionKind) -> String {

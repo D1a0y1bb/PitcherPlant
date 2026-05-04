@@ -7,11 +7,11 @@ enum ReportEvidenceFilter: String, CaseIterable, Identifiable, Sendable {
 
     var id: String { rawValue }
 
-    var title: String {
+    var localizationKey: String {
         switch self {
-        case .all: return "全部"
-        case .highRisk: return "高危"
-        case .withAttachments: return "带附件"
+        case .all: return "reports.evidenceFilter.all"
+        case .highRisk: return "reports.evidenceFilter.highRisk"
+        case .withAttachments: return "reports.evidenceFilter.attachments"
         }
     }
 
@@ -34,11 +34,11 @@ enum ReportEvidenceSortOrder: String, CaseIterable, Identifiable, Sendable {
 
     var id: String { rawValue }
 
-    var title: String {
+    var localizationKey: String {
         switch self {
-        case .default: return "默认顺序"
-        case .severity: return "风险优先"
-        case .title: return "按标题"
+        case .default: return "reports.sort.default"
+        case .severity: return "reports.sort.severity"
+        case .title: return "reports.sort.title"
         }
     }
 

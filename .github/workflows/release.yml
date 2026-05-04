@@ -285,6 +285,7 @@ jobs:
         working-directory: PitcherPlantApp
         env:
           RELEASE_TAG: ${{ steps.release.outputs.bundle_release_tag }}
+          RELEASE_BUILD_NUMBER: ${{ github.run_number }}
         run: |
           if [ "${{ steps.release.outputs.signed_release }}" = "true" ]; then
             ./script/package_release.sh --distribution developer-id --notarize
@@ -303,6 +304,7 @@ jobs:
             PitcherPlantApp/build/dist/PitcherPlant.xcarchive.zip
             PitcherPlantApp/build/dist/PitcherPlant-dSYMs.zip
             PitcherPlantApp/build/dist/PitcherPlant-macOS-checksums.txt
+            PitcherPlantApp/build/dist/appcast.xml
             PitcherPlantApp/build/dist/release-notes.md
 
       - name: Publish GitHub release
@@ -316,6 +318,7 @@ jobs:
             PitcherPlantApp/build/dist/PitcherPlant.xcarchive.zip \
             PitcherPlantApp/build/dist/PitcherPlant-dSYMs.zip \
             PitcherPlantApp/build/dist/PitcherPlant-macOS-checksums.txt \
+            PitcherPlantApp/build/dist/appcast.xml \
             --target "$GITHUB_SHA" \
             --title "${{ steps.release.outputs.tag_name }}" \
             --notes-file PitcherPlantApp/build/dist/release-notes.md

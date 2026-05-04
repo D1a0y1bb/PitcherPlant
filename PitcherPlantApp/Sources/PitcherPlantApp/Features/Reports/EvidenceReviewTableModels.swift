@@ -30,12 +30,12 @@ enum EvidenceReviewTableSortOrder: String, CaseIterable, Identifiable, Sendable 
 
     var id: String { rawValue }
 
-    var title: String {
+    var localizationKey: String {
         switch self {
-        case .riskDescending: return "风险优先"
-        case .scoreDescending: return "分数优先"
-        case .titleAscending: return "标题"
-        case .reviewStatus: return "复核状态"
+        case .riskDescending: return "evidence.reviewSort.riskDescending"
+        case .scoreDescending: return "evidence.reviewSort.scoreDescending"
+        case .titleAscending: return "evidence.reviewSort.titleAscending"
+        case .reviewStatus: return "evidence.reviewSort.reviewStatus"
         }
     }
 }
@@ -53,7 +53,7 @@ struct EvidenceReviewTableRow: Identifiable, Hashable, Sendable {
     let scoreText: String
     let ruleText: String
     let reviewDecision: EvidenceDecision
-    let whitelistStatusText: String
+    let whitelistStatus: WhitelistEvaluation.Status?
     let updatedAt: Date
     let row: ReportTableRow
 
@@ -83,7 +83,7 @@ struct EvidenceReviewTableRow: Identifiable, Hashable, Sendable {
         self.scoreValue = Self.parseScore(scoreText, fallback: row.riskAssessment?.score ?? 0)
         self.ruleText = row.columns[safe: 3] ?? row.riskAssessment?.reasons.joined(separator: "、") ?? row.detailBody
         self.reviewDecision = review?.decision ?? .pending
-        self.whitelistStatusText = row.whitelistStatus?.status.title ?? "未命中白名单"
+        self.whitelistStatus = row.whitelistStatus?.status
         self.updatedAt = review?.updatedAt ?? .distantPast
         self.row = row
     }

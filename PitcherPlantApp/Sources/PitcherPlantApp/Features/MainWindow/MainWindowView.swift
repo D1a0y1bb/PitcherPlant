@@ -31,6 +31,7 @@ struct MainWindowView: View {
         .onAppear {
             NSApp.setActivationPolicy(.regular)
             NSApp.activate(ignoringOtherApps: true)
+            appState.startUpdateMonitoring()
             inspectorVisible = appState.appSettings.showInspectorByDefault
             applySidebarPolicy(windowWidth: windowWidth)
         }
@@ -262,6 +263,22 @@ struct MainWindowView: View {
 
     @ToolbarContentBuilder
     private var mainToolbarItems: some ToolbarContent {
+        if appState.availableUpdate != nil {
+            ToolbarItem(placement: .navigation) {
+                Button {
+                    appState.presentAvailableUpdate()
+                } label: {
+                    Label(appState.t("update.button.title"), systemImage: "arrow.down.circle.fill")
+                        .labelStyle(.iconOnly)
+                }
+                .buttonStyle(.borderedProminent)
+                .controlSize(.regular)
+                .tint(.blue)
+                .help(appState.t("update.button.help"))
+                .accessibilityLabel(appState.t("update.button.accessibility"))
+            }
+        }
+
         ToolbarItem(placement: .primaryAction) {
             NativeScanOptionsMenu()
         }
@@ -379,17 +396,17 @@ private struct DatabaseRecoveryBlockingView: View {
                         .foregroundStyle(.orange)
 
                     VStack(alignment: .leading, spacing: 4) {
-                        Text("数据库需要恢复")
+                        Text(appState.t("database.recovery.title"))
                             .font(.title3.weight(.semibold))
-                        Text("主数据库无法打开，应用已暂停写入当前工作区。")
+                        Text(appState.t("database.recovery.description"))
                             .font(AppTypography.supporting)
                             .foregroundStyle(.secondary)
                     }
                 }
 
                 VStack(alignment: .leading, spacing: 8) {
-                    recoveryPathRow("工作区", recovery.failedRootPath)
-                    recoveryPathRow("临时库", recovery.fallbackRootPath)
+                    recoveryPathRow(appState.t("database.recovery.workspace"), recovery.failedRootPath)
+                    recoveryPathRow(appState.t("database.recovery.temporary"), recovery.fallbackRootPath)
                     Text(recovery.message)
                         .font(AppTypography.metadata)
                         .foregroundStyle(.secondary)
@@ -400,19 +417,19 @@ private struct DatabaseRecoveryBlockingView: View {
                     Button {
                         appState.backupFailedDatabase()
                     } label: {
-                        Label("备份数据库", systemImage: "externaldrive.badge.plus")
+                        Label(appState.t("database.recovery.backupButton"), systemImage: "externaldrive.badge.plus")
                     }
 
                     Button {
                         appState.revealDatabaseRecoveryWorkspace()
                     } label: {
-                        Label("打开工作区", systemImage: "folder")
+                        Label(appState.t("database.recovery.openWorkspace"), systemImage: "folder")
                     }
 
                     Button(role: .destructive) {
                         appState.continueWithTemporaryDatabase()
                     } label: {
-                        Label("确认临时模式", systemImage: "exclamationmark.triangle")
+                        Label(appState.t("database.recovery.confirmTemporary"), systemImage: "exclamationmark.triangle")
                     }
                 }
                 .buttonStyle(.bordered)
@@ -467,6 +484,7 @@ private struct NativeScanOptionsMenu: View {
         } label: {
             Label(appState.t("toolbar.titleSelector"), systemImage: "slider.horizontal.3")
         }
+        .menuIndicator(.hidden)
         .help(appState.t("toolbar.titleSelector"))
         .accessibilityLabel(appState.t("toolbar.titleSelector"))
     }

@@ -2,7 +2,8 @@ import SwiftUI
 
 enum SettingsLayout {
     static let horizontalPadding: CGFloat = 14
-    static let rowLeadingPadding: CGFloat = horizontalPadding
+    static let groupHorizontalPadding: CGFloat = 20
+    static let rowLeadingPadding: CGFloat = 24
     static let trailingWidth: CGFloat = 360
     static let menuWidth: CGFloat = 220
     static let numberFieldWidth: CGFloat = 50
@@ -22,15 +23,22 @@ struct SettingsGroup<Content: View>: View {
             Text(title)
                 .font(AppTypography.sectionTitle)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.horizontal, SettingsLayout.horizontalPadding)
-                .padding(.bottom, 8)
-
-            Divider()
-                .padding(.horizontal, SettingsLayout.horizontalPadding)
+                .padding(.horizontal, SettingsLayout.groupHorizontalPadding)
+                .padding(.top, 18)
+                .padding(.bottom, 10)
 
             content
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.bottom, 12)
+        .background {
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .fill(.regularMaterial)
+        }
+        .overlay {
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .strokeBorder(Color(nsColor: .separatorColor).opacity(0.28), lineWidth: 0.5)
+        }
     }
 }
 

@@ -9,7 +9,16 @@ enum SettingsRootPresentation {
         case .standalone:
             return 28
         case .embeddedInTransparentTitlebar:
-            return AppLayout.titlebarScrollContentTopPadding
+            return 24
+        }
+    }
+
+    var topScrollEdgeBarHeight: CGFloat {
+        switch self {
+        case .standalone:
+            return 0
+        case .embeddedInTransparentTitlebar:
+            return max(AppLayout.titlebarScrollContentTopPadding - topPadding, 0)
         }
     }
 }
@@ -178,35 +187,35 @@ struct SettingsRootView: View {
                     }
                 }
 
-                SettingsGroup(title: "校准") {
+                SettingsGroup(title: appState.t("settings.calibration")) {
                     SettingsPickerRow(
-                        title: "阈值预设",
-                        subtitle: selectedCalibrationPreset.subtitle
+                        title: appState.t("settings.calibrationPreset"),
+                        subtitle: appState.subtitle(for: selectedCalibrationPreset)
                     ) {
                         SettingsMenuPicker(
                             selection: $selectedCalibrationPreset,
                             options: AuditCalibrationPreset.allCases,
                             width: SettingsLayout.menuWidth,
-                            title: { $0.title }
+                            title: { appState.title(for: $0) }
                         )
                     }
 
                     SettingsDivider()
 
                     SettingsButtonGroupRow(
-                        title: "校准评估",
+                        title: appState.t("settings.calibrationEvaluation"),
                         subtitle: calibrationSummaryText
                     ) {
                         Button {
                             applyCalibrationPreset()
                         } label: {
-                            Label("应用预设", systemImage: "slider.horizontal.3")
+                            Label(appState.t("settings.applyPreset"), systemImage: "slider.horizontal.3")
                         }
 
                         Button {
                             runCalibration()
                         } label: {
-                            Label("运行校准", systemImage: "chart.xyaxis.line")
+                            Label(appState.t("settings.runCalibration"), systemImage: "chart.xyaxis.line")
                         }
                     }
 
@@ -215,14 +224,14 @@ struct SettingsRootView: View {
                         CalibrationResultRows(result: calibrationResult)
                     } else if let calibrationMessage {
                         SettingsDivider()
-                        SettingsValueRow(title: "校准状态", subtitle: calibrationMessage, value: "")
+                        SettingsValueRow(title: appState.t("settings.calibrationStatus"), subtitle: calibrationMessage, value: "")
                     }
                 }
 
-                SettingsGroup(title: "审计助手") {
+                SettingsGroup(title: appState.t("settings.auditAssistant")) {
                     SettingsPickerRow(
-                        title: "助手模式",
-                        subtitle: currentValueSubtitle("选择关闭、本地命令或外部 API", value: auditAssistantModeTitle(auditAssistantMode))
+                        title: appState.t("settings.auditAssistantMode"),
+                        subtitle: currentValueSubtitle(appState.t("settings.auditAssistantModeDescription"), value: auditAssistantModeTitle(auditAssistantMode))
                     ) {
                         SettingsMenuPicker(
                             selection: auditAssistantBinding(\.mode),
@@ -245,8 +254,8 @@ struct SettingsRootView: View {
                     SettingsDivider()
 
                     SettingsAssistantTimeoutRow(
-                        title: "超时时间",
-                        subtitle: "本地命令和外部 API 的最大等待秒数",
+                        title: appState.t("settings.auditAssistantTimeout"),
+                        subtitle: appState.t("settings.auditAssistantTimeoutDescription"),
                         value: auditAssistantBinding(\.timeoutSeconds)
                     )
                     .disabled(auditAssistantMode == .disabled)
@@ -254,8 +263,8 @@ struct SettingsRootView: View {
                     SettingsDivider()
 
                     SettingsTextFieldRow(
-                        title: "Keychain 引用",
-                        subtitle: "外部 API 凭据引用，将作为 X-PitcherPlant-Credential-Ref 请求头传递",
+                        title: appState.t("settings.auditAssistantKeychain"),
+                        subtitle: appState.t("settings.auditAssistantKeychainDescription"),
                         text: auditAssistantBinding(\.keychainCredentialReference)
                     )
                     .disabled(auditAssistantMode != .externalAPI)
@@ -380,11 +389,19 @@ struct SettingsRootView: View {
                 }
             }
             .padding(.leading, 24)
-            .padding(.trailing, 8)
+            .padding(.trailing, 24)
             .padding(.top, presentation.topPadding)
             .padding(.bottom, 28)
             .frame(maxWidth: .infinity, alignment: .topLeading)
         }
+        .safeAreaBar(edge: .top, spacing: 0) {
+            if presentation.topScrollEdgeBarHeight > 0 {
+                Color.clear
+                    .frame(height: presentation.topScrollEdgeBarHeight)
+                    .accessibilityHidden(true)
+            }
+        }
+        .scrollEdgeEffectStyle(.soft, for: .top)
         .ignoresSafeArea(.container, edges: .top)
         .environment(\.settingsSearchQuery, searchText)
     }
@@ -397,15 +414,15 @@ struct SettingsRootView: View {
 
     private var calibrationSummaryText: String {
         if let calibrationResult {
-            return String(
-                format: "样本 %d · Precision %.2f · Recall %.2f · F1 %.2f",
+            return appState.tf(
+                "settings.calibrationSummary",
                 calibrationResult.summary.sampleCount,
                 calibrationResult.summary.precision,
                 calibrationResult.summary.recall,
                 calibrationResult.summary.f1
             )
         }
-        return "基于校准 fixture 展示 Precision、Recall 和 F1"
+        return appState.t("settings.calibrationDescription")
     }
 
     private func applyCalibrationPreset() {
@@ -416,11 +433,9 @@ struct SettingsRootView: View {
     }
 
     private func runCalibration() {
-        let manifestURL = appState.workspaceRoot
-            .appendingPathComponent("PitcherPlantApp/Tests/PitcherPlantAppTests/Fixtures/calibration/manifest.json")
-        guard FileManager.default.fileExists(atPath: manifestURL.path) else {
+        guard let manifestURL = CalibrationManifestLocator.manifestURL(workspaceRoot: appState.workspaceRoot) else {
             calibrationResult = nil
-            calibrationMessage = "未找到校准 fixture：\(manifestURL.path)"
+            calibrationMessage = appState.t("settings.calibrationMissingManifest")
             return
         }
         do {
@@ -438,17 +453,17 @@ struct SettingsRootView: View {
 
     private var auditAssistantEndpointTitle: String {
         switch auditAssistantMode {
-        case .disabled: return "Endpoint / Command"
-        case .localCommand: return "本地命令"
-        case .externalAPI: return "API Endpoint"
+        case .disabled: return appState.t("settings.auditAssistantEndpointCommand")
+        case .localCommand: return appState.t("settings.auditAssistantLocalCommand")
+        case .externalAPI: return appState.t("settings.auditAssistantAPIEndpoint")
         }
     }
 
     private var auditAssistantEndpointSubtitle: String {
         switch auditAssistantMode {
-        case .disabled: return "配置会保留，启用模式后生效"
-        case .localCommand: return "通过 zsh -lc 执行，证据 payload 会写入标准输入"
-        case .externalAPI: return "以 POST JSON 请求发送证据 payload"
+        case .disabled: return appState.t("settings.auditAssistantDisabledSubtitle")
+        case .localCommand: return appState.t("settings.auditAssistantLocalSubtitle")
+        case .externalAPI: return appState.t("settings.auditAssistantAPISubtitle")
         }
     }
 
@@ -526,7 +541,7 @@ struct SettingsRootView: View {
     }
 
     private func auditAssistantModeTitle(_ mode: AuditAssistantConfiguration.Mode) -> String {
-        mode.title
+        appState.title(for: mode)
     }
 
     private func auditAssistantModeImage(_ mode: AuditAssistantConfiguration.Mode) -> String {
@@ -551,6 +566,7 @@ private struct SettingsAssistantTimeoutRow: View {
 }
 
 private struct SettingsAssistantTimeoutStepper: View {
+    @Environment(AppState.self) private var appState
     @Binding var value: Double
 
     private let range: ClosedRange<Double> = 1...300
@@ -558,7 +574,7 @@ private struct SettingsAssistantTimeoutStepper: View {
 
     var body: some View {
         HStack(spacing: 8) {
-            TextField("秒", value: clampedBinding, format: .number.precision(.fractionLength(0)))
+            TextField(appState.t("common.seconds"), value: clampedBinding, format: .number.precision(.fractionLength(0)))
                 .textFieldStyle(.roundedBorder)
                 .multilineTextAlignment(.center)
                 .font(AppTypography.code.weight(.medium))
@@ -568,7 +584,7 @@ private struct SettingsAssistantTimeoutStepper: View {
                 .labelsHidden()
                 .frame(width: SettingsLayout.stepperWidth - 46)
 
-            Text("秒")
+            Text(appState.t("common.seconds"))
                 .font(AppTypography.metadata)
                 .foregroundStyle(.secondary)
                 .frame(width: SettingsLayout.hintWidth, alignment: .trailing)
@@ -589,17 +605,18 @@ private struct SettingsAssistantTimeoutStepper: View {
 }
 
 private struct CalibrationResultRows: View {
+    @Environment(AppState.self) private var appState
     let result: CalibrationEvaluationResult
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 12) {
-                Text("类型").frame(width: 80, alignment: .leading)
-                Text("样本").frame(width: 54, alignment: .trailing)
+                Text(appState.t("common.type")).frame(width: 80, alignment: .leading)
+                Text(appState.t("common.samples")).frame(width: 54, alignment: .trailing)
                 Text("P").frame(width: 54, alignment: .trailing)
                 Text("R").frame(width: 54, alignment: .trailing)
                 Text("F1").frame(width: 54, alignment: .trailing)
-                Text("阈值").frame(maxWidth: .infinity, alignment: .leading)
+                Text(appState.t("settings.calibrationThreshold")).frame(maxWidth: .infinity, alignment: .leading)
             }
             .font(AppTypography.tableHeader)
             .foregroundStyle(.secondary)
@@ -607,7 +624,7 @@ private struct CalibrationResultRows: View {
 
             ForEach(result.rows) { row in
                 HStack(spacing: 12) {
-                    Label(row.kind.title, systemImage: row.kind.sectionKind.systemImage)
+                    Label(appState.title(for: row.kind), systemImage: row.kind.sectionKind.systemImage)
                         .frame(width: 80, alignment: .leading)
                     Text("\(row.sampleCount)").frame(width: 54, alignment: .trailing)
                     Text(Self.metric(row.metrics.precision)).frame(width: 54, alignment: .trailing)
@@ -620,7 +637,16 @@ private struct CalibrationResultRows: View {
                 .font(AppTypography.rowSecondary.monospacedDigit())
                 .padding(.horizontal, AppLayout.rowHorizontalPadding)
                 .padding(.vertical, 5)
-                .accessibilityLabel("\(row.kind.title)，样本 \(row.sampleCount)，Precision \(Self.metric(row.metrics.precision))，Recall \(Self.metric(row.metrics.recall))，F1 \(Self.metric(row.metrics.f1))")
+                .accessibilityLabel(
+                    appState.tf(
+                        "settings.calibrationRowAccessibility",
+                        appState.title(for: row.kind),
+                        row.sampleCount,
+                        Self.metric(row.metrics.precision),
+                        Self.metric(row.metrics.recall),
+                        Self.metric(row.metrics.f1)
+                    )
+                )
             }
         }
     }

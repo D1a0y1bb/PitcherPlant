@@ -8,7 +8,7 @@ struct JobHistoryView: View {
     private var filteredJobs: [AuditJob] {
         guard query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false else { return appState.jobs }
         return appState.jobs.filter { job in
-            [URL(fileURLWithPath: job.configuration.directoryPath).lastPathComponent, job.configuration.directoryPath, job.latestMessage, job.status.displayTitle]
+            [URL(fileURLWithPath: job.configuration.directoryPath).lastPathComponent, job.configuration.directoryPath, job.latestMessage, appState.title(for: job.status)]
                 .joined(separator: " ")
                 .localizedCaseInsensitiveContains(query)
         }
@@ -34,22 +34,22 @@ struct JobHistoryView: View {
                             .truncationMode(.middle)
                     }
                     TableColumn(appState.t("common.type")) { job in
-                        Text(job.status.displayTitle)
+                        Text(appState.title(for: job.status))
                             .foregroundStyle(.secondary)
                     }
                     .width(90)
-                    TableColumn("阶段") { job in
-                        Text(job.stage.displayTitle)
+                    TableColumn(appState.t("job.stage")) { job in
+                        Text(appState.title(for: job.stage))
                             .foregroundStyle(.secondary)
                     }
                     .width(min: 120, ideal: 150)
-                    TableColumn("Progress") { job in
+                    TableColumn(appState.t("common.progress")) { job in
                         Text("\(job.progress)%")
                             .monospacedDigit()
                             .foregroundStyle(.secondary)
                     }
                     .width(76)
-                    TableColumn("失败") { job in
+                    TableColumn(appState.t("job.failures")) { job in
                         Text("\(job.failureCount)")
                             .monospacedDigit()
                             .foregroundStyle(job.failureCount > 0 ? .red : .secondary)
@@ -145,7 +145,7 @@ struct FingerprintLibraryView: View {
         let values = [record.batchName, record.challengeName, record.teamName].compactMap { value in
             value?.trimmingCharacters(in: .whitespacesAndNewlines)
         }.filter { $0.isEmpty == false }
-        return values.isEmpty ? "未标注" : values.joined(separator: " / ")
+        return values.isEmpty ? appState.t("common.unlabeled") : values.joined(separator: " / ")
     }
 
     private func confirmAndDeleteFingerprints(tag: String, matchCount: Int) {
@@ -153,10 +153,10 @@ struct FingerprintLibraryView: View {
         guard trimmed.isEmpty == false, matchCount > 0 else { return }
         let alert = NSAlert()
         alert.alertStyle = .warning
-        alert.messageText = "确认清理指纹标签"
-        alert.informativeText = "标签 \(trimmed) 当前命中 \(matchCount) 条指纹。清理后会从本地指纹库移除这些记录。"
-        alert.addButton(withTitle: "清理")
-        alert.addButton(withTitle: "取消")
+        alert.messageText = appState.t("fingerprints.cleanupConfirmTitle")
+        alert.informativeText = appState.tf("fingerprints.cleanupConfirmMessage", trimmed, matchCount)
+        alert.addButton(withTitle: appState.t("fingerprints.cleanup"))
+        alert.addButton(withTitle: appState.t("common.cancel"))
         guard alert.runModal() == .alertFirstButtonReturn else { return }
         cleanupTag = ""
         Task { @MainActor in
@@ -192,17 +192,19 @@ struct FingerprintLibraryView: View {
 }
 
 private struct FingerprintListHeader: View {
+    @Environment(AppState.self) private var appState
+
     var body: some View {
         HStack(spacing: 14) {
-            Text("文件")
+            Text(appState.t("common.file"))
                 .frame(maxWidth: .infinity, alignment: .leading)
-            Text("类型")
+            Text(appState.t("common.type"))
                 .frame(width: 70, alignment: .leading)
-            Text("批次 / 队伍")
+            Text(appState.t("fingerprints.context"))
                 .frame(width: 180, alignment: .leading)
             Text("SimHash")
                 .frame(width: 170, alignment: .leading)
-            Text("标签")
+            Text(appState.t("fingerprints.tags"))
                 .frame(width: 150, alignment: .leading)
         }
         .font(AppTypography.tableHeader)
@@ -272,15 +274,15 @@ private struct FingerprintActionsView: View {
             AppHorizontalOverflow(minWidth: AppLayout.fingerprintActionsMinWidth, fitsContentHeight: true) {
                 Grid(alignment: .leading, horizontalSpacing: 14, verticalSpacing: 10) {
                     GridRow {
-                        actionLabel("导入")
+                        actionLabel(appState.t("common.import"))
                         importControls
                     }
                     GridRow {
-                        actionLabel("导出")
+                        actionLabel(appState.t("common.export"))
                         exportControls
                     }
                     GridRow {
-                        actionLabel("清理")
+                        actionLabel(appState.t("fingerprints.cleanup"))
                         cleanupControls
                     }
                 }
@@ -298,7 +300,7 @@ private struct FingerprintActionsView: View {
 
     private var importControls: some View {
         HStack(spacing: 8) {
-            TextField("导入标签，逗号分隔", text: $importTags)
+            TextField(appState.t("fingerprints.importTagsPrompt"), text: $importTags)
                 .textFieldStyle(.roundedBorder)
                 .frame(width: 240)
             Button {
@@ -311,7 +313,7 @@ private struct FingerprintActionsView: View {
 
     private var exportControls: some View {
         HStack(spacing: 8) {
-            TextField("导出包标签，逗号分隔", text: $exportTags)
+            TextField(appState.t("fingerprints.exportTagsPrompt"), text: $exportTags)
                 .textFieldStyle(.roundedBorder)
                 .frame(width: 240)
             Button {
@@ -328,7 +330,7 @@ private struct FingerprintActionsView: View {
             TextField(appState.t("fingerprints.cleanupTag"), text: $cleanupTag)
                 .textFieldStyle(.roundedBorder)
                 .frame(width: 180)
-            Text("\(cleanupMatchCount) 条命中")
+            Text(appState.tf("fingerprints.matchCount", cleanupMatchCount))
                 .font(AppTypography.metadata)
                 .foregroundStyle(.secondary)
                 .frame(width: 76, alignment: .leading)
@@ -425,7 +427,7 @@ struct WhitelistLibraryView: View {
             suggestion.rule.type.displayTitle,
             appState.title(for: suggestion.rule.type),
             suggestion.reason,
-            suggestion.status.title,
+            appState.title(for: suggestion.status),
         ]
         .joined(separator: " ")
         .localizedCaseInsensitiveContains(trimmed)
@@ -482,11 +484,12 @@ struct WhitelistLibraryView: View {
         let configuration = appState.draftConfiguration
         let directoryURL = URL(fileURLWithPath: configuration.directoryPath)
         let statuses = suggestionStatuses
+        let suggestionService = WhitelistSuggestionService(reasons: appState.whitelistSuggestionReasons())
 
         do {
             let generated = try await Task.detached(priority: .userInitiated) {
                 let documents = try DocumentIngestionService(configuration: configuration).ingestDocuments(in: directoryURL)
-                return WhitelistSuggestionService().suggest(from: documents)
+                return suggestionService.suggest(from: documents)
             }.value
             suggestions = generated.map { suggestion in
                 var copy = suggestion
@@ -497,7 +500,7 @@ struct WhitelistLibraryView: View {
             }
             AppPreferences.saveWhitelistSuggestions(suggestions)
         } catch {
-            suggestionMessage = "建议生成失败：\(error.localizedDescription)"
+            suggestionMessage = appState.tf("whitelist.suggestions.failed", error.localizedDescription)
         }
 
         isRefreshingSuggestions = false
@@ -513,7 +516,7 @@ private struct WhitelistRuleEditor: View {
         AppToolbarBand {
             Grid(alignment: .leading, horizontalSpacing: 12, verticalSpacing: 10) {
                 GridRow {
-                    Text("新增")
+                    Text(appState.t("common.new"))
                         .font(AppTypography.tableHeader)
                         .foregroundStyle(.secondary)
                         .frame(width: 48, alignment: .leading)
@@ -568,9 +571,9 @@ private struct WhitelistSuggestionsSection: View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(alignment: .center, spacing: 12) {
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("白名单建议")
+                    Text(appState.t("whitelist.suggestions"))
                         .font(AppTypography.sectionTitle)
-                    Text("\(suggestions.count) 条")
+                    Text(appState.tf("common.itemCount", suggestions.count))
                         .font(AppTypography.metadata)
                         .foregroundStyle(.secondary)
                 }
@@ -588,7 +591,11 @@ private struct WhitelistSuggestionsSection: View {
             }
 
             if suggestions.isEmpty {
-                ContentUnavailableView("暂无匹配建议", systemImage: "checklist", description: Text("刷新建议后可接受或忽略候选规则"))
+                ContentUnavailableView(
+                    appState.t("whitelist.noMatchedSuggestions"),
+                    systemImage: "checklist",
+                    description: Text(appState.t("whitelist.noMatchedSuggestionsDescription"))
+                )
             } else {
                 VStack(alignment: .leading, spacing: 6) {
                     WhitelistSuggestionHeader()
@@ -614,17 +621,19 @@ private struct WhitelistSuggestionsSection: View {
 }
 
 private struct WhitelistSuggestionHeader: View {
+    @Environment(AppState.self) private var appState
+
     var body: some View {
         HStack(spacing: 12) {
-            Text("规则")
+            Text(appState.t("whitelist.rule"))
                 .frame(maxWidth: .infinity, alignment: .leading)
-            Text("类型")
+            Text(appState.t("common.type"))
                 .frame(width: 90, alignment: .leading)
-            Text("次数")
+            Text(appState.t("common.count"))
                 .frame(width: 54, alignment: .trailing)
-            Text("状态")
+            Text(appState.t("common.status"))
                 .frame(width: 64, alignment: .trailing)
-            Text("操作")
+            Text(appState.t("common.actions"))
                 .frame(width: 52, alignment: .trailing)
         }
         .font(AppTypography.tableHeader)
@@ -639,15 +648,19 @@ private struct WhitelistRulesSection: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             VStack(alignment: .leading, spacing: 2) {
-                Text("现有规则")
+                Text(appState.t("whitelist.existingRules"))
                     .font(AppTypography.sectionTitle)
-                Text("\(rules.count) 条")
+                Text(appState.tf("common.itemCount", rules.count))
                     .font(AppTypography.metadata)
                     .foregroundStyle(.secondary)
             }
 
             if rules.isEmpty {
-                ContentUnavailableView("暂无匹配规则", systemImage: "shield", description: Text("可在上方输入规则并保存"))
+                ContentUnavailableView(
+                    appState.t("whitelist.noMatchedRules"),
+                    systemImage: "shield",
+                    description: Text(appState.t("whitelist.noMatchedRulesDescription"))
+                )
             } else {
                 VStack(alignment: .leading, spacing: 6) {
                     WhitelistRuleHeader()
@@ -669,15 +682,17 @@ private struct WhitelistRulesSection: View {
 }
 
 private struct WhitelistRuleHeader: View {
+    @Environment(AppState.self) private var appState
+
     var body: some View {
         HStack(spacing: 12) {
-            Text("规则")
+            Text(appState.t("whitelist.rule"))
                 .frame(maxWidth: .infinity, alignment: .leading)
-            Text("类型")
+            Text(appState.t("common.type"))
                 .frame(width: 90, alignment: .leading)
-            Text("创建时间")
+            Text(appState.t("common.createdAt"))
                 .frame(width: 132, alignment: .trailing)
-            Text("操作")
+            Text(appState.t("common.actions"))
                 .frame(width: 24, alignment: .trailing)
         }
         .font(AppTypography.tableHeader)
@@ -691,6 +706,7 @@ private func nativeTableIdealHeight(rowCount: Int, minHeight: CGFloat = 86, maxH
 }
 
 private struct WhitelistSuggestionToolbar: View {
+    @Environment(AppState.self) private var appState
     @Binding var filter: WhitelistSuggestionStatus
     let pendingCount: Int
     let isRefreshing: Bool
@@ -720,9 +736,9 @@ private struct WhitelistSuggestionToolbar: View {
 
     private var controls: some View {
         Group {
-            Picker("建议状态", selection: $filter) {
+            Picker(appState.t("whitelist.suggestionStatus"), selection: $filter) {
                 ForEach(WhitelistSuggestionStatus.allCases) { status in
-                    Text(status.title).tag(status)
+                    Text(appState.title(for: status)).tag(status)
                 }
             }
             .pickerStyle(.segmented)
@@ -730,12 +746,12 @@ private struct WhitelistSuggestionToolbar: View {
             .frame(width: 220)
 
             Button(action: refresh) {
-                Label(isRefreshing ? "生成中" : "刷新建议", systemImage: "arrow.clockwise")
+                Label(isRefreshing ? appState.t("whitelist.generating") : appState.t("whitelist.refreshSuggestions"), systemImage: "arrow.clockwise")
             }
             .disabled(isRefreshing)
 
             Button(action: acceptPending) {
-                Label("批量接受", systemImage: "checkmark.seal")
+                Label(appState.t("whitelist.acceptPending"), systemImage: "checkmark.seal")
             }
             .disabled(pendingCount == 0 || isRefreshing)
 
@@ -744,7 +760,7 @@ private struct WhitelistSuggestionToolbar: View {
                     .controlSize(.small)
             }
 
-            Text("\(pendingCount) 条待处理")
+            Text(appState.tf("whitelist.pendingCount", pendingCount))
                 .font(AppTypography.metadata)
                 .foregroundStyle(.secondary)
         }
@@ -801,11 +817,11 @@ private struct WhitelistSuggestionTableRow: View {
                 .foregroundStyle(.secondary)
                 .frame(width: 90, alignment: .leading)
 
-            Text("\(suggestion.supportCount) 次")
+            Text(appState.tf("common.times", suggestion.supportCount))
                 .foregroundStyle(.secondary)
                 .frame(width: 54, alignment: .trailing)
 
-            Text(suggestion.status.title)
+            Text(appState.title(for: suggestion.status))
                 .foregroundStyle(.secondary)
                 .frame(width: 64, alignment: .trailing)
 
@@ -892,7 +908,7 @@ struct JobInspectorView: View {
                     }
 
                     if job.failedFiles.isEmpty == false {
-                        JobInspectorSection(title: "失败文件", subtitle: "\(job.failedFiles.count) 条") {
+                        JobInspectorSection(title: appState.t("job.failedFiles"), subtitle: appState.tf("common.itemCount", job.failedFiles.count)) {
                             VStack(alignment: .leading, spacing: 8) {
                                 ForEach(job.failedFiles.prefix(8), id: \.self) { file in
                                     Text(file)
@@ -907,7 +923,7 @@ struct JobInspectorView: View {
                                     NSPasteboard.general.clearContents()
                                     NSPasteboard.general.setString(job.diagnosticSummary, forType: .string)
                                 } label: {
-                                    Label("复制错误诊断", systemImage: "doc.on.doc")
+                                    Label(appState.t("job.copyDiagnostics"), systemImage: "doc.on.doc")
                                 }
                                 .buttonStyle(.borderless)
                             }

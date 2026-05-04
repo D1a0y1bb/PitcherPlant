@@ -23,16 +23,34 @@ enum WhitelistSuggestionStatus: String, Codable, CaseIterable, Identifiable, Sen
 
     var id: String { rawValue }
 
-    var title: String {
+    var localizationKey: String {
         switch self {
-        case .pending: return "待处理"
-        case .accepted: return "已接受"
-        case .dismissed: return "已忽略"
+        case .pending: return "whitelist.suggestionStatus.pending"
+        case .accepted: return "whitelist.suggestionStatus.accepted"
+        case .dismissed: return "whitelist.suggestionStatus.dismissed"
         }
     }
 }
 
-struct WhitelistSuggestionService {
+struct WhitelistSuggestionService: Sendable {
+    struct Reasons: Sendable {
+        var textTemplate: String
+        var codeTemplate: String
+        var imageHash: String
+        var metadata: String
+        var pathPattern: String
+
+        static let fallback = Reasons(
+            textTemplate: "Repeated across multiple WriteUPs; suitable as a shared prompt or template snippet",
+            codeTemplate: "Structured code template appears repeatedly",
+            imageHash: "Image hash appears frequently; likely an official screenshot or shared asset",
+            metadata: "Metadata appears across multiple files and is suitable for downgrading",
+            pathPattern: "Directory names repeat and are suitable for import ignore or downgrade rules"
+        )
+    }
+
+    var reasons: Reasons = .fallback
+
     func suggest(from documents: [ParsedDocument]) -> [WhitelistSuggestion] {
         var suggestions: [WhitelistSuggestion] = []
         suggestions += suggestTextTemplates(from: documents)
@@ -59,7 +77,7 @@ struct WhitelistSuggestionService {
             values: snippets,
             type: .textSnippet,
             minCount: 3,
-            reason: "多份 WriteUP 反复出现，适合作为公共题面或模板片段"
+            reason: reasons.textTemplate
         )
     }
 
@@ -73,7 +91,7 @@ struct WhitelistSuggestionService {
             values: blocks,
             type: .codeTemplate,
             minCount: 3,
-            reason: "结构化代码模板重复出现"
+            reason: reasons.codeTemplate
         )
     }
 
@@ -83,7 +101,7 @@ struct WhitelistSuggestionService {
             values: hashes,
             type: .imageHash,
             minCount: 3,
-            reason: "图片 hash 高频重复，可能是官方截图或公共素材"
+            reason: reasons.imageHash
         )
     }
 
@@ -95,7 +113,7 @@ struct WhitelistSuggestionService {
             values: authors,
             type: .metadata,
             minCount: 4,
-            reason: "元数据在多份文件中出现，适合降权处理"
+            reason: reasons.metadata
         )
     }
 
@@ -106,7 +124,7 @@ struct WhitelistSuggestionService {
             values: paths,
             type: .pathPattern,
             minCount: 4,
-            reason: "路径目录名重复出现，适合做导入忽略或降权规则"
+            reason: reasons.pathPattern
         )
     }
 

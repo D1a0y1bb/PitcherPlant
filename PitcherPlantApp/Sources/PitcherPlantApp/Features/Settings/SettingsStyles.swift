@@ -36,9 +36,9 @@ struct SettingsRowContainer<Content: View>: View {
         content
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.leading, SettingsLayout.rowLeadingPadding)
-            .padding(.trailing, SettingsLayout.horizontalPadding)
-            .padding(.vertical, 12)
-            .frame(minHeight: 54)
+            .padding(.trailing, SettingsLayout.groupHorizontalPadding)
+            .padding(.vertical, 14)
+            .frame(minHeight: 64)
     }
 }
 
@@ -79,7 +79,7 @@ struct SettingsDivider: View {
     var body: some View {
         Divider()
             .padding(.leading, SettingsLayout.rowLeadingPadding)
-            .padding(.trailing, SettingsLayout.horizontalPadding)
+            .padding(.trailing, SettingsLayout.groupHorizontalPadding)
     }
 }
 

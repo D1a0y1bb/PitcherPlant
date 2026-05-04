@@ -51,6 +51,44 @@ func releaseWorkflowPublishesOnlyDeveloperIDArtifacts() throws {
 }
 
 @Test
+func calibrationManifestLocatorFindsPackagedAppResource() throws {
+    let root = try testRepositoryRoot()
+    let manifestURL = try #require(CalibrationManifestLocator.manifestURL(workspaceRoot: root, bundles: []))
+
+    #expect(manifestURL.path.hasSuffix("PitcherPlantApp/Resources/Calibration/manifest.json"))
+
+    let result = try CalibrationService(manifestURL: manifestURL)
+        .evaluate(configuration: AuditConfiguration.defaults(for: root))
+    #expect(result.summary.sampleCount > 0)
+}
+
+@Test
+func calibrationManifestLocatorFindsFlatXcodeBundleResource() throws {
+    let root = try testRepositoryRoot()
+    let temporaryRoot = FileManager.default.temporaryDirectory
+        .appendingPathComponent("pitcherplant-calibration-bundle-\(UUID().uuidString)", isDirectory: true)
+    defer { try? FileManager.default.removeItem(at: temporaryRoot) }
+
+    let bundleRoot = temporaryRoot.appendingPathComponent("PitcherPlantMock.bundle", isDirectory: true)
+    let resources = bundleRoot.appendingPathComponent("Contents/Resources", isDirectory: true)
+    try FileManager.default.createDirectory(at: resources, withIntermediateDirectories: true)
+    try """
+    <?xml version="1.0" encoding="UTF-8"?>
+    <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+    <plist version="1.0"><dict><key>CFBundleIdentifier</key><string>com.pitcherplant.tests.bundle</string><key>CFBundlePackageType</key><string>BNDL</string></dict></plist>
+    """.write(to: bundleRoot.appendingPathComponent("Contents/Info.plist"), atomically: true, encoding: .utf8)
+
+    try FileManager.default.copyItem(
+        at: root.appendingPathComponent("PitcherPlantApp/Resources/Calibration/manifest.json"),
+        to: resources.appendingPathComponent("manifest.json")
+    )
+    let bundle = try #require(Bundle(url: bundleRoot))
+    let manifestURL = try #require(CalibrationManifestLocator.manifestURL(workspaceRoot: temporaryRoot, bundles: [bundle]))
+
+    #expect(manifestURL.path.hasSuffix("Contents/Resources/manifest.json"))
+}
+
+@Test
 func projectLocatorUsesSavedWorkspaceAndCreatesDefaultDirectories() throws {
     let suiteName = "pitcherplant.locator.tests.\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))
@@ -89,7 +127,12 @@ func appVersionInfoReadsBundleMetadata() {
             "CFBundleDisplayName": "PitcherPlant",
             "CFBundleShortVersionString": "0.1.0",
             "CFBundleVersion": "12",
-            "PPReleaseTag": "v0.1.0-rc.5"
+            "PPReleaseTag": "v0.1.0-rc.5",
+            "LSMinimumSystemVersion": "26.0",
+            "NSHumanReadableCopyright": "Copyright 2026",
+            "PPSourceRepositoryURL": "https://github.com/D1a0y1bb/PitcherPlant",
+            "PPReleasesURL": "https://github.com/D1a0y1bb/PitcherPlant/releases",
+            "PPUpdateCheckURL": "https://api.github.com/repos/D1a0y1bb/PitcherPlant/releases/latest"
         ],
         bundleIdentifier: "com.pitcherplant.desktop"
     )
@@ -101,6 +144,154 @@ func appVersionInfoReadsBundleMetadata() {
     #expect(version.releaseTag == "v0.1.0-rc.5")
     #expect(version.displayVersion == "0.1.0-rc.5")
     #expect(version.versionAndBuild == "0.1.0-rc.5 (12)")
+    #expect(version.comparableVersion == "v0.1.0-rc.5")
+    #expect(version.minimumSystemVersion == "26.0")
+    #expect(version.copyright == "Copyright 2026")
+    #expect(version.sourceRepositoryURL?.absoluteString == "https://github.com/D1a0y1bb/PitcherPlant")
+    #expect(version.releasesURL?.absoluteString == "https://github.com/D1a0y1bb/PitcherPlant/releases")
+    #expect(version.updateCheckURL?.absoluteString == "https://api.github.com/repos/D1a0y1bb/PitcherPlant/releases/latest")
+}
+
+@Test
+func appSemanticVersionOrdersStableAndPrereleaseTags() throws {
+    let prerelease = try #require(AppSemanticVersion("v0.2.0-rc.1"))
+    let final = try #require(AppSemanticVersion("0.2.0"))
+    let short = try #require(AppSemanticVersion("1.0"))
+    let padded = try #require(AppSemanticVersion("1.0.0"))
+
+    #expect(prerelease < final)
+    #expect(final > prerelease)
+    #expect(short == padded)
+}
+
+@Test
+func updateCheckServiceDetectsAvailableGitHubRelease() async throws {
+    let endpoint = URL(string: "https://api.example.test/repos/D1a0y1bb/PitcherPlant/releases/latest")!
+    let response = UpdateCheckHTTPResponse(statusCode: 200)
+    let payload = """
+    {
+      "tag_name": "v0.2.0",
+      "name": "v0.2.0",
+      "html_url": "https://github.com/D1a0y1bb/PitcherPlant/releases/tag/v0.2.0",
+      "published_at": "2026-05-04T08:00:00Z",
+      "body": "Release notes",
+      "draft": false,
+      "prerelease": false,
+      "assets": [
+        {
+          "name": "PitcherPlant-macOS.dmg",
+          "browser_download_url": "https://github.com/D1a0y1bb/PitcherPlant/releases/download/v0.2.0/PitcherPlant-macOS.dmg",
+          "size": 2048
+        }
+      ]
+    }
+    """
+    let service = UpdateCheckService(
+        dataLoader: { request in
+            #expect(request.url == endpoint)
+            #expect(request.value(forHTTPHeaderField: "Accept") == "application/vnd.github+json")
+            return (Data(payload.utf8), response)
+        },
+        now: { Date(timeIntervalSince1970: 42) }
+    )
+
+    let result = try await service.check(currentVersion: updateTestVersion(updateURL: endpoint))
+
+    #expect(result.availability == .updateAvailable)
+    #expect(result.latestRelease.version == "0.2.0")
+    #expect(result.latestRelease.primaryDownload?.name == "PitcherPlant-macOS.dmg")
+    #expect(result.latestRelease.primaryDownload?.displaySize.isEmpty == false)
+    #expect(result.checkedAt == Date(timeIntervalSince1970: 42))
+}
+
+@Test
+func updateCheckServiceUsesBundleReleaseTagForReleaseCandidateComparison() async throws {
+    let endpoint = URL(string: "https://api.example.test/repos/D1a0y1bb/PitcherPlant/releases/latest")!
+    let response = UpdateCheckHTTPResponse(statusCode: 200)
+    let payload = """
+    {
+      "tag_name": "v0.1.0-rc.6",
+      "name": "v0.1.0-rc.6",
+      "html_url": "https://github.com/D1a0y1bb/PitcherPlant/releases/tag/v0.1.0-rc.6",
+      "published_at": "2026-05-04T08:00:00Z",
+      "body": "",
+      "draft": false,
+      "prerelease": false,
+      "assets": []
+    }
+    """
+    let service = UpdateCheckService(
+        dataLoader: { _ in (Data(payload.utf8), response) },
+        now: { Date(timeIntervalSince1970: 42) }
+    )
+
+    let current = updateTestVersion(
+        version: "0.1.0",
+        releaseTag: "v0.1.0-rc.5",
+        updateURL: endpoint
+    )
+    let result = try await service.check(currentVersion: current)
+
+    #expect(result.availability == .updateAvailable)
+    #expect(result.currentVersion.comparableVersion == "v0.1.0-rc.5")
+    #expect(result.latestRelease.version == "0.1.0-rc.6")
+}
+
+@Test
+func updateCheckServiceSelectsFirstStableReleaseFromArray() async throws {
+    let endpoint = URL(string: "https://api.example.test/repos/D1a0y1bb/PitcherPlant/releases")!
+    let response = UpdateCheckHTTPResponse(statusCode: 200)
+    let payload = """
+    [
+      {
+        "tag_name": "v0.3.0-beta.1",
+        "name": "Beta",
+        "html_url": "https://github.com/D1a0y1bb/PitcherPlant/releases/tag/v0.3.0-beta.1",
+        "published_at": "2026-05-04T08:00:00Z",
+        "body": "",
+        "draft": false,
+        "prerelease": true,
+        "assets": []
+      },
+      {
+        "tag_name": "v0.2.0",
+        "name": "Stable",
+        "html_url": "https://github.com/D1a0y1bb/PitcherPlant/releases/tag/v0.2.0",
+        "published_at": "2026-05-03T08:00:00Z",
+        "body": "",
+        "draft": false,
+        "prerelease": false,
+        "assets": []
+      }
+    ]
+    """
+    let service = UpdateCheckService(
+        dataLoader: { _ in (Data(payload.utf8), response) },
+        now: { Date(timeIntervalSince1970: 42) }
+    )
+
+    let result = try await service.check(currentVersion: updateTestVersion(version: "0.2.0", updateURL: endpoint))
+
+    #expect(result.availability == .upToDate)
+    #expect(result.latestRelease.displayName == "Stable")
+}
+
+@Test
+func updateCheckServiceMapsMissingReleaseToLocalizedError() async throws {
+    let endpoint = URL(string: "https://api.example.test/repos/D1a0y1bb/PitcherPlant/releases/latest")!
+    let response = UpdateCheckHTTPResponse(statusCode: 404)
+    let service = UpdateCheckService(
+        dataLoader: { _ in (Data(), response) },
+        now: { Date(timeIntervalSince1970: 42) }
+    )
+
+    do {
+        _ = try await service.check(currentVersion: updateTestVersion(updateURL: endpoint))
+        Issue.record("更新检查应该把 404 映射为 releaseNotFound")
+    } catch let error as UpdateCheckError {
+        #expect(error == .releaseNotFound)
+        #expect(error.localizedDescription == "当前发布源暂无正式 Release。")
+    }
 }
 
 @Test
@@ -159,4 +350,22 @@ func systemAppearanceLeavesColorSchemeUnspecified() {
 private func clearTestDefaults(_ suiteName: String, defaults: UserDefaults) {
     defaults.removePersistentDomain(forName: suiteName)
     defaults.synchronize()
+}
+
+private func updateTestVersion(
+    version: String = "0.1.0",
+    releaseTag: String = "",
+    updateURL: URL
+) -> AppVersionInfo {
+    AppVersionInfo(
+        infoDictionary: [
+            "CFBundleDisplayName": "PitcherPlant",
+            "CFBundleShortVersionString": version,
+            "CFBundleVersion": "1",
+            "PPReleaseTag": releaseTag,
+            "PPReleasesURL": "https://github.com/D1a0y1bb/PitcherPlant/releases",
+            "PPUpdateCheckURL": updateURL.absoluteString
+        ],
+        bundleIdentifier: "com.pitcherplant.desktop"
+    )
 }

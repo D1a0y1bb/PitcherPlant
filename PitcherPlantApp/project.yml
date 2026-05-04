@@ -17,6 +17,9 @@ packages:
   ZIPFoundation:
     url: https://github.com/weichsel/ZIPFoundation
     from: 0.9.19
+  Sparkle:
+    url: https://github.com/sparkle-project/Sparkle
+    from: 2.9.1
 targets:
   PitcherPlantApp:
     type: application
@@ -25,12 +28,15 @@ targets:
     sources:
       - path: Sources/PitcherPlantApp
       - path: Resources/Localizable.xcstrings
+      - path: Resources/Calibration
       - path: Resources/AppIcon.icon
       - path: Resources/Assets.xcassets
     dependencies:
       - package: GRDB
         product: GRDB
       - package: ZIPFoundation
+      - package: Sparkle
+        product: Sparkle
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.pitcherplant.desktop
