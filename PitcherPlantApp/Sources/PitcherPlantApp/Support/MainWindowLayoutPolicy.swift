@@ -36,3 +36,13 @@ struct MainWindowLayoutPolicy {
         return .keep
     }
 }
+
+struct MainWindowInspectorTransitionPolicy {
+    func disablesSelectionAnimation(
+        inspectorVisible: Bool,
+        currentItem: MainSidebarItem,
+        targetItem: MainSidebarItem
+    ) -> Bool {
+        inspectorVisible && currentItem.allowsInspector && !targetItem.allowsInspector
+    }
+}

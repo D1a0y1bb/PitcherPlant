@@ -14,6 +14,7 @@ struct MainWindowView: View {
     @State private var settingsSearchText = ""
     @State private var reportSearchText = ""
     private let layoutPolicy = MainWindowLayoutPolicy()
+    private let inspectorTransitionPolicy = MainWindowInspectorTransitionPolicy()
 
     var body: some View {
         NavigationSplitView(columnVisibility: $columnVisibility) {
@@ -21,7 +22,8 @@ struct MainWindowView: View {
         } detail: {
             detailColumn
         }
-        .navigationSplitViewStyle(.prominentDetail)
+        .navigationSplitViewStyle(.balanced)
+        .ignoresSafeArea(.container, edges: .top)
         .background(WindowWidthObserver { width in
             updateWindowWidth(width)
         })
@@ -45,7 +47,7 @@ struct MainWindowView: View {
             if appState.selectedMainSidebar != .settings {
                 settingsSearchText = ""
             }
-            if !shouldShowReportToolbarSearch {
+            if !isReportSearchContext {
                 reportSearchText = ""
             }
             applySidebarPolicy(windowWidth: windowWidth)
@@ -77,12 +79,8 @@ struct MainWindowView: View {
             mainToolbarItems
         }
         .navigationTitle("PitcherPlant")
-        .reportToolbarSearch(
-            isPresented: shouldShowReportToolbarSearch,
-            text: $reportSearchText,
-            prompt: appState.t("reports.searchPrompt")
-        )
         .background(ToolbarCustomizationDisabler().frame(width: 0, height: 0))
+        .background(NativeWindowChromeConfigurator().frame(width: 0, height: 0))
         .overlay {
             if let recovery = appState.databaseRecovery {
                 DatabaseRecoveryBlockingView(recovery: recovery)
@@ -119,7 +117,7 @@ struct MainWindowView: View {
         columnVisibility == .detailOnly
     }
 
-    private var shouldShowReportToolbarSearch: Bool {
+    private var isReportSearchContext: Bool {
         appState.selectedMainSidebar == .reports || appState.selectedMainSidebar.reportSectionKind != nil
     }
 
@@ -131,9 +129,28 @@ struct MainWindowView: View {
         Binding {
             appState.selectedMainSidebar
         } set: { item in
-            withAnimation(motion(AppMotion.toolbarGlassAppear)) {
+            selectMainSidebarItem(item)
+        }
+    }
+
+    private func selectMainSidebarItem(_ item: MainSidebarItem) {
+        let disablesSelectionAnimation = inspectorTransitionPolicy.disablesSelectionAnimation(
+            inspectorVisible: isInspectorColumnVisible,
+            currentItem: appState.selectedMainSidebar,
+            targetItem: item
+        )
+
+        if disablesSelectionAnimation {
+            var transaction = Transaction(animation: nil)
+            transaction.disablesAnimations = true
+            withTransaction(transaction) {
                 appState.selectedMainSidebar = item
             }
+            return
+        }
+
+        withAnimation(motion(AppMotion.toolbarGlassAppear)) {
+            appState.selectedMainSidebar = item
         }
     }
 
@@ -149,74 +166,41 @@ struct MainWindowView: View {
     }
 
     private var detailColumn: some View {
-        detailSplitColumn
-        .navigationSplitViewColumnWidth(
-            min: detailColumnMinWidth,
-            ideal: detailColumnIdealWidth,
-            max: .infinity
-        )
-        .animation(motion(inspectorColumnAnimation), value: isInspectorColumnVisible)
+        mainContent
+            .frame(
+                minWidth: AppLayout.contentMinWidth,
+                maxWidth: .infinity,
+                maxHeight: .infinity,
+                alignment: .topLeading
+            )
+            .navigationSplitViewColumnWidth(
+                min: AppLayout.contentMinWidth,
+                ideal: AppLayout.contentIdealWidth,
+                max: .infinity
+            )
+            .inspector(isPresented: inspectorPresentation) {
+                inspectorColumn
+                    .inspectorColumnWidth(
+                        min: AppLayout.inspectorMinWidth,
+                        ideal: AppLayout.inspectorIdealWidth,
+                        max: AppLayout.inspectorMaxWidth
+                    )
+            }
+            .animation(motion(inspectorColumnAnimation), value: isInspectorColumnVisible)
     }
 
-    private var detailSplitColumn: some View {
-        HSplitView {
-            mainContent
-                .frame(
-                    minWidth: AppLayout.contentMinWidth,
-                    maxWidth: .infinity,
-                    maxHeight: .infinity,
-                    alignment: .topLeading
-                )
-                .layoutPriority(1)
-
-            if isInspectorColumnVisible {
-                inspectorColumn
-                    .frame(
-                        minWidth: AppLayout.inspectorMinWidth,
-                        idealWidth: AppLayout.inspectorIdealWidth,
-                        maxWidth: adaptiveInspectorMaxWidth,
-                        maxHeight: .infinity,
-                        alignment: .topLeading
-                    )
-                    .layoutPriority(-1)
-                    .background(
-                        SplitTrailingColumnWidthInitializer(
-                            width: AppLayout.inspectorDefaultWidth,
-                            resetKey: appState.selectedMainSidebar.rawValue
-                        )
-                    )
-                    .transition(.move(edge: .trailing).combined(with: .opacity))
-                    .zIndex(2)
+    private var inspectorPresentation: Binding<Bool> {
+        Binding {
+            isInspectorColumnVisible
+        } set: { visible in
+            guard appState.selectedMainSidebar.allowsInspector else {
+                inspectorVisible = false
+                return
+            }
+            withAnimation(motion(inspectorColumnAnimation)) {
+                inspectorVisible = visible
             }
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-    }
-
-    private var detailColumnMinWidth: CGFloat {
-        if isInspectorColumnVisible {
-            AppLayout.contentMinWidth + AppLayout.inspectorMinWidth
-        } else {
-            AppLayout.contentMinWidth
-        }
-    }
-
-    private var detailColumnIdealWidth: CGFloat {
-        if isInspectorColumnVisible {
-            AppLayout.contentIdealWidth + AppLayout.inspectorIdealWidth
-        } else {
-            AppLayout.contentIdealWidth
-        }
-    }
-
-    private var adaptiveInspectorMaxWidth: CGFloat {
-        guard windowWidth > 0 else {
-            return AppLayout.inspectorMaxWidth
-        }
-
-        let availableDetailWidth = windowWidth - (sidebarCollapsed ? 0 : AppLayout.sidebarMaxWidth)
-        let dragLimit = min(AppLayout.inspectorMaxWidth, availableDetailWidth - AppLayout.contentMinWidth)
-
-        return max(AppLayout.inspectorMinWidth, dragLimit)
     }
 
     @ViewBuilder
@@ -229,10 +213,6 @@ struct MainWindowView: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .background {
-            AppWindowColumnBackground()
-                .ignoresSafeArea(.container, edges: .top)
-        }
     }
 
     private func applySidebarPolicy(windowWidth: CGFloat) {
@@ -276,9 +256,7 @@ struct MainWindowView: View {
     }
 
     private func showNewAuditComposer() {
-        withAnimation(AppMotion.toolbarGlassAppear) {
-            appState.selectedMainSidebar = .newAudit
-        }
+        selectMainSidebarItem(.newAudit)
         NSApp.activate(ignoringOtherApps: true)
     }
 
@@ -292,7 +270,7 @@ struct MainWindowView: View {
             Button {
                 showNewAuditComposer()
             } label: {
-                Label(appState.t("toolbar.newScan"), systemImage: "square.and.pencil")
+                Label(appState.t("toolbar.newScan"), systemImage: "plus")
             }
             .help(appState.t("toolbar.newScan"))
             .accessibilityLabel(appState.t("toolbar.newScan"))
@@ -346,9 +324,7 @@ struct MainWindowView: View {
 
         ToolbarItem(placement: .primaryAction) {
             Button {
-                withAnimation(AppMotion.toolbarGlassAppear) {
-                    appState.selectedMainSidebar = .settings
-                }
+                selectMainSidebarItem(.settings)
             } label: {
                 Label(appState.t("toolbar.settings"), systemImage: "gear")
             }
@@ -378,7 +354,10 @@ struct MainWindowView: View {
         case .whitelist:
             WhitelistLibraryView()
         case .settings:
-            SettingsRootView(searchText: $settingsSearchText)
+            SettingsRootView(
+                searchText: $settingsSearchText,
+                presentation: .embeddedInTransparentTitlebar
+            )
         }
     }
 }

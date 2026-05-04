@@ -28,18 +28,8 @@ struct ReportsWindowView: View {
                     ideal: AppLayout.contentIdealWidth,
                     max: .infinity
                 )
-                .background {
-                    AppWindowColumnBackground()
-                        .ignoresSafeArea(.container, edges: .top)
-                }
         } detail: {
             ReportEvidenceInspector()
-                .background(
-                    SplitTrailingColumnWidthInitializer(
-                        width: AppLayout.inspectorDefaultWidth,
-                        resetKey: "reports-window"
-                    )
-                )
                 .navigationSplitViewColumnWidth(
                     min: AppLayout.inspectorMinWidth,
                     ideal: AppLayout.inspectorIdealWidth,
@@ -47,6 +37,7 @@ struct ReportsWindowView: View {
                 )
         }
         .navigationSplitViewStyle(.balanced)
+        .ignoresSafeArea(.container, edges: .top)
         .onAppear {
             refreshReportLibrary(immediate: true)
             syncVisibleReportSelection()
@@ -57,8 +48,9 @@ struct ReportsWindowView: View {
             reportWindowToolbarItems
         }
         .navigationTitle(appState.t("sidebar.reports"))
-        .searchable(text: $reportQuery, placement: .toolbar, prompt: appState.t("reports.searchPrompt"))
+        .searchable(text: $reportQuery, placement: .sidebar, prompt: appState.t("reports.searchPrompt"))
         .background(ToolbarCustomizationDisabler().frame(width: 0, height: 0))
+        .background(NativeWindowChromeConfigurator().frame(width: 0, height: 0))
     }
 
     private func refreshReportLibrary(immediate: Bool = false) {
@@ -168,7 +160,9 @@ struct ReportsInlineView: View {
             }
             ReportSectionsAndEvidenceView(showsReportHeader: false)
         }
-        .padding(AppLayout.pagePadding)
+        .padding(.horizontal, AppLayout.pagePadding)
+        .padding(.top, AppLayout.titlebarScrollContentTopPadding)
+        .padding(.bottom, AppLayout.pagePadding)
         .onAppear {
             refreshReportLibrary(immediate: true)
             syncVisibleReportSelection()
@@ -176,6 +170,7 @@ struct ReportsInlineView: View {
         .onChange(of: reportQuery) { _, _ in refreshReportLibrary() }
         .onChange(of: appState.reportLibraryReports.map(\.id)) { _, _ in syncVisibleReportSelection() }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .ignoresSafeArea(.container, edges: .top)
     }
 
     private func refreshReportLibrary(immediate: Bool = false) {
@@ -231,6 +226,10 @@ private struct ReportsCenterSelectorBar: View {
             Text(reportQuery.isEmpty ? "\(reports.count) \(appState.t("common.countSuffix"))" : "\(reports.count) \(appState.t("reports.matchedReports"))")
                 .font(AppTypography.metadata)
                 .foregroundStyle(.secondary)
+
+            TextField(appState.t("reports.searchPrompt"), text: $reportQuery)
+                .textFieldStyle(.roundedBorder)
+                .frame(minWidth: 220, idealWidth: 320, maxWidth: 460)
         }
     }
 

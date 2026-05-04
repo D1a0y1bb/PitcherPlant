@@ -834,94 +834,92 @@ struct JobInspectorView: View {
     var body: some View {
         if let job = appState.selectedJob {
             ScrollView {
-                GlassEffectContainer(spacing: 18) {
-                    VStack(alignment: .leading, spacing: 18) {
-                        VStack(alignment: .leading, spacing: 12) {
-                            ViewThatFits(in: .horizontal) {
-                                HStack(alignment: .top) {
-                                    jobHeaderText(job)
-                                    Spacer()
-                                    StatusBadge(status: job.status)
-                                }
-
-                                VStack(alignment: .leading, spacing: 8) {
-                                    StatusBadge(status: job.status)
-                                    jobHeaderText(job)
-                                }
+                VStack(alignment: .leading, spacing: 18) {
+                    VStack(alignment: .leading, spacing: 12) {
+                        ViewThatFits(in: .horizontal) {
+                            HStack(alignment: .top) {
+                                jobHeaderText(job)
+                                Spacer()
+                                StatusBadge(status: job.status)
                             }
 
-                            Button {
-                                appState.restoreDraft(from: job)
-                            } label: {
-                                Label(appState.t("job.restoreParameters"), systemImage: "arrow.counterclockwise")
-                            }
-
-                            ViewThatFits(in: .horizontal) {
-                                HStack(spacing: 8) {
-                                    jobRunQueueButton
-                                    if job.status == .failed {
-                                        jobRetryButton(job)
-                                    }
-                                }
-                                VStack(alignment: .leading, spacing: 8) {
-                                    jobRunQueueButton
-                                    if job.status == .failed {
-                                        jobRetryButton(job)
-                                    }
-                                }
-                            }
-
-                            VStack(alignment: .leading, spacing: 6) {
-                                HStack {
-                                    Text(job.latestMessage)
-                                    Spacer()
-                                    Text("\(job.progress)%")
-                                }
-                                .font(AppTypography.rowSecondary)
-                                .foregroundStyle(.secondary)
-                                ProgressView(value: Double(job.progress), total: 100)
+                            VStack(alignment: .leading, spacing: 8) {
+                                StatusBadge(status: job.status)
+                                jobHeaderText(job)
                             }
                         }
-                        .frame(maxWidth: .infinity, alignment: .leading)
 
-                        JobInspectorSection(title: appState.t("job.timeline"), subtitle: "\(job.events.count) \(appState.t("common.countSuffix"))") {
-                            VStack(alignment: .leading, spacing: 0) {
-                                ForEach(Array(job.events.reversed())) { event in
-                                    TimelineEventRow(event: event)
+                        Button {
+                            appState.restoreDraft(from: job)
+                        } label: {
+                            Label(appState.t("job.restoreParameters"), systemImage: "arrow.counterclockwise")
+                        }
+
+                        ViewThatFits(in: .horizontal) {
+                            HStack(spacing: 8) {
+                                jobRunQueueButton
+                                if job.status == .failed {
+                                    jobRetryButton(job)
+                                }
+                            }
+                            VStack(alignment: .leading, spacing: 8) {
+                                jobRunQueueButton
+                                if job.status == .failed {
+                                    jobRetryButton(job)
                                 }
                             }
                         }
 
-                        if job.failedFiles.isEmpty == false {
-                            JobInspectorSection(title: "失败文件", subtitle: "\(job.failedFiles.count) 条") {
-                                VStack(alignment: .leading, spacing: 8) {
-                                    ForEach(job.failedFiles.prefix(8), id: \.self) { file in
-                                        Text(file)
-                                            .font(AppTypography.smallCode)
-                                            .foregroundStyle(.secondary)
-                                            .lineLimit(1)
-                                            .truncationMode(.middle)
-                                            .textSelection(.enabled)
-                                    }
-
-                                    Button {
-                                        NSPasteboard.general.clearContents()
-                                        NSPasteboard.general.setString(job.diagnosticSummary, forType: .string)
-                                    } label: {
-                                        Label("复制错误诊断", systemImage: "doc.on.doc")
-                                    }
-                                    .buttonStyle(.borderless)
-                                }
+                        VStack(alignment: .leading, spacing: 6) {
+                            HStack {
+                                Text(job.latestMessage)
+                                Spacer()
+                                Text("\(job.progress)%")
                             }
+                            .font(AppTypography.rowSecondary)
+                            .foregroundStyle(.secondary)
+                            ProgressView(value: Double(job.progress), total: 100)
                         }
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
+
+                    JobInspectorSection(title: appState.t("job.timeline"), subtitle: "\(job.events.count) \(appState.t("common.countSuffix"))") {
+                        VStack(alignment: .leading, spacing: 0) {
+                            ForEach(Array(job.events.reversed())) { event in
+                                TimelineEventRow(event: event)
+                            }
+                        }
+                    }
+
+                    if job.failedFiles.isEmpty == false {
+                        JobInspectorSection(title: "失败文件", subtitle: "\(job.failedFiles.count) 条") {
+                            VStack(alignment: .leading, spacing: 8) {
+                                ForEach(job.failedFiles.prefix(8), id: \.self) { file in
+                                    Text(file)
+                                        .font(AppTypography.smallCode)
+                                        .foregroundStyle(.secondary)
+                                        .lineLimit(1)
+                                        .truncationMode(.middle)
+                                        .textSelection(.enabled)
+                                }
+
+                                Button {
+                                    NSPasteboard.general.clearContents()
+                                    NSPasteboard.general.setString(job.diagnosticSummary, forType: .string)
+                                } label: {
+                                    Label("复制错误诊断", systemImage: "doc.on.doc")
+                                }
+                                .buttonStyle(.borderless)
+                            }
+                        }
+                    }
                 }
-                .padding(20)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 20)
+                .padding(.top, AppLayout.titlebarScrollContentTopPadding)
+                .padding(.bottom, 20)
             }
-            .scrollIndicators(.hidden)
-            .scrollClipDisabled()
-            .scrollEdgeEffectStyle(.soft, for: .top)
+            .ignoresSafeArea(.container, edges: .top)
         } else {
             InspectorEmptyState(
                 title: appState.t("job.noSelection"),

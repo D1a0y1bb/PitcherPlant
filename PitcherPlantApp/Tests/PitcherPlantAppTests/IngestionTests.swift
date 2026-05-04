@@ -1,14 +1,17 @@
 import Foundation
+import CoreGraphics
 import Testing
 import ZIPFoundation
 @testable import PitcherPlantApp
 
 @Test
 func pdfIngestionExtractsEmbeddedImagesBeforePageFallback() throws {
-    let root = try testWorkspaceRoot()
-    let fixtureDirectory = root.appendingPathComponent("Fixtures/WriteupSamples/date/date6/145-flag{LNU_cyber}")
+    let fixtureDirectory = FileManager.default.temporaryDirectory
+        .appendingPathComponent("pitcherplant-pdf-embedded-image-\(UUID().uuidString)", isDirectory: true)
+    try FileManager.default.createDirectory(at: fixtureDirectory, withIntermediateDirectories: true)
+    try writePDFWithEmbeddedImage(to: fixtureDirectory.appendingPathComponent("embedded-image.pdf"))
 
-    var configuration = AuditConfiguration.defaults(for: root)
+    var configuration = AuditConfiguration.defaults(for: fixtureDirectory)
     configuration.directoryPath = fixtureDirectory.path
     configuration.useVisionOCR = false
 
@@ -16,7 +19,7 @@ func pdfIngestionExtractsEmbeddedImagesBeforePageFallback() throws {
     let pdfDocument = try #require(documents.first(where: { $0.ext == "pdf" }))
 
     #expect(pdfDocument.images.isEmpty == false)
-    #expect(pdfDocument.images.contains(where: { $0.source.contains(":X") }))
+    #expect(pdfDocument.images.contains(where: { $0.source.hasPrefix("pdf-page-1:") }))
 }
 
 @Test
@@ -101,4 +104,56 @@ private func addZipFile(to archive: Archive, path: String, contents: String) thr
         let end = min(start + size, data.count)
         return data.subdata(in: start..<end)
     }
+}
+
+private func writePDFWithEmbeddedImage(to url: URL) throws {
+    var mediaBox = CGRect(x: 0, y: 0, width: 180, height: 180)
+    guard let consumer = CGDataConsumer(url: url as CFURL),
+          let context = CGContext(consumer: consumer, mediaBox: &mediaBox, nil),
+          let image = makeCheckerboardImage() else {
+        throw CocoaError(.fileWriteUnknown)
+    }
+
+    context.beginPDFPage(nil)
+    context.setFillColor(CGColor(gray: 1, alpha: 1))
+    context.fill(mediaBox)
+    context.draw(image, in: CGRect(x: 36, y: 36, width: 108, height: 108))
+    context.endPDFPage()
+    context.closePDF()
+}
+
+private func makeCheckerboardImage() -> CGImage? {
+    let width = 8
+    let height = 8
+    let components = 3
+    let bytesPerRow = width * components
+    var pixels = [UInt8](repeating: 0, count: width * height * components)
+
+    for y in 0..<height {
+        for x in 0..<width {
+            let offset = y * bytesPerRow + x * components
+            let bright = (x + y).isMultiple(of: 2)
+            pixels[offset] = bright ? 230 : 32
+            pixels[offset + 1] = bright ? 72 : 180
+            pixels[offset + 2] = bright ? 64 : 220
+        }
+    }
+
+    guard let provider = CGDataProvider(data: Data(pixels) as CFData) else {
+        return nil
+    }
+
+    return CGImage(
+        width: width,
+        height: height,
+        bitsPerComponent: 8,
+        bitsPerPixel: 8 * components,
+        bytesPerRow: bytesPerRow,
+        space: CGColorSpaceCreateDeviceRGB(),
+        bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.none.rawValue),
+        provider: provider,
+        decode: nil,
+        shouldInterpolate: false,
+        intent: .defaultIntent
+    )
 }

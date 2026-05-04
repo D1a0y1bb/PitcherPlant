@@ -39,7 +39,7 @@ func toolbarScanModesWriteRealAuditConfiguration() {
 
 @Test
 func releaseWorkflowPublishesOnlyDeveloperIDArtifacts() throws {
-    let root = try testWorkspaceRoot()
+    let root = try testRepositoryRoot()
     let workflow = try String(
         contentsOf: root.appendingPathComponent(".github/workflows/release.yml"),
         encoding: .utf8

@@ -1,27 +1,6 @@
 import AppKit
 import SwiftUI
 
-struct ReportToolbarSearchModifier: ViewModifier {
-    let isPresented: Bool
-    @Binding var text: String
-    let prompt: String
-
-    @ViewBuilder
-    func body(content: Content) -> some View {
-        if isPresented {
-            content.searchable(text: $text, placement: .toolbar, prompt: prompt)
-        } else {
-            content
-        }
-    }
-}
-
-extension View {
-    func reportToolbarSearch(isPresented: Bool, text: Binding<String>, prompt: String) -> some View {
-        modifier(ReportToolbarSearchModifier(isPresented: isPresented, text: text, prompt: prompt))
-    }
-}
-
 struct ToolbarCustomizationDisabler: NSViewRepresentable {
     func makeNSView(context: Context) -> ToolbarCustomizationView {
         ToolbarCustomizationView()
@@ -53,6 +32,43 @@ final class ToolbarCustomizationView: NSView {
     func configureToolbarOnNextRunLoop() {
         DispatchQueue.main.async { [weak self] in
             self?.configureToolbar()
+        }
+    }
+}
+
+struct NativeWindowChromeConfigurator: NSViewRepresentable {
+    func makeNSView(context: Context) -> NativeWindowChromeConfiguratorView {
+        NativeWindowChromeConfiguratorView()
+    }
+
+    func updateNSView(_ nsView: NativeWindowChromeConfiguratorView, context: Context) {
+        nsView.configureWindow()
+        nsView.configureWindowOnNextRunLoop()
+    }
+}
+
+@MainActor
+final class NativeWindowChromeConfiguratorView: NSView {
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        configureWindow()
+        configureWindowOnNextRunLoop()
+    }
+
+    func configureWindow() {
+        guard let window else {
+            return
+        }
+
+        window.styleMask.insert(.fullSizeContentView)
+        window.titlebarAppearsTransparent = true
+        window.titleVisibility = .visible
+        window.toolbarStyle = .unified
+    }
+
+    func configureWindowOnNextRunLoop() {
+        DispatchQueue.main.async { [weak self] in
+            self?.configureWindow()
         }
     }
 }

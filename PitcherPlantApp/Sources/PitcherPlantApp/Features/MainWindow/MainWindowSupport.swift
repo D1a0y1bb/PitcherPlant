@@ -62,7 +62,6 @@ struct MainSidebarView: View {
             }
         }
         .listStyle(.sidebar)
-        .scrollIndicators(.hidden)
     }
 
     private func sidebarRow(_ item: MainSidebarItem, title: String? = nil) -> some View {

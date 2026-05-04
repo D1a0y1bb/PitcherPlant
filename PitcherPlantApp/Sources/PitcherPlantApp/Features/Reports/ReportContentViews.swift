@@ -265,9 +265,6 @@ struct ReportSectionReadingView: View {
             .frame(maxWidth: 760, alignment: .leading)
             .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .scrollIndicators(.hidden)
-        .scrollClipDisabled()
-        .scrollEdgeEffectStyle(.soft, for: .top)
         .frame(minHeight: AppLayout.reportListMinHeight, maxHeight: .infinity)
     }
 }
@@ -572,9 +569,6 @@ struct EvidenceList: View {
                 .padding(20)
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .scrollIndicators(.hidden)
-            .scrollClipDisabled()
-            .scrollEdgeEffectStyle(.soft, for: .top)
             .frame(minHeight: AppLayout.reportListMinHeight, maxHeight: .infinity)
         } else {
             AppHorizontalOverflow(minWidth: AppLayout.evidenceTableMinWidth) {
@@ -982,7 +976,6 @@ struct CrossBatchGraphPanel: View {
                 .padding(16)
                 .frame(maxWidth: .infinity, alignment: .topLeading)
             }
-            .scrollIndicators(.hidden)
             .frame(minHeight: AppLayout.reportListMinHeight, maxHeight: .infinity)
         }
     }

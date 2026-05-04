@@ -11,6 +11,22 @@ func mainWindowLaunchAndInspectorDefaultSizesUseVisualBaseline() {
 }
 
 @Test
+func settingsRootChromePaddingMatchesPresentationContext() {
+    #expect(SettingsRootPresentation.standalone.topPadding == 28)
+    #expect(SettingsRootPresentation.embeddedInTransparentTitlebar.topPadding == AppLayout.titlebarScrollContentTopPadding)
+}
+
+@Test
+func mainWindowDisablesSidebarSelectionAnimationWhenInspectorWouldClose() {
+    let policy = MainWindowInspectorTransitionPolicy()
+
+    #expect(policy.disablesSelectionAnimation(inspectorVisible: true, currentItem: .workspace, targetItem: .settings))
+    #expect(!policy.disablesSelectionAnimation(inspectorVisible: false, currentItem: .workspace, targetItem: .settings))
+    #expect(!policy.disablesSelectionAnimation(inspectorVisible: true, currentItem: .settings, targetItem: .workspace))
+    #expect(!policy.disablesSelectionAnimation(inspectorVisible: true, currentItem: .workspace, targetItem: .history))
+}
+
+@Test
 func mainWindowLayoutCollapsesSidebarEarlierWhenInspectorIsVisible() {
     let policy = MainWindowLayoutPolicy()
 

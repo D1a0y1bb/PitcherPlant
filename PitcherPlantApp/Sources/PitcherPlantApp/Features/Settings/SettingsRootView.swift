@@ -1,14 +1,33 @@
 import SwiftUI
 
+enum SettingsRootPresentation {
+    case standalone
+    case embeddedInTransparentTitlebar
+
+    var topPadding: CGFloat {
+        switch self {
+        case .standalone:
+            return 28
+        case .embeddedInTransparentTitlebar:
+            return AppLayout.titlebarScrollContentTopPadding
+        }
+    }
+}
+
 struct SettingsRootView: View {
     @Environment(AppState.self) private var appState
     @Binding private var searchText: String
+    private let presentation: SettingsRootPresentation
     @State private var selectedCalibrationPreset: AuditCalibrationPreset = .balanced
     @State private var calibrationResult: CalibrationEvaluationResult?
     @State private var calibrationMessage: String?
 
-    init(searchText: Binding<String> = .constant("")) {
+    init(
+        searchText: Binding<String> = .constant(""),
+        presentation: SettingsRootPresentation = .standalone
+    ) {
         _searchText = searchText
+        self.presentation = presentation
     }
 
     var body: some View {
@@ -362,12 +381,11 @@ struct SettingsRootView: View {
             }
             .padding(.leading, 24)
             .padding(.trailing, 8)
-            .padding(.vertical, 28)
+            .padding(.top, presentation.topPadding)
+            .padding(.bottom, 28)
             .frame(maxWidth: .infinity, alignment: .topLeading)
         }
-        .scrollIndicators(.hidden)
-        .scrollClipDisabled()
-        .scrollEdgeEffectStyle(.soft, for: .top)
+        .ignoresSafeArea(.container, edges: .top)
         .environment(\.settingsSearchQuery, searchText)
     }
 
