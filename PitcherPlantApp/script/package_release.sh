@@ -180,6 +180,7 @@ package_app() {
   ditto -c -k --keepParent "$app_bundle" "$DIST_DIR/$APP_NAME-macOS.zip"
   rm -rf "$staging_dir"/*
   cp -R "$app_bundle" "$staging_dir/"
+  ln -s /Applications "$staging_dir/Applications"
   hdiutil create \
     -volname "$APP_NAME" \
     -srcfolder "$staging_dir" \
@@ -224,6 +225,7 @@ verify_artifacts() {
   mount_point="$(find "$dmg_mount_root" -mindepth 1 -maxdepth 1 -type d -print -quit)"
   test -n "$mount_point"
   test -d "$mount_point/$APP_NAME.app"
+  test -L "$mount_point/Applications"
   hdiutil detach "$mount_point"
 
   if [[ "$NOTARIZE" == "true" ]]; then

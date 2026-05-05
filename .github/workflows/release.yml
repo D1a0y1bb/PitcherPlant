@@ -112,6 +112,20 @@ jobs:
           TAG_NAME="${{ github.event.inputs.version }}"
           DRY_RUN="${{ github.event.inputs.dry_run }}"
           DISTRIBUTION="${{ github.event.inputs.distribution }}"
+          SIGNING_SECRETS_AVAILABLE="true"
+
+          for name in \
+            APPLE_CERTIFICATE_BASE64 \
+            APPLE_CERTIFICATE_PASSWORD \
+            APPLE_SIGNING_IDENTITY \
+            APPLE_TEAM_ID \
+            APPLE_ID \
+            APPLE_APP_SPECIFIC_PASSWORD
+          do
+            if [ -z "${!name}" ]; then
+              SIGNING_SECRETS_AVAILABLE="false"
+            fi
+          done
 
           if [ -z "$TAG_NAME" ]; then
             TAG_NAME="${GITHUB_REF_NAME}"
@@ -120,7 +134,11 @@ jobs:
           if [ "${{ github.event_name }}" = "push" ]; then
             DRY_RUN="false"
             if [ -z "$DISTRIBUTION" ]; then
-              DISTRIBUTION="developer-id"
+              if [ "$SIGNING_SECRETS_AVAILABLE" = "true" ]; then
+                DISTRIBUTION="developer-id"
+              else
+                DISTRIBUTION="ad-hoc"
+              fi
             fi
           elif [ -z "$DISTRIBUTION" ]; then
             DISTRIBUTION="ad-hoc"
@@ -149,11 +167,6 @@ jobs:
             SIGNED_RELEASE="false"
           fi
 
-          if [ "$PUBLISH_RELEASE" = "true" ] && [ "$DISTRIBUTION" != "developer-id" ]; then
-            echo "Publishing a GitHub Release requires developer-id distribution."
-            exit 2
-          fi
-
           case "$TAG_NAME" in
             v*)
               BUNDLE_RELEASE_TAG="$TAG_NAME"
@@ -169,6 +182,7 @@ jobs:
           echo "distribution=$DISTRIBUTION" >> "$GITHUB_OUTPUT"
           echo "publish_release=$PUBLISH_RELEASE" >> "$GITHUB_OUTPUT"
           echo "signed_release=$SIGNED_RELEASE" >> "$GITHUB_OUTPUT"
+          echo "signing_secrets_available=$SIGNING_SECRETS_AVAILABLE" >> "$GITHUB_OUTPUT"
           echo "release_name=$RELEASE_NAME" >> "$GITHUB_OUTPUT"
 
       - name: Preflight release inputs and secrets
@@ -211,7 +225,7 @@ jobs:
             exit 1
           fi
 
-          echo "Release mode: publish=${{ steps.release.outputs.publish_release }}, distribution=${{ steps.release.outputs.distribution }}, dry_run=${{ steps.release.outputs.dry_run }}"
+          echo "Release mode: publish=${{ steps.release.outputs.publish_release }}, distribution=${{ steps.release.outputs.distribution }}, dry_run=${{ steps.release.outputs.dry_run }}, signing_secrets_available=${{ steps.release.outputs.signing_secrets_available }}"
 
       - name: Install XcodeGen
         run: |

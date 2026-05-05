@@ -38,16 +38,19 @@ func toolbarScanModesWriteRealAuditConfiguration() {
 }
 
 @Test
-func releaseWorkflowPublishesOnlyDeveloperIDArtifacts() throws {
+func releaseWorkflowPublishesAdHocArtifactsWhenSigningSecretsAreMissing() throws {
     let root = try testRepositoryRoot()
     let workflow = try String(
         contentsOf: root.appendingPathComponent(".github/workflows/release.yml"),
         encoding: .utf8
     )
 
-    #expect(workflow.contains("DISTRIBUTION=\"developer-id\""))
-    #expect(workflow.contains("Publishing a GitHub Release requires developer-id distribution."))
+    #expect(workflow.contains("SIGNING_SECRETS_AVAILABLE=\"false\""))
+    #expect(workflow.contains("DISTRIBUTION=\"ad-hoc\""))
+    #expect(workflow.contains("gh release create"))
     #expect(workflow.contains("./script/package_release.sh --distribution developer-id --notarize"))
+    #expect(workflow.contains("./script/package_release.sh --distribution ad-hoc"))
+    #expect(workflow.contains("Publishing a GitHub Release requires developer-id distribution.") == false)
 }
 
 @Test
