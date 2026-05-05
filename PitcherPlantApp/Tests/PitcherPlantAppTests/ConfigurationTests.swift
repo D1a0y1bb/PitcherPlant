@@ -49,6 +49,7 @@ func releaseWorkflowPublishesAdHocArtifactsWhenSigningSecretsAreMissing() throws
     #expect(workflow.contains("DISTRIBUTION=\"ad-hoc\""))
     #expect(workflow.contains("fetch-depth: 0"))
     #expect(workflow.contains("bundle_marketing_version=$BUNDLE_MARKETING_VERSION"))
+    #expect(workflow.contains("RC_BUILD_NUMBER="))
     #expect(workflow.contains("bundle_build_number=$BUNDLE_BUILD_NUMBER"))
     #expect(workflow.contains("MARKETING_VERSION=\"${{ steps.release.outputs.bundle_marketing_version }}\""))
     #expect(workflow.contains("CURRENT_PROJECT_VERSION=\"${{ steps.release.outputs.bundle_build_number }}\""))
