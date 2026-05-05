@@ -179,10 +179,15 @@ jobs:
               BUNDLE_MARKETING_VERSION=""
               ;;
           esac
+          BUNDLE_BUILD_NUMBER="$GITHUB_RUN_NUMBER"
+          if [[ "$TAG_NAME" =~ -rc\\.([0-9]+)$ ]]; then
+            BUNDLE_BUILD_NUMBER="${BASH_REMATCH[1]}"
+          fi
 
           echo "tag_name=$TAG_NAME" >> "$GITHUB_OUTPUT"
           echo "bundle_release_tag=$BUNDLE_RELEASE_TAG" >> "$GITHUB_OUTPUT"
           echo "bundle_marketing_version=$BUNDLE_MARKETING_VERSION" >> "$GITHUB_OUTPUT"
+          echo "bundle_build_number=$BUNDLE_BUILD_NUMBER" >> "$GITHUB_OUTPUT"
           echo "dry_run=$DRY_RUN" >> "$GITHUB_OUTPUT"
           echo "distribution=$DISTRIBUTION" >> "$GITHUB_OUTPUT"
           echo "publish_release=$PUBLISH_RELEASE" >> "$GITHUB_OUTPUT"
@@ -292,6 +297,7 @@ jobs:
               -destination 'platform=macOS' \
               PP_RELEASE_TAG="${{ steps.release.outputs.bundle_release_tag }}" \
               MARKETING_VERSION="${{ steps.release.outputs.bundle_marketing_version }}" \
+              CURRENT_PROJECT_VERSION="${{ steps.release.outputs.bundle_build_number }}" \
               DEVELOPMENT_TEAM="$APPLE_TEAM_ID" \
               CODE_SIGN_STYLE=Manual \
               CODE_SIGN_IDENTITY="$APPLE_SIGNING_IDENTITY" \
@@ -305,6 +311,7 @@ jobs:
               -destination 'platform=macOS' \
               PP_RELEASE_TAG="${{ steps.release.outputs.bundle_release_tag }}" \
               MARKETING_VERSION="${{ steps.release.outputs.bundle_marketing_version }}" \
+              CURRENT_PROJECT_VERSION="${{ steps.release.outputs.bundle_build_number }}" \
               CODE_SIGN_STYLE=Manual \
               CODE_SIGN_IDENTITY="-" \
               build
@@ -314,7 +321,7 @@ jobs:
         working-directory: PitcherPlantApp
         env:
           RELEASE_TAG: ${{ steps.release.outputs.bundle_release_tag }}
-          RELEASE_BUILD_NUMBER: ${{ github.run_number }}
+          RELEASE_BUILD_NUMBER: ${{ steps.release.outputs.bundle_build_number }}
         run: |
           if [ "${{ steps.release.outputs.signed_release }}" = "true" ]; then
             ./script/package_release.sh --distribution developer-id --notarize
