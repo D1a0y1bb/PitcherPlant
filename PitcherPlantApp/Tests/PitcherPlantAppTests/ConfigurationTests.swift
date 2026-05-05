@@ -47,6 +47,9 @@ func releaseWorkflowPublishesAdHocArtifactsWhenSigningSecretsAreMissing() throws
 
     #expect(workflow.contains("SIGNING_SECRETS_AVAILABLE=\"false\""))
     #expect(workflow.contains("DISTRIBUTION=\"ad-hoc\""))
+    #expect(workflow.contains("fetch-depth: 0"))
+    #expect(workflow.contains("bundle_marketing_version=$BUNDLE_MARKETING_VERSION"))
+    #expect(workflow.contains("MARKETING_VERSION=\"${{ steps.release.outputs.bundle_marketing_version }}\""))
     #expect(workflow.contains("gh release create"))
     #expect(workflow.contains("./script/package_release.sh --distribution developer-id --notarize"))
     #expect(workflow.contains("./script/package_release.sh --distribution ad-hoc"))

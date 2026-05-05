@@ -87,6 +87,9 @@ XCODEBUILD_RELEASE_SETTINGS=()
 if [[ -n "$RELEASE_BUILD_NUMBER" ]]; then
   XCODEBUILD_RELEASE_SETTINGS+=(CURRENT_PROJECT_VERSION="$RELEASE_BUILD_NUMBER")
 fi
+if [[ "$RELEASE_TAG" == v* ]]; then
+  XCODEBUILD_RELEASE_SETTINGS+=(MARKETING_VERSION="${RELEASE_TAG#v}")
+fi
 
 archive_ad_hoc() {
   xcodebuild archive \
@@ -238,6 +241,19 @@ verify_artifacts() {
 }
 
 generate_checksums_and_notes() {
+  local app_bundle="$EXPORT_DIR/$APP_NAME.app"
+  local short_version
+  local bundle_version
+  local release_title
+  local commit_sha
+  local short_commit
+  local commit_line
+  local previous_tag
+  local changes_heading
+  local change_log
+  local distribution_line
+  local trust_note
+
   (
     cd "$DIST_DIR"
     shasum -a 256 \
@@ -248,22 +264,72 @@ generate_checksums_and_notes() {
       > "$APP_NAME-macOS-checksums.txt"
   )
 
-  if [[ "$DISTRIBUTION" == "developer-id" && "$NOTARIZE" == "true" ]]; then
-    cat > "$DIST_DIR/release-notes.md" <<NOTES
-PitcherPlant macOS release.
-
-- Distribution: Developer ID signed and notarized.
-- Artifacts: ZIP, DMG, Sparkle appcast, xcarchive, dSYM archive, SHA-256 checksums.
-NOTES
-  else
-    cat > "$DIST_DIR/release-notes.md" <<NOTES
-PitcherPlant macOS ad-hoc release.
-
-- Distribution: ad-hoc signed, not notarized.
-- Artifacts: ZIP, DMG, Sparkle appcast, xcarchive, dSYM archive, SHA-256 checksums.
-- Gatekeeper may require Control-click > Open, System Settings > Privacy & Security > Open Anyway, or removing quarantine for local testing.
-NOTES
+  short_version="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$app_bundle/Contents/Info.plist")"
+  bundle_version="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$app_bundle/Contents/Info.plist")"
+  release_title="${RELEASE_TAG:-$APP_NAME $short_version}"
+  commit_sha="${GITHUB_SHA:-}"
+  if [[ -z "$commit_sha" ]] && git rev-parse --show-toplevel >/dev/null 2>&1; then
+    commit_sha="$(git rev-parse HEAD 2>/dev/null || true)"
   fi
+  short_commit="${commit_sha:0:12}"
+  if [[ -n "$short_commit" && -n "${GITHUB_SERVER_URL:-}" && -n "${GITHUB_REPOSITORY:-}" ]]; then
+    commit_line="- Commit: [\`$short_commit\`](${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/commit/${commit_sha})"
+  elif [[ -n "$short_commit" ]]; then
+    commit_line="- Commit: \`$short_commit\`"
+  else
+    commit_line="- Commit: unavailable in this build environment"
+  fi
+
+  previous_tag=""
+  changes_heading="Changes in this release"
+  change_log=""
+  if git rev-parse --show-toplevel >/dev/null 2>&1; then
+    if [[ -n "$RELEASE_TAG" ]] && git rev-parse "$RELEASE_TAG^" >/dev/null 2>&1; then
+      previous_tag="$(git describe --tags --abbrev=0 "$RELEASE_TAG^" 2>/dev/null || true)"
+    elif git rev-parse HEAD^ >/dev/null 2>&1; then
+      previous_tag="$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || true)"
+    fi
+
+    if [[ -n "$previous_tag" ]]; then
+      changes_heading="Changes since $previous_tag"
+      change_log="$(git log --no-merges --pretty='- `%h` %s' "$previous_tag"..HEAD 2>/dev/null | head -n 20 || true)"
+    else
+      change_log="$(git log --no-merges --pretty='- `%h` %s' -n 10 2>/dev/null || true)"
+    fi
+  fi
+  if [[ -z "$change_log" ]]; then
+    change_log="- Built from the current source checkout."
+  fi
+
+  if [[ "$DISTRIBUTION" == "developer-id" && "$NOTARIZE" == "true" ]]; then
+    distribution_line="Developer ID signed and notarized."
+    trust_note="Gatekeeper should accept the app normally after download."
+  else
+    distribution_line="Ad-hoc signed, not notarized."
+    trust_note="Gatekeeper may require Control-click > Open, System Settings > Privacy & Security > Open Anyway, or removing quarantine for local testing."
+  fi
+
+  cat > "$DIST_DIR/release-notes.md" <<NOTES
+PitcherPlant $release_title
+
+### Build
+
+- Version: \`$short_version\`
+- Build: \`$bundle_version\`
+- Release tag: \`${RELEASE_TAG:-local}\`
+$commit_line
+
+### $changes_heading
+
+$change_log
+
+### Distribution
+
+- $distribution_line
+- DMG includes \`PitcherPlant.app\` and an \`Applications\` drag-and-drop shortcut.
+- Artifacts: ZIP, DMG, Sparkle appcast, xcarchive, dSYM archive, SHA-256 checksums.
+- $trust_note
+NOTES
 }
 
 generate_appcast() {

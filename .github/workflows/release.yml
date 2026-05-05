@@ -49,6 +49,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
 
       - name: Select Xcode
         run: |
@@ -170,14 +172,17 @@ jobs:
           case "$TAG_NAME" in
             v*)
               BUNDLE_RELEASE_TAG="$TAG_NAME"
+              BUNDLE_MARKETING_VERSION="${TAG_NAME#v}"
               ;;
             *)
               BUNDLE_RELEASE_TAG=""
+              BUNDLE_MARKETING_VERSION=""
               ;;
           esac
 
           echo "tag_name=$TAG_NAME" >> "$GITHUB_OUTPUT"
           echo "bundle_release_tag=$BUNDLE_RELEASE_TAG" >> "$GITHUB_OUTPUT"
+          echo "bundle_marketing_version=$BUNDLE_MARKETING_VERSION" >> "$GITHUB_OUTPUT"
           echo "dry_run=$DRY_RUN" >> "$GITHUB_OUTPUT"
           echo "distribution=$DISTRIBUTION" >> "$GITHUB_OUTPUT"
           echo "publish_release=$PUBLISH_RELEASE" >> "$GITHUB_OUTPUT"
@@ -286,6 +291,7 @@ jobs:
               -configuration Release \
               -destination 'platform=macOS' \
               PP_RELEASE_TAG="${{ steps.release.outputs.bundle_release_tag }}" \
+              MARKETING_VERSION="${{ steps.release.outputs.bundle_marketing_version }}" \
               DEVELOPMENT_TEAM="$APPLE_TEAM_ID" \
               CODE_SIGN_STYLE=Manual \
               CODE_SIGN_IDENTITY="$APPLE_SIGNING_IDENTITY" \
@@ -298,6 +304,7 @@ jobs:
               -configuration Release \
               -destination 'platform=macOS' \
               PP_RELEASE_TAG="${{ steps.release.outputs.bundle_release_tag }}" \
+              MARKETING_VERSION="${{ steps.release.outputs.bundle_marketing_version }}" \
               CODE_SIGN_STYLE=Manual \
               CODE_SIGN_IDENTITY="-" \
               build
