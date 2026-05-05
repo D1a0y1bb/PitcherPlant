@@ -16,6 +16,9 @@ NOTARIZE="false"
 RELEASE_TAG="${RELEASE_TAG:-}"
 RELEASE_BUILD_NUMBER="${RELEASE_BUILD_NUMBER:-${GITHUB_RUN_NUMBER:-}}"
 RELEASE_DOWNLOAD_BASE_URL="${RELEASE_DOWNLOAD_BASE_URL:-}"
+SPARKLE_ACCOUNT="${SPARKLE_ACCOUNT:-D1a0y1bb.PitcherPlant}"
+SPARKLE_ED_PRIVATE_KEY="${SPARKLE_ED_PRIVATE_KEY:-}"
+SPARKLE_SIGN_UPDATE_PATH="${SPARKLE_SIGN_UPDATE_PATH:-}"
 
 usage() {
   cat <<USAGE
@@ -80,6 +83,52 @@ require_env() {
   done
   if [[ "$missing" -ne 0 ]]; then
     exit 1
+  fi
+}
+
+resolve_sparkle_sign_update() {
+  local candidate
+
+  if [[ -n "$SPARKLE_SIGN_UPDATE_PATH" ]]; then
+    if [[ -x "$SPARKLE_SIGN_UPDATE_PATH" ]]; then
+      printf '%s\n' "$SPARKLE_SIGN_UPDATE_PATH"
+      return 0
+    fi
+    echo "Configured SPARKLE_SIGN_UPDATE_PATH is not executable: $SPARKLE_SIGN_UPDATE_PATH" >&2
+    exit 1
+  fi
+
+  for candidate in \
+    "$ROOT_DIR/.build/artifacts/sparkle/Sparkle/bin/sign_update" \
+    "$ROOT_DIR/.build/xcode/SourcePackages/artifacts/sparkle/Sparkle/bin/sign_update" \
+    "$ROOT_DIR/.build/index-build/artifacts/sparkle/Sparkle/bin/sign_update"
+  do
+    if [[ -x "$candidate" ]]; then
+      printf '%s\n' "$candidate"
+      return 0
+    fi
+  done
+
+  while IFS= read -r candidate; do
+    if [[ -x "$candidate" ]]; then
+      printf '%s\n' "$candidate"
+      return 0
+    fi
+  done < <(find "$ROOT_DIR/.build" -path '*/Sparkle/bin/sign_update' -type f -print 2>/dev/null)
+
+  echo "Unable to find Sparkle sign_update. Build or resolve packages before packaging releases." >&2
+  exit 1
+}
+
+sparkle_signature_attributes() {
+  local update_archive="$1"
+  local sign_update_path
+  sign_update_path="$(resolve_sparkle_sign_update)"
+
+  if [[ -n "$SPARKLE_ED_PRIVATE_KEY" ]]; then
+    printf '%s' "$SPARKLE_ED_PRIVATE_KEY" | "$sign_update_path" --ed-key-file - "$update_archive"
+  else
+    "$sign_update_path" --account "$SPARKLE_ACCOUNT" "$update_archive"
   fi
 }
 
@@ -337,6 +386,9 @@ generate_appcast() {
   local zip_path="$DIST_DIR/$APP_NAME-macOS.zip"
   local appcast_path="$DIST_DIR/appcast.xml"
   local release_base_url="$RELEASE_DOWNLOAD_BASE_URL"
+  local sparkle_attributes
+  local sparkle_ed_signature
+  local sparkle_archive_length
 
   if [[ -z "$release_base_url" && -n "${GITHUB_REPOSITORY:-}" && -n "$RELEASE_TAG" ]]; then
     release_base_url="https://github.com/${GITHUB_REPOSITORY}/releases/download/${RELEASE_TAG}"
@@ -345,7 +397,16 @@ generate_appcast() {
     release_base_url="https://github.com/D1a0y1bb/PitcherPlant/releases/download/${RELEASE_TAG:-local}"
   fi
 
-  python3 - "$app_bundle" "$zip_path" "$appcast_path" "$release_base_url" "$RELEASE_TAG" <<'PY'
+  sparkle_attributes="$(sparkle_signature_attributes "$zip_path")"
+  sparkle_ed_signature="$(printf '%s\n' "$sparkle_attributes" | sed -nE 's/.*sparkle:edSignature="([^"]+)".*/\1/p')"
+  sparkle_archive_length="$(printf '%s\n' "$sparkle_attributes" | sed -nE 's/.*length="([0-9]+)".*/\1/p')"
+  if [[ -z "$sparkle_ed_signature" || -z "$sparkle_archive_length" ]]; then
+    echo "Sparkle sign_update did not return edSignature and length attributes." >&2
+    echo "$sparkle_attributes" >&2
+    exit 1
+  fi
+
+  python3 - "$app_bundle" "$zip_path" "$appcast_path" "$release_base_url" "$RELEASE_TAG" "$sparkle_ed_signature" "$sparkle_archive_length" <<'PY'
 import datetime
 import email.utils
 import html
@@ -358,6 +419,8 @@ zip_path = Path(sys.argv[2])
 appcast_path = Path(sys.argv[3])
 release_base_url = sys.argv[4].rstrip("/")
 release_tag = sys.argv[5]
+sparkle_ed_signature = sys.argv[6]
+sparkle_archive_length = sys.argv[7]
 
 with (app_bundle / "Contents" / "Info.plist").open("rb") as fh:
     info = plistlib.load(fh)
@@ -368,12 +431,14 @@ minimum_system_version = str(info.get("LSMinimumSystemVersion", ""))
 title = release_tag or f"PitcherPlant {short_version}"
 archive_name = zip_path.name
 archive_url = f"{release_base_url}/{archive_name}"
-archive_length = zip_path.stat().st_size
+archive_length = int(sparkle_archive_length or zip_path.stat().st_size)
 pub_date = email.utils.format_datetime(datetime.datetime.now(datetime.timezone.utc))
 
 minimum_system_version_xml = ""
 if minimum_system_version:
     minimum_system_version_xml = f"\n            <sparkle:minimumSystemVersion>{html.escape(minimum_system_version)}</sparkle:minimumSystemVersion>"
+
+sparkle_signature_xml = f'\n                sparkle:edSignature="{html.escape(sparkle_ed_signature, quote=True)}"'
 
 appcast = f"""<?xml version="1.0" encoding="utf-8"?>
 <rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle">
@@ -389,6 +454,7 @@ appcast = f"""<?xml version="1.0" encoding="utf-8"?>
             <sparkle:shortVersionString>{html.escape(short_version)}</sparkle:shortVersionString>{minimum_system_version_xml}
             <enclosure
                 url="{html.escape(archive_url, quote=True)}"
+                {sparkle_signature_xml.strip()}
                 length="{archive_length}"
                 type="application/octet-stream" />
         </item>

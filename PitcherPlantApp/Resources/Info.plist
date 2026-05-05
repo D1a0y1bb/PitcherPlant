@@ -43,6 +43,8 @@
     <false/>
     <key>SUShowReleaseNotes</key>
     <false/>
+    <key>SUPublicEDKey</key>
+    <string>FipMlSPL8wMekUUhrjhe5TO9yQdaFVwNk4C6cyKt0kE=</string>
     <key>SUFeedURL</key>
     <string>https://github.com/D1a0y1bb/PitcherPlant/releases/latest/download/appcast.xml?cachebust=1</string>
     <key>PPReleaseTag</key>

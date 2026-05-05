@@ -54,6 +54,8 @@ func releaseWorkflowPublishesAdHocArtifactsWhenSigningSecretsAreMissing() throws
     #expect(workflow.contains("MARKETING_VERSION=\"${{ steps.release.outputs.bundle_marketing_version }}\""))
     #expect(workflow.contains("CURRENT_PROJECT_VERSION=\"${{ steps.release.outputs.bundle_build_number }}\""))
     #expect(workflow.contains("RELEASE_BUILD_NUMBER: ${{ steps.release.outputs.bundle_build_number }}"))
+    #expect(workflow.contains("SPARKLE_ED_PRIVATE_KEY: ${{ secrets.SPARKLE_ED_PRIVATE_KEY }}"))
+    #expect(workflow.contains("Missing required secret: SPARKLE_ED_PRIVATE_KEY"))
     #expect(workflow.contains("gh release create"))
     #expect(workflow.contains("./script/package_release.sh --distribution developer-id --notarize"))
     #expect(workflow.contains("./script/package_release.sh --distribution ad-hoc"))

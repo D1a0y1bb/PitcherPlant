@@ -31,6 +31,7 @@ struct PitcherPlantDesktopApp: App {
                 .appHidesScrollIndicators()
                 .task {
                     await appState.bootstrapIfNeeded()
+                    appState.startUpdateMonitoring()
                 }
         }
         .defaultSize(width: AppLayout.mainWindowDefaultWidth, height: AppLayout.mainWindowDefaultHeight)

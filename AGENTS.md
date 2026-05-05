@@ -265,6 +265,14 @@ chore: regenerate Xcode project
 - 不要无验证地声称发布、更新、签名或 Sparkle 已经可用。
 - 不要只为视觉问题大范围重构数据层或 app state。
 
+## 当前发布和更新约束
+
+- 短期内不要假设会走 Apple Developer ID 或公证；默认发布目标是 ad-hoc signed、not notarized 的 GitHub Release。
+- 不公证不等于可以跳过 Sparkle 更新签名。Sparkle 更新必须使用 EdDSA：公钥放在 `SUPublicEDKey`，私钥通过 GitHub Secret `SPARKLE_ED_PRIVATE_KEY` 注入 release workflow。
+- 不要把 Sparkle 私钥写入仓库、README、release notes 或日志。
+- 已发布且没有 `SUPublicEDKey` 的旧版本无法验证后续 ad-hoc Sparkle 更新；第一次加入公钥的桥接版本需要手动下载安装，之后才测试 Sparkle 自动更新安装。
+- 左侧蓝色更新提示按钮不是 Sparkle 原生 UI，它依赖 `AppState.startUpdateMonitoring()` 里的 GitHub Release 静默检查写入 `availableUpdate`。不要只保留 Sparkle 手动检查而切断这条状态流。
+
 ## 当前已验证的 scroll-edge 方案摘要
 
 如果未来 agent 只记一条：PitcherPlant 的主内容区标题栏自然模糊，不靠自绘，不靠 `safeAreaBar`，不靠单独调 `scrollEdgeEffectStyle`。先找已经成功的 `NewAuditView`，复用 `NativePage -> AppPageShell` 的滚动容器结构。设置页和滚动边缘测试页的问题都是通过对齐这条路径解决的。

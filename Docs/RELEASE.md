@@ -12,6 +12,10 @@ cd PitcherPlantApp
 ./script/package_release.sh --distribution ad-hoc
 ```
 
+当前短期发布策略是不走 Apple Developer 公证：发布包可以继续是 ad-hoc signed、not notarized，但 Sparkle 更新必须使用 EdDSA 签名。GitHub Release workflow 需要配置 `SPARKLE_ED_PRIVATE_KEY` secret；公钥写在 App 的 `SUPublicEDKey` 里，私钥不得提交到仓库。
+
+注意：已经发布且未内置 `SUPublicEDKey` 的版本无法安全验证后续 ad-hoc Sparkle 更新。第一次加入 Sparkle 公钥的版本需要用户手动下载安装；从该版本之后，后续版本才能通过 Sparkle 完整验证并安装。
+
 成功后产物位于：
 
 ```text

@@ -45,6 +45,7 @@ jobs:
       APPLE_ID: ${{ secrets.APPLE_ID }}
       APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
       KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+      SPARKLE_ED_PRIVATE_KEY: ${{ secrets.SPARKLE_ED_PRIVATE_KEY }}
 
     steps:
       - name: Checkout
@@ -205,6 +206,10 @@ jobs:
               echo "Missing release tag. Provide workflow_dispatch input 'version' or push a v* tag."
               missing=1
             fi
+            if [ -z "$SPARKLE_ED_PRIVATE_KEY" ]; then
+              echo "Missing required secret: SPARKLE_ED_PRIVATE_KEY"
+              missing=1
+            fi
 
             case "${{ steps.release.outputs.tag_name }}" in
               v*)
@@ -323,6 +328,7 @@ jobs:
         env:
           RELEASE_TAG: ${{ steps.release.outputs.bundle_release_tag }}
           RELEASE_BUILD_NUMBER: ${{ steps.release.outputs.bundle_build_number }}
+          SPARKLE_ED_PRIVATE_KEY: ${{ secrets.SPARKLE_ED_PRIVATE_KEY }}
         run: |
           if [ "${{ steps.release.outputs.signed_release }}" = "true" ]; then
             ./script/package_release.sh --distribution developer-id --notarize
