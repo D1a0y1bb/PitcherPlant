@@ -95,7 +95,15 @@ jobs:
 
       - name: Verify macOS 26 toolchain
         run: |
-          swift --version | grep -E 'Apple Swift version 6\.2'
+          SWIFT_VERSION="$(swift --version | awk '/Apple Swift version/ { print $4; exit }')"
+          if [ -z "$SWIFT_VERSION" ]; then
+            echo "Unable to resolve Apple Swift version."
+            exit 1
+          fi
+          if [ "$(printf '%s\n%s\n' "6.2" "$SWIFT_VERSION" | sort -V | head -n 1)" != "6.2" ]; then
+            echo "Expected Apple Swift 6.2 or newer, got $SWIFT_VERSION"
+            exit 1
+          fi
           xcodebuild -version | grep -E '^Xcode 26\.'
 
       - name: Resolve release mode
