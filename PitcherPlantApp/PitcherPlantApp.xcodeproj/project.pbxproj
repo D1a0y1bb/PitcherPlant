@@ -36,7 +36,6 @@
 		4266DF7DD0F054BE78C64008 /* NativeToolbarSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = DBB55A314F8FAD2F30606AD3 /* NativeToolbarSupport.swift */; };
 		4707954688F4D3EF639402B0 /* CrossBatchGraph.swift in Sources */ = {isa = PBXBuildFile; fileRef = 40A1EA69ED1A74B7F9DC91AA /* CrossBatchGraph.swift */; };
 		52F05F122239396D7264B963 /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = D673FE8D6282EE7380206D3C /* Sparkle */; };
-		5361CF0077D37F8D22215A9D /* ScrollEdgeLabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 70531270BF333A280BC0CBDF /* ScrollEdgeLabView.swift */; };
 		55FB9244B5B59426F4080EF9 /* MainWindowLayoutPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 33E047B895AB3D17E261D2AD /* MainWindowLayoutPolicy.swift */; };
 		56E47645240E1C3E3D032F1B /* Typography.swift in Sources */ = {isa = PBXBuildFile; fileRef = 65239D837F7125DDE36465A7 /* Typography.swift */; };
 		5A1BDC7815064C75F1281B3D /* EvidenceReviewTableModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0F94AF6A27D6A9120BD939C2 /* EvidenceReviewTableModels.swift */; };
@@ -136,7 +135,6 @@
 		65239D837F7125DDE36465A7 /* Typography.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Typography.swift; sourceTree = "<group>"; };
 		66BD2172991DB0803156344E /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
 		6EF4E6E6E579AA134A9F2ECA /* IngestionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IngestionTests.swift; sourceTree = "<group>"; };
-		70531270BF333A280BC0CBDF /* ScrollEdgeLabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScrollEdgeLabView.swift; sourceTree = "<group>"; };
 		70FC071922DC2A6E2A85216E /* AppIcon.icon */ = {isa = PBXFileReference; lastKnownFileType = wrapper.icon; path = AppIcon.icon; sourceTree = "<group>"; };
 		7C1FB0D5C276B9F29035D603 /* SettingsPathControls.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsPathControls.swift; sourceTree = "<group>"; };
 		7D48DBF219033E310548945A /* FullCompletionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FullCompletionTests.swift; sourceTree = "<group>"; };
@@ -341,7 +339,6 @@
 				CA73A59BEE30962F5D0EECD0 /* MainWindowSupport.swift */,
 				4BF556CB79EA2D6CC23D09D3 /* MainWindowView.swift */,
 				49FE455BEF863D8F1AD2DF2B /* PitcherPlantMenuBarView.swift */,
-				70531270BF333A280BC0CBDF /* ScrollEdgeLabView.swift */,
 				B1D904B478A4010745FF5C7A /* WorkspaceDashboardView.swift */,
 			);
 			path = MainWindow;
@@ -599,7 +596,6 @@
 				138BD38561399E8ADF48CA11 /* ReportsWindowView.swift in Sources */,
 				F1A878A00C3BEFFEF681EEAA /* RiskScoringService.swift in Sources */,
 				B8E46028DE6EBEDA6FAEDEEA /* ScrollBehaviorSupport.swift in Sources */,
-				5361CF0077D37F8D22215A9D /* ScrollEdgeLabView.swift in Sources */,
 				3C6D45C86E93BDC203DF4CFD /* SettingsFieldRows.swift in Sources */,
 				00286AB6B71F4B8B4B1DF610 /* SettingsLayoutRows.swift in Sources */,
 				E0968ED079E63D82CBBD2EF8 /* SettingsPathControls.swift in Sources */,

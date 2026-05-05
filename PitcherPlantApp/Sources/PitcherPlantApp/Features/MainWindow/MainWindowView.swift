@@ -373,8 +373,6 @@ struct MainWindowView: View {
                 searchText: $settingsSearchText,
                 presentation: .embeddedInMainWindow
             )
-        case .scrollEdgeLab:
-            ScrollEdgeLabView()
         }
     }
 }

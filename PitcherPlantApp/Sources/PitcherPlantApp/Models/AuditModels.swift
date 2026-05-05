@@ -20,7 +20,6 @@ enum MainSidebarItem: String, Codable, CaseIterable, Identifiable, Sendable {
     case crossBatchEvidence
     case fingerprints
     case whitelist
-    case scrollEdgeLab
     case settings
 
     var id: String { rawValue }
@@ -42,7 +41,6 @@ enum MainSidebarItem: String, Codable, CaseIterable, Identifiable, Sendable {
         case .crossBatchEvidence: return "跨批次"
         case .fingerprints: return "指纹库"
         case .whitelist: return "白名单"
-        case .scrollEdgeLab: return "滚动边缘测试"
         case .settings: return "设置"
         }
     }
@@ -64,7 +62,6 @@ enum MainSidebarItem: String, Codable, CaseIterable, Identifiable, Sendable {
         case .crossBatchEvidence: return "sidebar.crossBatchEvidence"
         case .fingerprints: return "sidebar.fingerprints"
         case .whitelist: return "sidebar.whitelist"
-        case .scrollEdgeLab: return "sidebar.scrollEdgeLab"
         case .settings: return "sidebar.settings"
         }
     }
@@ -86,7 +83,6 @@ enum MainSidebarItem: String, Codable, CaseIterable, Identifiable, Sendable {
         case .crossBatchEvidence: return "arrow.triangle.branch"
         case .fingerprints: return "server.rack"
         case .whitelist: return "checklist"
-        case .scrollEdgeLab: return "rectangle.topthird.inset.filled"
         case .settings: return "gearshape.fill"
         }
     }
@@ -120,7 +116,7 @@ enum MainSidebarItem: String, Codable, CaseIterable, Identifiable, Sendable {
         switch self {
         case .workspace, .allEvidence, .favoriteEvidence, .watchedEvidence, .history, .reports, .textEvidence, .codeEvidence, .imageEvidence, .metadataEvidence, .dedupEvidence, .crossBatchEvidence:
             return true
-        case .newAudit, .fingerprints, .whitelist, .scrollEdgeLab, .settings:
+        case .newAudit, .fingerprints, .whitelist, .settings:
             return false
         }
     }
