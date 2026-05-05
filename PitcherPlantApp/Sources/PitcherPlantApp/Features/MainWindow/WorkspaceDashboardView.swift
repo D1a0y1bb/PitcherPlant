@@ -220,10 +220,6 @@ struct NewAuditView: View {
                         get: { appState.draftConfiguration.outputDirectoryPath },
                         set: { newValue in appState.updateDraft { $0.outputDirectoryPath = newValue } }
                     ))
-                    SettingsTextRow(title: appState.t("audit.fileNameTemplate"), text: Binding(
-                        get: { appState.draftConfiguration.reportNameTemplate },
-                        set: { newValue in appState.updateDraft { $0.reportNameTemplate = newValue } }
-                    ))
                 }
             }
 

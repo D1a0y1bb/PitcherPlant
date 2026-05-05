@@ -73,14 +73,6 @@ struct SettingsRootView: View {
                         subtitle: appState.t("settings.menuBarDescription"),
                         isOn: settingsBinding(\.showMenuBarExtra)
                     )
-
-                    SettingsDivider()
-
-                    SettingsReadOnlyPathRow(
-                        title: appState.t("settings.workspace"),
-                        subtitle: appState.t("settings.workspaceDescription"),
-                        value: appState.workspaceRoot.path
-                    )
                 }
 
                 SettingsGroup(title: appState.t("settings.appearance")) {
@@ -126,14 +118,6 @@ struct SettingsRootView: View {
                         title: appState.t("audit.outputDirectory"),
                         subtitle: appState.t("settings.reportDirectoryDescription"),
                         text: draftBinding(\.outputDirectoryPath)
-                    )
-
-                    SettingsDivider()
-
-                    SettingsTextFieldRow(
-                        title: appState.t("audit.fileNameTemplate"),
-                        subtitle: appState.t("settings.fileNameTemplateDescription"),
-                        text: draftBinding(\.reportNameTemplate)
                     )
 
                     SettingsDivider()
