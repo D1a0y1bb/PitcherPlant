@@ -34,9 +34,9 @@ struct PitcherPlantDesktopApp: App {
                 }
         }
         .defaultSize(width: AppLayout.mainWindowDefaultWidth, height: AppLayout.mainWindowDefaultHeight)
+        .defaultLaunchBehavior(.presented)
         .windowStyle(.titleBar)
         .windowResizability(.contentMinSize)
-        .defaultLaunchBehavior(.presented)
         .commands {
             CommandGroup(replacing: .appInfo) {
                 Button(appState.t("about.menuTitle")) {
@@ -144,7 +144,12 @@ private final class PitcherPlantAppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        NSApp.setActivationPolicy(.regular)
         SystemMenuLocalizer.schedule(appState: PitcherPlantRuntime.appState)
+    }
+
+    func applicationSupportsSecureRestorableState(_ app: NSApplication) -> Bool {
+        true
     }
 
     func applicationDidBecomeActive(_ notification: Notification) {

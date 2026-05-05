@@ -885,7 +885,7 @@ private struct EvidenceContextCard: View {
             }
 
             if style == .code {
-                ScrollView([.horizontal, .vertical]) {
+                ScrollView([.horizontal, .vertical], showsIndicators: false) {
                     Text(EvidenceTextHighlighter.attributed(displayedContent, highlights: visibleHighlights))
                         .font(AppTypography.code)
                         .textSelection(.enabled)
@@ -1070,7 +1070,7 @@ private struct CodeLineDiffView: View {
                     .controlSize(.small)
                     .frame(maxWidth: .infinity, minHeight: 120, alignment: .center)
             } else {
-                ScrollView([.horizontal, .vertical]) {
+                ScrollView([.horizontal, .vertical], showsIndicators: false) {
                     Grid(alignment: .leading, horizontalSpacing: 8, verticalSpacing: 2) {
                         GridRow {
                             diffHeader("L")
@@ -1199,7 +1199,7 @@ private struct ImageComparisonCard: View {
             }
 
             if showsPreview, let image = attachment.imageBase64.flatMap(decodedImage) {
-                ScrollView([.horizontal, .vertical]) {
+                ScrollView([.horizontal, .vertical], showsIndicators: false) {
                     Image(nsImage: image)
                         .resizable()
                         .aspectRatio(contentMode: .fit)

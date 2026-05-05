@@ -1,24 +1,15 @@
 import SwiftUI
 
-enum SettingsRootPresentation {
+enum SettingsRootPresentation: Equatable {
     case standalone
-    case embeddedInTransparentTitlebar
+    case embeddedInMainWindow
 
     var topPadding: CGFloat {
         switch self {
         case .standalone:
             return 28
-        case .embeddedInTransparentTitlebar:
-            return 24
-        }
-    }
-
-    var topScrollEdgeBarHeight: CGFloat {
-        switch self {
-        case .standalone:
-            return 0
-        case .embeddedInTransparentTitlebar:
-            return max(AppLayout.titlebarScrollContentTopPadding - topPadding, 0)
+        case .embeddedInMainWindow:
+            return AppLayout.titlebarScrollContentTopPadding
         }
     }
 }
@@ -40,8 +31,28 @@ struct SettingsRootView: View {
     }
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 28) {
+        Group {
+            if presentation == .embeddedInMainWindow {
+                AppPageShell(spacing: 28) {
+                    settingsContent
+                }
+            } else {
+                ScrollView(showsIndicators: false) {
+                    settingsContent
+                        .padding(.horizontal, 24)
+                        .padding(.top, presentation.topPadding)
+                        .padding(.bottom, 28)
+                        .frame(maxWidth: .infinity, alignment: .topLeading)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            }
+        }
+        .environment(\.settingsSearchQuery, searchText)
+    }
+
+    @ViewBuilder
+    private var settingsContent: some View {
+        VStack(alignment: .leading, spacing: 28) {
                 SettingsGroup(title: appState.t("settings.general")) {
                     SettingsPickerRow(
                         title: appState.t("settings.language"),
@@ -387,23 +398,7 @@ struct SettingsRootView: View {
                         .disabled(appState.selectedReport == nil)
                     }
                 }
-            }
-            .padding(.leading, 24)
-            .padding(.trailing, 24)
-            .padding(.top, presentation.topPadding)
-            .padding(.bottom, 28)
-            .frame(maxWidth: .infinity, alignment: .topLeading)
         }
-        .safeAreaBar(edge: .top, spacing: 0) {
-            if presentation.topScrollEdgeBarHeight > 0 {
-                Color.clear
-                    .frame(height: presentation.topScrollEdgeBarHeight)
-                    .accessibilityHidden(true)
-            }
-        }
-        .scrollEdgeEffectStyle(.soft, for: .top)
-        .ignoresSafeArea(.container, edges: .top)
-        .environment(\.settingsSearchQuery, searchText)
     }
 
     private var recordCounts: String {

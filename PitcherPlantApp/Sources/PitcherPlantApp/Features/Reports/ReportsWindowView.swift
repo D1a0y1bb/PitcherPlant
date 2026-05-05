@@ -50,7 +50,6 @@ struct ReportsWindowView: View {
         .navigationTitle(appState.t("sidebar.reports"))
         .searchable(text: $reportQuery, placement: .sidebar, prompt: appState.t("reports.searchPrompt"))
         .background(ToolbarCustomizationDisabler().frame(width: 0, height: 0))
-        .background(NativeWindowChromeConfigurator().frame(width: 0, height: 0))
     }
 
     private func refreshReportLibrary(immediate: Bool = false) {

@@ -23,7 +23,6 @@ struct MainWindowView: View {
             detailColumn
         }
         .navigationSplitViewStyle(.balanced)
-        .ignoresSafeArea(.container, edges: .top)
         .background(WindowWidthObserver { width in
             updateWindowWidth(width)
         })
@@ -81,7 +80,6 @@ struct MainWindowView: View {
         }
         .navigationTitle("PitcherPlant")
         .background(ToolbarCustomizationDisabler().frame(width: 0, height: 0))
-        .background(NativeWindowChromeConfigurator().frame(width: 0, height: 0))
         .overlay {
             if let recovery = appState.databaseRecovery {
                 DatabaseRecoveryBlockingView(recovery: recovery)
@@ -373,8 +371,10 @@ struct MainWindowView: View {
         case .settings:
             SettingsRootView(
                 searchText: $settingsSearchText,
-                presentation: .embeddedInTransparentTitlebar
+                presentation: .embeddedInMainWindow
             )
+        case .scrollEdgeLab:
+            ScrollEdgeLabView()
         }
     }
 }

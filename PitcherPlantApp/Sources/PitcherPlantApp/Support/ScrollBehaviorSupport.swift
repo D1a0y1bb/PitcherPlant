@@ -21,11 +21,12 @@ private struct AppScrollIndicatorHidingHost: NSViewRepresentable {
 
     func updateNSView(_ nsView: AppScrollIndicatorHidingView, context: Context) {
         nsView.hideScrollIndicators()
+        nsView.scheduleDeferredHidePass()
     }
 }
 
 private final class AppScrollIndicatorHidingView: NSView {
-    private var hasScheduledDeferredPass = false
+    private var deferredHidePassGeneration = 0
 
     override func viewDidMoveToWindow() {
         super.viewDidMoveToWindow()
@@ -45,16 +46,17 @@ private final class AppScrollIndicatorHidingView: NSView {
         Self.hideScrollIndicators(in: rootView)
     }
 
-    private func scheduleDeferredHidePass() {
-        guard !hasScheduledDeferredPass else {
-            return
-        }
-        hasScheduledDeferredPass = true
+    func scheduleDeferredHidePass() {
+        deferredHidePassGeneration += 1
+        let generation = deferredHidePassGeneration
 
         Task { @MainActor [weak self] in
-            let delays: [UInt64] = [60_000_000, 180_000_000, 520_000_000]
+            let delays: [UInt64] = [60_000_000, 180_000_000, 520_000_000, 1_200_000_000]
             for delay in delays {
                 try? await Task.sleep(nanoseconds: delay)
+                guard self?.deferredHidePassGeneration == generation else {
+                    return
+                }
                 self?.hideScrollIndicators()
             }
         }

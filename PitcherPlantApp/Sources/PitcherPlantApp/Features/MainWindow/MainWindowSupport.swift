@@ -58,6 +58,7 @@ struct MainSidebarView: View {
             Section(appState.t("sidebar.libraries")) {
                 sidebarRow(.fingerprints)
                 sidebarRow(.whitelist)
+                sidebarRow(.scrollEdgeLab)
                 sidebarRow(.settings)
             }
         }
@@ -95,6 +96,7 @@ struct MainSidebarView: View {
         case .crossBatchEvidence: return .pink
         case .fingerprints: return .blue
         case .whitelist: return .green
+        case .scrollEdgeLab: return .gray
         case .settings: return .orange
         }
     }

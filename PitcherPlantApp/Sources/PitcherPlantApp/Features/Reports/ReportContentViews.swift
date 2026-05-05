@@ -958,7 +958,7 @@ struct CrossBatchGraphPanel: View {
             ContentUnavailableView("无匹配边", systemImage: "arrow.triangle.branch", description: Text("调整批次、队伍、标签或状态过滤条件"))
                 .frame(minHeight: AppLayout.reportListMinHeight, maxHeight: .infinity)
         } else {
-            ScrollView([.horizontal, .vertical]) {
+            ScrollView([.horizontal, .vertical], showsIndicators: false) {
                 VStack(alignment: .leading, spacing: 10) {
                     if hasDisplayCap {
                         Label("大图谱已显示前 \(displayedEdges.count) 条边和每组前 \(maxDisplayedNodes) 个节点", systemImage: "speedometer")
