@@ -79,7 +79,6 @@ struct MainWindowView: View {
             mainToolbarItems
         }
         .navigationTitle("PitcherPlant")
-        .searchable(text: toolbarSearchBinding, placement: .toolbar, prompt: toolbarSearchPrompt)
         .background(ToolbarCustomizationDisabler().frame(width: 0, height: 0))
         .overlay {
             if let recovery = appState.databaseRecovery {
@@ -200,6 +199,7 @@ struct MainWindowView: View {
 
     private var detailColumn: some View {
         mainContent
+            .searchable(text: toolbarSearchBinding, prompt: toolbarSearchPrompt)
             .frame(
                 minWidth: AppLayout.contentMinWidth,
                 maxWidth: .infinity,
@@ -286,6 +286,7 @@ struct MainWindowView: View {
         if visibility == .detailOnly || visibility == .all {
             autoCollapsedSidebar = false
         }
+        applySidebarPolicy(windowWidth: windowWidth)
     }
 
     private func showNewAuditComposer() {
@@ -295,7 +296,7 @@ struct MainWindowView: View {
 
     @ToolbarContentBuilder
     private var mainToolbarItems: some ToolbarContent {
-        ToolbarItemGroup(placement: .secondaryAction) {
+        ToolbarItemGroup(placement: .primaryAction) {
             if appState.availableUpdate != nil {
                 updateToolbarButton
             }
@@ -304,11 +305,10 @@ struct MainWindowView: View {
             newAuditToolbarButton
         }
 
-        ToolbarItem(placement: .primaryAction) {
-            startAuditToolbarButton
-        }
+        ToolbarSpacer(.fixed, placement: .primaryAction)
 
         ToolbarItemGroup(placement: .primaryAction) {
+            startAuditToolbarButton
             reloadToolbarButton
             settingsToolbarButton
             inspectorToolbarButton
@@ -624,6 +624,9 @@ private struct WindowWidthObserver: NSViewRepresentable {
 private final class WindowWidthObserverView: NSView {
     var onChange: (CGFloat) -> Void = { _ in }
     private weak var observedWindow: NSWindow?
+    private var lastPublishedWidth: CGFloat = 0
+    private var pendingWidth: CGFloat?
+    private var publishScheduled = false
 
     override func viewDidMoveToWindow() {
         super.viewDidMoveToWindow()
@@ -640,7 +643,34 @@ private final class WindowWidthObserverView: NSView {
             return
         }
 
-        onChange(window.frame.width)
+        let width = window.frame.width
+        guard width > 0 else {
+            return
+        }
+
+        pendingWidth = width
+        guard !publishScheduled else {
+            return
+        }
+
+        publishScheduled = true
+        DispatchQueue.main.async { [weak self] in
+            guard let self else {
+                return
+            }
+
+            self.publishScheduled = false
+            guard let width = self.pendingWidth else {
+                return
+            }
+            self.pendingWidth = nil
+
+            guard abs(width - self.lastPublishedWidth) >= 1 else {
+                return
+            }
+            self.lastPublishedWidth = width
+            self.onChange(width)
+        }
     }
 
     private func observe(_ window: NSWindow?) {
