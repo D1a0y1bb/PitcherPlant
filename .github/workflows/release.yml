@@ -116,6 +116,8 @@ jobs:
           DRY_RUN="${{ github.event.inputs.dry_run }}"
           DISTRIBUTION="${{ github.event.inputs.distribution }}"
           SIGNING_SECRETS_AVAILABLE="true"
+          STABLE_UPDATE_CHECK_URL="https://github.com/D1a0y1bb/PitcherPlant/releases/latest/download/appcast.xml?cachebust=1"
+          BETA_UPDATE_CHECK_URL="https://github.com/D1a0y1bb/PitcherPlant/releases/download/appcast-beta/appcast.xml"
 
           for name in \
             APPLE_CERTIFICATE_BASE64 \
@@ -186,10 +188,33 @@ jobs:
             BUNDLE_BUILD_NUMBER="$RC_BUILD_NUMBER"
           fi
 
+          RELEASE_CHANNEL="development"
+          RELEASE_PRERELEASE="false"
+          RELEASE_LATEST="false"
+          UPDATE_CHECK_URL="$BETA_UPDATE_CHECK_URL"
+          if [[ "$TAG_NAME" =~ ^v[0-9]+\.[0-9]+\.[0-9]+-(beta|rc)([.-].*)?$ ]]; then
+            RELEASE_CHANNEL="beta"
+            RELEASE_PRERELEASE="true"
+            RELEASE_LATEST="false"
+            UPDATE_CHECK_URL="$BETA_UPDATE_CHECK_URL"
+          elif [[ "$TAG_NAME" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            RELEASE_CHANNEL="stable"
+            RELEASE_PRERELEASE="false"
+            RELEASE_LATEST="true"
+            UPDATE_CHECK_URL="$STABLE_UPDATE_CHECK_URL"
+          elif [ "$PUBLISH_RELEASE" = "true" ]; then
+            echo "Unsupported release tag. Use vX.Y.Z for stable or vX.Y.Z-beta / vX.Y.Z-rc.N for prerelease."
+            exit 2
+          fi
+
           echo "tag_name=$TAG_NAME" >> "$GITHUB_OUTPUT"
           echo "bundle_release_tag=$BUNDLE_RELEASE_TAG" >> "$GITHUB_OUTPUT"
           echo "bundle_marketing_version=$BUNDLE_MARKETING_VERSION" >> "$GITHUB_OUTPUT"
           echo "bundle_build_number=$BUNDLE_BUILD_NUMBER" >> "$GITHUB_OUTPUT"
+          echo "release_channel=$RELEASE_CHANNEL" >> "$GITHUB_OUTPUT"
+          echo "release_prerelease=$RELEASE_PRERELEASE" >> "$GITHUB_OUTPUT"
+          echo "release_latest=$RELEASE_LATEST" >> "$GITHUB_OUTPUT"
+          echo "update_check_url=$UPDATE_CHECK_URL" >> "$GITHUB_OUTPUT"
           echo "dry_run=$DRY_RUN" >> "$GITHUB_OUTPUT"
           echo "distribution=$DISTRIBUTION" >> "$GITHUB_OUTPUT"
           echo "publish_release=$PUBLISH_RELEASE" >> "$GITHUB_OUTPUT"
@@ -305,6 +330,7 @@ jobs:
               PP_RELEASE_TAG="${{ steps.release.outputs.bundle_release_tag }}" \
               MARKETING_VERSION="${{ steps.release.outputs.bundle_marketing_version }}" \
               CURRENT_PROJECT_VERSION="${{ steps.release.outputs.bundle_build_number }}" \
+              PP_UPDATE_CHECK_URL="${{ steps.release.outputs.update_check_url }}" \
               DEVELOPMENT_TEAM="$APPLE_TEAM_ID" \
               CODE_SIGN_STYLE=Manual \
               CODE_SIGN_IDENTITY="$APPLE_SIGNING_IDENTITY" \
@@ -319,6 +345,7 @@ jobs:
               PP_RELEASE_TAG="${{ steps.release.outputs.bundle_release_tag }}" \
               MARKETING_VERSION="${{ steps.release.outputs.bundle_marketing_version }}" \
               CURRENT_PROJECT_VERSION="${{ steps.release.outputs.bundle_build_number }}" \
+              PP_UPDATE_CHECK_URL="${{ steps.release.outputs.update_check_url }}" \
               CODE_SIGN_STYLE=Manual \
               CODE_SIGN_IDENTITY="-" \
               build
@@ -329,6 +356,7 @@ jobs:
         env:
           RELEASE_TAG: ${{ steps.release.outputs.bundle_release_tag }}
           RELEASE_BUILD_NUMBER: ${{ steps.release.outputs.bundle_build_number }}
+          PP_UPDATE_CHECK_URL: ${{ steps.release.outputs.update_check_url }}
           SPARKLE_ED_PRIVATE_KEY: ${{ secrets.SPARKLE_ED_PRIVATE_KEY }}
         run: |
           if [ "${{ steps.release.outputs.signed_release }}" = "true" ]; then
@@ -356,6 +384,13 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          release_flags=()
+          if [ "${{ steps.release.outputs.release_prerelease }}" = "true" ]; then
+            release_flags+=(--prerelease --latest=false)
+          else
+            release_flags+=(--latest)
+          fi
+
           gh release create "${{ steps.release.outputs.tag_name }}" \
             PitcherPlantApp/build/dist/PitcherPlant-macOS.zip \
             PitcherPlantApp/build/dist/PitcherPlant-macOS.dmg \
@@ -365,4 +400,26 @@ jobs:
             PitcherPlantApp/build/dist/appcast.xml \
             --target "$GITHUB_SHA" \
             --title "${{ steps.release.outputs.tag_name }}" \
-            --notes-file PitcherPlantApp/build/dist/release-notes.md
+            --notes-file PitcherPlantApp/build/dist/release-notes.md \
+            "${release_flags[@]}"
+
+      - name: Update beta appcast channel
+        if: steps.release.outputs.publish_release == 'true' && steps.release.outputs.release_prerelease == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          CHANNEL_TAG="appcast-beta"
+          if ! gh release view "$CHANNEL_TAG" >/dev/null 2>&1; then
+            gh release create "$CHANNEL_TAG" \
+              --target "$GITHUB_SHA" \
+              --title "PitcherPlant Beta Appcast" \
+              --notes "Mutable Sparkle appcast channel for beta and RC builds." \
+              --prerelease \
+              --latest=false
+          else
+            gh release edit "$CHANNEL_TAG" --prerelease --latest=false
+          fi
+
+          gh release upload "$CHANNEL_TAG" \
+            PitcherPlantApp/build/dist/appcast.xml \
+            --clobber

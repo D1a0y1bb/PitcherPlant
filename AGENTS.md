@@ -277,6 +277,11 @@ chore: regenerate Xcode project
 - 不要把 Sparkle 私钥写入仓库、README、release notes 或日志。
 - 已发布且没有 `SUPublicEDKey` 的旧版本无法验证后续 ad-hoc Sparkle 更新；第一次加入公钥的桥接版本需要手动下载安装，之后才测试 Sparkle 自动更新安装。
 - 左侧蓝色更新提示按钮不是 Sparkle 原生 UI，它依赖 `AppState.startUpdateMonitoring()` 里的 GitHub Release 静默检查写入 `availableUpdate`。不要只保留 Sparkle 手动检查而切断这条状态流。
+- 不要让 beta/RC 更新依赖 GitHub `releases/latest/download/appcast.xml`。GitHub Latest 会排除 prerelease；一旦 `vX.Y.Z-beta` 标成 Pre-release，旧 `latest` URL 会回退到最近的正式版 appcast，Sparkle 和静默检查都会误判“已是最新版”。
+- 当前渠道规则：正式版 tag 只能用 `vX.Y.Z`，发布为 GitHub Latest；beta/RC tag 用 `vX.Y.Z-beta` 或 `vX.Y.Z-rc.N`，发布为 `--prerelease --latest=false`。
+- beta/RC 客户端必须使用固定 beta appcast：`https://github.com/D1a0y1bb/PitcherPlant/releases/download/appcast-beta/appcast.xml`。正式版客户端使用 stable/latest appcast。
+- release workflow 需要自动上传每次 beta/RC 产出的 `appcast.xml` 到 `appcast-beta` channel release；不要发布后手工切换 prerelease 状态来修正语义。
+- 修改 `SUFeedURL`、`PPUpdateCheckURL`、`PP_UPDATE_CHECK_URL`、release workflow 或 appcast 生成脚本后，必须验证包内 Info.plist 的实际 URL，并确认 Sparkle 手动检查和左侧静默更新按钮读取的是同一渠道。
 
 ## 当前已验证的 scroll-edge 方案摘要
 

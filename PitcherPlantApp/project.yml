@@ -48,6 +48,7 @@ targets:
         ENABLE_HARDENED_RUNTIME: YES
         ENABLE_DEBUG_DYLIB: NO
         PP_RELEASE_TAG: ""
+        PP_UPDATE_CHECK_URL: https://github.com/D1a0y1bb/PitcherPlant/releases/download/appcast-beta/appcast.xml
     scheme:
       gatherCoverageData: false
       testTargets:

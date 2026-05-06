@@ -16,6 +16,9 @@ NOTARIZE="false"
 RELEASE_TAG="${RELEASE_TAG:-}"
 RELEASE_BUILD_NUMBER="${RELEASE_BUILD_NUMBER:-${GITHUB_RUN_NUMBER:-}}"
 RELEASE_DOWNLOAD_BASE_URL="${RELEASE_DOWNLOAD_BASE_URL:-}"
+STABLE_UPDATE_CHECK_URL="${STABLE_UPDATE_CHECK_URL:-https://github.com/D1a0y1bb/PitcherPlant/releases/latest/download/appcast.xml?cachebust=1}"
+BETA_UPDATE_CHECK_URL="${BETA_UPDATE_CHECK_URL:-https://github.com/D1a0y1bb/PitcherPlant/releases/download/appcast-beta/appcast.xml}"
+PP_UPDATE_CHECK_URL="${PP_UPDATE_CHECK_URL:-}"
 SPARKLE_ACCOUNT="${SPARKLE_ACCOUNT:-D1a0y1bb.PitcherPlant}"
 SPARKLE_ED_PRIVATE_KEY="${SPARKLE_ED_PRIVATE_KEY:-}"
 SPARKLE_SIGN_UPDATE_PATH="${SPARKLE_SIGN_UPDATE_PATH:-}"
@@ -86,6 +89,32 @@ require_env() {
   fi
 }
 
+release_channel() {
+  if [[ "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+-(beta|rc)([.-].*)?$ ]]; then
+    printf 'beta\n'
+  elif [[ "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+    printf 'stable\n'
+  else
+    printf 'development\n'
+  fi
+}
+
+resolve_update_check_url() {
+  if [[ -n "$PP_UPDATE_CHECK_URL" ]]; then
+    printf '%s\n' "$PP_UPDATE_CHECK_URL"
+    return
+  fi
+
+  case "$(release_channel)" in
+    stable)
+      printf '%s\n' "$STABLE_UPDATE_CHECK_URL"
+      ;;
+    *)
+      printf '%s\n' "$BETA_UPDATE_CHECK_URL"
+      ;;
+  esac
+}
+
 resolve_sparkle_sign_update() {
   local candidate
 
@@ -132,7 +161,14 @@ sparkle_signature_attributes() {
   fi
 }
 
-XCODEBUILD_RELEASE_SETTINGS=()
+RESOLVED_UPDATE_CHECK_URL="$(resolve_update_check_url)"
+if [[ "$(release_channel)" = "beta" && "$RESOLVED_UPDATE_CHECK_URL" == *"/releases/latest/"* ]]; then
+  echo "Beta and RC builds must not use the GitHub latest appcast URL." >&2
+  echo "Resolved PP_UPDATE_CHECK_URL: $RESOLVED_UPDATE_CHECK_URL" >&2
+  exit 1
+fi
+
+XCODEBUILD_RELEASE_SETTINGS=(PP_UPDATE_CHECK_URL="$RESOLVED_UPDATE_CHECK_URL")
 if [[ -n "$RELEASE_BUILD_NUMBER" ]]; then
   XCODEBUILD_RELEASE_SETTINGS+=(CURRENT_PROJECT_VERSION="$RELEASE_BUILD_NUMBER")
 fi

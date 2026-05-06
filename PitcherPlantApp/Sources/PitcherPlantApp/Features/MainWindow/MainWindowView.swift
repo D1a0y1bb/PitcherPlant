@@ -13,6 +13,7 @@ struct MainWindowView: View {
     @State private var windowWidth: CGFloat = 0
     @State private var settingsSearchText = ""
     @State private var reportSearchText = ""
+    @State private var toolbarSearchText = ""
     private let layoutPolicy = MainWindowLayoutPolicy()
     private let inspectorTransitionPolicy = MainWindowInspectorTransitionPolicy()
 
@@ -26,7 +27,6 @@ struct MainWindowView: View {
         .background(WindowWidthObserver { width in
             updateWindowWidth(width)
         })
-        .background(WindowDefaultFrameCalibrator())
         .onAppear {
             NSApp.setActivationPolicy(.regular)
             NSApp.activate(ignoringOtherApps: true)
@@ -79,6 +79,7 @@ struct MainWindowView: View {
             mainToolbarItems
         }
         .navigationTitle("PitcherPlant")
+        .searchable(text: toolbarSearchBinding, placement: .toolbar, prompt: toolbarSearchPrompt)
         .background(ToolbarCustomizationDisabler().frame(width: 0, height: 0))
         .overlay {
             if let recovery = appState.databaseRecovery {
@@ -118,6 +119,39 @@ struct MainWindowView: View {
 
     private var isReportSearchContext: Bool {
         appState.selectedMainSidebar == .reports || appState.selectedMainSidebar.reportSectionKind != nil
+    }
+
+    private var toolbarSearchBinding: Binding<String> {
+        Binding {
+            switch appState.selectedMainSidebar {
+            case .settings:
+                settingsSearchText
+            case .reports, .textEvidence, .codeEvidence, .imageEvidence, .metadataEvidence, .dedupEvidence, .crossBatchEvidence:
+                reportSearchText
+            default:
+                toolbarSearchText
+            }
+        } set: { value in
+            switch appState.selectedMainSidebar {
+            case .settings:
+                settingsSearchText = value
+            case .reports, .textEvidence, .codeEvidence, .imageEvidence, .metadataEvidence, .dedupEvidence, .crossBatchEvidence:
+                reportSearchText = value
+            default:
+                toolbarSearchText = value
+            }
+        }
+    }
+
+    private var toolbarSearchPrompt: String {
+        switch appState.selectedMainSidebar {
+        case .settings:
+            appState.t("settings.searchPrompt")
+        case .reports, .textEvidence, .codeEvidence, .imageEvidence, .metadataEvidence, .dedupEvidence, .crossBatchEvidence:
+            appState.t("reports.searchPrompt")
+        default:
+            appState.t("menu.searchPrompt")
+        }
     }
 
     private func motion(_ animation: Animation) -> Animation? {
@@ -261,101 +295,101 @@ struct MainWindowView: View {
 
     @ToolbarContentBuilder
     private var mainToolbarItems: some ToolbarContent {
-        if appState.availableUpdate != nil {
-            ToolbarItem(placement: .navigation) {
-                Button {
-                    appState.presentAvailableUpdate()
-                } label: {
-                    Image(systemName: "arrow.down")
-                        .font(.system(size: 12.5, weight: .semibold))
-                        .foregroundStyle(.white)
-                        .frame(width: 28, height: 28)
-                        .background {
-                            Circle()
-                                .fill(Color.blue)
-                        }
-                        .overlay {
-                            Circle()
-                                .strokeBorder(Color.white.opacity(0.16), lineWidth: 0.75)
-                        }
-                }
-                .buttonStyle(.plain)
-                .contentShape(Circle())
-                .help(appState.t("update.button.help"))
-                .accessibilityLabel(appState.t("update.button.accessibility"))
+        ToolbarItemGroup(placement: .secondaryAction) {
+            if appState.availableUpdate != nil {
+                updateToolbarButton
             }
-        }
 
-        ToolbarItem(placement: .primaryAction) {
             NativeScanOptionsMenu()
+            newAuditToolbarButton
         }
 
         ToolbarItem(placement: .primaryAction) {
-            Button {
-                showNewAuditComposer()
-            } label: {
-                Label(appState.t("toolbar.newScan"), systemImage: "plus")
-            }
-            .help(appState.t("toolbar.newScan"))
-            .accessibilityLabel(appState.t("toolbar.newScan"))
+            startAuditToolbarButton
         }
 
-        ToolbarItem(placement: .primaryAction) {
-            Button {
-                withAnimation(motion(inspectorColumnAnimation)) {
-                    inspectorVisible.toggle()
-                }
-            } label: {
-                Label(
-                    isInspectorColumnVisible ? appState.t("toolbar.hideInspector") : appState.t("toolbar.showInspector"),
-                    systemImage: isInspectorColumnVisible ? "sidebar.right" : "sidebar.trailing"
-                )
-            }
-            .disabled(!appState.selectedMainSidebar.allowsInspector)
-            .help(isInspectorColumnVisible ? appState.t("toolbar.hideInspector") : appState.t("toolbar.showInspector"))
-            .accessibilityLabel(isInspectorColumnVisible ? appState.t("toolbar.hideInspector") : appState.t("toolbar.showInspector"))
+        ToolbarItemGroup(placement: .primaryAction) {
+            reloadToolbarButton
+            settingsToolbarButton
+            inspectorToolbarButton
         }
+    }
 
-        ToolbarItem(placement: .primaryAction) {
-            Button {
-                Task { await appState.reload() }
-            } label: {
-                Label(appState.t("toolbar.reload"), systemImage: "arrow.clockwise")
-            }
-            .keyboardShortcut("r", modifiers: .command)
-            .help(appState.t("toolbar.reload"))
-            .accessibilityLabel(appState.t("toolbar.reload"))
+    private var updateToolbarButton: some View {
+        Button {
+            appState.presentAvailableUpdate()
+        } label: {
+            Label(appState.t("update.button.title"), systemImage: "arrow.down")
         }
+        .help(appState.t("update.button.help"))
+        .accessibilityLabel(appState.t("update.button.accessibility"))
+    }
 
-        ToolbarItem(placement: .primaryAction) {
-            Button(role: appState.isRunningAudit ? .destructive : nil) {
-                if appState.isRunningAudit {
-                    appState.cancelAudit()
-                } else {
-                    appState.beginAudit()
-                }
-            } label: {
-                Label(
-                    appState.isRunningAudit ? appState.t("toolbar.cancel") : appState.t("toolbar.start"),
-                    systemImage: appState.isRunningAudit ? "stop.fill" : "play.fill"
-                )
-            }
-            .id(appState.isRunningAudit)
-            .keyboardShortcut(.return, modifiers: .command)
-            .help(appState.isRunningAudit ? appState.t("toolbar.cancel") : appState.t("toolbar.start"))
-            .accessibilityLabel(appState.isRunningAudit ? appState.t("toolbar.cancel") : appState.t("toolbar.start"))
+    private var newAuditToolbarButton: some View {
+        Button {
+            showNewAuditComposer()
+        } label: {
+            Label(appState.t("toolbar.newScan"), systemImage: "plus")
         }
+        .help(appState.t("toolbar.newScan"))
+        .accessibilityLabel(appState.t("toolbar.newScan"))
+    }
 
-        ToolbarItem(placement: .primaryAction) {
-            Button {
-                selectMainSidebarItem(.settings)
-            } label: {
-                Label(appState.t("toolbar.settings"), systemImage: "gear")
+    private var startAuditToolbarButton: some View {
+        Button(role: appState.isRunningAudit ? .destructive : nil) {
+            if appState.isRunningAudit {
+                appState.cancelAudit()
+            } else {
+                appState.beginAudit()
             }
-            .keyboardShortcut(",", modifiers: .command)
-            .help(appState.t("toolbar.settings"))
-            .accessibilityLabel(appState.t("toolbar.settings"))
+        } label: {
+            Label(
+                appState.isRunningAudit ? appState.t("toolbar.cancel") : appState.t("toolbar.start"),
+                systemImage: appState.isRunningAudit ? "stop.fill" : "play.fill"
+            )
         }
+        .id(appState.isRunningAudit)
+        .keyboardShortcut(.return, modifiers: .command)
+        .help(appState.isRunningAudit ? appState.t("toolbar.cancel") : appState.t("toolbar.start"))
+        .accessibilityLabel(appState.isRunningAudit ? appState.t("toolbar.cancel") : appState.t("toolbar.start"))
+    }
+
+    private var reloadToolbarButton: some View {
+        Button {
+            Task { await appState.reload() }
+        } label: {
+            Label(appState.t("toolbar.reload"), systemImage: "arrow.clockwise")
+        }
+        .keyboardShortcut("r", modifiers: .command)
+        .help(appState.t("toolbar.reload"))
+        .accessibilityLabel(appState.t("toolbar.reload"))
+    }
+
+    private var settingsToolbarButton: some View {
+        Button {
+            selectMainSidebarItem(.settings)
+        } label: {
+            Label(appState.t("toolbar.settings"), systemImage: "gear")
+        }
+        .keyboardShortcut(",", modifiers: .command)
+        .help(appState.t("toolbar.settings"))
+        .accessibilityLabel(appState.t("toolbar.settings"))
+    }
+
+    private var inspectorToolbarButton: some View {
+        Button {
+            withAnimation(motion(inspectorColumnAnimation)) {
+                inspectorVisible.toggle()
+            }
+        } label: {
+            Label(
+                isInspectorColumnVisible ? appState.t("toolbar.hideInspector") : appState.t("toolbar.showInspector"),
+                systemImage: isInspectorColumnVisible ? "sidebar.right" : "sidebar.trailing"
+            )
+        }
+        .disabled(!appState.selectedMainSidebar.allowsInspector)
+        .help(isInspectorColumnVisible ? appState.t("toolbar.hideInspector") : appState.t("toolbar.showInspector"))
+        .accessibilityLabel(isInspectorColumnVisible ? appState.t("toolbar.hideInspector") : appState.t("toolbar.showInspector"))
     }
 
     @ViewBuilder
@@ -632,67 +666,5 @@ private final class WindowWidthObserverView: NSView {
     @objc
     private func windowDidResize(_ notification: Notification) {
         publishWindowWidth()
-    }
-}
-
-private struct WindowDefaultFrameCalibrator: NSViewRepresentable {
-    func makeNSView(context: Context) -> WindowDefaultFrameCalibratorView {
-        WindowDefaultFrameCalibratorView()
-    }
-
-    func updateNSView(_ nsView: WindowDefaultFrameCalibratorView, context: Context) {
-        nsView.scheduleCalibration()
-    }
-}
-
-@MainActor
-private final class WindowDefaultFrameCalibratorView: NSView {
-    private var didCalibrate = false
-
-    override func viewDidMoveToWindow() {
-        super.viewDidMoveToWindow()
-        scheduleCalibration()
-    }
-
-    func scheduleCalibration() {
-        DispatchQueue.main.async { [weak self] in
-            self?.calibrate()
-        }
-    }
-
-    private func calibrate() {
-        guard didCalibrate == false, let window else {
-            return
-        }
-        guard window.styleMask.contains(.fullScreen) == false else {
-            didCalibrate = true
-            return
-        }
-
-        let targetFrameSize = CGSize(
-            width: AppLayout.mainWindowDefaultWidth,
-            height: AppLayout.mainWindowDefaultHeight
-        )
-        let frame = window.frame
-        guard abs(frame.width - targetFrameSize.width) > 1 || abs(frame.height - targetFrameSize.height) > 1 else {
-            didCalibrate = true
-            return
-        }
-
-        var nextFrame = frame
-        let center = CGPoint(x: frame.midX, y: frame.midY)
-        nextFrame.size = targetFrameSize
-        nextFrame.origin.x = center.x - targetFrameSize.width / 2
-        nextFrame.origin.y = center.y - targetFrameSize.height / 2
-
-        if let visibleFrame = window.screen?.visibleFrame ?? NSScreen.main?.visibleFrame {
-            let maxX = visibleFrame.maxX - nextFrame.width
-            let maxY = visibleFrame.maxY - nextFrame.height
-            nextFrame.origin.x = min(max(nextFrame.origin.x, visibleFrame.minX), maxX)
-            nextFrame.origin.y = min(max(nextFrame.origin.y, visibleFrame.minY), maxY)
-        }
-
-        window.setFrame(nextFrame, display: true, animate: false)
-        didCalibrate = true
     }
 }

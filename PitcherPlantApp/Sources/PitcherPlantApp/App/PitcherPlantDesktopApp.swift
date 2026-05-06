@@ -34,6 +34,14 @@ struct PitcherPlantDesktopApp: App {
                 }
         }
         .defaultSize(width: AppLayout.mainWindowDefaultWidth, height: AppLayout.mainWindowDefaultHeight)
+        .defaultWindowPlacement { _, context in
+            let visibleRect = context.defaultDisplay.visibleRect
+            let size = CGSize(
+                width: min(AppLayout.mainWindowDefaultWidth, visibleRect.width),
+                height: min(AppLayout.mainWindowDefaultHeight, visibleRect.height)
+            )
+            return WindowPlacement(.center, size: size)
+        }
         .defaultLaunchBehavior(.presented)
         .windowStyle(.titleBar)
         .windowResizability(.contentMinSize)

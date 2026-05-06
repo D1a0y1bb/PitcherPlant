@@ -633,6 +633,7 @@
 				);
 				MACOSX_DEPLOYMENT_TARGET = 26.0;
 				PP_RELEASE_TAG = "";
+				PP_UPDATE_CHECK_URL = "https://github.com/D1a0y1bb/PitcherPlant/releases/download/appcast-beta/appcast.xml";
 				PRODUCT_BUNDLE_IDENTIFIER = com.pitcherplant.desktop;
 				PRODUCT_MODULE_NAME = PitcherPlantApp;
 				PRODUCT_NAME = PitcherPlant;
@@ -721,6 +722,7 @@
 				);
 				MACOSX_DEPLOYMENT_TARGET = 26.0;
 				PP_RELEASE_TAG = "";
+				PP_UPDATE_CHECK_URL = "https://github.com/D1a0y1bb/PitcherPlant/releases/download/appcast-beta/appcast.xml";
 				PRODUCT_BUNDLE_IDENTIFIER = com.pitcherplant.desktop;
 				PRODUCT_MODULE_NAME = PitcherPlantApp;
 				PRODUCT_NAME = PitcherPlant;
