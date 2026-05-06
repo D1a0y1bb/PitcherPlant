@@ -155,7 +155,7 @@ func appVersionInfoReadsBundleMetadata() {
     #expect(version.bundleIdentifier == "com.pitcherplant.desktop")
     #expect(version.releaseTag == "v0.1.0-rc.5")
     #expect(version.displayVersion == "0.1.0-rc.5")
-    #expect(version.versionAndBuild == "0.1.0-rc.5 (12)")
+    #expect(version.versionAndBuild == "0.1.0-rc.5")
     #expect(version.comparableVersion == "v0.1.0-rc.5")
     #expect(version.minimumSystemVersion == "26.0")
     #expect(version.copyright == "Copyright 2026")
@@ -165,7 +165,7 @@ func appVersionInfoReadsBundleMetadata() {
 }
 
 @Test
-func appVersionInfoFormatsBetaDisplayVersionWithBuildChannel() {
+func appVersionInfoKeepsPrereleaseDisplayVersion() {
     let version = AppVersionInfo(
         infoDictionary: [
             "CFBundleDisplayName": "PitcherPlant",
@@ -177,8 +177,8 @@ func appVersionInfoFormatsBetaDisplayVersionWithBuildChannel() {
     )
 
     #expect(version.displayVersion == "0.1.2-beta")
-    #expect(version.versionAndBuild == "0.1.2 (beta-18)")
-    #expect(AppVersionInfo.formattedDisplayVersion("0.1.1", build: "17") == "0.1.1 (17)")
+    #expect(version.versionAndBuild == "0.1.2-beta")
+    #expect(AppVersionInfo.formattedDisplayVersion("0.1.1", build: "17") == "0.1.1")
 }
 
 @Test

@@ -31,53 +31,81 @@ struct MainSidebarView: View {
     @Environment(AppState.self) private var appState
 
     var body: some View {
-        // Adapted from PortKiller's MIT-licensed SidebarView/FavoriteWatchButtons patterns.
-        List(selection: $selection) {
-            Section(appState.t("sidebar.categories")) {
-                sidebarRow(.workspace)
-                sidebarRow(.newAudit)
-                sidebarRow(.history)
-                sidebarRow(.reports)
-            }
+        ScrollView(.vertical) {
+            VStack(alignment: .leading, spacing: 18) {
+                sidebarSection(
+                    title: appState.t("sidebar.categories"),
+                    items: [.workspace, .newAudit, .history, .reports]
+                )
 
-            Section(appState.t("sidebar.evidenceCollections")) {
-                sidebarRow(.allEvidence)
-                sidebarRow(.favoriteEvidence)
-                sidebarRow(.watchedEvidence)
-            }
+                sidebarSection(
+                    title: appState.t("sidebar.evidenceCollections"),
+                    items: [.allEvidence, .favoriteEvidence, .watchedEvidence]
+                )
 
-            Section(appState.t("sidebar.evidenceTypes")) {
-                sidebarRow(.textEvidence)
-                sidebarRow(.codeEvidence)
-                sidebarRow(.imageEvidence)
-                sidebarRow(.metadataEvidence)
-                sidebarRow(.dedupEvidence)
-                sidebarRow(.crossBatchEvidence)
-            }
+                sidebarSection(
+                    title: appState.t("sidebar.evidenceTypes"),
+                    items: [.textEvidence, .codeEvidence, .imageEvidence, .metadataEvidence, .dedupEvidence, .crossBatchEvidence]
+                )
 
-            Section(appState.t("sidebar.libraries")) {
-                sidebarRow(.fingerprints)
-                sidebarRow(.whitelist)
-                sidebarRow(.settings)
+                sidebarSection(
+                    title: appState.t("sidebar.libraries"),
+                    items: [.fingerprints, .whitelist, .settings]
+                )
             }
+            .padding(.horizontal, 10)
+            .padding(.top, AppLayout.sidebarContentTopMargin)
+            .padding(.bottom, AppLayout.sidebarContentBottomMargin)
+            .frame(maxWidth: .infinity, alignment: .topLeading)
         }
-        .listStyle(.sidebar)
-        .contentMargins(.top, AppLayout.sidebarContentTopMargin, for: .scrollContent)
-        .contentMargins(.bottom, AppLayout.sidebarContentBottomMargin, for: .scrollContent)
+        .scrollIndicators(.hidden)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
 
-    private func sidebarRow(_ item: MainSidebarItem, title: String? = nil) -> some View {
-        HStack(spacing: 10) {
-            Image(systemName: item.systemImage)
-                .frame(width: 18, alignment: .center)
-                .foregroundStyle(iconColor(for: item))
-            Text(title ?? appState.title(for: item))
-                .lineLimit(1)
-            Spacer()
+    private func sidebarSection(title: String, items: [MainSidebarItem]) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(title)
+                .font(AppTypography.tableHeader)
+                .foregroundStyle(.secondary)
+                .padding(.leading, 10)
+
+            VStack(alignment: .leading, spacing: 4) {
+                ForEach(items) { item in
+                    sidebarRow(item)
+                }
+            }
         }
-        .padding(.vertical, 3)
-        .padding(.leading, 8)
-        .tag(item)
+    }
+
+    private func sidebarRow(_ item: MainSidebarItem) -> some View {
+        let isSelected = selection == item
+
+        return Button {
+            selection = item
+        } label: {
+            HStack(spacing: 10) {
+                Image(systemName: item.systemImage)
+                    .frame(width: 18, alignment: .center)
+                    .foregroundStyle(iconColor(for: item))
+                Text(appState.title(for: item))
+                    .font(AppTypography.rowPrimary.weight(.semibold))
+                    .foregroundStyle(isSelected ? .white : .primary)
+                    .lineLimit(1)
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background {
+                if isSelected {
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .fill(Color.blue)
+                }
+            }
+            .contentShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
 
     private func iconColor(for item: MainSidebarItem) -> Color {

@@ -21,7 +21,7 @@ struct AppVersionInfo: Equatable {
     }
 
     var versionAndBuild: String {
-        Self.formattedDisplayVersion(displayVersion, build: build)
+        displayVersion
     }
 
     var comparableVersion: String {
@@ -82,23 +82,7 @@ struct AppVersionInfo: Equatable {
         else {
             return displayVersion
         }
-        if let betaDisplayVersion = betaDisplayVersion(displayVersion, build: build) {
-            return betaDisplayVersion
-        }
-        return "\(displayVersion) (\(build))"
-    }
-
-    private static func betaDisplayVersion(_ displayVersion: String, build: String) -> String? {
-        let parts = displayVersion.split(separator: "-", maxSplits: 1, omittingEmptySubsequences: false)
-        guard parts.count == 2 else {
-            return nil
-        }
-        let prerelease = String(parts[1])
-        guard prerelease.localizedCaseInsensitiveCompare("beta") == .orderedSame
-                || prerelease.lowercased().hasPrefix("beta.") else {
-            return nil
-        }
-        return "\(parts[0]) (\(prerelease)-\(build))"
+        return displayVersion
     }
 
     private static func isUnresolvedBuildSetting(_ value: String) -> Bool {

@@ -91,7 +91,7 @@ struct PitcherPlantDesktopApp: App {
         let version = AppVersionInfo.current
         NSApp.orderFrontStandardAboutPanel(options: [
             .applicationName: version.name,
-            .applicationVersion: version.versionAndBuild,
+            .applicationVersion: version.displayVersion,
             .credits: NSAttributedString(string: appState.t("about.credits"))
         ])
         NSApp.activate(ignoringOtherApps: true)

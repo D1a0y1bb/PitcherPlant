@@ -266,12 +266,21 @@ struct MainWindowView: View {
                 Button {
                     appState.presentAvailableUpdate()
                 } label: {
-                    Label(appState.t("update.button.title"), systemImage: "arrow.down.circle.fill")
-                        .labelStyle(.iconOnly)
+                    Image(systemName: "arrow.down")
+                        .font(.system(size: 12.5, weight: .semibold))
+                        .foregroundStyle(.white)
+                        .frame(width: 28, height: 28)
+                        .background {
+                            Circle()
+                                .fill(Color.blue)
+                        }
+                        .overlay {
+                            Circle()
+                                .strokeBorder(Color.white.opacity(0.16), lineWidth: 0.75)
+                        }
                 }
-                .buttonStyle(.borderedProminent)
-                .controlSize(.regular)
-                .tint(.blue)
+                .buttonStyle(.plain)
+                .contentShape(Circle())
                 .help(appState.t("update.button.help"))
                 .accessibilityLabel(appState.t("update.button.accessibility"))
             }
