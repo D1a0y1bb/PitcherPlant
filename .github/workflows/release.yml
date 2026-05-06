@@ -278,6 +278,7 @@ jobs:
           security find-identity -v -p codesigning "$KEYCHAIN_PATH" | grep -F "$APPLE_SIGNING_IDENTITY"
 
       - name: SwiftPM tests
+        timeout-minutes: 10
         working-directory: PitcherPlantApp
         run: swift test
 

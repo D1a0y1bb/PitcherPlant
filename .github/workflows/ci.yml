@@ -68,6 +68,7 @@ jobs:
           }
 
       - name: SwiftPM tests
+        timeout-minutes: 10
         working-directory: PitcherPlantApp
         run: swift test
 
@@ -112,6 +113,7 @@ jobs:
           ./script/build_and_run.sh --verify
 
       - name: Lightweight integration and performance smoke
+        timeout-minutes: 10
         working-directory: PitcherPlantApp
         env:
           PITCHERPLANT_CI_SMOKE: "1"
