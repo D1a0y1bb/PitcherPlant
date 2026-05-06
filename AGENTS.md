@@ -154,6 +154,9 @@ ScrollView {
 - 不用 `safeAreaBar` 伪造标题栏区域。
 - 不用 `overlay`、`mask`、`gradient`、自绘 material 来模拟系统 blur。
 - 不把 `.scrollEdgeEffectStyle(.soft, for: .top)` 当作万能修复；先确认页面是否走对主滚动容器。
+- 不要用 `NSScrollView.hasVerticalScroller = false` 或 `hasHorizontalScroller = false` 这类 AppKit 级开关“彻底关闭”滚动条。实测这会让系统不再把页面识别为正常 scroll-edge 容器，导致标题栏自然模糊失效。
+- 如果用户明确要求隐藏滚动条，只允许使用不破坏滚动容器身份的做法：SwiftUI 级 `.scrollIndicators(.hidden)`，或递归隐藏现有 `verticalScroller` / `horizontalScroller` 的可见状态；不要移除 scroller、不要关闭 `hasVerticalScroller` / `hasHorizontalScroller`、不要替换主滚动容器。
+- 改过滚动条或滚动容器后，必须实机检查 `NewAuditView -> NativePage -> AppPageShell` 路径的标题栏 scroll-edge 模糊是否仍然正常。
 - 不轻易修改 `NativeToolbarSupport.swift` 或窗口 chrome；先对比已经有效的页面。
 
 ## 历史踩坑归纳
@@ -259,6 +262,7 @@ chore: regenerate Xcode project
 - 不要恢复旧 Python/Web 主线。
 - 不要绕过 XcodeGen 直接长期维护 `project.pbxproj`。
 - 不要用自绘遮罩模拟系统标题栏 blur。
+- 不要通过 `hasVerticalScroller = false` / `hasHorizontalScroller = false` 关闭 `NSScrollView` 滚动条；这会破坏 PitcherPlant 已验证的 scroll-edge 标题栏模糊。
 - 不要额外画 Inspector 分隔线。
 - 不要用固定浅色/深色背景破坏系统材质。
 - 不要在用户未要求时运行 destructive git 命令。

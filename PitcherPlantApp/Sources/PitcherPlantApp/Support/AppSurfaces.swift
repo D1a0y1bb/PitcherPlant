@@ -2,7 +2,7 @@ import SwiftUI
 
 enum AppLayout {
     static let mainWindowMinWidth: CGFloat = 820
-    static let mainWindowMinHeight: CGFloat = 560
+    static let mainWindowMinHeight: CGFloat = 620
     static let mainWindowChromeHeightReserve: CGFloat = 52
     static let mainWindowContentMinHeight: CGFloat = mainWindowMinHeight - mainWindowChromeHeightReserve
     static let mainWindowDefaultWidth: CGFloat = 1220
@@ -10,6 +10,8 @@ enum AppLayout {
     static let sidebarMinWidth: CGFloat = 230
     static let sidebarIdealWidth: CGFloat = 260
     static let sidebarMaxWidth: CGFloat = 300
+    static let sidebarContentTopMargin: CGFloat = 10
+    static let sidebarContentBottomMargin: CGFloat = 18
     static let contentMinWidth: CGFloat = 240
     static let contentIdealWidth: CGFloat = 620
     static let inspectorMinWidth: CGFloat = 340
@@ -244,7 +246,6 @@ struct AppHorizontalOverflow<Content: View>: View {
                     .frame(minWidth: minWidth, alignment: .topLeading)
                     .fixedSize(horizontal: false, vertical: true)
             }
-            .scrollIndicators(.hidden)
             .frame(maxWidth: .infinity, alignment: .topLeading)
         } else {
             GeometryReader { proxy in
@@ -252,7 +253,6 @@ struct AppHorizontalOverflow<Content: View>: View {
                     content
                         .frame(width: max(proxy.size.width, minWidth), alignment: .topLeading)
                 }
-                .scrollIndicators(.hidden)
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
             }
             .frame(maxWidth: .infinity, alignment: .topLeading)

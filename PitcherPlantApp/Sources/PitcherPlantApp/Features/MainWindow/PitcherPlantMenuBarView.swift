@@ -60,7 +60,7 @@ struct PitcherPlantMenuBarView: View {
         VStack(spacing: 12) {
             header
 
-            ScrollView(showsIndicators: false) {
+            ScrollView {
                 VStack(spacing: 12) {
                     MenuBarGlassSection(title: appState.t("menu.recentAudits"), count: filteredJobs.count) {
                         if filteredJobs.isEmpty {

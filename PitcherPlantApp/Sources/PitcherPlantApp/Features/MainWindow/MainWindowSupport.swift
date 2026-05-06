@@ -62,6 +62,8 @@ struct MainSidebarView: View {
             }
         }
         .listStyle(.sidebar)
+        .contentMargins(.top, AppLayout.sidebarContentTopMargin, for: .scrollContent)
+        .contentMargins(.bottom, AppLayout.sidebarContentBottomMargin, for: .scrollContent)
     }
 
     private func sidebarRow(_ item: MainSidebarItem, title: String? = nil) -> some View {

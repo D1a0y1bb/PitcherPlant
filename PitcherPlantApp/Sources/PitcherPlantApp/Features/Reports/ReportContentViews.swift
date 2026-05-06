@@ -155,7 +155,7 @@ struct ReportSectionStrip: View {
     let report: AuditReport
 
     var body: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
+        ScrollView(.horizontal) {
             HStack(spacing: 8) {
                 ForEach(report.displaySections) { section in
                     ReportSectionChip(
@@ -746,7 +746,7 @@ struct CrossBatchEvidenceBrowser: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            ScrollView(.horizontal, showsIndicators: false) {
+            ScrollView(.horizontal) {
                 HStack(spacing: 12) {
                     Picker("视图", selection: $mode) {
                         ForEach(CrossBatchEvidenceMode.allCases) { option in
@@ -958,7 +958,7 @@ struct CrossBatchGraphPanel: View {
             ContentUnavailableView("无匹配边", systemImage: "arrow.triangle.branch", description: Text("调整批次、队伍、标签或状态过滤条件"))
                 .frame(minHeight: AppLayout.reportListMinHeight, maxHeight: .infinity)
         } else {
-            ScrollView([.horizontal, .vertical], showsIndicators: false) {
+            ScrollView([.horizontal, .vertical]) {
                 VStack(alignment: .leading, spacing: 10) {
                     if hasDisplayCap {
                         Label("大图谱已显示前 \(displayedEdges.count) 条边和每组前 \(maxDisplayedNodes) 个节点", systemImage: "speedometer")
@@ -1158,7 +1158,6 @@ struct OverviewEvidenceList: View {
                     .listRowInsets(EdgeInsets(top: 4, leading: 0, bottom: 4, trailing: 0))
             }
             .listStyle(.plain)
-            .scrollIndicators(.hidden)
             .frame(
                 minHeight: AppLayout.reportListMinHeight,
                 idealHeight: reportListIdealHeight(rowCount: rows.count),

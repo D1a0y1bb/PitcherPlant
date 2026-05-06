@@ -63,7 +63,6 @@
 		B22A7F68CB8FDB3A33014F50 /* ReportContentViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1342BBB0BBCB3DD148519EEA /* ReportContentViews.swift */; };
 		B265FE7BFDC6A7FD77963AF7 /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = 66BD2172991DB0803156344E /* Localizable.xcstrings */; };
 		B6493DB2EA73BC22433270F0 /* AppState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 360E2A6F9482BC2AE7C2124F /* AppState.swift */; };
-		B8E46028DE6EBEDA6FAEDEEA /* ScrollBehaviorSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00B6EA03186BFE164A2CEAD3 /* ScrollBehaviorSupport.swift */; };
 		C3466F19787FE89261DBBA0E /* ReportLibraryViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1EC9DF6DC71D33650881A59A /* ReportLibraryViews.swift */; };
 		C36B9E394B99C9D4236758E7 /* WhitelistEvaluationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1644FA61B6AAC6927C0FCC0B /* WhitelistEvaluationService.swift */; };
 		CA9A7DE20AA2E6520FEC30D3 /* FullCompletionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7D48DBF219033E310548945A /* FullCompletionTests.swift */; };
@@ -98,7 +97,6 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
-		00B6EA03186BFE164A2CEAD3 /* ScrollBehaviorSupport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScrollBehaviorSupport.swift; sourceTree = "<group>"; };
 		0908B84895674E2537403E7B /* AuditUtilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuditUtilities.swift; sourceTree = "<group>"; };
 		0B59D55EEF09CA40FD3B0473 /* AuditAssistantService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuditAssistantService.swift; sourceTree = "<group>"; };
 		0C20A6066A3B74F762C42CC5 /* PerformanceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PerformanceTests.swift; sourceTree = "<group>"; };
@@ -263,7 +261,6 @@
 				33E047B895AB3D17E261D2AD /* MainWindowLayoutPolicy.swift */,
 				DBB55A314F8FAD2F30606AD3 /* NativeToolbarSupport.swift */,
 				469A6C23D8D6999877D42361 /* ReportFiltering.swift */,
-				00B6EA03186BFE164A2CEAD3 /* ScrollBehaviorSupport.swift */,
 				39088A4183CFB4929068ABFF /* Theme.swift */,
 				65239D837F7125DDE36465A7 /* Typography.swift */,
 			);
@@ -595,7 +592,6 @@
 				39F8C94B08952D4D59F36A98 /* ReportModels.swift in Sources */,
 				138BD38561399E8ADF48CA11 /* ReportsWindowView.swift in Sources */,
 				F1A878A00C3BEFFEF681EEAA /* RiskScoringService.swift in Sources */,
-				B8E46028DE6EBEDA6FAEDEEA /* ScrollBehaviorSupport.swift in Sources */,
 				3C6D45C86E93BDC203DF4CFD /* SettingsFieldRows.swift in Sources */,
 				00286AB6B71F4B8B4B1DF610 /* SettingsLayoutRows.swift in Sources */,
 				E0968ED079E63D82CBBD2EF8 /* SettingsPathControls.swift in Sources */,
@@ -679,7 +675,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 101;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
@@ -698,7 +694,7 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				MACOSX_DEPLOYMENT_TARGET = 26.0;
-				MARKETING_VERSION = 0.1.0;
+				MARKETING_VERSION = 0.1.1;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
@@ -767,7 +763,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 101;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
@@ -780,7 +776,7 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				MACOSX_DEPLOYMENT_TARGET = 26.0;
-				MARKETING_VERSION = 0.1.0;
+				MARKETING_VERSION = 0.1.1;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";

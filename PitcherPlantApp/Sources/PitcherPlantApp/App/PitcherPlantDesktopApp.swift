@@ -28,7 +28,6 @@ struct PitcherPlantDesktopApp: App {
                 .preferredColorScheme(appState.effectiveColorScheme)
                 .modifier(AppAppearanceSyncModifier(appearance: appState.appSettings.appearance, syncKey: appearanceSyncKey))
                 .modifier(SystemMenuLocalizationModifier(appState: appState, syncKey: appearanceSyncKey))
-                .appHidesScrollIndicators()
                 .task {
                     await appState.bootstrapIfNeeded()
                     appState.startUpdateMonitoring()
@@ -68,7 +67,6 @@ struct PitcherPlantDesktopApp: App {
                 .preferredColorScheme(appState.effectiveColorScheme)
                 .modifier(AppAppearanceSyncModifier(appearance: appState.appSettings.appearance, syncKey: appearanceSyncKey))
                 .modifier(SystemMenuLocalizationModifier(appState: appState, syncKey: appearanceSyncKey))
-                .appHidesScrollIndicators()
                 .task {
                     await appState.bootstrapIfNeeded()
                 }
@@ -79,7 +77,6 @@ struct PitcherPlantDesktopApp: App {
                 .environment(appState)
                 .environment(\.locale, appState.effectiveLocale ?? .current)
                 .preferredColorScheme(appState.effectiveColorScheme)
-                .appHidesScrollIndicators()
         } label: {
             if appState.appSettings.showMenuBarExtra {
                 Image(systemName: "leaf")

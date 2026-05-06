@@ -37,7 +37,7 @@ struct SettingsRootView: View {
                     settingsContent
                 }
             } else {
-                ScrollView(showsIndicators: false) {
+                ScrollView {
                     settingsContent
                         .padding(.horizontal, 24)
                         .padding(.top, presentation.topPadding)

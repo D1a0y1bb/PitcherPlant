@@ -144,7 +144,7 @@ func appVersionInfoReadsBundleMetadata() {
             "NSHumanReadableCopyright": "Copyright 2026",
             "PPSourceRepositoryURL": "https://github.com/D1a0y1bb/PitcherPlant",
             "PPReleasesURL": "https://github.com/D1a0y1bb/PitcherPlant/releases",
-            "PPUpdateCheckURL": "https://api.github.com/repos/D1a0y1bb/PitcherPlant/releases/latest"
+            "PPUpdateCheckURL": "https://github.com/D1a0y1bb/PitcherPlant/releases/latest/download/appcast.xml?cachebust=1"
         ],
         bundleIdentifier: "com.pitcherplant.desktop"
     )
@@ -161,7 +161,7 @@ func appVersionInfoReadsBundleMetadata() {
     #expect(version.copyright == "Copyright 2026")
     #expect(version.sourceRepositoryURL?.absoluteString == "https://github.com/D1a0y1bb/PitcherPlant")
     #expect(version.releasesURL?.absoluteString == "https://github.com/D1a0y1bb/PitcherPlant/releases")
-    #expect(version.updateCheckURL?.absoluteString == "https://api.github.com/repos/D1a0y1bb/PitcherPlant/releases/latest")
+    #expect(version.updateCheckURL?.absoluteString == "https://github.com/D1a0y1bb/PitcherPlant/releases/latest/download/appcast.xml?cachebust=1")
 }
 
 @Test
@@ -214,6 +214,84 @@ func updateCheckServiceDetectsAvailableGitHubRelease() async throws {
     #expect(result.latestRelease.primaryDownload?.name == "PitcherPlant-macOS.dmg")
     #expect(result.latestRelease.primaryDownload?.displaySize.isEmpty == false)
     #expect(result.checkedAt == Date(timeIntervalSince1970: 42))
+}
+
+@Test
+func updateCheckServiceDetectsAvailableAppcastRelease() async throws {
+    let endpoint = URL(string: "https://github.com/D1a0y1bb/PitcherPlant/releases/latest/download/appcast.xml?cachebust=1")!
+    let response = UpdateCheckHTTPResponse(statusCode: 200)
+    let payload = """
+    <?xml version="1.0" encoding="utf-8"?>
+    <rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle">
+        <channel>
+            <title>PitcherPlant Updates</title>
+            <item>
+                <title>v0.1.1</title>
+                <pubDate>Wed, 06 May 2026 10:00:00 +0000</pubDate>
+                <sparkle:version>128</sparkle:version>
+                <sparkle:shortVersionString>0.1.1</sparkle:shortVersionString>
+                <enclosure
+                    url="https://github.com/D1a0y1bb/PitcherPlant/releases/download/v0.1.1/PitcherPlant-macOS.zip"
+                    length="4096"
+                    type="application/octet-stream" />
+            </item>
+        </channel>
+    </rss>
+    """
+    let service = UpdateCheckService(
+        dataLoader: { request in
+            #expect(request.url == endpoint)
+            #expect(request.value(forHTTPHeaderField: "Accept") == "application/rss+xml, application/xml;q=0.9, */*;q=0.8")
+            #expect(request.value(forHTTPHeaderField: "X-GitHub-Api-Version") == nil)
+            return (Data(payload.utf8), response)
+        },
+        now: { Date(timeIntervalSince1970: 42) }
+    )
+
+    let result = try await service.check(currentVersion: updateTestVersion(releaseTag: "v0.1.0-rc.13", updateURL: endpoint))
+
+    #expect(result.availability == .updateAvailable)
+    #expect(result.latestRelease.tagName == "v0.1.1")
+    #expect(result.latestRelease.version == "0.1.1")
+    #expect(result.latestRelease.primaryDownload?.name == "PitcherPlant-macOS.zip")
+    #expect(result.latestRelease.primaryDownload?.displaySize.isEmpty == false)
+}
+
+@Test
+func updateCheckServiceKeepsCurrentAppcastReleaseUpToDate() async throws {
+    let endpoint = URL(string: "https://github.com/D1a0y1bb/PitcherPlant/releases/latest/download/appcast.xml?cachebust=1")!
+    let response = UpdateCheckHTTPResponse(statusCode: 200)
+    let payload = """
+    <?xml version="1.0" encoding="utf-8"?>
+    <rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle">
+        <channel>
+            <title>PitcherPlant Updates</title>
+            <item>
+                <title>v0.1.0-rc.13</title>
+                <pubDate>Tue, 05 May 2026 17:26:46 +0000</pubDate>
+                <sparkle:version>13</sparkle:version>
+                <sparkle:shortVersionString>0.1.0-rc.13</sparkle:shortVersionString>
+                <enclosure
+                    url="https://github.com/D1a0y1bb/PitcherPlant/releases/download/v0.1.0-rc.13/PitcherPlant-macOS.zip"
+                    length="4096"
+                    type="application/octet-stream" />
+            </item>
+        </channel>
+    </rss>
+    """
+    let service = UpdateCheckService(
+        dataLoader: { request in
+            #expect(request.url == endpoint)
+            return (Data(payload.utf8), response)
+        },
+        now: { Date(timeIntervalSince1970: 42) }
+    )
+
+    let result = try await service.check(currentVersion: updateTestVersion(releaseTag: "v0.1.0-rc.13", updateURL: endpoint))
+
+    #expect(result.availability == .upToDate)
+    #expect(result.latestRelease.tagName == "v0.1.0-rc.13")
+    #expect(result.latestRelease.version == "0.1.0-rc.13")
 }
 
 @Test

@@ -61,7 +61,6 @@ struct JobHistoryView: View {
                     }
                     .width(min: 150, ideal: 180)
                 }
-                .scrollIndicators(.hidden)
                 .frame(
                     minHeight: 120,
                     idealHeight: nativeTableIdealHeight(rowCount: filteredJobs.count, minHeight: 160, maxHeight: 360),
@@ -114,7 +113,6 @@ struct FingerprintLibraryView: View {
                         .listRowInsets(EdgeInsets(top: 4, leading: 0, bottom: 4, trailing: 0))
                     }
                     .listStyle(.plain)
-                    .scrollIndicators(.hidden)
                     .frame(
                         minHeight: 180,
                         idealHeight: nativeTableIdealHeight(rowCount: displayedRecords.count, minHeight: 220, maxHeight: 360),
@@ -608,7 +606,6 @@ private struct WhitelistSuggestionsSection: View {
                         .listRowInsets(EdgeInsets(top: 4, leading: 0, bottom: 4, trailing: 0))
                     }
                     .listStyle(.plain)
-                    .scrollIndicators(.hidden)
                     .frame(
                         minHeight: 120,
                         idealHeight: nativeTableIdealHeight(rowCount: suggestions.count, minHeight: 160, maxHeight: 260),
@@ -669,7 +666,6 @@ private struct WhitelistRulesSection: View {
                             .listRowInsets(EdgeInsets(top: 4, leading: 0, bottom: 4, trailing: 0))
                     }
                     .listStyle(.plain)
-                    .scrollIndicators(.hidden)
                     .frame(
                         minHeight: 70,
                         idealHeight: nativeTableIdealHeight(rowCount: rules.count, minHeight: 100, maxHeight: 220),

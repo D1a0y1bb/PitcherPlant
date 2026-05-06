@@ -885,14 +885,13 @@ private struct EvidenceContextCard: View {
             }
 
             if style == .code {
-                ScrollView([.horizontal, .vertical], showsIndicators: false) {
+                ScrollView([.horizontal, .vertical]) {
                     Text(EvidenceTextHighlighter.attributed(displayedContent, highlights: visibleHighlights))
                         .font(AppTypography.code)
                         .textSelection(.enabled)
                         .frame(minWidth: 280, maxWidth: .infinity, alignment: .leading)
                         .padding(2)
                 }
-                .scrollIndicators(.hidden)
                 .frame(minHeight: 132, maxHeight: 240)
             } else {
                 Text(EvidenceTextHighlighter.attributed(displayedContent, highlights: visibleHighlights))
@@ -1070,7 +1069,7 @@ private struct CodeLineDiffView: View {
                     .controlSize(.small)
                     .frame(maxWidth: .infinity, minHeight: 120, alignment: .center)
             } else {
-                ScrollView([.horizontal, .vertical], showsIndicators: false) {
+                ScrollView([.horizontal, .vertical]) {
                     Grid(alignment: .leading, horizontalSpacing: 8, verticalSpacing: 2) {
                         GridRow {
                             diffHeader("L")
@@ -1095,7 +1094,6 @@ private struct CodeLineDiffView: View {
                     }
                     .padding(8)
                 }
-                .scrollIndicators(.hidden)
                 .frame(minHeight: 120, maxHeight: 220)
             }
         }
@@ -1141,7 +1139,7 @@ private struct FlowTokenLine: View {
     let tokens: [String]
 
     var body: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
+        ScrollView(.horizontal) {
             HStack(spacing: 6) {
                 ForEach(tokens.prefix(8), id: \.self) { token in
                     Text(token)
@@ -1199,13 +1197,12 @@ private struct ImageComparisonCard: View {
             }
 
             if showsPreview, let image = attachment.imageBase64.flatMap(decodedImage) {
-                ScrollView([.horizontal, .vertical], showsIndicators: false) {
+                ScrollView([.horizontal, .vertical]) {
                     Image(nsImage: image)
                         .resizable()
                         .aspectRatio(contentMode: .fit)
                         .frame(width: displaySize(for: image).width, height: displaySize(for: image).height)
                 }
-                .scrollIndicators(.hidden)
                 .frame(maxWidth: .infinity, minHeight: 180, maxHeight: 260)
             }
 

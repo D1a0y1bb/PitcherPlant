@@ -94,8 +94,12 @@ struct UpdateCheckService: Sendable {
         var request = URLRequest(url: updateCheckURL)
         request.cachePolicy = .reloadIgnoringLocalCacheData
         request.timeoutInterval = 15
-        request.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
-        request.setValue("2022-11-28", forHTTPHeaderField: "X-GitHub-Api-Version")
+        if updateCheckURL.isAppcastFeed {
+            request.setValue("application/rss+xml, application/xml;q=0.9, */*;q=0.8", forHTTPHeaderField: "Accept")
+        } else {
+            request.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
+            request.setValue("2022-11-28", forHTTPHeaderField: "X-GitHub-Api-Version")
+        }
         request.setValue("\(currentVersion.name)/\(currentVersion.displayVersion)", forHTTPHeaderField: "User-Agent")
 
         let (data, response) = try await dataLoader(request)
@@ -106,7 +110,7 @@ struct UpdateCheckService: Sendable {
             throw UpdateCheckError.httpStatus(statusCode)
         }
 
-        let latestRelease = try Self.decodeReleaseInfo(from: data)
+        let latestRelease = try Self.decodeReleaseInfo(from: data, currentVersion: currentVersion)
         return UpdateCheckResult(
             currentVersion: currentVersion,
             latestRelease: latestRelease,
@@ -123,7 +127,11 @@ struct UpdateCheckService: Sendable {
         return (data, UpdateCheckHTTPResponse(statusCode: (response as? HTTPURLResponse)?.statusCode))
     }
 
-    private static func decodeReleaseInfo(from data: Data) throws -> UpdateReleaseInfo {
+    private static func decodeReleaseInfo(from data: Data, currentVersion: AppVersionInfo) throws -> UpdateReleaseInfo {
+        if data.looksLikeXML {
+            return try decodeAppcastInfo(from: data, currentVersion: currentVersion)
+        }
+
         let decoder = JSONDecoder()
         if let release = try? decoder.decode(GitHubReleaseResponse.self, from: data) {
             guard release.draft == false, release.prerelease == false else {
@@ -137,6 +145,32 @@ struct UpdateCheckService: Sendable {
             throw UpdateCheckError.emptyReleaseFeed
         }
         return release.info
+    }
+
+    private static func decodeAppcastInfo(from data: Data, currentVersion: AppVersionInfo) throws -> UpdateReleaseInfo {
+        let parserDelegate = AppcastReleaseParser(releasesURL: currentVersion.releasesURL)
+        let parser = XMLParser(data: data)
+        parser.delegate = parserDelegate
+        guard parser.parse(), let item = parserDelegate.releaseInfo else {
+            throw UpdateCheckError.emptyReleaseFeed
+        }
+        return item
+    }
+}
+
+private extension URL {
+    var isAppcastFeed: Bool {
+        pathExtension.localizedCaseInsensitiveCompare("xml") == .orderedSame
+            || lastPathComponent.localizedCaseInsensitiveContains("appcast")
+    }
+}
+
+private extension Data {
+    var looksLikeXML: Bool {
+        guard let value = String(data: prefix(64), encoding: .utf8) else {
+            return false
+        }
+        return value.trimmingCharacters(in: .whitespacesAndNewlines).hasPrefix("<")
     }
 }
 
@@ -308,5 +342,185 @@ private struct GitHubReleaseAssetResponse: Decodable {
 
     var info: UpdateReleaseAsset {
         UpdateReleaseAsset(name: name, downloadURL: browserDownloadURL, size: size)
+    }
+}
+
+private final class AppcastReleaseParser: NSObject, XMLParserDelegate {
+    private let releasesURL: URL?
+    private var isInsideFirstItem = false
+    private var didCaptureFirstItem = false
+    private var currentElement = ""
+    private var currentText = ""
+    private var item = AppcastItem()
+
+    private(set) var releaseInfo: UpdateReleaseInfo?
+
+    init(releasesURL: URL?) {
+        self.releasesURL = releasesURL
+    }
+
+    func parser(
+        _ parser: XMLParser,
+        didStartElement elementName: String,
+        namespaceURI: String?,
+        qualifiedName qName: String?,
+        attributes attributeDict: [String: String] = [:]
+    ) {
+        let name = qName ?? elementName
+        guard didCaptureFirstItem == false else {
+            return
+        }
+
+        if name == "item" {
+            isInsideFirstItem = true
+            item = AppcastItem()
+            return
+        }
+
+        guard isInsideFirstItem else {
+            return
+        }
+
+        currentElement = name
+        currentText = ""
+
+        switch name {
+        case "enclosure":
+            item.enclosureURL = attribute("url", in: attributeDict).flatMap(URL.init(string:))
+            item.enclosureLength = attribute("length", in: attributeDict).flatMap(Int.init)
+        default:
+            if name.hasSuffix("version") {
+                item.bundleVersion = attribute("version", in: attributeDict) ?? item.bundleVersion
+            }
+            if name.hasSuffix("shortVersionString") {
+                item.shortVersionString = attribute("shortVersionString", in: attributeDict) ?? item.shortVersionString
+            }
+        }
+    }
+
+    func parser(_ parser: XMLParser, foundCharacters string: String) {
+        guard isInsideFirstItem, currentElement.isEmpty == false else {
+            return
+        }
+        currentText += string
+    }
+
+    func parser(_ parser: XMLParser, didEndElement elementName: String, namespaceURI: String?, qualifiedName qName: String?) {
+        let name = qName ?? elementName
+        guard isInsideFirstItem else {
+            return
+        }
+
+        let text = currentText.trimmingCharacters(in: .whitespacesAndNewlines)
+        switch name {
+        case "title":
+            item.title = text
+        case "pubDate":
+            item.publishedAt = AppcastItem.parsePubDate(text)
+        case let value where value.hasSuffix("version"):
+            item.bundleVersion = text.isEmpty ? item.bundleVersion : text
+        case let value where value.hasSuffix("shortVersionString"):
+            item.shortVersionString = text.isEmpty ? item.shortVersionString : text
+        case "item":
+            releaseInfo = item.releaseInfo(releasesURL: releasesURL)
+            didCaptureFirstItem = true
+            isInsideFirstItem = false
+        default:
+            break
+        }
+
+        currentElement = ""
+        currentText = ""
+    }
+
+    private func attribute(_ name: String, in attributes: [String: String]) -> String? {
+        attributes.first { key, _ in
+            key == name || key.hasSuffix(":\(name)")
+        }?.value
+    }
+}
+
+private struct AppcastItem {
+    var title: String?
+    var bundleVersion: String?
+    var shortVersionString: String?
+    var publishedAt: Date?
+    var enclosureURL: URL?
+    var enclosureLength: Int?
+
+    func releaseInfo(releasesURL: URL?) -> UpdateReleaseInfo? {
+        guard let version = shortVersionString ?? normalizedVersion(from: title) ?? bundleVersion else {
+            return nil
+        }
+
+        let tagName = normalizedTagName(title: title, version: version)
+        let asset = enclosureURL.map {
+            UpdateReleaseAsset(
+                name: $0.lastPathComponent.removingPercentEncoding ?? $0.lastPathComponent,
+                downloadURL: $0,
+                size: enclosureLength
+            )
+        }
+        let htmlURL = releasePageURL(tagName: tagName, downloadURL: enclosureURL, releasesURL: releasesURL)
+            ?? releasesURL
+            ?? enclosureURL
+            ?? URL(string: "https://github.com/D1a0y1bb/PitcherPlant/releases")!
+
+        return UpdateReleaseInfo(
+            tagName: tagName,
+            name: title?.isEmpty == false ? title! : tagName,
+            version: version,
+            htmlURL: htmlURL,
+            publishedAt: publishedAt,
+            body: "",
+            assets: asset.map { [$0] } ?? []
+        )
+    }
+
+    static func parsePubDate(_ value: String) -> Date? {
+        guard value.isEmpty == false else {
+            return nil
+        }
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.dateFormat = "EEE, dd MMM yyyy HH:mm:ss Z"
+        return formatter.date(from: value)
+    }
+
+    private func normalizedVersion(from value: String?) -> String? {
+        guard var value = value?.trimmingCharacters(in: .whitespacesAndNewlines), value.isEmpty == false else {
+            return nil
+        }
+        if value.hasPrefix("v") || value.hasPrefix("V") {
+            value.removeFirst()
+        }
+        return value
+    }
+
+    private func normalizedTagName(title: String?, version: String) -> String {
+        let trimmedTitle = title?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        if trimmedTitle.hasPrefix("v") || trimmedTitle.hasPrefix("V") {
+            return trimmedTitle
+        }
+        return "v\(version)"
+    }
+
+    private func releasePageURL(tagName: String, downloadURL: URL?, releasesURL: URL?) -> URL? {
+        if let releasesURL {
+            return releasesURL.appendingPathComponent("tag").appendingPathComponent(tagName)
+        }
+
+        guard let downloadURL else {
+            return nil
+        }
+        let path = downloadURL.path
+        guard let range = path.range(of: "/releases/download/") else {
+            return nil
+        }
+        let repositoryPath = String(path[..<range.lowerBound])
+        var components = URLComponents(url: downloadURL, resolvingAgainstBaseURL: false)
+        components?.path = "\(repositoryPath)/releases/tag/\(tagName)"
+        components?.query = nil
+        return components?.url
     }
 }

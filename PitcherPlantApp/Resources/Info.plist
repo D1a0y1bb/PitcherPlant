@@ -54,6 +54,6 @@
     <key>PPReleasesURL</key>
     <string>https://github.com/D1a0y1bb/PitcherPlant/releases</string>
     <key>PPUpdateCheckURL</key>
-    <string>https://api.github.com/repos/D1a0y1bb/PitcherPlant/releases/latest</string>
+    <string>https://github.com/D1a0y1bb/PitcherPlant/releases/latest/download/appcast.xml?cachebust=1</string>
 </dict>
 </plist>
