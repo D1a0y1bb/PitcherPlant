@@ -30,10 +30,11 @@ struct SettingsEditablePathControl: View {
 struct SettingsReadOnlyPathRow: View {
     let title: String
     let subtitle: String
+    var icon: SettingsRowIconStyle = .generic
     let value: String
 
     var body: some View {
-        SettingsControlRow(title: title, subtitle: subtitle) {
+        SettingsControlRow(title: title, subtitle: subtitle, icon: icon) {
             SettingsPathDisplay(value: value)
         }
     }

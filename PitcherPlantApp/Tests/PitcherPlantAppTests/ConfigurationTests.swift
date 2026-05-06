@@ -165,6 +165,23 @@ func appVersionInfoReadsBundleMetadata() {
 }
 
 @Test
+func appVersionInfoFormatsBetaDisplayVersionWithBuildChannel() {
+    let version = AppVersionInfo(
+        infoDictionary: [
+            "CFBundleDisplayName": "PitcherPlant",
+            "CFBundleShortVersionString": "0.1.2-beta",
+            "CFBundleVersion": "18",
+            "PPReleaseTag": "v0.1.2-beta"
+        ],
+        bundleIdentifier: "com.pitcherplant.desktop"
+    )
+
+    #expect(version.displayVersion == "0.1.2-beta")
+    #expect(version.versionAndBuild == "0.1.2 (beta-18)")
+    #expect(AppVersionInfo.formattedDisplayVersion("0.1.1", build: "17") == "0.1.1 (17)")
+}
+
+@Test
 func appSemanticVersionOrdersStableAndPrereleaseTags() throws {
     let prerelease = try #require(AppSemanticVersion("v0.2.0-rc.1"))
     let final = try #require(AppSemanticVersion("0.2.0"))
@@ -433,6 +450,51 @@ func appSettingsRoundTripPreservesEnumSelections() throws {
 
     let loaded = AppPreferences.loadAppSettings(defaults: defaults)
     #expect(loaded == settings)
+}
+
+@Test
+func chineseLanguageRuntimePrefersSparkleChineseLocalization() throws {
+    let suiteName = "pitcherplant.tests.language.\(UUID().uuidString)"
+    guard let defaults = UserDefaults(suiteName: suiteName) else {
+        Issue.record("无法创建测试专用 UserDefaults")
+        return
+    }
+    defer { clearTestDefaults(suiteName, defaults: defaults) }
+
+    AppLanguageRuntime.apply(.zhHans, defaults: defaults)
+
+    let languages = try #require(defaults.stringArray(forKey: "AppleLanguages"))
+    #expect(languages.prefix(3).elementsEqual(["zh_CN", "zh-Hans", "en"]))
+    #expect(AppLanguageRuntime.sparkleLocalizationResourceName(for: .zhHans) == "zh_CN")
+}
+
+@Test
+func englishLanguageRuntimeAvoidsChineseFallbackForSparkle() throws {
+    let suiteName = "pitcherplant.tests.language.\(UUID().uuidString)"
+    guard let defaults = UserDefaults(suiteName: suiteName) else {
+        Issue.record("无法创建测试专用 UserDefaults")
+        return
+    }
+    defer { clearTestDefaults(suiteName, defaults: defaults) }
+
+    AppLanguageRuntime.apply(.english, defaults: defaults)
+
+    let languages = try #require(defaults.stringArray(forKey: "AppleLanguages"))
+    #expect(languages == ["en"])
+    #expect(AppLanguageRuntime.sparkleLocalizationResourceName(for: .english) == "Base")
+}
+
+@Test
+func sparkleNoUpdateCopyOmitsCurrentlyRunningVersionLine() {
+    let key = "%@ %@ is currently the newest version available.\n(You are currently running version\u{00a0}%@.)"
+
+    let chinese = AppLanguageRuntime.sparkleLocalizedStringOverride(forKey: key, language: .zhHans)
+    let english = AppLanguageRuntime.sparkleLocalizedStringOverride(forKey: key, language: .english)
+
+    #expect(chinese == "%1$@ %2$@是当前的最新版本。")
+    #expect(english == "%1$@ %2$@ is currently the newest version available.")
+    #expect(chinese?.contains("正在运行") == false)
+    #expect(english?.contains("currently running") == false)
 }
 
 @Test

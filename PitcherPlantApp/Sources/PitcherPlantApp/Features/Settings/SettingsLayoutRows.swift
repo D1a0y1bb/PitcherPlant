@@ -3,7 +3,11 @@ import SwiftUI
 enum SettingsLayout {
     static let horizontalPadding: CGFloat = 14
     static let groupHorizontalPadding: CGFloat = 20
-    static let rowLeadingPadding: CGFloat = 24
+    static let rowLeadingPadding: CGFloat = 18
+    static let rowIconSize: CGFloat = 28
+    static let rowIconCornerRadius: CGFloat = 7
+    static let rowMinHeight: CGFloat = 56
+    static let dividerLeadingPadding: CGFloat = rowLeadingPadding + rowIconSize + 16
     static let trailingWidth: CGFloat = 360
     static let menuWidth: CGFloat = 220
     static let numberFieldWidth: CGFloat = 50
@@ -19,36 +23,39 @@ struct SettingsGroup<Content: View>: View {
     @ViewBuilder var content: Content
 
     var body: some View {
-        VStack(spacing: 0) {
+        VStack(alignment: .leading, spacing: 8) {
             Text(title)
                 .font(AppTypography.sectionTitle)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.horizontal, SettingsLayout.groupHorizontalPadding)
-                .padding(.top, 18)
-                .padding(.bottom, 10)
 
-            content
+            VStack(spacing: 0) {
+                content
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.vertical, 2)
+            .background {
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .fill(.regularMaterial)
+            }
+            .overlay {
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .strokeBorder(Color(nsColor: .separatorColor).opacity(0.28), lineWidth: 0.5)
+            }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.bottom, 12)
-        .background {
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .fill(.regularMaterial)
-        }
-        .overlay {
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .strokeBorder(Color(nsColor: .separatorColor).opacity(0.28), lineWidth: 0.5)
-        }
+        .padding(.bottom, 16)
     }
 }
 
 struct SettingsValueRow: View {
     let title: String
     let subtitle: String
+    var icon: SettingsRowIconStyle = .generic
     let value: String
 
     var body: some View {
-        SettingsControlRow(title: title, subtitle: subtitle) {
+        SettingsControlRow(title: title, subtitle: subtitle, icon: icon) {
             SettingsStatusText(value)
         }
     }
@@ -58,10 +65,11 @@ struct SettingsPathRow: View {
     @Environment(AppState.self) private var appState
     let title: String
     let subtitle: String
+    var icon: SettingsRowIconStyle = .generic
     @Binding var text: String
 
     var body: some View {
-        SettingsControlRow(title: title, subtitle: subtitle) {
+        SettingsControlRow(title: title, subtitle: subtitle, icon: icon) {
             SettingsEditablePathControl(
                 title: title,
                 text: $text,

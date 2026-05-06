@@ -3,10 +3,11 @@ import SwiftUI
 struct SettingsTextFieldRow: View {
     let title: String
     let subtitle: String
+    var icon: SettingsRowIconStyle = .generic
     @Binding var text: String
 
     var body: some View {
-        SettingsControlRow(title: title, subtitle: subtitle) {
+        SettingsControlRow(title: title, subtitle: subtitle, icon: icon) {
             SettingsTextControl(title: title, text: $text)
         }
     }
@@ -30,11 +31,12 @@ struct SettingsTextControl: View {
 struct SettingsNumberFieldRow: View {
     let title: String
     let subtitle: String
+    var icon: SettingsRowIconStyle = .generic
     @Binding var value: Double
     let hint: String
 
     var body: some View {
-        SettingsControlRow(title: title, subtitle: subtitle) {
+        SettingsControlRow(title: title, subtitle: subtitle, icon: icon) {
             SettingsNumberStepper(
                 value: $value,
                 range: 0...1,
@@ -48,11 +50,12 @@ struct SettingsNumberFieldRow: View {
 struct SettingsIntegerFieldRow: View {
     let title: String
     let subtitle: String
+    var icon: SettingsRowIconStyle = .generic
     @Binding var value: Int
     let hint: String
 
     var body: some View {
-        SettingsControlRow(title: title, subtitle: subtitle) {
+        SettingsControlRow(title: title, subtitle: subtitle, icon: icon) {
             SettingsIntegerStepper(
                 value: $value,
                 range: 0...64,
@@ -66,10 +69,11 @@ struct SettingsIntegerFieldRow: View {
 struct SettingsToggleRow: View {
     let title: String
     let subtitle: String
+    var icon: SettingsRowIconStyle = .generic
     @Binding var isOn: Bool
 
     var body: some View {
-        SettingsControlRow(title: title, subtitle: subtitle) {
+        SettingsControlRow(title: title, subtitle: subtitle, icon: icon) {
             Toggle("", isOn: $isOn)
                 .labelsHidden()
                 .toggleStyle(.switch)
@@ -81,10 +85,11 @@ struct SettingsToggleRow: View {
 struct SettingsPickerRow<Content: View>: View {
     let title: String
     let subtitle: String
+    var icon: SettingsRowIconStyle = .generic
     @ViewBuilder var content: Content
 
     var body: some View {
-        SettingsControlRow(title: title, subtitle: subtitle) {
+        SettingsControlRow(title: title, subtitle: subtitle, icon: icon) {
             content
         }
     }
@@ -93,10 +98,11 @@ struct SettingsPickerRow<Content: View>: View {
 struct SettingsButtonGroupRow<Content: View>: View {
     let title: String
     let subtitle: String
+    var icon: SettingsRowIconStyle = .generic
     @ViewBuilder var content: Content
 
     var body: some View {
-        SettingsControlRow(title: title, subtitle: subtitle) {
+        SettingsControlRow(title: title, subtitle: subtitle, icon: icon) {
             HStack(spacing: 8) {
                 content
             }
@@ -108,12 +114,13 @@ struct SettingsButtonGroupRow<Content: View>: View {
 struct SettingsActionRow: View {
     let title: String
     let subtitle: String
+    var icon: SettingsRowIconStyle = .generic
     let buttonTitle: String
     let systemImage: String
     let action: () -> Void
 
     var body: some View {
-        SettingsControlRow(title: title, subtitle: subtitle) {
+        SettingsControlRow(title: title, subtitle: subtitle, icon: icon) {
             Button(action: action) {
                 Label(buttonTitle, systemImage: systemImage)
             }
@@ -141,19 +148,23 @@ struct SettingsMenuPicker<Value: Hashable>: View {
         } label: {
             HStack(spacing: 7) {
                 menuLabel(for: selection)
-
-                Spacer(minLength: 8)
+                    .frame(maxWidth: .infinity, alignment: .trailing)
 
                 Image(systemName: "chevron.up.chevron.down")
                     .font(AppTypography.badge)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(.primary)
+                    .frame(width: 28, height: 28)
+                    .background {
+                        Circle()
+                            .fill(Color.secondary.opacity(0.13))
+                    }
             }
             .font(AppTypography.supporting.weight(.medium))
             .lineLimit(1)
-            .frame(width: width, alignment: .leading)
+            .frame(width: width, alignment: .trailing)
         }
         .menuStyle(.button)
-        .buttonStyle(.bordered)
+        .buttonStyle(.plain)
         .fixedSize()
     }
 

@@ -56,7 +56,8 @@ struct SettingsRootView: View {
                 SettingsGroup(title: appState.t("settings.general")) {
                     SettingsPickerRow(
                         title: appState.t("settings.language"),
-                        subtitle: appState.t("settings.languageDescription")
+                        subtitle: appState.t("settings.languageDescription"),
+                        icon: .language
                     ) {
                         SettingsMenuPicker(
                             selection: settingsBinding(\.language),
@@ -71,6 +72,7 @@ struct SettingsRootView: View {
                     SettingsToggleRow(
                         title: appState.t("settings.menuBar"),
                         subtitle: appState.t("settings.menuBarDescription"),
+                        icon: .menuBar,
                         isOn: settingsBinding(\.showMenuBarExtra)
                     )
                 }
@@ -78,7 +80,8 @@ struct SettingsRootView: View {
                 SettingsGroup(title: appState.t("settings.appearance")) {
                     SettingsPickerRow(
                         title: appState.t("settings.theme"),
-                        subtitle: appState.t("settings.themeDescription")
+                        subtitle: appState.t("settings.themeDescription"),
+                        icon: .theme
                     ) {
                         SettingsMenuPicker(
                             selection: settingsBinding(\.appearance),
@@ -93,6 +96,7 @@ struct SettingsRootView: View {
                     SettingsToggleRow(
                         title: appState.t("settings.inspectorDefault"),
                         subtitle: appState.t("settings.inspectorDefaultDescription"),
+                        icon: .inspector,
                         isOn: settingsBinding(\.showInspectorByDefault)
                     )
 
@@ -101,6 +105,7 @@ struct SettingsRootView: View {
                     SettingsToggleRow(
                         title: appState.t("settings.compactRows"),
                         subtitle: appState.t("settings.compactRowsDescription"),
+                        icon: .listDensity,
                         isOn: settingsBinding(\.compactRows)
                     )
                 }
@@ -109,6 +114,7 @@ struct SettingsRootView: View {
                     SettingsPathRow(
                         title: appState.t("audit.directory"),
                         subtitle: appState.t("settings.auditDirectoryDescription"),
+                        icon: .inputFolder,
                         text: draftBinding(\.directoryPath)
                     )
 
@@ -117,6 +123,7 @@ struct SettingsRootView: View {
                     SettingsPathRow(
                         title: appState.t("audit.outputDirectory"),
                         subtitle: appState.t("settings.reportDirectoryDescription"),
+                        icon: .outputFolder,
                         text: draftBinding(\.outputDirectoryPath)
                     )
 
@@ -125,6 +132,7 @@ struct SettingsRootView: View {
                     SettingsNumberFieldRow(
                         title: appState.t("audit.textThreshold"),
                         subtitle: appState.t("settings.textThresholdDescription"),
+                        icon: .textThreshold,
                         value: draftDoubleBinding(\.textThreshold),
                         hint: "0.00–1.00"
                     )
@@ -134,6 +142,7 @@ struct SettingsRootView: View {
                     SettingsNumberFieldRow(
                         title: appState.t("audit.dedupThreshold"),
                         subtitle: appState.t("settings.dedupThresholdDescription"),
+                        icon: .duplicateThreshold,
                         value: draftDoubleBinding(\.dedupThreshold),
                         hint: "0.00–1.00"
                     )
@@ -143,6 +152,7 @@ struct SettingsRootView: View {
                     SettingsIntegerFieldRow(
                         title: appState.t("audit.imageThreshold"),
                         subtitle: appState.t("settings.imageThresholdDescription"),
+                        icon: .imageThreshold,
                         value: draftIntBinding(\.imageThreshold),
                         hint: "0–64"
                     )
@@ -152,6 +162,7 @@ struct SettingsRootView: View {
                     SettingsIntegerFieldRow(
                         title: appState.t("audit.simhashThreshold"),
                         subtitle: appState.t("settings.simhashThresholdDescription"),
+                        icon: .simhashThreshold,
                         value: draftIntBinding(\.simhashThreshold),
                         hint: "bit"
                     )
@@ -161,6 +172,7 @@ struct SettingsRootView: View {
                     SettingsToggleRow(
                         title: appState.t("audit.visionOCR"),
                         subtitle: appState.t("settings.visionOCRDescription"),
+                        icon: .vision,
                         isOn: draftBoolBinding(\.useVisionOCR)
                     )
 
@@ -171,7 +183,8 @@ struct SettingsRootView: View {
                         subtitle: currentValueSubtitle(
                             appState.t("settings.whitelistModeDescription"),
                             value: appState.title(for: appState.draftConfiguration.whitelistMode)
-                        )
+                        ),
+                        icon: .whitelist
                     ) {
                         SettingsMenuPicker(
                             selection: draftBinding(\.whitelistMode),
@@ -185,7 +198,8 @@ struct SettingsRootView: View {
                 SettingsGroup(title: appState.t("settings.calibration")) {
                     SettingsPickerRow(
                         title: appState.t("settings.calibrationPreset"),
-                        subtitle: appState.subtitle(for: selectedCalibrationPreset)
+                        subtitle: appState.subtitle(for: selectedCalibrationPreset),
+                        icon: .calibrationPreset
                     ) {
                         SettingsMenuPicker(
                             selection: $selectedCalibrationPreset,
@@ -199,7 +213,8 @@ struct SettingsRootView: View {
 
                     SettingsButtonGroupRow(
                         title: appState.t("settings.calibrationEvaluation"),
-                        subtitle: calibrationSummaryText
+                        subtitle: calibrationSummaryText,
+                        icon: .calibrationRun
                     ) {
                         Button {
                             applyCalibrationPreset()
@@ -219,14 +234,20 @@ struct SettingsRootView: View {
                         CalibrationResultRows(result: calibrationResult)
                     } else if let calibrationMessage {
                         SettingsDivider()
-                        SettingsValueRow(title: appState.t("settings.calibrationStatus"), subtitle: calibrationMessage, value: "")
+                        SettingsValueRow(
+                            title: appState.t("settings.calibrationStatus"),
+                            subtitle: calibrationMessage,
+                            icon: .calibrationStatus,
+                            value: ""
+                        )
                     }
                 }
 
                 SettingsGroup(title: appState.t("settings.auditAssistant")) {
                     SettingsPickerRow(
                         title: appState.t("settings.auditAssistantMode"),
-                        subtitle: currentValueSubtitle(appState.t("settings.auditAssistantModeDescription"), value: auditAssistantModeTitle(auditAssistantMode))
+                        subtitle: currentValueSubtitle(appState.t("settings.auditAssistantModeDescription"), value: auditAssistantModeTitle(auditAssistantMode)),
+                        icon: .assistantMode
                     ) {
                         SettingsMenuPicker(
                             selection: auditAssistantBinding(\.mode),
@@ -242,6 +263,7 @@ struct SettingsRootView: View {
                     SettingsTextFieldRow(
                         title: auditAssistantEndpointTitle,
                         subtitle: auditAssistantEndpointSubtitle,
+                        icon: auditAssistantEndpointIcon,
                         text: auditAssistantBinding(\.endpointOrCommand)
                     )
                     .disabled(auditAssistantMode == .disabled)
@@ -251,6 +273,7 @@ struct SettingsRootView: View {
                     SettingsAssistantTimeoutRow(
                         title: appState.t("settings.auditAssistantTimeout"),
                         subtitle: appState.t("settings.auditAssistantTimeoutDescription"),
+                        icon: .assistantTimeout,
                         value: auditAssistantBinding(\.timeoutSeconds)
                     )
                     .disabled(auditAssistantMode == .disabled)
@@ -260,6 +283,7 @@ struct SettingsRootView: View {
                     SettingsTextFieldRow(
                         title: appState.t("settings.auditAssistantKeychain"),
                         subtitle: appState.t("settings.auditAssistantKeychainDescription"),
+                        icon: .assistantCredential,
                         text: auditAssistantBinding(\.keychainCredentialReference)
                     )
                     .disabled(auditAssistantMode != .externalAPI)
@@ -269,6 +293,7 @@ struct SettingsRootView: View {
                     SettingsToggleRow(
                         title: appState.t("settings.preferInAppReports"),
                         subtitle: appState.t("settings.preferInAppReportsDescription"),
+                        icon: .reportPreference,
                         isOn: settingsBinding(\.preferInAppReports)
                     )
 
@@ -279,7 +304,8 @@ struct SettingsRootView: View {
                         subtitle: currentValueSubtitle(
                             appState.t("settings.defaultExportFormatDescription"),
                             value: appState.appSettings.defaultExportFormat.displayTitle
-                        )
+                        ),
+                        icon: .exportFormat
                     ) {
                         SettingsMenuPicker(
                             selection: settingsBinding(\.defaultExportFormat),
@@ -294,6 +320,7 @@ struct SettingsRootView: View {
                     SettingsToggleRow(
                         title: appState.t("settings.attachmentPreview"),
                         subtitle: appState.t("settings.attachmentPreviewDescription"),
+                        icon: .attachmentPreview,
                         isOn: settingsBinding(\.showAttachmentPreviews)
                     )
                 }
@@ -302,6 +329,7 @@ struct SettingsRootView: View {
                     SettingsReadOnlyPathRow(
                         title: appState.t("settings.databaseLocation"),
                         subtitle: appState.t("settings.databaseLocationDescription"),
+                        icon: .database,
                         value: appState.database.databaseURL.path
                     )
 
@@ -310,6 +338,7 @@ struct SettingsRootView: View {
                     SettingsValueRow(
                         title: appState.t("settings.recordCounts"),
                         subtitle: appState.t("settings.recordCountsDescription"),
+                        icon: .recordCounts,
                         value: recordCounts
                     )
 
@@ -317,7 +346,8 @@ struct SettingsRootView: View {
 
                     SettingsButtonGroupRow(
                         title: appState.t("settings.dataActions"),
-                        subtitle: appState.t("settings.dataActionsDescription")
+                        subtitle: appState.t("settings.dataActionsDescription"),
+                        icon: .dataActions
                     ) {
                         Button {
                             NSWorkspace.shared.open(appState.database.databaseURL.deletingLastPathComponent())
@@ -337,6 +367,7 @@ struct SettingsRootView: View {
                     SettingsActionRow(
                         title: appState.isRunningAudit ? appState.t("command.cancelAudit") : appState.t("command.startAudit"),
                         subtitle: appState.t("settings.startAuditDescription"),
+                        icon: appState.isRunningAudit ? .cancelAudit : .startAudit,
                         buttonTitle: appState.isRunningAudit ? appState.t("toolbar.cancel") : appState.t("toolbar.start"),
                         systemImage: appState.isRunningAudit ? "stop.fill" : "play.fill"
                     ) {
@@ -348,6 +379,7 @@ struct SettingsRootView: View {
                     SettingsActionRow(
                         title: appState.t("settings.openReports"),
                         subtitle: appState.t("settings.openReportsDescription"),
+                        icon: .openReports,
                         buttonTitle: appState.t("settings.openReports"),
                         systemImage: "doc.text.magnifyingglass"
                     ) {
@@ -358,7 +390,8 @@ struct SettingsRootView: View {
 
                     SettingsButtonGroupRow(
                         title: appState.t("settings.reportActions"),
-                        subtitle: appState.t("settings.reportActionsDescription")
+                        subtitle: appState.t("settings.reportActionsDescription"),
+                        icon: .reportActions
                     ) {
                         Button {
                             appState.exportSelectedReportAsHTML()
@@ -443,6 +476,14 @@ struct SettingsRootView: View {
         case .disabled: return appState.t("settings.auditAssistantDisabledSubtitle")
         case .localCommand: return appState.t("settings.auditAssistantLocalSubtitle")
         case .externalAPI: return appState.t("settings.auditAssistantAPISubtitle")
+        }
+    }
+
+    private var auditAssistantEndpointIcon: SettingsRowIconStyle {
+        switch auditAssistantMode {
+        case .disabled: return .assistantCommand
+        case .localCommand: return .assistantCommand
+        case .externalAPI: return .assistantMode
         }
     }
 
@@ -535,10 +576,11 @@ struct SettingsRootView: View {
 private struct SettingsAssistantTimeoutRow: View {
     let title: String
     let subtitle: String
+    var icon: SettingsRowIconStyle = .assistantTimeout
     @Binding var value: Double
 
     var body: some View {
-        SettingsControlRow(title: title, subtitle: subtitle) {
+        SettingsControlRow(title: title, subtitle: subtitle, icon: icon) {
             SettingsAssistantTimeoutStepper(value: $value)
         }
     }

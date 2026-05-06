@@ -21,10 +21,7 @@ struct AppVersionInfo: Equatable {
     }
 
     var versionAndBuild: String {
-        guard !build.isEmpty, build != "Unknown" else {
-            return displayVersion
-        }
-        return "\(displayVersion) (\(build))"
+        Self.formattedDisplayVersion(displayVersion, build: build)
     }
 
     var comparableVersion: String {
@@ -72,6 +69,36 @@ struct AppVersionInfo: Equatable {
 
     private static func displayReleaseTag(_ tag: String) -> String {
         tag.hasPrefix("v") ? String(tag.dropFirst()) : tag
+    }
+
+    static func formattedDisplayVersion(_ rawDisplayVersion: String, build rawBuild: String) -> String {
+        let displayVersion = displayReleaseTag(rawDisplayVersion)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        let build = rawBuild.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !displayVersion.isEmpty,
+              !build.isEmpty,
+              build != "Unknown",
+              !isUnresolvedBuildSetting(build)
+        else {
+            return displayVersion
+        }
+        if let betaDisplayVersion = betaDisplayVersion(displayVersion, build: build) {
+            return betaDisplayVersion
+        }
+        return "\(displayVersion) (\(build))"
+    }
+
+    private static func betaDisplayVersion(_ displayVersion: String, build: String) -> String? {
+        let parts = displayVersion.split(separator: "-", maxSplits: 1, omittingEmptySubsequences: false)
+        guard parts.count == 2 else {
+            return nil
+        }
+        let prerelease = String(parts[1])
+        guard prerelease.localizedCaseInsensitiveCompare("beta") == .orderedSame
+                || prerelease.lowercased().hasPrefix("beta.") else {
+            return nil
+        }
+        return "\(parts[0]) (\(prerelease)-\(build))"
     }
 
     private static func isUnresolvedBuildSetting(_ value: String) -> Bool {

@@ -337,6 +337,7 @@ final class AppState {
 
     func checkForUpdatesManually() {
         NSApp.activate(ignoringOtherApps: true)
+        AppLanguageRuntime.apply(appSettings.language)
         appUpdater.checkForUpdates()
     }
 
@@ -345,6 +346,7 @@ final class AppState {
             return
         }
         NSApp.activate(ignoringOtherApps: true)
+        AppLanguageRuntime.apply(appSettings.language)
         appUpdater.checkForUpdates()
     }
 
