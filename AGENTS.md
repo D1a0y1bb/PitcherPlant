@@ -112,6 +112,7 @@ xcodebuild -project PitcherPlantApp/PitcherPlantApp.xcodeproj -scheme PitcherPla
 - 设置页经历过深色外观、路径布局、搜索、控件对齐、详情栏隐藏、圆角控件、卡片样式多轮返工，后续改动应小步保持原生偏好设置结构。
 - 右侧 Inspector 曾出现额外分隔线、顶部 titlebar 遮挡、背景偏黑、空态位置偏高、宽度缩放问题，改 Inspector 先找已有 `ReportInspectorScrollView`、panel surface 和 split width 策略。
 - glassEffect 曾出现渲染残影，避免在滚动大列表或复杂背景上盲目叠太多玻璃层。
+- 主窗口左侧 sidebar 曾在 `v0.1.1` 后出现点击页面时列表内容上下晃动：`v0.1.0-rc.9` 稳定，差异定位到原生 `List(selection:)` 后新增的 `.contentMargins(.top/.bottom, for: .scrollContent)`。该 modifier 会参与 source-list 的选中项可见区域计算，点击 `Workspace`、`New Audit`、`Settings` 这类分布在列表不同位置的项时，系统会重新校正 scroll offset，看起来像整组内容上下跳。后续不要用 `contentMargins(..., for: .scrollContent)` 调 sidebar 顶部或底部间距；保持 `List(selection:) + .listStyle(.sidebar) + .tag(item)`，行内使用轻量 `HStack/Label` 和最小 padding。
 
 ## Scroll-edge 标题栏模糊经验
 
