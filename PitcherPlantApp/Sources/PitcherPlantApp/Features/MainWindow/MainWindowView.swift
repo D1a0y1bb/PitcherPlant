@@ -302,6 +302,7 @@ struct MainWindowView: View {
             }
 
             NativeScanOptionsMenu()
+            importPackageToolbarButton
             newAuditToolbarButton
         }
 
@@ -333,6 +334,17 @@ struct MainWindowView: View {
         }
         .help(appState.t("toolbar.newScan"))
         .accessibilityLabel(appState.t("toolbar.newScan"))
+    }
+
+    private var importPackageToolbarButton: some View {
+        Button {
+            appState.importSubmissionPackageWithPanel()
+        } label: {
+            Label(appState.t("audit.importSubmissions"), systemImage: "tray.and.arrow.down")
+        }
+        .disabled(appState.isImportingSubmissionPackage)
+        .help(appState.t("audit.importSubmissions"))
+        .accessibilityLabel(appState.t("audit.importSubmissions"))
     }
 
     private var startAuditToolbarButton: some View {
