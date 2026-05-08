@@ -130,9 +130,63 @@ func documentFeatureDatabaseNormalizesCachedPayloadAndCleansStaleRows() async th
     let deleted = try await store.cleanupDocumentFeatures(excludingDocumentPaths: [current.documentPath], batchID: batchID)
     #expect(deleted == 0)
 
+    let skippedGlobalCleanup = try await store.cleanupDocumentFeatures(excludingDocumentPaths: [])
+    #expect(skippedGlobalCleanup == 0)
+    #expect(Set(try await store.loadDocumentFeatures().map(\.id)).isSuperset(of: [current.id, cachedID]))
+
     let removed = try await store.deleteDocumentFeatures(ids: [current.id, cachedID])
     #expect(removed == 2)
     #expect(try await store.loadDocumentFeatures().isEmpty)
+}
+
+@Test
+func ordinaryFeatureBuildDoesNotOrphanBatchedCaches() throws {
+    let root = FileManager.default.temporaryDirectory
+        .appendingPathComponent("pitcherplant-feature-scope-\(UUID().uuidString)", isDirectory: true)
+    let current = syntheticDocument(index: 0, root: root)
+    let staleUnbatched = DocumentFeature(document: syntheticDocument(index: 1, root: root))
+    let otherBatchID = UUID()
+    let staleBatched = DocumentFeature(
+        document: syntheticDocument(index: 2, root: root),
+        batchID: otherBatchID
+    )
+
+    let result = DocumentFeatureStore().buildFeatureResult(
+        for: [current],
+        cachedFeatures: [staleUnbatched, staleBatched]
+    )
+
+    #expect(result.orphanedFeatureIDs == [staleUnbatched.id])
+    #expect(result.orphanedFeatureIDs.contains(staleBatched.id) == false)
+}
+
+@Test
+func documentFeatureDatabaseCanLoadUnbatchedFeaturesByPathPrefix() async throws {
+    let root = FileManager.default.temporaryDirectory
+        .appendingPathComponent("pitcherplant-feature-prefix-\(UUID().uuidString)", isDirectory: true)
+    let support = root.appendingPathComponent(".pitcherplant-macos", isDirectory: true)
+    try FileManager.default.createDirectory(at: support, withIntermediateDirectories: true)
+    let store = try DatabaseStore(rootDirectory: root)
+    try await store.prepare()
+
+    let unbatchedInScope = DocumentFeature(document: syntheticDocument(index: 0, root: root))
+    let batchedInScope = DocumentFeature(
+        document: syntheticDocument(index: 1, root: root),
+        batchID: UUID()
+    )
+    let unbatchedOutOfScope = DocumentFeature(
+        document: syntheticDocument(
+            index: 2,
+            root: root.deletingLastPathComponent()
+                .appendingPathComponent("pitcherplant-feature-prefix-outside-\(UUID().uuidString)", isDirectory: true)
+        )
+    )
+
+    try await store.upsertDocumentFeatures([unbatchedInScope, batchedInScope, unbatchedOutOfScope])
+
+    let scoped = try await store.loadDocumentFeatures(pathPrefix: root.path, onlyUnbatched: true)
+
+    #expect(scoped.map(\.id) == [unbatchedInScope.id])
 }
 
 private func syntheticDocument(index: Int, root: URL) -> ParsedDocument {

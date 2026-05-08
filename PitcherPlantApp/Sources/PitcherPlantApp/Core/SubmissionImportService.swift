@@ -8,7 +8,7 @@ struct SubmissionImportOptions: Hashable, Sendable {
     var maxTotalExpandedBytes: Int64 = 2 * 1024 * 1024 * 1024
     var maxScannedFileCount: Int = 20_000
     var ignoredNames: Set<String> = [".DS_Store", "__MACOSX"]
-    var allowedExtensions: Set<String> = DocumentIngestionService.supportedExtensions.union(["zip"])
+    var allowedExtensions: Set<String> = DocumentIngestionService.supportedExtensions
 }
 
 struct SubmissionImportIssue: Codable, Hashable, Sendable {
@@ -49,7 +49,9 @@ struct SubmissionImportService: Sendable {
             var tracker = ZipImportTracker()
             try extractZip(sourceURL, to: importRoot, depth: 0, options: options, tracker: &tracker, issues: &issues)
         } else {
-            importRoot = sourceURL
+            importRoot = destination.appendingPathComponent("snapshot", isDirectory: true)
+            try FileManager.default.createDirectory(at: importRoot, withIntermediateDirectories: true)
+            try copySnapshot(from: sourceURL, to: importRoot, options: options, issues: &issues)
         }
 
         let items = buildItems(batchID: batchID, importRoot: importRoot, options: options, issues: &issues)
@@ -64,7 +66,7 @@ struct SubmissionImportService: Sendable {
     }
 
     func auditJobs(from result: SubmissionImportResult, outputDirectory: URL, template: String) -> [AuditJob] {
-        result.items.map { item in
+        result.items.filter { $0.fileCount > 0 }.map { item in
             var configuration = AuditConfiguration.defaults(for: outputDirectory.deletingLastPathComponent())
             configuration.directoryPath = item.rootPath
             configuration.outputDirectoryPath = outputDirectory.path
@@ -75,6 +77,100 @@ struct SubmissionImportService: Sendable {
             job.submissionItemID = item.id
             return job
         }
+    }
+
+    private func copySnapshot(
+        from sourceURL: URL,
+        to destination: URL,
+        options: SubmissionImportOptions,
+        issues: inout [SubmissionImportIssue]
+    ) throws {
+        let values = try sourceURL.resourceValues(forKeys: [.isDirectoryKey, .isRegularFileKey])
+        var tracker = SnapshotImportTracker()
+        if values.isDirectory == true {
+            let basePath = sourceURL.standardizedFileURL.path
+            let enumerator = FileManager.default.enumerator(
+                at: sourceURL,
+                includingPropertiesForKeys: [.isDirectoryKey, .isRegularFileKey, .isSymbolicLinkKey, .fileSizeKey],
+                options: [.skipsHiddenFiles]
+            )
+            while let url = enumerator?.nextObject() as? URL {
+                let relativePath = relativePath(for: url, basePath: basePath)
+                guard shouldKeep(relativePath, options: options) else {
+                    if (try? url.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) == true {
+                        enumerator?.skipDescendants()
+                    }
+                    continue
+                }
+                let resourceValues = try url.resourceValues(forKeys: [.isDirectoryKey, .isRegularFileKey, .isSymbolicLinkKey, .fileSizeKey])
+                if resourceValues.isSymbolicLink == true {
+                    issues.append(SubmissionImportIssue(path: url.path, severity: .warning, message: "符号链接已跳过"))
+                    continue
+                }
+                if resourceValues.isDirectory == true {
+                    guard let targetURL = safeDestination(for: relativePath, base: destination) else {
+                        issues.append(SubmissionImportIssue(path: relativePath, severity: .error, message: "路径穿越已拦截"))
+                        continue
+                    }
+                    try FileManager.default.createDirectory(at: targetURL, withIntermediateDirectories: true)
+                    continue
+                }
+                guard resourceValues.isRegularFile != false else {
+                    continue
+                }
+                try copySnapshotFile(
+                    from: url,
+                    relativePath: relativePath,
+                    to: destination,
+                    options: options,
+                    tracker: &tracker,
+                    issues: &issues
+                )
+            }
+        } else if values.isRegularFile == true {
+            try copySnapshotFile(
+                from: sourceURL,
+                relativePath: sourceURL.lastPathComponent,
+                to: destination,
+                options: options,
+                tracker: &tracker,
+                issues: &issues
+            )
+        }
+    }
+
+    private func copySnapshotFile(
+        from sourceURL: URL,
+        relativePath: String,
+        to destination: URL,
+        options: SubmissionImportOptions,
+        tracker: inout SnapshotImportTracker,
+        issues: inout [SubmissionImportIssue]
+    ) throws {
+        guard tracker.registerFile(path: sourceURL.path, options: options, issues: &issues) else {
+            return
+        }
+        let fileSize = Int64((try? sourceURL.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0)
+        guard tracker.reserveBytes(fileSize, path: sourceURL.path, options: options, issues: &issues) else {
+            return
+        }
+        guard let targetURL = safeDestination(for: relativePath, base: destination) else {
+            issues.append(SubmissionImportIssue(path: relativePath, severity: .error, message: "路径穿越已拦截"))
+            return
+        }
+        try FileManager.default.createDirectory(at: targetURL.deletingLastPathComponent(), withIntermediateDirectories: true)
+        if FileManager.default.fileExists(atPath: targetURL.path) {
+            try FileManager.default.removeItem(at: targetURL)
+        }
+        try FileManager.default.copyItem(at: sourceURL, to: targetURL)
+    }
+
+    private func relativePath(for url: URL, basePath: String) -> String {
+        let path = url.standardizedFileURL.path
+        guard path.hasPrefix(basePath + "/") else {
+            return url.lastPathComponent
+        }
+        return String(path.dropFirst(basePath.count + 1))
     }
 
     private func extractZip(
@@ -140,11 +236,12 @@ struct SubmissionImportService: Sendable {
         let roots = directoryChildren.isEmpty ? [importRoot] : directoryChildren
         var scanTracker = FileScanTracker()
 
-        return roots.map { root in
+        return roots.compactMap { root in
             let files = collectFiles(in: root, options: options, tracker: &scanTracker, issues: &issues)
             let ignoredCount = files.ignored
             if files.accepted.isEmpty {
                 issues.append(SubmissionImportIssue(path: root.path, severity: .warning, message: "未发现可审计文件"))
+                return nil
             }
             return SubmissionItem(
                 batchID: batchID,
@@ -152,7 +249,7 @@ struct SubmissionImportService: Sendable {
                 rootPath: root.path,
                 fileCount: files.accepted.count,
                 ignoredCount: ignoredCount,
-                problemCount: files.accepted.isEmpty ? 1 : 0
+                problemCount: 0
             )
         }
     }
@@ -285,6 +382,51 @@ private struct FileScanTracker {
             return false
         }
         scannedFileCount += 1
+        return true
+    }
+}
+
+private struct SnapshotImportTracker {
+    var scannedFileCount = 0
+    var copiedBytes: Int64 = 0
+    var scanLimitReported = false
+    var totalLimitReported = false
+
+    mutating func registerFile(
+        path: String,
+        options: SubmissionImportOptions,
+        issues: inout [SubmissionImportIssue]
+    ) -> Bool {
+        guard scannedFileCount < options.maxScannedFileCount else {
+            if scanLimitReported == false {
+                issues.append(SubmissionImportIssue(path: path, severity: .warning, message: "扫描文件数量超过限制"))
+                scanLimitReported = true
+            }
+            return false
+        }
+        scannedFileCount += 1
+        return true
+    }
+
+    mutating func reserveBytes(
+        _ byteCount: Int64,
+        path: String,
+        options: SubmissionImportOptions,
+        issues: inout [SubmissionImportIssue]
+    ) -> Bool {
+        guard byteCount <= options.maxSingleFileBytes else {
+            issues.append(SubmissionImportIssue(path: path, severity: .warning, message: "单文件大小超过限制"))
+            return false
+        }
+        guard byteCount <= options.maxTotalExpandedBytes,
+              copiedBytes <= options.maxTotalExpandedBytes - byteCount else {
+            if totalLimitReported == false {
+                issues.append(SubmissionImportIssue(path: path, severity: .warning, message: "目录快照总大小超过限制"))
+                totalLimitReported = true
+            }
+            return false
+        }
+        copiedBytes += byteCount
         return true
     }
 }

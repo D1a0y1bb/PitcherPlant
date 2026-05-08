@@ -440,7 +440,7 @@ struct DocumentFeatureStore {
         let orphanedFeatureIDs = cachedFeatures
             .filter { feature in
                 currentPaths.contains(feature.documentPath) == false
-                    && (batchID == nil || feature.batchID == nil || feature.batchID == batchID)
+                    && feature.belongsToFeatureCleanupScope(batchID: batchID)
             }
             .map(\.id)
 
@@ -451,5 +451,14 @@ struct DocumentFeatureStore {
             invalidatedFeatureIDs: invalidatedFeatureIDs,
             orphanedFeatureIDs: orphanedFeatureIDs
         )
+    }
+}
+
+private extension DocumentFeature {
+    func belongsToFeatureCleanupScope(batchID: UUID?) -> Bool {
+        if let batchID {
+            return self.batchID == batchID
+        }
+        return self.batchID == nil
     }
 }

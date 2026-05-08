@@ -341,6 +341,62 @@ func submissionImportBuildsTeamItemsAndQueuedJobs() throws {
 }
 
 @Test
+func submissionImportCopiesDirectorySnapshotBeforeQueuingJobs() throws {
+    let root = FileManager.default.temporaryDirectory
+        .appendingPathComponent("pitcherplant-submission-snapshot-\(UUID().uuidString)", isDirectory: true)
+    let support = FileManager.default.temporaryDirectory
+        .appendingPathComponent("pitcherplant-submission-support-\(UUID().uuidString)", isDirectory: true)
+    let alpha = root.appendingPathComponent("001 Alpha", isDirectory: true)
+    try FileManager.default.createDirectory(at: alpha, withIntermediateDirectories: true)
+    try "alpha writeup".write(to: alpha.appendingPathComponent("solve.md"), atomically: true, encoding: .utf8)
+
+    let result = try SubmissionImportService().importPackage(at: root, into: support)
+    let item = try #require(result.items.first)
+    let snapshotURL = URL(fileURLWithPath: item.rootPath)
+    let movedOriginal = root.deletingLastPathComponent()
+        .appendingPathComponent("\(root.lastPathComponent)-moved", isDirectory: true)
+    try FileManager.default.moveItem(at: root, to: movedOriginal)
+
+    #expect(snapshotURL.standardizedFileURL.path.hasPrefix(root.standardizedFileURL.path) == false)
+    #expect(snapshotURL.standardizedFileURL.path.hasPrefix(
+        support.appendingPathComponent("submission-imports", isDirectory: true).standardizedFileURL.path
+    ))
+    #expect(FileManager.default.fileExists(atPath: snapshotURL.appendingPathComponent("solve.md").path))
+    #expect(FileManager.default.fileExists(atPath: alpha.appendingPathComponent("solve.md").path) == false)
+}
+
+@Test
+func submissionImportDoesNotQueueZipOnlySubmissions() throws {
+    let root = FileManager.default.temporaryDirectory
+        .appendingPathComponent("pitcherplant-submission-zip-only-\(UUID().uuidString)", isDirectory: true)
+    let support = FileManager.default.temporaryDirectory
+        .appendingPathComponent("pitcherplant-submission-support-\(UUID().uuidString)", isDirectory: true)
+    try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+    let innerZipURL = root.appendingPathComponent("payload.zip")
+    do {
+        let archive = try Archive(url: innerZipURL, accessMode: .create, pathEncoding: nil)
+        try addZipFile(to: archive, path: "payload.bin", contents: "not auditable")
+    }
+    let outerZipURL = root.appendingPathComponent("submissions.zip")
+    do {
+        let archive = try Archive(url: outerZipURL, accessMode: .create, pathEncoding: nil)
+        try addZipData(to: archive, path: "001 Alpha/payload.zip", data: try Data(contentsOf: innerZipURL))
+    }
+
+    let result = try SubmissionImportService().importPackage(at: outerZipURL, into: support)
+    let jobs = SubmissionImportService().auditJobs(
+        from: result,
+        outputDirectory: support.appendingPathComponent("reports", isDirectory: true),
+        template: "{team}-audit-{date}.html"
+    )
+
+    #expect(result.items.isEmpty)
+    #expect(jobs.isEmpty)
+    #expect(result.issues.contains { $0.message.contains("未发现可审计文件") })
+    #expect(FileManager.default.fileExists(atPath: result.batch.destinationPath))
+}
+
+@Test
 func submissionImportEnforcesZipLimitsAndScansFolders() throws {
     let root = FileManager.default.temporaryDirectory
         .appendingPathComponent("pitcherplant-submission-zip-limits-\(UUID().uuidString)", isDirectory: true)
@@ -678,6 +734,10 @@ private func processOutput(_ executable: String, arguments: [String]) throws -> 
 
 private func addZipFile(to archive: Archive, path: String, contents: String) throws {
     let data = Data(contents.utf8)
+    try addZipData(to: archive, path: path, data: data)
+}
+
+private func addZipData(to archive: Archive, path: String, data: Data) throws {
     try archive.addEntry(with: path, type: .file, uncompressedSize: Int64(data.count), compressionMethod: .deflate) { position, size in
         let start = Int(position)
         let end = min(start + size, data.count)

@@ -960,6 +960,7 @@ struct NewAuditView: View {
                             set: { newValue in appState.updateDraft { $0.useVisionOCR = newValue } }
                         ))
                         .labelsHidden()
+                        .accessibilityLabel(Text(appState.t("audit.visionOCR")))
                     }
                     AppControlRow(title: appState.t("audit.whitelistMode"), trailingWidth: 180) {
                         Picker("", selection: Binding(
@@ -972,6 +973,7 @@ struct NewAuditView: View {
                         }
                         .pickerStyle(.segmented)
                         .frame(width: 160)
+                        .accessibilityLabel(Text(appState.t("audit.whitelistMode")))
                     }
                 }
             }

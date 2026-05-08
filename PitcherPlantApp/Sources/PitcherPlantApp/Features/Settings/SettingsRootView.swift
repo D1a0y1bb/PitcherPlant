@@ -600,10 +600,14 @@ private struct SettingsAssistantTimeoutStepper: View {
                 .multilineTextAlignment(.center)
                 .font(AppTypography.code.weight(.medium))
                 .frame(width: SettingsLayout.numberFieldWidth + 12)
+                .accessibilityLabel(Text(appState.t("settings.auditAssistantTimeout")))
+                .accessibilityValue(Text("\(Int(clamped(value)))"))
 
             Stepper("", value: clampedBinding, in: range, step: step)
                 .labelsHidden()
                 .frame(width: SettingsLayout.stepperWidth - 46)
+                .accessibilityLabel(Text(appState.t("settings.auditAssistantTimeout")))
+                .accessibilityValue(Text("\(Int(clamped(value)))"))
 
             Text(appState.t("common.seconds"))
                 .font(AppTypography.metadata)

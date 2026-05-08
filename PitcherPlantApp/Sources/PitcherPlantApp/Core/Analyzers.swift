@@ -8,18 +8,35 @@ struct TextSimilarityAnalyzer {
         whitelistRules: [WhitelistRule] = [],
         whitelistMode: AuditConfiguration.WhitelistMode = .mark
     ) -> [SuspiciousPair] {
+        (try? analyzeCheckingCancellation(
+            documents: documents,
+            threshold: threshold,
+            features: features,
+            whitelistRules: whitelistRules,
+            whitelistMode: whitelistMode
+        )) ?? []
+    }
+
+    func analyzeCheckingCancellation(
+        documents: [ParsedDocument],
+        threshold: Double,
+        features: [DocumentFeature]? = nil,
+        whitelistRules: [WhitelistRule] = [],
+        whitelistMode: AuditConfiguration.WhitelistMode = .mark
+    ) throws -> [SuspiciousPair] {
         guard documents.count > 1 else { return [] }
         let vectorizer = TFIDFVectorizer(documents: documents.map(\.cleanText), wordNGramRange: 1...5, charNGramRange: 3...7, wordWeight: 0.6, charWeight: 0.4)
         let candidates = candidatePairs(documents: documents, features: features, purpose: .text)
         let whitelist = WhitelistEvaluationService(rules: whitelistRules, mode: whitelistMode)
         var pairs: [SuspiciousPair] = []
 
-        for candidate in candidates {
+        for (candidateIndex, candidate) in candidates.enumerated() {
+            try AnalyzerCancellation.check(candidateIndex)
             let left = candidate.left
             let right = candidate.right
             let score = vectorizer.combinedCosineSimilarity(left: left, right: right)
             if score >= threshold {
-                let evidence = TextEvidenceBuilder.build(left: documents[left].content, right: documents[right].content)
+                let evidence = try TextEvidenceBuilder.buildCheckingCancellation(left: documents[left].content, right: documents[right].content)
                 let pair = SuspiciousPair(
                     fileA: documents[left].filename,
                     fileB: documents[right].filename,
@@ -64,17 +81,34 @@ struct DedupAnalyzer {
         whitelistRules: [WhitelistRule] = [],
         whitelistMode: AuditConfiguration.WhitelistMode = .mark
     ) -> [SuspiciousPair] {
+        (try? analyzeCheckingCancellation(
+            documents: documents,
+            threshold: threshold,
+            features: features,
+            whitelistRules: whitelistRules,
+            whitelistMode: whitelistMode
+        )) ?? []
+    }
+
+    func analyzeCheckingCancellation(
+        documents: [ParsedDocument],
+        threshold: Double,
+        features: [DocumentFeature]? = nil,
+        whitelistRules: [WhitelistRule] = [],
+        whitelistMode: AuditConfiguration.WhitelistMode = .mark
+    ) throws -> [SuspiciousPair] {
         guard documents.count > 1 else { return [] }
         let vectorizer = TFIDFVectorizer(documents: documents.map(\.cleanText), wordNGramRange: 1...3, charNGramRange: 3...5, wordWeight: 0.5, charWeight: 0.5)
         let candidates = candidatePairs(documents: documents, features: features, purpose: .dedup)
         let whitelist = WhitelistEvaluationService(rules: whitelistRules, mode: whitelistMode)
         var pairs: [SuspiciousPair] = []
-        for candidate in candidates {
+        for (candidateIndex, candidate) in candidates.enumerated() {
+            try AnalyzerCancellation.check(candidateIndex)
             let left = candidate.left
             let right = candidate.right
             let score = vectorizer.combinedCosineSimilarity(left: left, right: right)
             guard score >= threshold else { continue }
-            let evidence = TextEvidenceBuilder.build(left: documents[left].content, right: documents[right].content)
+            let evidence = try TextEvidenceBuilder.buildCheckingCancellation(left: documents[left].content, right: documents[right].content)
             let pair = SuspiciousPair(
                 fileA: documents[left].filename,
                 fileB: documents[right].filename,
@@ -113,18 +147,33 @@ struct CodeSimilarityAnalyzer {
         whitelistRules: [WhitelistRule] = [],
         whitelistMode: AuditConfiguration.WhitelistMode = .mark
     ) -> [SuspiciousPair] {
+        (try? analyzeCheckingCancellation(
+            documents: documents,
+            features: features,
+            whitelistRules: whitelistRules,
+            whitelistMode: whitelistMode
+        )) ?? []
+    }
+
+    func analyzeCheckingCancellation(
+        documents: [ParsedDocument],
+        features: [DocumentFeature]? = nil,
+        whitelistRules: [WhitelistRule] = [],
+        whitelistMode: AuditConfiguration.WhitelistMode = .mark
+    ) throws -> [SuspiciousPair] {
         guard documents.count > 1 else { return [] }
         let candidates = candidatePairs(documents: documents, features: features, purpose: .code)
         let whitelist = WhitelistEvaluationService(rules: whitelistRules, mode: whitelistMode)
         var results: [SuspiciousPair] = []
-        for candidate in candidates {
+        for (candidateIndex, candidate) in candidates.enumerated() {
+            try AnalyzerCancellation.check(candidateIndex)
             let left = candidate.left
             let right = candidate.right
             let lhsBlocks = CodeBlockExtractor.candidates(from: documents[left].codeBlocks)
             let rhsBlocks = CodeBlockExtractor.candidates(from: documents[right].codeBlocks)
             guard !lhsBlocks.isEmpty, !rhsBlocks.isEmpty else { continue }
 
-            guard let bestMatch = bestMatch(left: lhsBlocks, right: rhsBlocks) else {
+            guard let bestMatch = try bestMatchCheckingCancellation(left: lhsBlocks, right: rhsBlocks) else {
                 continue
             }
 
@@ -173,11 +222,14 @@ struct CodeSimilarityAnalyzer {
         return results.sorted(by: { $0.score > $1.score })
     }
 
-    private func bestMatch(left: [CodeBlockCandidate], right: [CodeBlockCandidate]) -> CodeMatch? {
+    private func bestMatchCheckingCancellation(left: [CodeBlockCandidate], right: [CodeBlockCandidate]) throws -> CodeMatch? {
         var best: CodeMatch?
 
+        var iteration = 0
         for lhs in left {
             for rhs in right {
+                try AnalyzerCancellation.check(iteration)
+                iteration += 1
                 let lexicalScore = JaccardSimilarity.score(
                     left: lhs.lexicalSignature,
                     right: rhs.lexicalSignature,
@@ -230,10 +282,27 @@ struct ImageReuseAnalyzer {
         whitelistRules: [WhitelistRule] = [],
         whitelistMode: AuditConfiguration.WhitelistMode = .mark
     ) -> [SuspiciousPair] {
+        (try? analyzeCheckingCancellation(
+            documents: documents,
+            threshold: threshold,
+            features: features,
+            whitelistRules: whitelistRules,
+            whitelistMode: whitelistMode
+        )) ?? []
+    }
+
+    func analyzeCheckingCancellation(
+        documents: [ParsedDocument],
+        threshold: Int,
+        features: [DocumentFeature]? = nil,
+        whitelistRules: [WhitelistRule] = [],
+        whitelistMode: AuditConfiguration.WhitelistMode = .mark
+    ) throws -> [SuspiciousPair] {
         let candidates = candidatePairs(documents: documents, features: features, purpose: .image)
         let whitelist = WhitelistEvaluationService(rules: whitelistRules, mode: whitelistMode)
         var pairs: [SuspiciousPair] = []
-        for candidate in candidates {
+        for (candidateIndex, candidate) in candidates.enumerated() {
+            try AnalyzerCancellation.check(candidateIndex)
             let left = candidate.left
             let right = candidate.right
             let leftImages = documents[left].images
@@ -241,8 +310,11 @@ struct ImageReuseAnalyzer {
             guard !leftImages.isEmpty, !rightImages.isEmpty else { continue }
 
             var examples: [(distance: Int, lhs: ParsedImage, rhs: ParsedImage)] = []
+            var imageIteration = 0
             for lhs in leftImages {
                 for rhs in rightImages {
+                    try AnalyzerCancellation.check(imageIteration)
+                    imageIteration += 1
                     let distance = HashDistance.hamming(lhs.perceptualHash, rhs.perceptualHash)
                         + HashDistance.hamming(lhs.averageHash, rhs.averageHash)
                         + HashDistance.hamming(lhs.differenceHash, rhs.differenceHash)
@@ -302,16 +374,31 @@ struct MetadataCollisionAnalyzer {
         whitelistRules: [WhitelistRule] = [],
         whitelistMode: AuditConfiguration.WhitelistMode = .mark
     ) -> [MetadataCollision] {
+        (try? analyzeCheckingCancellation(
+            documents: documents,
+            whitelistRules: whitelistRules,
+            whitelistMode: whitelistMode
+        )) ?? []
+    }
+
+    func analyzeCheckingCancellation(
+        documents: [ParsedDocument],
+        whitelistRules: [WhitelistRule] = [],
+        whitelistMode: AuditConfiguration.WhitelistMode = .mark
+    ) throws -> [MetadataCollision] {
         let whitelist = WhitelistEvaluationService(rules: whitelistRules, mode: whitelistMode)
-        return Dictionary(grouping: documents.compactMap { document -> (String, String)? in
-            let candidates = [document.author, document.lastModifiedBy]
+        var candidates: [(String, String)] = []
+        for (index, document) in documents.enumerated() {
+            try AnalyzerCancellation.check(index)
+            let authors = [document.author, document.lastModifiedBy]
                 .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
                 .filter { !$0.isEmpty }
-            guard let author = candidates.first else { return nil }
+            guard let author = authors.first else { continue }
             let ignored = ["administrator", "admin", "user", "microsoft office user"]
-            guard ignored.contains(author.lowercased()) == false else { return nil }
-            return (author, document.filename)
-        }, by: { $0.0 })
+            guard ignored.contains(author.lowercased()) == false else { continue }
+            candidates.append((author, document.filename))
+        }
+        return Dictionary(grouping: candidates, by: { $0.0 })
             .filter { $0.value.count > 1 }
             .compactMap { author, grouped -> MetadataCollision? in
                 let files = grouped.map(\.1).sorted()
@@ -332,7 +419,12 @@ struct MetadataCollisionAnalyzer {
 
 struct FingerprintAnalyzer {
     func buildRecords(documents: [ParsedDocument], scanDirectory: String) -> [FingerprintRecord] {
-        documents.map { document in
+        (try? buildRecordsCheckingCancellation(documents: documents, scanDirectory: scanDirectory)) ?? []
+    }
+
+    func buildRecordsCheckingCancellation(documents: [ParsedDocument], scanDirectory: String) throws -> [FingerprintRecord] {
+        try documents.enumerated().map { index, document in
+            try AnalyzerCancellation.check(index)
             let source = inferredSourceFields(for: document, scanDirectory: scanDirectory)
             return FingerprintRecord(
                 filename: document.filename,
@@ -381,12 +473,23 @@ struct HammingBKTree: Sendable {
         }
     }
 
+    init(checkingCancellation records: [FingerprintRecord]) throws {
+        for (index, record) in records.enumerated() {
+            try AnalyzerCancellation.check(index)
+            insert(record)
+        }
+    }
+
     func query(simhash: String, threshold: Int) -> [(record: FingerprintRecord, distance: Int)] {
+        (try? queryCheckingCancellation(simhash: simhash, threshold: threshold)) ?? []
+    }
+
+    func queryCheckingCancellation(simhash: String, threshold: Int) throws -> [(record: FingerprintRecord, distance: Int)] {
         guard nodes.isEmpty == false else {
             return []
         }
         var results: [(FingerprintRecord, Int)] = []
-        queryNode(index: 0, simhash: simhash, threshold: threshold, results: &results)
+        try queryNodeCheckingCancellation(index: 0, simhash: simhash, threshold: threshold, results: &results)
         return results
     }
 
@@ -427,6 +530,26 @@ struct HammingBKTree: Sendable {
             queryNode(index: childIndex, simhash: simhash, threshold: threshold, results: &results)
         }
     }
+
+    private func queryNodeCheckingCancellation(
+        index: Int,
+        simhash: String,
+        threshold: Int,
+        results: inout [(FingerprintRecord, Int)]
+    ) throws {
+        try Task.checkCancellation()
+        let node = nodes[index]
+        let distance = HashDistance.hamming(simhash, node.record.simhash)
+        if distance <= threshold {
+            results.append((node.record, distance))
+        }
+
+        let lower = distance - threshold
+        let upper = distance + threshold
+        for (childDistance, childIndex) in node.children where childDistance >= lower && childDistance <= upper {
+            try queryNodeCheckingCancellation(index: childIndex, simhash: simhash, threshold: threshold, results: &results)
+        }
+    }
 }
 
 struct CrossBatchReuseAnalyzer {
@@ -439,21 +562,40 @@ struct CrossBatchReuseAnalyzer {
         whitelistMode: AuditConfiguration.WhitelistMode,
         threshold: Int
     ) -> [CrossBatchMatch] {
+        (try? analyzeCheckingCancellation(
+            current: current,
+            historical: historical,
+            whitelistRules: whitelistRules,
+            whitelistMode: whitelistMode,
+            threshold: threshold
+        )) ?? []
+    }
+
+    func analyzeCheckingCancellation(
+        current: [FingerprintRecord],
+        historical: [FingerprintRecord],
+        whitelistRules: [WhitelistRule],
+        whitelistMode: AuditConfiguration.WhitelistMode,
+        threshold: Int
+    ) throws -> [CrossBatchMatch] {
         let whitelist = WhitelistEvaluationService(rules: whitelistRules, mode: whitelistMode)
         var matches: [CrossBatchMatch] = []
-        let indexedHistorical = historical.count >= indexedHistoricalThreshold ? HammingBKTree(records: historical) : nil
-        for record in current {
+        let indexedHistorical = try historical.count >= indexedHistoricalThreshold ? HammingBKTree(checkingCancellation: historical) : nil
+        for (recordIndex, record) in current.enumerated() {
+            try AnalyzerCancellation.check(recordIndex)
             let candidates: [(record: FingerprintRecord, distance: Int)]
             if let indexedHistorical {
-                candidates = indexedHistorical.query(simhash: record.simhash, threshold: threshold)
+                candidates = try indexedHistorical.queryCheckingCancellation(simhash: record.simhash, threshold: threshold)
             } else {
-                candidates = historical.compactMap { previous in
+                candidates = try historical.enumerated().compactMap { historicalIndex, previous in
+                    try AnalyzerCancellation.check(historicalIndex)
                     let distance = HashDistance.hamming(record.simhash, previous.simhash)
                     return distance <= threshold ? (previous, distance) : nil
                 }
             }
 
-            for candidate in candidates {
+            for (candidateIndex, candidate) in candidates.enumerated() {
+                try AnalyzerCancellation.check(candidateIndex)
                 let previous = candidate.record
                 let distance = candidate.distance
 
@@ -521,6 +663,16 @@ private func candidatePairs(
         return CandidateRecallService().candidatePairsWithStats(for: features, purpose: purpose).pairs
     }
     return CandidateRecallService().candidatePairs(for: documents, purpose: purpose)
+}
+
+enum AnalyzerCancellation {
+    private static let interval = 64
+
+    static func check(_ iteration: Int) throws {
+        if iteration.isMultiple(of: interval) {
+            try Task.checkCancellation()
+        }
+    }
 }
 
 private func sourceReference(for document: ParsedDocument, label: String, body: String) -> EvidenceSourceReference {

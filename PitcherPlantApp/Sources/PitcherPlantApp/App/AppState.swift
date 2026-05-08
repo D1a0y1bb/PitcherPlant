@@ -114,6 +114,7 @@ final class AppState {
     private let appUpdater = AppUpdater()
     private static let reportPageLimit = 500
     private static let fingerprintPageLimit = 500
+    private static let auditHistoricalFingerprintLimit = AuditRunLimits.defaults.largeHistoricalFingerprintCount
     private static let updateMonitorIntervalSeconds: UInt64 = 30 * 60
 
     init(workspaceRoot: URL? = nil) {
@@ -1063,12 +1064,25 @@ final class AppState {
             try await database.upsertJob(job)
             await reload()
 
-            let historicalFingerprints = try await database.loadFingerprintRecords()
+            let fingerprintPage = try await database.loadFingerprintPage(limit: Self.auditHistoricalFingerprintLimit)
+            let historicalFingerprints = fingerprintPage.values
             let rules = whitelistRules
-            let cachedFeatures = try await database.loadDocumentFeatures(batchID: job.batchID)
+            let cachedFeatures = try await cachedDocumentFeatures(for: job)
             let progressFallbackJob = job
             let scanID = job.id
             let batchID = job.batchID
+            if fingerprintPage.totalCount > historicalFingerprints.count {
+                try await recordAuditProgress(
+                    jobID: progressFallbackJob.id,
+                    fallback: progressFallbackJob,
+                    stage: .initialize,
+                    message: tf(
+                        "audit.progress.fingerprintLimitApplied",
+                        historicalFingerprints.count,
+                        fingerprintPage.totalCount
+                    )
+                )
+            }
             let progressHandler: @MainActor @Sendable (AuditStage, String) async throws -> Void = { stage, message in
                 try await self.recordAuditProgress(
                     jobID: progressFallbackJob.id,
@@ -1138,6 +1152,16 @@ final class AppState {
         }
     }
 
+    private func cachedDocumentFeatures(for job: AuditJob) async throws -> [DocumentFeature] {
+        if let batchID = job.batchID {
+            return try await database.loadDocumentFeatures(batchID: batchID)
+        }
+        return try await database.loadDocumentFeatures(
+            pathPrefix: job.configuration.directoryPath,
+            onlyUnbatched: true
+        )
+    }
+
     private func replaceJobInMemory(_ job: AuditJob) {
         if let index = jobs.firstIndex(where: { $0.id == job.id }) {
             jobs[index] = job
@@ -1179,6 +1203,12 @@ final class AppState {
         if error is CancellationError {
             return localized("audit.failure.cancelled", language: language)
         }
+        if let auditError = error as? AuditRunnerError {
+            switch auditError {
+            case .noAuditableDocuments(let directory):
+                return localized("audit.failure.noAuditableDocuments", language: language, directory)
+            }
+        }
         return error.localizedDescription
     }
 
@@ -1198,8 +1228,9 @@ final class AppState {
         }
         let candidatePairs = summary.recallStats.reduce(0) { $0 + $1.candidatePairCount }
         let possiblePairs = summary.recallStats.reduce(0) { $0 + $1.possiblePairCount }
+        let skippedBuckets = summary.recallStats.reduce(0) { $0 + $1.skippedOversizedBucketCount }
         let elapsed = summary.recallStats.reduce(0) { $0 + $1.elapsedMilliseconds }
-        return localized(
+        let recall = localized(
             "audit.summary.recall",
             language: language,
             base,
@@ -1207,6 +1238,10 @@ final class AppState {
             possiblePairs,
             String(format: "%.1f", locale: locale, elapsed)
         )
+        guard skippedBuckets > 0 else {
+            return recall
+        }
+        return localized("audit.summary.recallSkippedBuckets", language: language, recall, skippedBuckets)
     }
 
     nonisolated private static func safeTimestamp() -> String {

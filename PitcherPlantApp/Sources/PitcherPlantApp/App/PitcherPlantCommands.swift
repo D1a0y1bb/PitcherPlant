@@ -40,25 +40,25 @@ struct PitcherPlantCommands: Commands {
             Button(appState.t("review.confirm")) {
                 Task { await appState.quickReviewSelectedEvidence(.confirmed) }
             }
-            .keyboardShortcut("a", modifiers: [])
+            .keyboardShortcut("a", modifiers: [.command, .control])
             .disabled(appState.selectedReportRow == nil)
 
             Button(appState.t("review.falsePositive")) {
                 Task { await appState.quickReviewSelectedEvidence(.falsePositive) }
             }
-            .keyboardShortcut("f", modifiers: [])
+            .keyboardShortcut("f", modifiers: [.command, .option])
             .disabled(appState.selectedReportRow == nil)
 
             Button(appState.t("review.ignore")) {
                 Task { await appState.quickReviewSelectedEvidence(.ignored) }
             }
-            .keyboardShortcut("i", modifiers: [])
+            .keyboardShortcut("i", modifiers: [.command, .control])
             .disabled(appState.selectedReportRow == nil)
 
             Button(appState.t("review.whitelist")) {
                 Task { await appState.quickReviewSelectedEvidence(.whitelisted) }
             }
-            .keyboardShortcut("w", modifiers: [])
+            .keyboardShortcut("w", modifiers: [.command, .control])
             .disabled(appState.selectedReportRow == nil)
         }
 

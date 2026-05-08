@@ -383,7 +383,6 @@ struct MainWindowView: View {
         } label: {
             Label(appState.t("toolbar.settings"), systemImage: "gear")
         }
-        .keyboardShortcut(",", modifiers: .command)
         .help(appState.t("toolbar.settings"))
         .accessibilityLabel(appState.t("toolbar.settings"))
     }

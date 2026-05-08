@@ -24,9 +24,11 @@ struct PresetTableRow: View {
             Button(role: .destructive) {
                 appState.deletePreset(preset)
             } label: {
-                Image(systemName: "trash")
+                Label(appState.t("audit.deletePreset"), systemImage: "trash")
+                    .labelStyle(.iconOnly)
             }
             .buttonStyle(.borderless)
+            .help(appState.t("audit.deletePreset"))
         }
         .padding(.horizontal, AppLayout.rowHorizontalPadding)
         .padding(.vertical, 7)
@@ -143,9 +145,11 @@ struct WhitelistTableRow: View {
             Button(role: .destructive) {
                 Task { await appState.removeWhitelistRule(rule) }
             } label: {
-                Image(systemName: "trash")
+                Label(appState.t("whitelist.deleteRule"), systemImage: "trash")
+                    .labelStyle(.iconOnly)
             }
             .buttonStyle(.borderless)
+            .help(appState.t("whitelist.deleteRule"))
         }
         .font(AppTypography.rowSecondary)
         .padding(.horizontal, AppLayout.rowHorizontalPadding)

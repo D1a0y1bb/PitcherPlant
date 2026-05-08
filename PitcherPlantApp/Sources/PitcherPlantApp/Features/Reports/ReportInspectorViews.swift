@@ -326,7 +326,7 @@ struct EvidenceReviewPanel: View {
             VStack(alignment: .leading, spacing: 12) {
                 VStack(alignment: .leading, spacing: 10) {
                     VStack(alignment: .leading, spacing: 6) {
-                        reviewLabel("快捷")
+                        reviewLabel(appState.t("review.quick"))
                         ViewThatFits(in: .horizontal) {
                             HStack(spacing: 8) { quickReviewButtons }
                             VStack(alignment: .leading, spacing: 8) { quickReviewButtons }
@@ -337,7 +337,7 @@ struct EvidenceReviewPanel: View {
                         reviewLabel(appState.t("review.decision"))
                         Picker(appState.t("review.decision"), selection: $decision) {
                             ForEach(EvidenceDecision.allCases) { option in
-                                Text(option.title).tag(option)
+                                Text(appState.title(for: option)).tag(option)
                             }
                         }
                         .pickerStyle(.menu)
@@ -350,7 +350,7 @@ struct EvidenceReviewPanel: View {
                         InspectorWidthSwitch(regularMinWidth: 330) {
                             Picker(appState.t("review.severity"), selection: $severity) {
                                 ForEach(RiskLevel.allCases) { option in
-                                    Text(option.title).tag(option)
+                                    Text(appState.title(for: option)).tag(option)
                                 }
                             }
                             .pickerStyle(.segmented)
@@ -361,7 +361,7 @@ struct EvidenceReviewPanel: View {
                         } compact: {
                             Picker(appState.t("review.severity"), selection: $severity) {
                                 ForEach(RiskLevel.allCases) { option in
-                                    Text(option.title).tag(option)
+                                    Text(appState.title(for: option)).tag(option)
                                 }
                             }
                             .pickerStyle(.menu)
@@ -494,7 +494,7 @@ struct TextEvidenceComparisonView: View {
                 EvidenceHighlightNavigator(
                     tokens: highlights,
                     selectedIndex: $selectedHighlightIndex,
-                    title: "共享 token"
+                    title: appState.t("reports.sharedTokens")
                 )
 
                 VStack(alignment: .leading, spacing: 12) {
@@ -539,18 +539,18 @@ struct CodeEvidenceComparisonView: View {
         if codeAttachments.count == 2 {
             InspectorSection(title: appState.t("reports.codeViewer")) {
                 ViewThatFits(in: .horizontal) {
-                    Picker("代码视图", selection: $selectedMode) {
+                    Picker(appState.t("reports.codeView"), selection: $selectedMode) {
                         ForEach(CodeViewerMode.allCases) { mode in
-                            Text(mode.title).tag(mode)
+                            Text(appState.t(mode.localizationKey)).tag(mode)
                         }
                     }
                     .pickerStyle(.segmented)
                     .controlSize(.small)
                     .labelsHidden()
 
-                    Picker("代码视图", selection: $selectedMode) {
+                    Picker(appState.t("reports.codeView"), selection: $selectedMode) {
                         ForEach(CodeViewerMode.allCases) { mode in
-                            Text(mode.title).tag(mode)
+                            Text(appState.t(mode.localizationKey)).tag(mode)
                         }
                     }
                     .pickerStyle(.menu)
@@ -561,7 +561,7 @@ struct CodeEvidenceComparisonView: View {
 
                 CodeDiffSummaryView(left: codeAttachments[0].body, right: codeAttachments[1].body)
                 CodeLineDiffView(left: codeAttachments[0].body, right: codeAttachments[1].body)
-                EvidenceHighlightNavigator(tokens: highlights, selectedIndex: $selectedHighlightIndex, title: "共享标记")
+                EvidenceHighlightNavigator(tokens: highlights, selectedIndex: $selectedHighlightIndex, title: appState.t("reports.sharedHighlights"))
 
                 VStack(alignment: .leading, spacing: 12) {
                     evidenceContextCards(
@@ -650,9 +650,9 @@ struct AssistantEvidenceExplanationView: View {
 
     private var buttonTitle: String {
         if cachedExplanation != nil {
-            return "重新生成解释"
+            return appState.t("reports.regenerateExplanation")
         }
-        return "生成审计解释"
+        return appState.t("reports.generateExplanation")
     }
 
     private var displayedExplanation: String {
@@ -660,7 +660,7 @@ struct AssistantEvidenceExplanationView: View {
         case .idle:
             return cachedExplanation ?? AuditAssistantService().localExplanation(for: row, review: appState.review(for: row))
         case .loading:
-            return cachedExplanation ?? "正在生成解释..."
+            return cachedExplanation ?? appState.t("reports.generatingExplanation")
         case .loaded(let text):
             return text
         case .failed(let message):
@@ -697,6 +697,7 @@ struct AssistantEvidenceExplanationView: View {
 }
 
 struct ImageEvidenceDetailView: View {
+    @Environment(AppState.self) private var appState
     let attachments: [ReportAttachment]
     let showsPreviews: Bool
     @State private var selectedPairIndex = 0
@@ -755,7 +756,7 @@ struct ImageEvidenceDetailView: View {
         ViewThatFits(in: .horizontal) {
             imageComparisonToolbarContent
             VStack(alignment: .leading, spacing: 8) {
-                Text("图片 A/B 对比")
+                Text(appState.t("reports.imageComparison"))
                     .font(AppTypography.tableHeader)
                     .foregroundStyle(.secondary)
                 imagePairControls
@@ -767,7 +768,7 @@ struct ImageEvidenceDetailView: View {
 
     private var imageComparisonToolbarContent: some View {
         HStack(spacing: 10) {
-            Text("图片 A/B 对比")
+            Text(appState.t("reports.imageComparison"))
                 .font(AppTypography.tableHeader)
                 .foregroundStyle(.secondary)
             imagePairControls
@@ -837,6 +838,7 @@ private enum EvidenceContextStyle {
 }
 
 private struct EvidenceContextCard: View {
+    @Environment(AppState.self) private var appState
     let attachment: ReportAttachment
     let fallback: String
     let style: EvidenceContextStyle
@@ -877,7 +879,7 @@ private struct EvidenceContextCard: View {
                     Button {
                         NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: filePath)])
                     } label: {
-                        Label("打开源文件", systemImage: "arrow.up.right.square")
+                        Label(appState.t("reports.openSourceFile"), systemImage: "arrow.up.right.square")
                     }
                     .font(AppTypography.metadata)
                     .buttonStyle(.link)
@@ -907,7 +909,7 @@ private struct EvidenceContextCard: View {
     private var metricText: String {
         let lineCount = max(displayedContent.components(separatedBy: .newlines).count, 1)
         let suffix = content.count > displayedContent.count ? "+" : ""
-        return "\(lineCount) 行 · \(displayedContent.count)\(suffix) 字"
+        return appState.tf("reports.evidenceContentMetric", lineCount, displayedContent.count, suffix)
     }
 
     private var visibleHighlights: [String] {
@@ -919,6 +921,7 @@ private struct EvidenceContextCard: View {
 }
 
 private struct EvidenceHighlightNavigator: View {
+    @Environment(AppState.self) private var appState
     let tokens: [String]
     @Binding var selectedIndex: Int
     let title: String
@@ -972,7 +975,7 @@ private struct EvidenceHighlightNavigator: View {
     private var navigatorTokenSummary: some View {
         Group {
             if tokens.isEmpty {
-                Text("暂无稳定共享片段")
+                Text(appState.t("reports.sharedFragment.empty"))
                     .font(AppTypography.metadata)
                     .foregroundStyle(.tertiary)
             } else {
@@ -989,11 +992,11 @@ private enum CodeViewerMode: String, CaseIterable, Identifiable {
 
     var id: String { rawValue }
 
-    var title: String {
+    var localizationKey: String {
         switch self {
-        case .original: return "原始"
-        case .normalized: return "规范化 token"
-        case .structure: return "结构 token"
+        case .original: return "reports.codeView.original"
+        case .normalized: return "reports.codeView.normalized"
+        case .structure: return "reports.codeView.structure"
         }
     }
 
@@ -1010,6 +1013,7 @@ private enum CodeViewerMode: String, CaseIterable, Identifiable {
 }
 
 private struct CodeDiffSummaryView: View {
+    @Environment(AppState.self) private var appState
     let left: String
     let right: String
 
@@ -1019,26 +1023,26 @@ private struct CodeDiffSummaryView: View {
         let shared = leftTokens.intersection(rightTokens).count
         let leftOnly = leftTokens.subtracting(rightTokens).count
         let rightOnly = rightTokens.subtracting(leftTokens).count
-        let fragment = EvidenceTokenAnalyzer.bestSharedFragment(left: left, right: right) ?? "暂无稳定公共片段"
+        let fragment = EvidenceTokenAnalyzer.bestSharedFragment(left: left, right: right) ?? appState.t("reports.sharedFragment.empty")
 
         VStack(alignment: .leading, spacing: 6) {
             ViewThatFits(in: .horizontal) {
                 HStack(spacing: 12) {
-                    Label("共享 \(shared)", systemImage: "equal.square")
-                    Label("左侧独有 \(leftOnly)", systemImage: "arrow.left.square")
-                    Label("右侧独有 \(rightOnly)", systemImage: "arrow.right.square")
+                    Label(appState.tf("reports.diff.sharedCount", shared), systemImage: "equal.square")
+                    Label(appState.tf("reports.diff.leftOnlyCount", leftOnly), systemImage: "arrow.left.square")
+                    Label(appState.tf("reports.diff.rightOnlyCount", rightOnly), systemImage: "arrow.right.square")
                 }
 
                 VStack(alignment: .leading, spacing: 4) {
-                    Label("共享 \(shared)", systemImage: "equal.square")
-                    Label("左侧独有 \(leftOnly)", systemImage: "arrow.left.square")
-                    Label("右侧独有 \(rightOnly)", systemImage: "arrow.right.square")
+                    Label(appState.tf("reports.diff.sharedCount", shared), systemImage: "equal.square")
+                    Label(appState.tf("reports.diff.leftOnlyCount", leftOnly), systemImage: "arrow.left.square")
+                    Label(appState.tf("reports.diff.rightOnlyCount", rightOnly), systemImage: "arrow.right.square")
                 }
             }
             .font(AppTypography.metadata)
             .foregroundStyle(.secondary)
 
-            Text("最长公共片段：\(fragment)")
+            Text(appState.tf("reports.diff.longestSharedFragment", fragment))
                 .font(AppTypography.metadata)
                 .foregroundStyle(.secondary)
                 .lineLimit(2)
@@ -1049,6 +1053,7 @@ private struct CodeDiffSummaryView: View {
 }
 
 private struct CodeLineDiffView: View {
+    @Environment(AppState.self) private var appState
     let left: String
     let right: String
     @State private var rows: [CodeLineDiffRow] = []
@@ -1060,7 +1065,7 @@ private struct CodeLineDiffView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text("逐行 diff")
+            Text(appState.t("reports.lineDiff"))
                 .font(AppTypography.tableHeader)
                 .foregroundStyle(.secondary)
 
@@ -1073,10 +1078,10 @@ private struct CodeLineDiffView: View {
                     Grid(alignment: .leading, horizontalSpacing: 8, verticalSpacing: 2) {
                         GridRow {
                             diffHeader("L")
-                            diffHeader("左侧")
+                            diffHeader(appState.t("reports.diff.left"))
                             diffHeader("R")
-                            diffHeader("右侧")
-                            diffHeader("状态")
+                            diffHeader(appState.t("reports.diff.right"))
+                            diffHeader(appState.t("common.status"))
                         }
 
                         ForEach(Array(rows.enumerated()), id: \.offset) { _, row in
@@ -1085,7 +1090,7 @@ private struct CodeLineDiffView: View {
                                 diffCell(row.leftText, change: row.change, side: .left)
                                 lineNumber(row.rightLineNumber)
                                 diffCell(row.rightText, change: row.change, side: .right)
-                                Text(row.change.title)
+                                Text(changeTitle(row.change))
                                     .font(AppTypography.metadata.weight(.medium))
                                     .foregroundStyle(.secondary)
                                     .lineLimit(1)
@@ -1131,6 +1136,15 @@ private struct CodeLineDiffView: View {
             .padding(.horizontal, 5)
             .padding(.vertical, 2)
             .frame(minWidth: 240, alignment: .leading)
+    }
+
+    private func changeTitle(_ change: CodeLineDiffRow.Change) -> String {
+        switch change {
+        case .unchanged: return appState.t("reports.diff.change.unchanged")
+        case .inserted: return appState.t("reports.diff.change.inserted")
+        case .deleted: return appState.t("reports.diff.change.deleted")
+        case .modified: return appState.t("reports.diff.change.modified")
+        }
     }
 
 }

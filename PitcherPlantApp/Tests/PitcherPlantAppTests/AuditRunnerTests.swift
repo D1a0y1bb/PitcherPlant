@@ -43,6 +43,34 @@ func auditRunnerProducesNativeReportRowsForAppViewing() async throws {
 }
 
 @Test
+func auditRunnerFailsWhenDirectoryHasNoAuditableDocuments() async throws {
+    let root = FileManager.default.temporaryDirectory
+        .appendingPathComponent("pitcherplant-empty-audit-\(UUID().uuidString)", isDirectory: true)
+    let source = root.appendingPathComponent("source", isDirectory: true)
+    let reports = root.appendingPathComponent("reports", isDirectory: true)
+    try FileManager.default.createDirectory(at: source, withIntermediateDirectories: true)
+    try FileManager.default.createDirectory(at: reports, withIntermediateDirectories: true)
+    try "not auditable".write(to: source.appendingPathComponent("payload.zip"), atomically: true, encoding: .utf8)
+
+    var configuration = AuditConfiguration.defaults(for: root)
+    configuration.directoryPath = source.path
+    configuration.outputDirectoryPath = reports.path
+
+    do {
+        _ = try await AuditRunner().run(
+            configuration: configuration,
+            importedFingerprints: [],
+            whitelistRules: []
+        ) { _, _ in }
+        Issue.record("没有可审计文档时不应导出成功报告")
+    } catch let error as AuditRunnerError {
+        #expect(error == .noAuditableDocuments(directory: source.path))
+    } catch {
+        Issue.record("应抛出 AuditRunnerError.noAuditableDocuments，实际为 \(error)")
+    }
+}
+
+@Test
 @MainActor
 func auditRunnerEmitsLargeRunWarningAndSummary() async throws {
     let root = FileManager.default.temporaryDirectory

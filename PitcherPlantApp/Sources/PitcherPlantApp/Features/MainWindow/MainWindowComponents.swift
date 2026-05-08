@@ -182,6 +182,7 @@ struct SettingsNumberRow<F: ParseableFormatStyle>: View where F.FormatInput == D
         AppControlRow(title: title, trailingWidth: 120) {
             TextField("", value: $value, format: format)
                 .textFieldStyle(.roundedBorder)
+                .accessibilityLabel(Text(title))
         }
     }
 }
@@ -194,6 +195,7 @@ struct SettingsIntegerRow: View {
         AppControlRow(title: title, trailingWidth: 120) {
             TextField("", value: $value, format: .number)
                 .textFieldStyle(.roundedBorder)
+                .accessibilityLabel(Text(title))
         }
     }
 }

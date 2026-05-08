@@ -600,6 +600,7 @@ struct EvidenceList: View {
 }
 
 private struct EvidenceListHeader: View {
+    @Environment(AppState.self) private var appState
     let headers: [String]
 
     var body: some View {
@@ -609,11 +610,11 @@ private struct EvidenceListHeader: View {
                 Image(systemName: "eye")
             }
             .frame(width: 54, alignment: .center)
-            Text(headers[safe: 0] ?? "证据")
+            Text(headers[safe: 0] ?? appState.t("common.evidence"))
                 .frame(maxWidth: .infinity, alignment: .leading)
-            Text(headers[safe: 2] ?? "分数")
+            Text(headers[safe: 2] ?? appState.t("common.score"))
                 .frame(width: 70, alignment: .trailing)
-            Text("标记")
+            Text(appState.t("common.badge"))
                 .frame(width: 92, alignment: .trailing)
         }
         .font(AppTypography.tableHeader)
@@ -725,15 +726,16 @@ private enum CrossBatchEvidenceMode: String, CaseIterable, Identifiable {
 
     var id: String { rawValue }
 
-    var title: String {
+    var localizationKey: String {
         switch self {
-        case .list: return "列表"
-        case .graph: return "图谱"
+        case .list: return "reports.crossBatch.mode.list"
+        case .graph: return "reports.crossBatch.mode.graph"
         }
     }
 }
 
 struct CrossBatchEvidenceBrowser: View {
+    @Environment(AppState.self) private var appState
     @State private var mode: CrossBatchEvidenceMode = .list
     @State private var selectedBatch = CrossBatchFilter.all
     @State private var selectedTeam = CrossBatchFilter.all
@@ -748,9 +750,9 @@ struct CrossBatchEvidenceBrowser: View {
         VStack(spacing: 0) {
             ScrollView(.horizontal) {
                 HStack(spacing: 12) {
-                    Picker("视图", selection: $mode) {
+                    Picker(appState.t("common.view"), selection: $mode) {
                         ForEach(CrossBatchEvidenceMode.allCases) { option in
-                            Text(option.title).tag(option)
+                            Text(appState.t(option.localizationKey)).tag(option)
                         }
                     }
                     .pickerStyle(.segmented)
@@ -758,11 +760,11 @@ struct CrossBatchEvidenceBrowser: View {
                     .frame(width: 140)
 
                     if mode == .graph {
-                        CrossBatchFilterPicker(title: "批次", allTitle: "全部批次", options: graph.batches, selection: $selectedBatch)
-                        CrossBatchFilterPicker(title: "队伍", allTitle: "全部队伍", options: graph.teams, selection: $selectedTeam)
-                        CrossBatchFilterPicker(title: "标签", allTitle: "全部标签", options: graph.tags, selection: $selectedTag)
-                        CrossBatchFilterPicker(title: "状态", allTitle: "全部状态", options: graph.statuses, selection: $selectedStatus)
-                        Text("\(filteredGraph.nodes.count) 节点 / \(filteredGraph.edges.count) 边")
+                        CrossBatchFilterPicker(title: appState.t("reports.crossBatch.batch"), allTitle: appState.t("reports.crossBatch.allBatches"), options: graph.batches, selection: $selectedBatch)
+                        CrossBatchFilterPicker(title: appState.t("reports.crossBatch.team"), allTitle: appState.t("reports.crossBatch.allTeams"), options: graph.teams, selection: $selectedTeam)
+                        CrossBatchFilterPicker(title: appState.t("reports.crossBatch.tag"), allTitle: appState.t("reports.crossBatch.allTags"), options: graph.tags, selection: $selectedTag)
+                        CrossBatchFilterPicker(title: appState.t("common.status"), allTitle: appState.t("reports.crossBatch.allStatuses"), options: graph.statuses, selection: $selectedStatus)
+                        Text(appState.tf("reports.crossBatch.graphCount", filteredGraph.nodes.count, filteredGraph.edges.count))
                             .font(AppTypography.metadata)
                             .foregroundStyle(.secondary)
                     }
@@ -849,7 +851,7 @@ struct CrossBatchList: View {
     var body: some View {
         AppHorizontalOverflow(minWidth: AppLayout.evidenceTableMinWidth) {
             if let report = appState.selectedReport {
-                let section = appState.selectedReportSectionModel ?? ReportSection(kind: .crossBatch, title: "跨批次", summary: "")
+                let section = appState.selectedReportSectionModel ?? ReportSection(kind: .crossBatch, title: appState.title(for: ReportSectionKind.crossBatch), summary: "")
                 EvidenceReviewTableView(
                     rows: EvidenceReviewTableRow.rows(report: report, section: section, rows: rows),
                     selection: $selectedEvidenceIDs
@@ -877,17 +879,19 @@ struct CrossBatchList: View {
 }
 
 struct CrossBatchHeader: View {
+    @Environment(AppState.self) private var appState
+
     var body: some View {
         HStack(spacing: 12) {
-            Text("当前文件")
+            Text(appState.t("reports.crossBatch.currentFile"))
                 .frame(maxWidth: .infinity, alignment: .leading)
-            Text("历史文件")
+            Text(appState.t("reports.crossBatch.historicalFile"))
                 .frame(maxWidth: .infinity, alignment: .leading)
-            Text("批次")
+            Text(appState.t("reports.crossBatch.batch"))
                 .frame(width: 150, alignment: .leading)
-            Text("位差")
+            Text(appState.t("reports.crossBatch.bitDelta"))
                 .frame(width: 54, alignment: .trailing)
-            Text("状态")
+            Text(appState.t("common.status"))
                 .frame(width: 110, alignment: .leading)
         }
         .font(AppTypography.tableHeader)
@@ -929,6 +933,7 @@ struct CrossBatchListRow: View {
 }
 
 struct CrossBatchGraphPanel: View {
+    @Environment(AppState.self) private var appState
     let graph: CrossBatchGraph
     private let maxDisplayedNodes = 320
     private let maxDisplayedEdges = 520
@@ -955,22 +960,26 @@ struct CrossBatchGraphPanel: View {
 
     var body: some View {
         if graph.edges.isEmpty {
-            ContentUnavailableView("无匹配边", systemImage: "arrow.triangle.branch", description: Text("调整批次、队伍、标签或状态过滤条件"))
+            ContentUnavailableView(
+                appState.t("reports.crossBatch.noEdges"),
+                systemImage: "arrow.triangle.branch",
+                description: Text(appState.t("reports.crossBatch.noEdgesDescription"))
+            )
                 .frame(minHeight: AppLayout.reportListMinHeight, maxHeight: .infinity)
         } else {
             ScrollView([.horizontal, .vertical]) {
                 VStack(alignment: .leading, spacing: 10) {
                     if hasDisplayCap {
-                        Label("大图谱已显示前 \(displayedEdges.count) 条边和每组前 \(maxDisplayedNodes) 个节点", systemImage: "speedometer")
+                        Label(appState.tf("reports.crossBatch.displayCap", displayedEdges.count, maxDisplayedNodes), systemImage: "speedometer")
                             .font(AppTypography.metadata)
                             .foregroundStyle(.secondary)
                     }
 
                     HStack(alignment: .top, spacing: 14) {
-                        CrossBatchNodeColumn(title: "当前节点", nodes: currentNodes)
+                        CrossBatchNodeColumn(title: appState.t("reports.crossBatch.currentNodes"), nodes: currentNodes)
                         CrossBatchEdgeColumn(edges: displayedEdges)
-                        CrossBatchNodeColumn(title: "历史节点", nodes: historicalNodes)
-                        CrossBatchNodeColumn(title: "上下文节点", nodes: contextNodes)
+                        CrossBatchNodeColumn(title: appState.t("reports.crossBatch.historicalNodes"), nodes: historicalNodes)
+                        CrossBatchNodeColumn(title: appState.t("reports.crossBatch.contextNodes"), nodes: contextNodes)
                     }
                 }
                 .padding(16)
@@ -982,12 +991,13 @@ struct CrossBatchGraphPanel: View {
 }
 
 struct CrossBatchNodeColumn: View {
+    @Environment(AppState.self) private var appState
     let title: String
     let nodes: [CrossBatchGraphNode]
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("\(title) \(nodes.count)")
+            Text(appState.tf("reports.crossBatch.nodeColumnCount", title, nodes.count))
                 .font(AppTypography.tableHeader)
                 .foregroundStyle(.secondary)
             ForEach(nodes) { node in
@@ -999,6 +1009,7 @@ struct CrossBatchNodeColumn: View {
 }
 
 struct CrossBatchNodeView: View {
+    @Environment(AppState.self) private var appState
     let node: CrossBatchGraphNode
 
     var body: some View {
@@ -1007,7 +1018,7 @@ struct CrossBatchNodeView: View {
                 .font(AppTypography.rowPrimary)
                 .lineLimit(1)
                 .truncationMode(.middle)
-            Text("\(node.role.title) · \(node.kind.title)")
+            Text("\(roleTitle) · \(kindTitle)")
                 .font(AppTypography.metadata.weight(.medium))
                 .foregroundStyle(.secondary)
             if node.subtitle.isEmpty == false {
@@ -1026,6 +1037,23 @@ struct CrossBatchNodeView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.vertical, 4)
     }
+
+    private var roleTitle: String {
+        switch node.role {
+        case .current: return appState.t("reports.crossBatch.nodeRole.current")
+        case .historical: return appState.t("reports.crossBatch.nodeRole.historical")
+        }
+    }
+
+    private var kindTitle: String {
+        switch node.kind {
+        case .document: return appState.t("reports.crossBatch.nodeKind.document")
+        case .team: return appState.t("reports.crossBatch.nodeKind.team")
+        case .batch: return appState.t("reports.crossBatch.nodeKind.batch")
+        case .challenge: return appState.t("reports.crossBatch.nodeKind.challenge")
+        case .fingerprint: return appState.t("reports.crossBatch.nodeKind.fingerprint")
+        }
+    }
 }
 
 struct CrossBatchEdgeColumn: View {
@@ -1034,7 +1062,7 @@ struct CrossBatchEdgeColumn: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("边 \(edges.count)")
+            Text(appState.tf("reports.crossBatch.edgeCount", edges.count))
                 .font(AppTypography.tableHeader)
                 .foregroundStyle(.secondary)
             ForEach(edges) { edge in
@@ -1143,7 +1171,7 @@ struct OverviewEvidenceList: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
-            EvidenceListHeader(headers: ["证据", "", appState.t("common.score")])
+            EvidenceListHeader(headers: [appState.t("common.evidence"), "", appState.t("common.score")])
             List(rows, selection: Binding(
                 get: { appState.selectedReportRowID },
                 set: { selectedID in

@@ -16,10 +16,11 @@ NOTARIZE="false"
 RELEASE_TAG="${RELEASE_TAG:-}"
 RELEASE_BUILD_NUMBER="${RELEASE_BUILD_NUMBER:-${GITHUB_RUN_NUMBER:-}}"
 RELEASE_DOWNLOAD_BASE_URL="${RELEASE_DOWNLOAD_BASE_URL:-}"
-STABLE_UPDATE_CHECK_URL="${STABLE_UPDATE_CHECK_URL:-https://github.com/D1a0y1bb/PitcherPlant/releases/latest/download/appcast.xml?cachebust=1}"
-BETA_UPDATE_CHECK_URL="${BETA_UPDATE_CHECK_URL:-https://github.com/D1a0y1bb/PitcherPlant/releases/download/appcast-beta/appcast.xml}"
+REQUIRED_STABLE_UPDATE_CHECK_URL="https://github.com/D1a0y1bb/PitcherPlant/releases/latest/download/appcast.xml?cachebust=1"
+REQUIRED_BETA_UPDATE_CHECK_URL="https://github.com/D1a0y1bb/PitcherPlant/releases/download/appcast-beta/appcast.xml"
+STABLE_UPDATE_CHECK_URL="${STABLE_UPDATE_CHECK_URL:-$REQUIRED_STABLE_UPDATE_CHECK_URL}"
+BETA_UPDATE_CHECK_URL="${BETA_UPDATE_CHECK_URL:-$REQUIRED_BETA_UPDATE_CHECK_URL}"
 PP_UPDATE_CHECK_URL="${PP_UPDATE_CHECK_URL:-}"
-SPARKLE_ACCOUNT="${SPARKLE_ACCOUNT:-D1a0y1bb.PitcherPlant}"
 SPARKLE_ED_PRIVATE_KEY="${SPARKLE_ED_PRIVATE_KEY:-}"
 SPARKLE_SIGN_UPDATE_PATH="${SPARKLE_SIGN_UPDATE_PATH:-}"
 
@@ -154,19 +155,34 @@ sparkle_signature_attributes() {
   local sign_update_path
   sign_update_path="$(resolve_sparkle_sign_update)"
 
-  if [[ -n "$SPARKLE_ED_PRIVATE_KEY" ]]; then
-    printf '%s' "$SPARKLE_ED_PRIVATE_KEY" | "$sign_update_path" --ed-key-file - "$update_archive"
-  else
-    "$sign_update_path" --account "$SPARKLE_ACCOUNT" "$update_archive"
-  fi
+  printf '%s' "$SPARKLE_ED_PRIVATE_KEY" | "$sign_update_path" --ed-key-file - "$update_archive"
 }
 
 RESOLVED_UPDATE_CHECK_URL="$(resolve_update_check_url)"
-if [[ "$(release_channel)" = "beta" && "$RESOLVED_UPDATE_CHECK_URL" == *"/releases/latest/"* ]]; then
-  echo "Beta and RC builds must not use the GitHub latest appcast URL." >&2
-  echo "Resolved PP_UPDATE_CHECK_URL: $RESOLVED_UPDATE_CHECK_URL" >&2
+if [[ -z "$SPARKLE_ED_PRIVATE_KEY" ]]; then
+  echo "Missing required environment variable: SPARKLE_ED_PRIVATE_KEY" >&2
+  echo "Sparkle appcast generation always requires EdDSA signing, including dry-runs." >&2
   exit 1
 fi
+
+case "$(release_channel)" in
+  beta)
+    if [[ "$BETA_UPDATE_CHECK_URL" != "$REQUIRED_BETA_UPDATE_CHECK_URL" || "$RESOLVED_UPDATE_CHECK_URL" != "$REQUIRED_BETA_UPDATE_CHECK_URL" ]]; then
+      echo "Beta and RC builds must use the fixed beta appcast URL." >&2
+      echo "Required: $REQUIRED_BETA_UPDATE_CHECK_URL" >&2
+      echo "Resolved: $RESOLVED_UPDATE_CHECK_URL" >&2
+      exit 1
+    fi
+    ;;
+  stable)
+    if [[ "$STABLE_UPDATE_CHECK_URL" != "$REQUIRED_STABLE_UPDATE_CHECK_URL" || "$RESOLVED_UPDATE_CHECK_URL" != "$REQUIRED_STABLE_UPDATE_CHECK_URL" ]]; then
+      echo "Stable builds must use the fixed stable appcast URL." >&2
+      echo "Required: $REQUIRED_STABLE_UPDATE_CHECK_URL" >&2
+      echo "Resolved: $RESOLVED_UPDATE_CHECK_URL" >&2
+      exit 1
+    fi
+    ;;
+esac
 
 XCODEBUILD_RELEASE_SETTINGS=(PP_UPDATE_CHECK_URL="$RESOLVED_UPDATE_CHECK_URL")
 if [[ -n "$RELEASE_BUILD_NUMBER" ]]; then
@@ -230,6 +246,27 @@ PLIST
     -archivePath "$ARCHIVE_PATH" \
     -exportPath "$EXPORT_DIR" \
     -exportOptionsPlist "$BUILD_DIR/exportOptions.plist"
+}
+
+verify_bundle_update_urls() {
+  local info_plist="$EXPORT_DIR/$APP_NAME.app/Contents/Info.plist"
+  local su_feed_url
+  local silent_update_url
+
+  if [[ ! -f "$info_plist" ]]; then
+    echo "Missing built Info.plist: $info_plist" >&2
+    exit 1
+  fi
+
+  su_feed_url="$(/usr/libexec/PlistBuddy -c 'Print :SUFeedURL' "$info_plist" 2>/dev/null || true)"
+  silent_update_url="$(/usr/libexec/PlistBuddy -c 'Print :PPUpdateCheckURL' "$info_plist" 2>/dev/null || true)"
+  if [[ "$su_feed_url" != "$RESOLVED_UPDATE_CHECK_URL" || "$silent_update_url" != "$RESOLVED_UPDATE_CHECK_URL" ]]; then
+    echo "Built update URLs do not match the resolved release channel." >&2
+    echo "Expected: $RESOLVED_UPDATE_CHECK_URL" >&2
+    echo "SUFeedURL: ${su_feed_url:-<missing>}" >&2
+    echo "PPUpdateCheckURL: ${silent_update_url:-<missing>}" >&2
+    exit 1
+  fi
 }
 
 notarize_app_if_requested() {
@@ -336,6 +373,8 @@ generate_checksums_and_notes() {
   local previous_tag
   local changes_heading
   local change_log
+  local curated_notes_path
+  local curated_notes
   local distribution_line
   local trust_note
 
@@ -386,6 +425,14 @@ generate_checksums_and_notes() {
     change_log="- Built from the current source checkout."
   fi
 
+  curated_notes=""
+  if [[ -n "$RELEASE_TAG" ]]; then
+    curated_notes_path="$ROOT_DIR/ReleaseNotes/$RELEASE_TAG.md"
+    if [[ -f "$curated_notes_path" ]]; then
+      curated_notes="$(cat "$curated_notes_path")"
+    fi
+  fi
+
   if [[ "$DISTRIBUTION" == "developer-id" && "$NOTARIZE" == "true" ]]; then
     distribution_line="Developer ID signed and notarized."
     trust_note="Gatekeeper should accept the app normally after download."
@@ -403,6 +450,8 @@ PitcherPlant $release_title
 - Build: \`$bundle_version\`
 - Release tag: \`${RELEASE_TAG:-local}\`
 $commit_line
+
+$curated_notes
 
 ### $changes_heading
 
@@ -510,6 +559,7 @@ else
   archive_ad_hoc
 fi
 
+verify_bundle_update_urls
 notarize_app_if_requested
 package_archive_and_symbols
 package_app

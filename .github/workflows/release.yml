@@ -226,13 +226,14 @@ jobs:
         run: |
           missing=0
 
+          if [ -z "$SPARKLE_ED_PRIVATE_KEY" ]; then
+            echo "Missing required secret: SPARKLE_ED_PRIVATE_KEY; appcast generation always requires EdDSA signing, including dry-runs."
+            missing=1
+          fi
+
           if [ "${{ steps.release.outputs.publish_release }}" = "true" ]; then
             if [ -z "${{ steps.release.outputs.tag_name }}" ]; then
               echo "Missing release tag. Provide workflow_dispatch input 'version' or push a v* tag."
-              missing=1
-            fi
-            if [ -z "$SPARKLE_ED_PRIVATE_KEY" ]; then
-              echo "Missing required secret: SPARKLE_ED_PRIVATE_KEY"
               missing=1
             fi
 
@@ -244,6 +245,16 @@ jobs:
                 missing=1
                 ;;
             esac
+          fi
+
+          if [ "${{ steps.release.outputs.release_channel }}" = "beta" ] && [ "${{ steps.release.outputs.update_check_url }}" != "https://github.com/D1a0y1bb/PitcherPlant/releases/download/appcast-beta/appcast.xml" ]; then
+            echo "Beta and RC builds must use the fixed appcast-beta URL."
+            missing=1
+          fi
+
+          if [ "${{ steps.release.outputs.release_channel }}" = "stable" ] && [ "${{ steps.release.outputs.update_check_url }}" != "https://github.com/D1a0y1bb/PitcherPlant/releases/latest/download/appcast.xml?cachebust=1" ]; then
+            echo "Stable builds must use the fixed latest appcast URL."
+            missing=1
           fi
 
           if [ "${{ steps.release.outputs.signed_release }}" = "true" ]; then

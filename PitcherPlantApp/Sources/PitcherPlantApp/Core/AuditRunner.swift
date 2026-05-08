@@ -1,5 +1,9 @@
 import Foundation
 
+enum AuditRunnerError: Error, Equatable, Sendable {
+    case noAuditableDocuments(directory: String)
+}
+
 struct AuditRunner {
     func run(
         configuration: AuditConfiguration,
@@ -22,8 +26,14 @@ struct AuditRunner {
         if let message = preflight.warningMessage(limits: limits) {
             try await progress(.scan, message)
         }
+        guard preflight.supportedFileCount > 0 else {
+            throw AuditRunnerError.noAuditableDocuments(directory: directoryURL.path)
+        }
         try Task.checkCancellation()
         let documents = try ingestion.ingestDocuments(in: directoryURL)
+        guard documents.isEmpty == false else {
+            throw AuditRunnerError.noAuditableDocuments(directory: directoryURL.path)
+        }
         try await progress(.parse, "\(AuditStage.parse.displayTitle)：\(documents.count) 个文档")
         let featureResult = try DocumentFeatureStore().buildFeatureResultCheckingCancellation(
             for: documents,
@@ -48,7 +58,7 @@ struct AuditRunner {
         try Task.checkCancellation()
 
         let textAnalyzer = TextSimilarityAnalyzer()
-        let textPairs = textAnalyzer.analyze(
+        let textPairs = try textAnalyzer.analyzeCheckingCancellation(
             documents: documents,
             threshold: configuration.textThreshold,
             features: features,
@@ -58,7 +68,7 @@ struct AuditRunner {
         try await progress(.text, AuditStage.text.displayTitle)
         try Task.checkCancellation()
 
-        let codePairs = CodeSimilarityAnalyzer().analyze(
+        let codePairs = try CodeSimilarityAnalyzer().analyzeCheckingCancellation(
             documents: documents,
             features: features,
             whitelistRules: whitelistRules,
@@ -67,7 +77,7 @@ struct AuditRunner {
         try await progress(.code, AuditStage.code.displayTitle)
         try Task.checkCancellation()
 
-        let imagePairs = ImageReuseAnalyzer().analyze(
+        let imagePairs = try ImageReuseAnalyzer().analyzeCheckingCancellation(
             documents: documents,
             threshold: configuration.imageThreshold,
             features: features,
@@ -77,7 +87,7 @@ struct AuditRunner {
         try await progress(.image, AuditStage.image.displayTitle)
         try Task.checkCancellation()
 
-        let metadataCollisions = MetadataCollisionAnalyzer().analyze(
+        let metadataCollisions = try MetadataCollisionAnalyzer().analyzeCheckingCancellation(
             documents: documents,
             whitelistRules: whitelistRules,
             whitelistMode: configuration.whitelistMode
@@ -85,15 +95,15 @@ struct AuditRunner {
         try await progress(.metadata, AuditStage.metadata.displayTitle)
         try Task.checkCancellation()
 
-        let dedupPairs = DedupAnalyzer().analyze(
+        let dedupPairs = try DedupAnalyzer().analyzeCheckingCancellation(
             documents: documents,
             threshold: configuration.dedupThreshold,
             features: features,
             whitelistRules: whitelistRules,
             whitelistMode: configuration.whitelistMode
         )
-        let currentFingerprints = FingerprintAnalyzer().buildRecords(documents: documents, scanDirectory: directoryURL.lastPathComponent)
-        let crossBatch = CrossBatchReuseAnalyzer().analyze(
+        let currentFingerprints = try FingerprintAnalyzer().buildRecordsCheckingCancellation(documents: documents, scanDirectory: directoryURL.lastPathComponent)
+        let crossBatch = try CrossBatchReuseAnalyzer().analyzeCheckingCancellation(
             current: currentFingerprints,
             historical: importedFingerprints,
             whitelistRules: whitelistRules,

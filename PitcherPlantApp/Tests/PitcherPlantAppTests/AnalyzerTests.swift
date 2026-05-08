@@ -83,6 +83,46 @@ func textSimilarityBuildsContextEvidenceAndParaphraseMarker() throws {
 }
 
 @Test
+func textSimilarityAnalyzerPropagatesCancellationInsideCandidateLoop() async {
+    let documents = (0..<120).map { index in
+        ParsedDocument(
+            url: URL(fileURLWithPath: "/tmp/cancel-\(index).md"),
+            filename: "cancel-\(index).md",
+            ext: "md",
+            content: "shared cancellation corpus \(index)",
+            cleanText: "shared cancellation corpus \(index)",
+            codeBlocks: [],
+            author: "author-\(index)",
+            images: []
+        )
+    }
+
+    let task = Task {
+        while !Task.isCancelled {
+            await Task.yield()
+        }
+        _ = try TextSimilarityAnalyzer().analyzeCheckingCancellation(documents: documents, threshold: 0.1)
+    }
+    task.cancel()
+    await expectCancellation(from: task)
+}
+
+@Test
+func textEvidenceBuilderPropagatesCancellationInsideLCSLoop() async {
+    let left = String(repeating: "abcdef0123456789", count: 180)
+    let right = String(repeating: "0123456789abcdef", count: 180)
+
+    let task = Task {
+        while !Task.isCancelled {
+            await Task.yield()
+        }
+        _ = try TextEvidenceBuilder.buildCheckingCancellation(left: left, right: right)
+    }
+    task.cancel()
+    await expectCancellation(from: task)
+}
+
+@Test
 func metadataCollisionUsesLastModifiedByAuthor() {
     let docA = ParsedDocument(
         url: URL(fileURLWithPath: "/tmp/a.docx"),
@@ -110,6 +150,16 @@ func metadataCollisionUsesLastModifiedByAuthor() {
 
     #expect(collision?.author == "SharedEditor")
     #expect(collision?.files.sorted() == ["a.docx", "b.docx"])
+}
+
+private func expectCancellation<T: Sendable>(from task: Task<T, Error>) async {
+    do {
+        _ = try await task.value
+        Issue.record("Expected CancellationError")
+    } catch is CancellationError {
+    } catch {
+        Issue.record("Expected CancellationError, got \(error)")
+    }
 }
 
 @Test

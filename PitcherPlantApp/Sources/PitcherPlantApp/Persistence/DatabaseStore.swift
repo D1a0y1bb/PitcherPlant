@@ -79,6 +79,7 @@ actor DatabaseStore {
                 table.column("source_path", .text).notNull().indexed()
                 table.column("scan_directory_path", .text).notNull().indexed()
                 table.column("job_id", .text)
+                table.column("search_index", .text)
             }
             try db.create(table: "audit_job_events", ifNotExists: true) { table in
                 table.column("id", .text).primaryKey()
@@ -103,6 +104,7 @@ actor DatabaseStore {
                 table.column("simhash", .text).notNull()
                 table.column("scanned_at", .datetime)
                 table.column("tag_index", .text)
+                table.column("search_index", .text)
             }
             try db.create(table: "whitelist_rules", ifNotExists: true) { table in
                 table.column("id", .text).primaryKey()
@@ -299,6 +301,36 @@ actor DatabaseStore {
             try createFingerprintIndexes(db)
         }
 
+        migrator.registerMigration("add-library-search-indexes-v1") { db in
+            try ensureColumn("search_index", in: "audit_reports", type: .text, db: db)
+            try ensureColumn("search_index", in: "fingerprints", type: .text, db: db)
+            try createReportTableRows(db)
+
+            let reportRows = try Row.fetchAll(db, sql: "SELECT id, payload FROM audit_reports")
+            for row in reportRows {
+                let reportID: String = row["id"]
+                let payload: String = row["payload"]
+                let report = try JSONDecoder.pitcherPlant.decodeString(AuditReport.self, from: payload)
+                try db.execute(
+                    sql: "UPDATE audit_reports SET search_index = ? WHERE id = ?",
+                    arguments: [reportSearchIndex(report), reportID]
+                )
+                try replaceReportTableRows(for: report, db: db)
+            }
+
+            let fingerprintRows = try Row.fetchAll(db, sql: "SELECT id, payload FROM fingerprints")
+            for row in fingerprintRows {
+                let id: String = row["id"]
+                let payload: String = row["payload"]
+                let record = try JSONDecoder.pitcherPlant.decodeString(FingerprintRecord.self, from: payload)
+                try db.execute(
+                    sql: "UPDATE fingerprints SET search_index = ? WHERE id = ?",
+                    arguments: [fingerprintSearchIndex(record), id]
+                )
+            }
+            try createLibrarySearchIndexes(db)
+        }
+
         try migrator.migrate(dbQueue)
     }
 
@@ -398,15 +430,16 @@ actor DatabaseStore {
         try dbQueue.write { db in
             try db.execute(
                 sql: """
-                INSERT INTO audit_reports (id, payload, created_at, title, source_path, scan_directory_path, job_id)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO audit_reports (id, payload, created_at, title, source_path, scan_directory_path, job_id, search_index)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(id) DO UPDATE SET
                     payload = excluded.payload,
                     created_at = excluded.created_at,
                     title = excluded.title,
                     source_path = excluded.source_path,
                     scan_directory_path = excluded.scan_directory_path,
-                    job_id = excluded.job_id
+                    job_id = excluded.job_id,
+                    search_index = excluded.search_index
                 """,
                 arguments: [
                     report.id.uuidString,
@@ -416,6 +449,7 @@ actor DatabaseStore {
                     report.sourcePath,
                     report.scanDirectoryPath,
                     report.jobID?.uuidString,
+                    reportSearchIndex(report),
                 ]
             )
             try db.execute(sql: "DELETE FROM report_sections WHERE report_id = ?", arguments: [report.id.uuidString])
@@ -437,6 +471,7 @@ actor DatabaseStore {
                     ]
                 )
             }
+            try replaceReportTableRows(for: report, db: db)
         }
     }
 
@@ -503,18 +538,34 @@ actor DatabaseStore {
         }
 
         return try dbQueue.read { db in
-            let rows = try Row.fetchAll(db, sql: "SELECT id, payload FROM audit_reports ORDER BY created_at DESC")
-            let sectionsByReportID = try fetchSectionsByReportID(db)
-            let matchingReports = try rows.compactMap { row -> AuditReport? in
+            let needle = Self.sqliteSearchNeedle(trimmed)
+            let totalCount = try Int.fetchOne(
+                db,
+                sql: "SELECT COUNT(*) FROM audit_reports WHERE instr(COALESCE(search_index, ''), ?) > 0",
+                arguments: [needle]
+            ) ?? 0
+            let rows = try Row.fetchAll(
+                db,
+                sql: """
+                SELECT id, payload
+                FROM audit_reports
+                WHERE instr(COALESCE(search_index, ''), ?) > 0
+                ORDER BY created_at DESC
+                LIMIT ? OFFSET ?
+                """,
+                arguments: [needle, sanitizedLimit, sanitizedOffset]
+            )
+            let reportIDs = Set(rows.map { row in row["id"] as String })
+            let sectionsByReportID = try fetchSectionsByReportID(db, reportIDs: reportIDs)
+            let reports = try rows.map { row -> AuditReport in
                 let reportID: String = row["id"]
                 var report = try JSONDecoder.pitcherPlant.decodeString(AuditReport.self, from: row["payload"])
                 if let sections = sectionsByReportID[reportID], sections.isEmpty == false {
                     report = report.replacingSections(sections)
                 }
-                return report.matchesLibrarySearch(trimmed) ? report : nil
+                return report
             }
-            let page = Array(matchingReports.dropFirst(sanitizedOffset).prefix(sanitizedLimit))
-            return DatabasePage(values: page, totalCount: matchingReports.count, limit: sanitizedLimit, offset: sanitizedOffset)
+            return DatabasePage(values: reports, totalCount: totalCount, limit: sanitizedLimit, offset: sanitizedOffset)
         }
     }
 
@@ -542,11 +593,7 @@ actor DatabaseStore {
         try dbQueue.read { db in
             let reportCount = try Int.fetchOne(db, sql: "SELECT COUNT(*) FROM audit_reports") ?? 0
             let sectionCount = try Int.fetchOne(db, sql: "SELECT COUNT(*) FROM report_sections") ?? 0
-            let rows = try Row.fetchAll(db, sql: "SELECT payload FROM report_sections")
-            let evidenceRowCount = try rows.reduce(0) { partial, row in
-                let section = try JSONDecoder.pitcherPlant.decodeString(ReportSection.self, from: row["payload"] as String)
-                return partial + (section.table?.rows.count ?? 0)
-            }
+            let evidenceRowCount = try Int.fetchOne(db, sql: "SELECT COUNT(*) FROM report_table_rows") ?? 0
             return ReportCounts(reportCount: reportCount, sectionCount: sectionCount, evidenceRowCount: evidenceRowCount)
         }
     }
@@ -554,15 +601,36 @@ actor DatabaseStore {
     func loadEvidenceRows(reportID: UUID, query: String = "", limit: Int, offset: Int = 0) throws -> DatabasePage<ReportTableRow> {
         let sanitizedLimit = max(1, limit)
         let sanitizedOffset = max(0, offset)
-        let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmed = query.normalizedSearchQuery
         return try dbQueue.read { db in
-            let sections = try fetchSectionsByReportID(db, reportIDs: [reportID.uuidString])[reportID.uuidString] ?? []
-            let rows = sections.flatMap { section in
-                section.kind == .overview ? [] : (section.table?.rows ?? [])
+            var clauses = ["report_id = ?"]
+            var arguments: StatementArguments = [reportID.uuidString]
+            if trimmed.isEmpty == false {
+                clauses.append("instr(search_index, ?) > 0")
+                arguments += [Self.sqliteSearchNeedle(trimmed)]
             }
-            let filtered = trimmed.isEmpty ? rows : rows.filter { $0.matchesEvidenceQuery(trimmed) }
-            let page = Array(filtered.dropFirst(sanitizedOffset).prefix(sanitizedLimit))
-            return DatabasePage(values: page, totalCount: filtered.count, limit: sanitizedLimit, offset: sanitizedOffset)
+            let whereClause = clauses.joined(separator: " AND ")
+            let totalCount = try Int.fetchOne(
+                db,
+                sql: "SELECT COUNT(*) FROM report_table_rows WHERE \(whereClause)",
+                arguments: arguments
+            ) ?? 0
+            arguments += [sanitizedLimit, sanitizedOffset]
+            let rows = try Row.fetchAll(
+                db,
+                sql: """
+                SELECT payload
+                FROM report_table_rows
+                WHERE \(whereClause)
+                ORDER BY section_position ASC, row_position ASC
+                LIMIT ? OFFSET ?
+                """,
+                arguments: arguments
+            )
+            let page = try rows.map { row in
+                try JSONDecoder.pitcherPlant.decodeString(ReportTableRow.self, from: row["payload"])
+            }
+            return DatabasePage(values: page, totalCount: totalCount, limit: sanitizedLimit, offset: sanitizedOffset)
         }
     }
 
@@ -570,6 +638,7 @@ actor DatabaseStore {
         try dbQueue.write { db in
             try db.execute(sql: "DELETE FROM audit_reports WHERE id = ?", arguments: [reportID.uuidString])
             try db.execute(sql: "DELETE FROM report_sections WHERE report_id = ?", arguments: [reportID.uuidString])
+            try db.execute(sql: "DELETE FROM report_table_rows WHERE report_id = ?", arguments: [reportID.uuidString])
             try db.execute(sql: "DELETE FROM evidence_reviews WHERE report_id = ?", arguments: [reportID.uuidString])
         }
     }
@@ -635,10 +704,10 @@ actor DatabaseStore {
                 let payload = try JSONEncoder.pitcherPlant.encodeToString(record)
                 try db.execute(
                     sql: """
-                    INSERT OR IGNORE INTO fingerprints (id, payload, simhash, scanned_at, tag_index)
-                    VALUES (?, ?, ?, ?, ?)
+                    INSERT OR IGNORE INTO fingerprints (id, payload, simhash, scanned_at, tag_index, search_index)
+                    VALUES (?, ?, ?, ?, ?, ?)
                     """,
-                    arguments: [record.id.uuidString, payload, record.simhash, record.scannedAt, fingerprintTagIndex(record.tags)]
+                    arguments: [record.id.uuidString, payload, record.simhash, record.scannedAt, fingerprintTagIndex(record.tags), fingerprintSearchIndex(record)]
                 )
             }
         }
@@ -653,15 +722,16 @@ actor DatabaseStore {
                 let payload = try JSONEncoder.pitcherPlant.encodeToString(record)
                 try db.execute(
                     sql: """
-                    INSERT INTO fingerprints (id, payload, simhash, scanned_at, tag_index)
-                    VALUES (?, ?, ?, ?, ?)
+                    INSERT INTO fingerprints (id, payload, simhash, scanned_at, tag_index, search_index)
+                    VALUES (?, ?, ?, ?, ?, ?)
                     ON CONFLICT(id) DO UPDATE SET
                         payload = excluded.payload,
                         simhash = excluded.simhash,
                         scanned_at = excluded.scanned_at,
-                        tag_index = excluded.tag_index
+                        tag_index = excluded.tag_index,
+                        search_index = excluded.search_index
                     """,
-                    arguments: [record.id.uuidString, payload, record.simhash, record.scannedAt, fingerprintTagIndex(record.tags)]
+                    arguments: [record.id.uuidString, payload, record.simhash, record.scannedAt, fingerprintTagIndex(record.tags), fingerprintSearchIndex(record)]
                 )
             }
         }
@@ -702,13 +772,27 @@ actor DatabaseStore {
         }
 
         return try dbQueue.read { db in
-            let rows = try Row.fetchAll(db, sql: "SELECT payload FROM fingerprints ORDER BY scanned_at DESC")
-            let matchingRecords = try rows.compactMap { row -> FingerprintRecord? in
-                let record = try JSONDecoder.pitcherPlant.decodeString(FingerprintRecord.self, from: row["payload"])
-                return record.matchesLibrarySearch(trimmed) ? record : nil
+            let needle = Self.sqliteSearchNeedle(trimmed)
+            let totalCount = try Int.fetchOne(
+                db,
+                sql: "SELECT COUNT(*) FROM fingerprints WHERE instr(COALESCE(search_index, ''), ?) > 0",
+                arguments: [needle]
+            ) ?? 0
+            let rows = try Row.fetchAll(
+                db,
+                sql: """
+                SELECT payload
+                FROM fingerprints
+                WHERE instr(COALESCE(search_index, ''), ?) > 0
+                ORDER BY scanned_at DESC
+                LIMIT ? OFFSET ?
+                """,
+                arguments: [needle, sanitizedLimit, sanitizedOffset]
+            )
+            let records = try rows.map { row in
+                try JSONDecoder.pitcherPlant.decodeString(FingerprintRecord.self, from: row["payload"])
             }
-            let page = Array(matchingRecords.dropFirst(sanitizedOffset).prefix(sanitizedLimit))
-            return DatabasePage(values: page, totalCount: matchingRecords.count, limit: sanitizedLimit, offset: sanitizedOffset)
+            return DatabasePage(values: records, totalCount: totalCount, limit: sanitizedLimit, offset: sanitizedOffset)
         }
     }
 
@@ -719,10 +803,18 @@ actor DatabaseStore {
         }
 
         return try dbQueue.read { db in
-            let rows = try Row.fetchAll(db, sql: "SELECT payload FROM fingerprints ORDER BY scanned_at DESC")
-            return try rows.compactMap { row in
-                let record = try JSONDecoder.pitcherPlant.decodeString(FingerprintRecord.self, from: row["payload"])
-                return record.matchesLibrarySearch(trimmed) ? record : nil
+            let rows = try Row.fetchAll(
+                db,
+                sql: """
+                SELECT payload
+                FROM fingerprints
+                WHERE instr(COALESCE(search_index, ''), ?) > 0
+                ORDER BY scanned_at DESC
+                """,
+                arguments: [Self.sqliteSearchNeedle(trimmed)]
+            )
+            return try rows.map { row in
+                try JSONDecoder.pitcherPlant.decodeString(FingerprintRecord.self, from: row["payload"])
             }
         }
     }
@@ -908,7 +1000,12 @@ actor DatabaseStore {
         }
     }
 
-    func loadDocumentFeatures(scanID: UUID? = nil, batchID: UUID? = nil) throws -> [DocumentFeature] {
+    func loadDocumentFeatures(
+        scanID: UUID? = nil,
+        batchID: UUID? = nil,
+        pathPrefix: String? = nil,
+        onlyUnbatched: Bool = false
+    ) throws -> [DocumentFeature] {
         try dbQueue.read { db in
             var clauses: [String] = []
             var arguments: StatementArguments = []
@@ -920,6 +1017,13 @@ actor DatabaseStore {
                 clauses.append("batch_id = ?")
                 arguments += [batchID.uuidString]
             }
+            if onlyUnbatched {
+                clauses.append("batch_id IS NULL")
+            }
+            if let pathPrefix = Self.normalizedPathPrefix(pathPrefix) {
+                clauses.append("(document_path = ? OR document_path LIKE ? ESCAPE '\\')")
+                arguments += [pathPrefix, Self.sqliteLikeEscapedPrefix(pathPrefix)]
+            }
             let whereClause = clauses.isEmpty ? "" : " WHERE \(clauses.joined(separator: " AND "))"
             let rows = try Row.fetchAll(
                 db,
@@ -930,6 +1034,30 @@ actor DatabaseStore {
                 try JSONDecoder.pitcherPlant.decodeString(DocumentFeature.self, from: row["payload"])
             }
         }
+    }
+
+    private static func normalizedPathPrefix(_ pathPrefix: String?) -> String? {
+        guard var pathPrefix = pathPrefix?.trimmingCharacters(in: .whitespacesAndNewlines),
+              pathPrefix.isEmpty == false
+        else {
+            return nil
+        }
+        while pathPrefix.count > 1 && pathPrefix.hasSuffix("/") {
+            pathPrefix.removeLast()
+        }
+        return pathPrefix
+    }
+
+    private static func sqliteLikeEscapedPrefix(_ pathPrefix: String) -> String {
+        let escaped = pathPrefix
+            .replacingOccurrences(of: "\\", with: "\\\\")
+            .replacingOccurrences(of: "%", with: "\\%")
+            .replacingOccurrences(of: "_", with: "\\_")
+        return "\(escaped)/%"
+    }
+
+    private static func sqliteSearchNeedle(_ query: String) -> String {
+        query.lowercased()
     }
 
     @discardableResult
@@ -947,13 +1075,13 @@ actor DatabaseStore {
 
     @discardableResult
     func cleanupDocumentFeatures(excludingDocumentPaths documentPaths: Set<String>, batchID: UUID? = nil) throws -> Int {
-        try dbQueue.write { db in
-            let rows: [Row]
-            if let batchID {
-                rows = try Row.fetchAll(db, sql: "SELECT id, document_path FROM document_features WHERE batch_id = ?", arguments: [batchID.uuidString])
-            } else {
-                rows = try Row.fetchAll(db, sql: "SELECT id, document_path FROM document_features")
-            }
+        guard let batchID else { return 0 }
+        return try dbQueue.write { db in
+            let rows = try Row.fetchAll(
+                db,
+                sql: "SELECT id, document_path FROM document_features WHERE batch_id = ?",
+                arguments: [batchID.uuidString]
+            )
 
             var deleted = 0
             for row in rows {
@@ -1239,6 +1367,20 @@ private func tableExists(_ table: String, db: Database) throws -> Bool {
     ) != nil
 }
 
+private func createReportTableRows(_ db: Database) throws {
+    try db.create(table: "report_table_rows", ifNotExists: true) { table in
+        table.column("storage_id", .text).primaryKey()
+        table.column("report_id", .text).notNull().indexed()
+        table.column("section_id", .text).notNull().indexed()
+        table.column("row_id", .text).notNull().indexed()
+        table.column("section_position", .integer).notNull()
+        table.column("row_position", .integer).notNull()
+        table.column("kind", .text).notNull().indexed()
+        table.column("search_index", .text).notNull()
+        table.column("payload", .text).notNull()
+    }
+}
+
 private func createOperationalTables(_ db: Database) throws {
     try db.create(table: "evidence_reviews", ifNotExists: true) { table in
         table.column("id", .text).primaryKey()
@@ -1280,6 +1422,7 @@ private func createOperationalTables(_ db: Database) throws {
         table.column("updated_at", .datetime).notNull().indexed()
         table.column("payload", .text).notNull()
     }
+    try createReportTableRows(db)
 }
 
 private func extendDocumentFeaturesSchema(_ db: Database) throws {
@@ -1334,6 +1477,96 @@ private func createDocumentFeatureIndexes(_ db: Database) throws {
 private func createFingerprintIndexes(_ db: Database) throws {
     try db.execute(sql: "CREATE INDEX IF NOT EXISTS fingerprints_scanned_at_idx ON fingerprints(scanned_at)")
     try db.execute(sql: "CREATE INDEX IF NOT EXISTS fingerprints_simhash_idx ON fingerprints(simhash)")
+}
+
+private func createLibrarySearchIndexes(_ db: Database) throws {
+    try db.execute(sql: "CREATE INDEX IF NOT EXISTS audit_reports_created_at_idx ON audit_reports(created_at)")
+    try db.execute(sql: "CREATE INDEX IF NOT EXISTS audit_reports_search_index_idx ON audit_reports(search_index)")
+    try db.execute(sql: "CREATE INDEX IF NOT EXISTS fingerprints_search_index_idx ON fingerprints(search_index)")
+    try db.execute(sql: "CREATE INDEX IF NOT EXISTS report_table_rows_report_position_idx ON report_table_rows(report_id, section_position, row_position)")
+    try db.execute(sql: "CREATE INDEX IF NOT EXISTS report_table_rows_report_search_idx ON report_table_rows(report_id, search_index)")
+}
+
+private func replaceReportTableRows(for report: AuditReport, db: Database) throws {
+    try createReportTableRows(db)
+    try db.execute(sql: "DELETE FROM report_table_rows WHERE report_id = ?", arguments: [report.id.uuidString])
+    for (sectionPosition, section) in report.sections.enumerated() where section.kind != .overview {
+        guard let rows = section.table?.rows else {
+            continue
+        }
+        for (rowPosition, row) in rows.enumerated() {
+            let payload = try JSONEncoder.pitcherPlant.encodeToString(row)
+            try db.execute(
+                sql: """
+                INSERT INTO report_table_rows (
+                    storage_id,
+                    report_id,
+                    section_id,
+                    row_id,
+                    section_position,
+                    row_position,
+                    kind,
+                    search_index,
+                    payload
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                arguments: [
+                    "\(report.id.uuidString):\(section.id.uuidString):\(row.id.uuidString)",
+                    report.id.uuidString,
+                    section.id.uuidString,
+                    row.id.uuidString,
+                    sectionPosition,
+                    rowPosition,
+                    section.kind.rawValue,
+                    reportRowSearchIndex(row),
+                    payload,
+                ]
+            )
+        }
+    }
+}
+
+private func reportSearchIndex(_ report: AuditReport) -> String {
+    let metricCorpus = report.metrics.map { [$0.title, $0.value].joined(separator: " ") }
+    let sectionCorpus = report.sections.map(sectionSearchIndex)
+    return normalizedSearchIndex([report.title, report.sourcePath, report.scanDirectoryPath] + metricCorpus + sectionCorpus)
+}
+
+private func sectionSearchIndex(_ section: ReportSection) -> String {
+    let calloutCorpus = section.callouts.joined(separator: "\n")
+    let headerCorpus = section.table?.headers.joined(separator: "\n") ?? ""
+    let rowCorpus = section.table?.rows.map(reportRowSearchIndex).joined(separator: "\n") ?? ""
+    return normalizedSearchIndex([section.title, section.summary, calloutCorpus, headerCorpus, rowCorpus])
+}
+
+private func reportRowSearchIndex(_ row: ReportTableRow) -> String {
+    let badgeCorpus = row.badges.map(\.title).joined(separator: "\n")
+    let attachmentCorpus = row.attachments
+        .flatMap { [$0.title, $0.subtitle, $0.body] }
+        .joined(separator: "\n")
+    return normalizedSearchIndex(row.columns + [row.detailTitle, row.detailBody, badgeCorpus, attachmentCorpus])
+}
+
+private func fingerprintSearchIndex(_ record: FingerprintRecord) -> String {
+    normalizedSearchIndex([
+        record.filename,
+        record.ext,
+        record.author,
+        record.scanDir,
+        record.simhash,
+        record.batchName ?? "",
+        record.challengeName ?? "",
+        record.teamName ?? "",
+        (record.tags ?? []).joined(separator: " "),
+    ])
+}
+
+private func normalizedSearchIndex(_ values: [String]) -> String {
+    values
+        .joined(separator: "\n")
+        .lowercased()
+        .trimmingCharacters(in: .whitespacesAndNewlines)
 }
 
 private func fingerprintTagIndex(_ tags: [String]?) -> String {

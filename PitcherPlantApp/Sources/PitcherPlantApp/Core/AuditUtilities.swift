@@ -491,7 +491,11 @@ struct TextEvidence: Hashable, Sendable {
 
 enum TextEvidenceBuilder {
     static func build(left: String, right: String) -> TextEvidence {
-        let match = longestCommonSubstring(left: left, right: right)
+        (try? buildCheckingCancellation(left: left, right: right)) ?? TextEvidence(summary: "", leftContext: "", rightContext: "", longestCommonLength: 0)
+    }
+
+    static func buildCheckingCancellation(left: String, right: String) throws -> TextEvidence {
+        let match = try longestCommonSubstringCheckingCancellation(left: left, right: right)
         if match.length > 20 {
             let summary = String(left[match.leftRange]).replacingOccurrences(of: #"\s+"#, with: " ", options: .regularExpression)
             return TextEvidence(
@@ -525,7 +529,7 @@ enum TextEvidenceBuilder {
         }.map(String.init)
     }
 
-    private static func longestCommonSubstring(left: String, right: String) -> (leftRange: Range<String.Index>, rightRange: Range<String.Index>, length: Int) {
+    private static func longestCommonSubstringCheckingCancellation(left: String, right: String) throws -> (leftRange: Range<String.Index>, rightRange: Range<String.Index>, length: Int) {
         let leftChars = Array(left)
         let rightChars = Array(right)
         guard !leftChars.isEmpty, !rightChars.isEmpty else {
@@ -536,8 +540,14 @@ enum TextEvidenceBuilder {
         var bestLeftEnd = 0
         var bestRightEnd = 0
         for leftIndex in 1...leftChars.count {
+            if leftIndex.isMultiple(of: 64) {
+                try Task.checkCancellation()
+            }
             var current = Array(repeating: 0, count: rightChars.count + 1)
             for rightIndex in 1...rightChars.count {
+                if rightIndex.isMultiple(of: 512) {
+                    try Task.checkCancellation()
+                }
                 if leftChars[leftIndex - 1] == rightChars[rightIndex - 1] {
                     current[rightIndex] = previous[rightIndex - 1] + 1
                     if current[rightIndex] > bestLength {

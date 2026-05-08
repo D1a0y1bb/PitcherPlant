@@ -46,14 +46,23 @@ func databaseStorePaginatesReportsFingerprintsAndAppendsJobEvents() async throws
             sourcePath: root.appendingPathComponent("report-\(index).html").path,
             scanDirectoryPath: root.path,
             createdAt: Date(timeIntervalSince1970: TimeInterval(1_800 + index)),
-            metrics: [],
+            metrics: [ReportMetric(title: "队伍", value: index == 2 ? "Blue_Team%_Alpha" : "Team \(index)", systemImage: "person.2")],
             sections: [
+                ReportSection(kind: .overview, title: "总览 \(index)", summary: "overview should not be evidence"),
                 ReportSection(
                     kind: .text,
                     title: "文本 \(index)",
-                    summary: "",
+                    summary: "section summary \(index)",
                     table: ReportTable(headers: ["A"], rows: [
-                        ReportTableRow(columns: ["alpha-\(index)"], detailTitle: "证据 \(index)", detailBody: "shared body \(index)")
+                        ReportTableRow(
+                            columns: ["alpha-\(index)"],
+                            detailTitle: "证据 \(index)",
+                            detailBody: "shared body \(index)",
+                            badges: [ReportBadge(title: index == 1 ? "badge_needle%" : "badge", tone: .warning)],
+                            attachments: [
+                                ReportAttachment(title: "attachment \(index)", subtitle: "source", body: index == 0 ? "wild_%_needle" : "", imageBase64: nil)
+                            ]
+                        )
                     ])
                 )
             ]
@@ -65,15 +74,22 @@ func databaseStorePaginatesReportsFingerprintsAndAppendsJobEvents() async throws
     let counts = try await store.loadReportCounts()
     let evidenceRows = try await store.loadEvidenceRows(reportID: try #require(firstPage.values.first?.id), query: "shared", limit: 10)
     let olderSearch = try await store.searchReports(query: "shared body 0", limit: 2)
+    let metricSearch = try await store.searchReports(query: "Blue_Team%", limit: 2)
+    let attachmentSearch = try await store.loadEvidenceRows(reportID: try #require(olderSearch.values.first?.id), query: "wild_%_needle", limit: 10)
 
     #expect(firstPage.totalCount == 3)
     #expect(firstPage.values.map(\.title) == ["报告 2", "报告 1"])
     #expect(counts.reportCount == 3)
-    #expect(counts.sectionCount == 3)
+    #expect(counts.sectionCount == 6)
     #expect(counts.evidenceRowCount == 3)
     #expect(evidenceRows.totalCount == 1)
     #expect(olderSearch.totalCount == 1)
     #expect(olderSearch.values.first?.title == "报告 0")
+    #expect(metricSearch.values.first?.title == "报告 2")
+    #expect(attachmentSearch.totalCount == 1)
+    #expect(try await store.debugTableColumns(named: "audit_reports").contains("search_index"))
+    #expect(try await store.debugTableColumns(named: "fingerprints").contains("search_index"))
+    #expect(try await store.debugTableExists(named: "report_table_rows"))
 
     var records: [FingerprintRecord] = []
     for index in 0..<3 {
@@ -85,16 +101,21 @@ func databaseStorePaginatesReportsFingerprintsAndAppendsJobEvents() async throws
             simhash: String(format: "%016llx", UInt64(index)),
             scanDir: "scan",
             scannedAt: Date(timeIntervalSince1970: TimeInterval(1_900 + index)),
-            tags: index == 1 ? ["keep", "delete-me"] : ["keep"]
+            tags: index == 1 ? ["keep", "delete-me"] : ["keep"],
+            batchName: "batch-\(index)",
+            challengeName: index == 2 ? "challenge_%_needle" : nil,
+            teamName: index == 0 ? "team-alpha" : nil
         ))
     }
     try await store.upsertFingerprintRecords(records)
     let fingerprintPage = try await store.loadFingerprintPage(limit: 2)
     let olderFingerprintSearch = try await store.searchFingerprintRecords(query: "file-0", limit: 2)
+    let challengeFingerprintSearch = try await store.searchFingerprintRecords(query: "challenge_%_needle", limit: 2)
     #expect(fingerprintPage.totalCount == 3)
     #expect(fingerprintPage.values.map(\.filename) == ["file-2.md", "file-1.md"])
     #expect(olderFingerprintSearch.totalCount == 1)
     #expect(olderFingerprintSearch.values.first?.filename == "file-0.md")
+    #expect(challengeFingerprintSearch.values.first?.filename == "file-2.md")
     #expect(try await store.countFingerprintRecords(tag: "keep") == 3)
 
     let deleted = try await store.deleteFingerprintRecords(tag: "delete-me")
@@ -176,7 +197,17 @@ func databaseStoreUpgradesObsoleteReportSchemaAndKeepsReports() async throws {
         scanDirectoryPath: root.path,
         createdAt: Date(timeIntervalSince1970: 1_777_248_000),
         metrics: [ReportMetric(title: "章节", value: "1", systemImage: "doc.text")],
-        sections: [ReportSection(kind: .overview, title: "总览", summary: "旧结构总览")]
+        sections: [
+            ReportSection(kind: .overview, title: "总览", summary: "旧结构总览"),
+            ReportSection(
+                kind: .text,
+                title: "旧证据",
+                summary: "旧结构证据摘要",
+                table: ReportTable(headers: ["证据"], rows: [
+                    ReportTableRow(columns: ["legacy row"], detailTitle: "旧证据行", detailBody: "legacy_search_token")
+                ])
+            )
+        ]
     )
     let encoder = JSONEncoder()
     encoder.dateEncodingStrategy = .iso8601
@@ -226,9 +257,15 @@ func databaseStoreUpgradesObsoleteReportSchemaAndKeepsReports() async throws {
     try await store.prepare()
 
     let loaded = try #require(try await store.loadReports().first)
+    let searched = try await store.searchReports(query: "legacy_search_token", limit: 10)
+    let evidenceRows = try await store.loadEvidenceRows(reportID: report.id, query: "legacy_search_token", limit: 10)
     #expect(loaded.title == "旧结构报告")
-    #expect(loaded.displaySections.map(\.title) == ["总览"])
+    #expect(loaded.displaySections.map(\.title) == ["总览", "旧证据"])
+    #expect(searched.totalCount == 1)
+    #expect(evidenceRows.totalCount == 1)
     #expect(try await store.debugTableColumns(named: "audit_reports").contains("is_legacy") == false)
+    #expect(try await store.debugTableColumns(named: "audit_reports").contains("search_index"))
+    #expect(try await store.debugTableRowCount(named: "report_table_rows") == 1)
     #expect(try await store.debugTableExists(named: "app_migrations") == false)
 }
 

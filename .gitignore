@@ -1,6 +1,8 @@
 .DS_Store
 *.log
+.idea/
 .vscode/launch.json
+.vscode/settings.json
 
 .agents/
 .codex/

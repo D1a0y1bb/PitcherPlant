@@ -38,6 +38,7 @@ struct SettingsNumberFieldRow: View {
     var body: some View {
         SettingsControlRow(title: title, subtitle: subtitle, icon: icon) {
             SettingsNumberStepper(
+                title: title,
                 value: $value,
                 range: 0...1,
                 step: 0.05,
@@ -57,6 +58,7 @@ struct SettingsIntegerFieldRow: View {
     var body: some View {
         SettingsControlRow(title: title, subtitle: subtitle, icon: icon) {
             SettingsIntegerStepper(
+                title: title,
                 value: $value,
                 range: 0...64,
                 step: 1,
@@ -78,6 +80,7 @@ struct SettingsToggleRow: View {
                 .labelsHidden()
                 .toggleStyle(.switch)
                 .controlSize(.small)
+                .accessibilityLabel(Text(title))
         }
     }
 }
@@ -179,6 +182,7 @@ struct SettingsMenuPicker<Value: Hashable>: View {
 }
 
 struct SettingsNumberStepper: View {
+    let title: String
     @Binding var value: Double
     let range: ClosedRange<Double>
     let step: Double
@@ -191,10 +195,14 @@ struct SettingsNumberStepper: View {
                 .multilineTextAlignment(.center)
                 .font(AppTypography.code.weight(.medium))
                 .frame(width: SettingsLayout.numberFieldWidth + 12)
+                .accessibilityLabel(Text(title))
+                .accessibilityValue(Text(String(format: "%.2f", clamped(value))))
 
             Stepper("", value: clampedBinding, in: range, step: step)
                 .labelsHidden()
                 .frame(width: SettingsLayout.stepperWidth - 46)
+                .accessibilityLabel(Text(title))
+                .accessibilityValue(Text(String(format: "%.2f", clamped(value))))
 
             Text(hint)
                 .font(AppTypography.metadata)
@@ -217,6 +225,7 @@ struct SettingsNumberStepper: View {
 }
 
 struct SettingsIntegerStepper: View {
+    let title: String
     @Binding var value: Int
     let range: ClosedRange<Int>
     let step: Int
@@ -229,10 +238,14 @@ struct SettingsIntegerStepper: View {
                 .multilineTextAlignment(.center)
                 .font(AppTypography.code.weight(.medium))
                 .frame(width: SettingsLayout.numberFieldWidth + 12)
+                .accessibilityLabel(Text(title))
+                .accessibilityValue(Text("\(clamped(value))"))
 
             Stepper("", value: clampedBinding, in: range, step: step)
                 .labelsHidden()
                 .frame(width: SettingsLayout.stepperWidth - 46)
+                .accessibilityLabel(Text(title))
+                .accessibilityValue(Text("\(clamped(value))"))
 
             Text(hint)
                 .font(AppTypography.metadata)
