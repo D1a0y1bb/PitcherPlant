@@ -91,31 +91,57 @@ struct RiskScoringService {
     private func metadataRecords(from collisions: [MetadataCollision]) -> [EvidenceRecord] {
         var records: [EvidenceRecord] = []
         for collision in collisions {
-            for left in collision.files.indices {
-                for right in collision.files.indices where right > left {
-                    let score = 0.70 * (collision.whitelistEvaluation?.scoreMultiplier ?? 1)
-                    records.append(
-                        EvidenceRecord(
-                            type: .metadata,
-                            fileA: collision.files[left],
-                            fileB: collision.files[right],
+            let selection = MetadataCollisionEvidencePolicy.selection(fileCount: collision.files.count)
+            let files = selection.isRepresentativeSample ? collision.files.sorted() : collision.files
+            for pair in selection.pairs {
+                let score = 0.70 * (collision.whitelistEvaluation?.scoreMultiplier ?? 1)
+                records.append(
+                    EvidenceRecord(
+                        type: .metadata,
+                        fileA: files[pair.left],
+                        fileB: files[pair.right],
+                        score: score,
+                        evidence: metadataEvidenceSummary(for: collision, selection: selection),
+                        detailLines: metadataDetailLines(for: collision, selection: selection),
+                        riskAssessment: RiskAssessment(
                             score: score,
-                            evidence: "共同元数据：\(collision.author)",
-                            detailLines: [
-                                "作者或最后修改者：\(collision.author)",
-                                "涉及文件数：\(collision.files.count)"
-                            ],
-                            riskAssessment: RiskAssessment(
-                                score: score,
-                                reasons: ["元数据碰撞"]
-                            ),
-                            whitelistEvaluation: collision.whitelistEvaluation
-                        )
+                            reasons: ["元数据碰撞"]
+                        ),
+                        whitelistEvaluation: collision.whitelistEvaluation
                     )
-                }
+                )
             }
         }
         return records
+    }
+
+    private func metadataEvidenceSummary(
+        for collision: MetadataCollision,
+        selection: MetadataCollisionPairSelection
+    ) -> String {
+        guard selection.isRepresentativeSample else {
+            return "共同元数据：\(collision.author)"
+        }
+        return "共同元数据：\(collision.author)（代表组合 \(selection.pairs.count)/\(selection.totalCombinationCount)，已省略 \(selection.omittedCombinationCount) 组）"
+    }
+
+    private func metadataDetailLines(
+        for collision: MetadataCollision,
+        selection: MetadataCollisionPairSelection
+    ) -> [String] {
+        var lines = [
+            "作者或最后修改者：\(collision.author)",
+            "涉及文件数：\(collision.files.count)"
+        ]
+        if selection.isRepresentativeSample {
+            lines.append(contentsOf: [
+                "全部组合数：\(selection.totalCombinationCount)",
+                "生成代表组合数：\(selection.pairs.count)",
+                "已省略组合数：\(selection.omittedCombinationCount)",
+                "代表策略：按文件名排序后在全部组合中等距取样"
+            ])
+        }
+        return lines
     }
 
     private func record(from match: CrossBatchMatch) -> EvidenceRecord {

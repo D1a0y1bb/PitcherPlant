@@ -279,8 +279,18 @@ enum ReportExporter {
     }
 
     private static func csvEscaped(_ value: String) -> String {
-        let escaped = value.replacingOccurrences(of: "\"", with: "\"\"")
+        let safeValue = csvFormulaSafe(value)
+        let escaped = safeValue.replacingOccurrences(of: "\"", with: "\"\"")
         return "\"\(escaped)\""
+    }
+
+    private static func csvFormulaSafe(_ value: String) -> String {
+        let ignoredPrefixScalars = CharacterSet.whitespacesAndNewlines.union(.controlCharacters)
+        guard let firstSignificantScalar = value.unicodeScalars.first(where: { ignoredPrefixScalars.contains($0) == false }),
+              ["=", "+", "-", "@"].contains(Character(firstSignificantScalar)) else {
+            return value
+        }
+        return "'\(value)"
     }
 
     private static func add(_ data: Data, path: String, to archive: Archive) throws {

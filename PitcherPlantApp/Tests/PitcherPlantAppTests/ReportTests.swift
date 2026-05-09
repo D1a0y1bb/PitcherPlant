@@ -76,6 +76,34 @@ func sectionFilteringRespectsQueryFilterAndSortOrder() {
 }
 
 @Test
+func reportRowsViewModelAppendsPagedRowsWithoutDuplicates() {
+    let firstRow = ReportTableRow(columns: ["a.md"], detailTitle: "证据 A", detailBody: "A")
+    let secondRow = ReportTableRow(columns: ["b.md"], detailTitle: "证据 B", detailBody: "B")
+    let firstPage = ReportRowsViewModel(
+        sectionID: UUID(),
+        query: "",
+        filter: .all,
+        sortOrder: .default,
+        rows: [firstRow],
+        totalRowCount: 2
+    )
+    let nextPage = ReportRowsViewModel(
+        sectionID: firstPage.sectionID,
+        query: "",
+        filter: .all,
+        sortOrder: .default,
+        rows: [firstRow, secondRow],
+        totalRowCount: 2
+    )
+
+    let merged = firstPage.appending(nextPage)
+
+    #expect(firstPage.hasMoreRows)
+    #expect(merged.hasMoreRows == false)
+    #expect(merged.rows.map(\.detailTitle) == ["证据 A", "证据 B"])
+}
+
+@Test
 @MainActor
 func evidenceImageCacheReusesDecodedImages() throws {
     let cache = EvidenceImageCache()
@@ -275,6 +303,45 @@ func exportedCSVUsesDedicatedCrossBatchColumns() throws {
     #expect(lines.first?.contains("cross_batch_distance") == true)
     #expect(lines.first?.contains("cross_batch_status") == true)
     #expect(lines.dropFirst().first?.contains(#""88%","spring-2026","2","疑似复用""#) == true)
+}
+
+@Test
+func exportedCSVNeutralizesSpreadsheetFormulaPrefixesBeforeEscaping() throws {
+    let root = FileManager.default.temporaryDirectory
+        .appendingPathComponent("pitcherplant-csv-formula-\(UUID().uuidString)", isDirectory: true)
+    try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+    let row = ReportTableRow(
+        columns: [#"=HYPERLINK("https://example.test")"#, "\t=SUM(A1:A2)", "+SUM(A1:A2)"],
+        detailTitle: "公式注入",
+        detailBody: " @payload",
+        evidenceType: .text
+    )
+    let report = AuditReport(
+        title: "CSV 公式注入",
+        sourcePath: root.appendingPathComponent("report.html").path,
+        scanDirectoryPath: root.path,
+        metrics: [],
+        sections: [
+            ReportSection(
+                kind: .text,
+                title: "-section",
+                summary: "导出测试",
+                table: ReportTable(headers: ["A", "B", "分数"], rows: [row])
+            )
+        ]
+    )
+
+    let csvURL = root.appendingPathComponent("report.csv")
+    try ReportExporter.exportCSV(report: report, to: csvURL)
+    let lines = try String(contentsOf: csvURL, encoding: .utf8).components(separatedBy: .newlines)
+    let dataLine = try #require(lines.dropFirst().first)
+
+    #expect(dataLine.contains(#""'-section""#))
+    #expect(dataLine.contains(#""'=HYPERLINK(""https://example.test"")""#))
+    #expect(dataLine.contains("\"\t=SUM(A1:A2)\"") == false)
+    #expect(dataLine.contains("\"'\t=SUM(A1:A2)\""))
+    #expect(dataLine.contains(#""'+SUM(A1:A2)""#))
+    #expect(dataLine.contains(#""' @payload""#))
 }
 
 @Test

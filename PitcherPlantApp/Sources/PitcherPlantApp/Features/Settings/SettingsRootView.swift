@@ -221,12 +221,16 @@ struct SettingsRootView: View {
                         } label: {
                             Label(appState.t("settings.applyPreset"), systemImage: "slider.horizontal.3")
                         }
+                        .help(appState.t("settings.applyPreset"))
+                        .accessibilityLabel(Text(appState.t("settings.applyPreset")))
 
                         Button {
                             runCalibration()
                         } label: {
                             Label(appState.t("settings.runCalibration"), systemImage: "chart.xyaxis.line")
                         }
+                        .help(appState.t("settings.runCalibration"))
+                        .accessibilityLabel(Text(appState.t("settings.runCalibration")))
                     }
 
                     if let calibrationResult {
@@ -354,12 +358,16 @@ struct SettingsRootView: View {
                         } label: {
                             Label(appState.t("settings.openDataDirectory"), systemImage: "folder")
                         }
+                        .help(appState.t("settings.openDataDirectory"))
+                        .accessibilityLabel(Text(appState.t("settings.openDataDirectory")))
 
                         Button {
                             Task { await appState.reload() }
                         } label: {
                             Label(appState.t("settings.reloadData"), systemImage: "arrow.clockwise")
                         }
+                        .help(appState.t("settings.reloadData"))
+                        .accessibilityLabel(Text(appState.t("settings.reloadData")))
                     }
                 }
 
@@ -399,6 +407,8 @@ struct SettingsRootView: View {
                             Label(appState.t("settings.exportHTML"), systemImage: "chevron.left.forwardslash.chevron.right")
                         }
                         .disabled(appState.selectedReport == nil)
+                        .help(appState.t("settings.exportHTML"))
+                        .accessibilityLabel(Text(appState.t("settings.exportHTML")))
 
                         Button {
                             appState.exportSelectedReportAsPDF()
@@ -406,6 +416,8 @@ struct SettingsRootView: View {
                             Label(appState.t("settings.exportPDF"), systemImage: "doc.richtext")
                         }
                         .disabled(appState.selectedReport == nil)
+                        .help(appState.t("settings.exportPDF"))
+                        .accessibilityLabel(Text(appState.t("settings.exportPDF")))
 
                         Button {
                             appState.openSelectedReportSource()
@@ -413,6 +425,8 @@ struct SettingsRootView: View {
                             Label(appState.t("settings.openFinder"), systemImage: "folder")
                         }
                         .disabled(appState.selectedReport == nil)
+                        .help(appState.t("settings.openFinder"))
+                        .accessibilityLabel(Text(appState.t("settings.openFinder")))
                     }
                 }
         }

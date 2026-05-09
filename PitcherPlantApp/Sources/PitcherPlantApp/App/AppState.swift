@@ -113,6 +113,7 @@ final class AppState {
     private var updateMonitorTask: Task<Void, Never>?
     private let appUpdater = AppUpdater()
     private static let reportPageLimit = 500
+    private static let evidenceRowPageLimit = 500
     private static let fingerprintPageLimit = 500
     private static let auditHistoricalFingerprintLimit = AuditRunLimits.defaults.largeHistoricalFingerprintCount
     private static let updateMonitorIntervalSeconds: UInt64 = 30 * 60
@@ -224,15 +225,9 @@ final class AppState {
             jobs = try await database.loadJobs()
             evidenceReviews = try await database.loadEvidenceReviews()
             let reportPage = try await database.loadReportsPage(limit: Self.reportPageLimit)
-            var loadedReports = reportPage.values
+            let loadedReports = reportPage.values.map(reportWithReviews)
             reportTotalCount = reportPage.totalCount
-            if let selectedReportID,
-               loadedReports.contains(where: { $0.id == selectedReportID }) == false,
-               let selectedReport = try await database.loadReport(id: selectedReportID) {
-                loadedReports.append(selectedReport)
-            }
-            reports = loadedReports.map(reportWithReviews)
-            reportLibraryReports = reports
+            reportLibraryReports = loadedReports
             reportLibraryTotalCount = reportTotalCount
             let fingerprintPage = try await database.loadFingerprintPage(limit: Self.fingerprintPageLimit)
             fingerprints = fingerprintPage.values
@@ -244,7 +239,7 @@ final class AppState {
             exportRecords = try await database.loadExportRecords(limit: 20)
             submissionBatches = try await database.loadSubmissionBatches()
             whitelistSuggestions = AppPreferences.loadWhitelistSuggestions()
-            latestReport = reports.sorted(by: { $0.createdAt > $1.createdAt }).first
+            latestReport = loadedReports.first
 
             if selectedJobID == nil {
                 selectedJobID = jobs.first?.id
@@ -252,6 +247,7 @@ final class AppState {
             if selectedReportID == nil {
                 selectedReportID = latestReport?.id
             }
+            try await loadSelectedReportDetailIfNeeded(force: true)
             if let report = selectedReport, selectedReportSection == nil {
                 selectedReportSection = report.preferredEvidenceSection?.kind
             }
@@ -298,6 +294,42 @@ final class AppState {
 
     var watchedEvidenceCount: Int {
         evidenceCollection(for: .watched).count
+    }
+
+    func reportRowsViewModel(
+        section: ReportSection?,
+        query: String,
+        filter: ReportEvidenceFilter,
+        sortOrder: ReportEvidenceSortOrder,
+        offset: Int = 0
+    ) async -> ReportRowsViewModel {
+        guard let selectedReportID, let section, section.kind != .overview else {
+            return .empty
+        }
+        do {
+            let page = try await database.loadEvidenceRows(
+                reportID: selectedReportID,
+                sectionKind: section.kind,
+                query: query,
+                filter: filter,
+                sortOrder: sortOrder,
+                limit: Self.evidenceRowPageLimit,
+                offset: offset
+            )
+            let reviewLookup = evidenceReviewLookup
+            let rows = page.values.map { rowWithEffectiveReview($0, reportID: selectedReportID, reviewLookup: reviewLookup) }
+            return ReportRowsViewModel(
+                sectionID: section.id,
+                query: query.normalizedSearchQuery,
+                filter: filter,
+                sortOrder: sortOrder,
+                rows: rows,
+                totalRowCount: page.totalCount
+            )
+        } catch {
+            showNotice(title: t("notice.reloadFailed"), message: error.localizedDescription, tone: .error)
+            return ReportRowsViewModel(section: section, query: query, filter: filter, sortOrder: sortOrder)
+        }
     }
 
     func updateDraft(_ transform: (inout AuditConfiguration) -> Void) {
@@ -376,10 +408,64 @@ final class AppState {
             reportLibraryReports = page.values.map(reportWithReviews)
             reportLibraryTotalCount = page.totalCount
             if query.normalizedSearchQuery.isEmpty {
-                reports = reportLibraryReports
                 reportTotalCount = page.totalCount
-                latestReport = reports.sorted(by: { $0.createdAt > $1.createdAt }).first
+                latestReport = reportLibraryReports.first
+                if selectedReportID == nil {
+                    selectedReportID = latestReport?.id
+                }
             }
+            if query.normalizedSearchQuery.isEmpty {
+                try await loadSelectedReportDetailIfNeeded()
+            }
+            syncReportSelection()
+        } catch {
+            showNotice(title: t("notice.reloadFailed"), message: error.localizedDescription, tone: .error)
+        }
+    }
+
+    func loadMoreReportLibrary(query: String = "") async {
+        guard reportLibraryReports.count < reportLibraryTotalCount else {
+            return
+        }
+        do {
+            let page = try await database.searchReports(
+                query: query,
+                limit: Self.reportPageLimit,
+                offset: reportLibraryReports.count
+            )
+            var seenIDs = Set(reportLibraryReports.map(\.id))
+            let nextReports = page.values
+                .map(reportWithReviews)
+                .filter { seenIDs.insert($0.id).inserted }
+            reportLibraryReports += nextReports
+            reportLibraryTotalCount = page.totalCount
+            if query.normalizedSearchQuery.isEmpty {
+                reportTotalCount = page.totalCount
+            }
+            syncReportSelection()
+        } catch {
+            showNotice(title: t("notice.reloadFailed"), message: error.localizedDescription, tone: .error)
+        }
+    }
+
+    private func loadSelectedReportDetailIfNeeded(force: Bool = false) async throws {
+        guard let selectedReportID else {
+            reports = []
+            return
+        }
+        if !force, reports.contains(where: { $0.id == selectedReportID && $0.sections.isEmpty == false }) {
+            return
+        }
+        guard let report = try await database.loadReport(id: selectedReportID) else {
+            reports = []
+            return
+        }
+        reports = [reportWithReviews(report)]
+    }
+
+    func loadSelectedReportDetail() async {
+        do {
+            try await loadSelectedReportDetailIfNeeded(force: true)
             syncReportSelection()
         } catch {
             showNotice(title: t("notice.reloadFailed"), message: error.localizedDescription, tone: .error)
@@ -393,6 +479,28 @@ final class AppState {
             fingerprintLibraryTotalCount = page.totalCount
             if query.normalizedSearchQuery.isEmpty {
                 fingerprints = page.values
+                fingerprintTotalCount = page.totalCount
+            }
+        } catch {
+            showNotice(title: t("notice.reloadFailed"), message: error.localizedDescription, tone: .error)
+        }
+    }
+
+    func loadMoreFingerprintLibrary(query: String = "") async {
+        guard fingerprintLibraryRecords.count < fingerprintLibraryTotalCount else {
+            return
+        }
+        do {
+            let page = try await database.searchFingerprintRecords(
+                query: query,
+                limit: Self.fingerprintPageLimit,
+                offset: fingerprintLibraryRecords.count
+            )
+            var seenIDs = Set(fingerprintLibraryRecords.map(\.id))
+            fingerprintLibraryRecords += page.values.filter { seenIDs.insert($0.id).inserted }
+            fingerprintLibraryTotalCount = page.totalCount
+            if query.normalizedSearchQuery.isEmpty {
+                fingerprints = fingerprintLibraryRecords
                 fingerprintTotalCount = page.totalCount
             }
         } catch {
@@ -502,18 +610,24 @@ final class AppState {
             return
         }
         selectedReportID = reportID
-        syncReportSelection()
+        if reports.contains(where: { $0.id == reportID }) {
+            syncReportSelection()
+        } else {
+            selectedReportSection = nil
+            selectedReportRowID = nil
+        }
+        Task { await loadSelectedReportDetail() }
     }
 
     func selectLatestReport() {
-        guard let report = latestReport ?? reports.sorted(by: { $0.createdAt > $1.createdAt }).first else {
+        guard let report = latestReport ?? reportLibraryReports.first ?? reports.sorted(by: { $0.createdAt > $1.createdAt }).first else {
             selectedReportID = nil
             selectedReportSection = nil
             selectedReportRowID = nil
             return
         }
         selectedReportID = report.id
-        syncReportSelection()
+        Task { await loadSelectedReportDetail() }
     }
 
     func showReportsCenter(selectLatest: Bool = false) {
@@ -539,7 +653,7 @@ final class AppState {
 
     func selectReportSection(_ kind: ReportSectionKind?) {
         selectedReportSection = kind
-        selectedReportRowID = selectedReportSectionModel?.table?.rows.first?.id
+        selectedReportRowID = selectedReportSectionModel?.table?.rows.first.map { $0.evidenceID ?? $0.id }
     }
 
     func openLatestReportInFinder() {
@@ -682,8 +796,9 @@ final class AppState {
     func applyReviewDecision(
         to targets: [EvidenceReviewTarget],
         decision: EvidenceDecision,
-        severity: RiskLevel?,
-        note: String
+        severity: RiskLevel? = nil,
+        note: String? = nil,
+        preserveExistingReviewDetails: Bool = false
     ) async {
         guard targets.isEmpty == false else {
             return
@@ -703,15 +818,17 @@ final class AppState {
             let existing = evidenceReviews.first { review in
                 review.reportID == target.reportID && review.evidenceID == target.evidenceID
             } ?? reportRow(for: target)?.review
-            let review = existing?.updated(decision: decision, severity: severity, reviewerNote: note)
+            let resolvedSeverity = preserveExistingReviewDetails ? (severity ?? existing?.severity) : severity
+            let resolvedNote = preserveExistingReviewDetails ? (note ?? existing?.reviewerNote ?? "") : (note ?? "")
+            let review = existing?.updated(decision: decision, severity: resolvedSeverity, reviewerNote: resolvedNote)
                 ?? EvidenceReview(
                     id: UUID.pitcherPlantStable(namespace: "evidence-review", components: [target.reportID.uuidString, target.evidenceID.uuidString]),
                     reportID: target.reportID,
                     evidenceID: target.evidenceID,
                     evidenceType: target.evidenceType,
                     decision: decision,
-                    severity: severity,
-                    reviewerNote: note
+                    severity: resolvedSeverity,
+                    reviewerNote: resolvedNote
                 )
             do {
                 try await database.upsertEvidenceReview(review)
@@ -930,13 +1047,14 @@ final class AppState {
         if panel.runModal() == .OK, let url = panel.url {
             Task {
                 do {
+                    let exportReport = try await database.loadReport(id: report.id) ?? report
                     try await Task.detached(priority: .userInitiated) {
-                        try Self.export(report: report, format: format, to: url)
+                        try Self.export(report: exportReport, format: format, to: url)
                     }.value
                     try await database.recordExport(
                         ExportRecord(
-                            reportID: report.id,
-                            reportTitle: report.title,
+                            reportID: exportReport.id,
+                            reportTitle: exportReport.title,
                             format: format,
                             destinationPath: url.path
                         )
@@ -1154,7 +1272,10 @@ final class AppState {
 
     private func cachedDocumentFeatures(for job: AuditJob) async throws -> [DocumentFeature] {
         if let batchID = job.batchID {
-            return try await database.loadDocumentFeatures(batchID: batchID)
+            return try await database.loadDocumentFeatures(
+                batchID: batchID,
+                pathPrefix: job.configuration.directoryPath
+            )
         }
         return try await database.loadDocumentFeatures(
             pathPrefix: job.configuration.directoryPath,
@@ -1255,7 +1376,7 @@ final class AppState {
         selectedReportID = report.id
         let section = report.preferredEvidenceSection
         selectedReportSection = section?.kind
-        selectedReportRowID = section?.table?.rows.first?.id
+        selectedReportRowID = section?.table?.rows.first.map { $0.evidenceID ?? $0.id }
         selectedMainSidebar = .reports
         NSApp.activate(ignoringOtherApps: true)
     }
@@ -1272,7 +1393,7 @@ final class AppState {
         }
         if let section = selectedReportSectionModel, let rows = section.table?.rows, !rows.isEmpty {
             if selectedReportRowID == nil || rows.contains(where: { $0.matchesSelection(selectedReportRowID) }) == false {
-                selectedReportRowID = rows.first?.id
+                selectedReportRowID = rows.first.map { $0.evidenceID ?? $0.id }
             }
         } else {
             selectedReportRowID = nil
@@ -1509,7 +1630,7 @@ final class AppState {
     }
 }
 
-private extension ReportTableRow {
+extension ReportTableRow {
     func matchesSelection(_ selection: UUID?) -> Bool {
         guard let selection else { return false }
         return id == selection || evidenceID == selection

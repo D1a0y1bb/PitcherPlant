@@ -302,6 +302,81 @@ struct EvidenceRecord: Codable, Identifiable, Hashable, Sendable {
     }
 }
 
+struct MetadataCollisionEvidencePolicy {
+    static let representativePairLimit = 80
+
+    static func selection(fileCount: Int) -> MetadataCollisionPairSelection {
+        let total = totalCombinationCount(fileCount: fileCount)
+        guard total > representativePairLimit else {
+            return MetadataCollisionPairSelection(
+                pairs: allPairs(fileCount: fileCount),
+                totalCombinationCount: total,
+                omittedCombinationCount: 0
+            )
+        }
+
+        let targetCount = min(representativePairLimit, total)
+        let lastOrdinal = total - 1
+        let pairs = (0..<targetCount).map { index in
+            let ordinal = targetCount == 1 ? 0 : (index * lastOrdinal) / (targetCount - 1)
+            return pair(at: ordinal, fileCount: fileCount)
+        }
+
+        return MetadataCollisionPairSelection(
+            pairs: pairs,
+            totalCombinationCount: total,
+            omittedCombinationCount: total - pairs.count
+        )
+    }
+
+    private static func allPairs(fileCount: Int) -> [MetadataCollisionPairIndex] {
+        guard fileCount > 1 else { return [] }
+        var pairs: [MetadataCollisionPairIndex] = []
+        pairs.reserveCapacity(totalCombinationCount(fileCount: fileCount))
+        for left in 0..<(fileCount - 1) {
+            for right in (left + 1)..<fileCount {
+                pairs.append(MetadataCollisionPairIndex(left: left, right: right))
+            }
+        }
+        return pairs
+    }
+
+    private static func pair(at ordinal: Int, fileCount: Int) -> MetadataCollisionPairIndex {
+        var remaining = ordinal
+        for left in 0..<(fileCount - 1) {
+            let pairCount = fileCount - left - 1
+            if remaining < pairCount {
+                return MetadataCollisionPairIndex(left: left, right: left + remaining + 1)
+            }
+            remaining -= pairCount
+        }
+        return MetadataCollisionPairIndex(left: max(0, fileCount - 2), right: max(0, fileCount - 1))
+    }
+
+    static func totalCombinationCount(fileCount: Int) -> Int {
+        guard fileCount > 1 else { return 0 }
+        if fileCount.isMultiple(of: 2) {
+            return (fileCount / 2) * (fileCount - 1)
+        }
+        return fileCount * ((fileCount - 1) / 2)
+    }
+}
+
+struct MetadataCollisionPairSelection: Hashable, Sendable {
+    let pairs: [MetadataCollisionPairIndex]
+    let totalCombinationCount: Int
+    let omittedCombinationCount: Int
+
+    var isRepresentativeSample: Bool {
+        omittedCombinationCount > 0
+    }
+}
+
+struct MetadataCollisionPairIndex: Hashable, Sendable {
+    let left: Int
+    let right: Int
+}
+
 struct RiskAggregate: Identifiable, Hashable, Sendable {
     let id: UUID
     let fileA: String
@@ -417,7 +492,7 @@ struct DocumentFeature: Codable, Identifiable, Hashable, Sendable {
 
     init(document: ParsedDocument, scanID: UUID? = nil, batchID: UUID? = nil, updatedAt: Date = .now) {
         let source = DocumentFeature.sourceDescriptor(for: document)
-        self.id = UUID.pitcherPlantStable(namespace: "document-feature", components: [document.url.path])
+        self.id = DocumentFeature.stableID(documentPath: document.url.path, batchID: batchID)
         self.documentPath = document.url.path
         self.filename = document.filename
         self.ext = document.ext
@@ -518,9 +593,9 @@ struct DocumentFeature: Codable, Identifiable, Hashable, Sendable {
         try container.encode(updatedAt, forKey: .updatedAt)
     }
 
-    func refreshed(scanID: UUID?, batchID: UUID?, updatedAt: Date = .now) -> DocumentFeature {
+    func refreshed(id: UUID? = nil, scanID: UUID?, batchID: UUID?, updatedAt: Date = .now) -> DocumentFeature {
         DocumentFeature(
-            id: id,
+            id: id ?? self.id,
             documentPath: documentPath,
             filename: filename,
             ext: ext,
@@ -537,6 +612,16 @@ struct DocumentFeature: Codable, Identifiable, Hashable, Sendable {
             imageHashPrefixes: imageHashPrefixes,
             author: author,
             updatedAt: updatedAt
+        )
+    }
+
+    static func stableID(documentPath: String, batchID: UUID?) -> UUID {
+        UUID.pitcherPlantStable(
+            namespace: "document-feature",
+            components: [
+                documentPath,
+                batchID?.uuidString ?? "ordinary"
+            ]
         )
     }
 

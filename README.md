@@ -323,6 +323,8 @@ PitcherPlantApp/build/dist/release-notes.md
 
 The release script performs archive, export, ZIP/DMG packaging, code-sign verification, DMG verification, unpack checks, mount checks, and SHA-256 checksum generation.
 
+Sparkle appcast generation requires `SPARKLE_ED_PRIVATE_KEY`. For real tagged release packaging, also provide `RELEASE_TAG` and set `REQUIRE_RELEASE_NOTES=true`; the script will fail if `PitcherPlantApp/ReleaseNotes/<tag>.md` is missing.
+
 Developer ID distribution is available through:
 
 ```bash
@@ -330,7 +332,7 @@ cd PitcherPlantApp
 ./script/package_release.sh --distribution developer-id --notarize
 ```
 
-Required Developer ID environment variables are documented in [Docs/RELEASE.md](Docs/RELEASE.md).
+GitHub tag publishing accepts `vX.Y.Z`, `vX.Y.Z-beta`, and `vX.Y.Z-rc.N`. Tag pushes publish through the release workflow: Developer ID signing and notarization are used when all signing secrets are available, otherwise the workflow publishes ad-hoc signed, not notarized artifacts. Required release notes and Developer ID variables are documented in [Docs/RELEASE.md](Docs/RELEASE.md).
 
 ## Related Docs
 

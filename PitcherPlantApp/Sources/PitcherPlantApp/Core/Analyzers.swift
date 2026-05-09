@@ -433,6 +433,7 @@ struct FingerprintAnalyzer {
                 size: document.cleanText.count,
                 simhash: SimHasher.hexHash(for: document.cleanText),
                 scanDir: scanDirectory,
+                sourcePath: document.url.path,
                 batchName: scanDirectory,
                 challengeName: source.challengeName,
                 teamName: source.teamName
@@ -597,6 +598,9 @@ struct CrossBatchReuseAnalyzer {
             for (candidateIndex, candidate) in candidates.enumerated() {
                 try AnalyzerCancellation.check(candidateIndex)
                 let previous = candidate.record
+                guard previous.matchesAuditedDocument(record) == false else {
+                    continue
+                }
                 let distance = candidate.distance
 
                 let evaluation = whitelist.evaluate(crossBatch: CrossBatchMatch(

@@ -413,7 +413,8 @@ struct DocumentFeatureStore {
         cancellationCheck: () throws -> Void
     ) rethrows -> DocumentFeatureBuildResult {
         let buildDate = now()
-        let cachedByPath = Dictionary(grouping: cachedFeatures, by: \.documentPath).compactMapValues { features in
+        let scopedCachedFeatures = cachedFeatures.filter { $0.belongsToFeatureCacheScope(batchID: batchID) }
+        let cachedByPath = Dictionary(grouping: scopedCachedFeatures, by: \.documentPath).compactMapValues { features in
             features.max(by: { $0.updatedAt < $1.updatedAt })
         }
         var features: [DocumentFeature] = []
@@ -426,7 +427,10 @@ struct DocumentFeatureStore {
             try cancellationCheck()
             let candidate = DocumentFeature(document: document, scanID: scanID, batchID: batchID, updatedAt: buildDate)
             if let cached = cachedByPath[candidate.documentPath], cached.isReusable(for: candidate) {
-                features.append(cached.refreshed(scanID: scanID, batchID: batchID, updatedAt: buildDate))
+                if cached.id != candidate.id {
+                    invalidatedFeatureIDs.append(cached.id)
+                }
+                features.append(cached.refreshed(id: candidate.id, scanID: scanID, batchID: batchID, updatedAt: buildDate))
                 reusedCount += 1
             } else {
                 if let cached = cachedByPath[candidate.documentPath] {
@@ -455,6 +459,10 @@ struct DocumentFeatureStore {
 }
 
 private extension DocumentFeature {
+    func belongsToFeatureCacheScope(batchID: UUID?) -> Bool {
+        belongsToFeatureCleanupScope(batchID: batchID)
+    }
+
     func belongsToFeatureCleanupScope(batchID: UUID?) -> Bool {
         if let batchID {
             return self.batchID == batchID

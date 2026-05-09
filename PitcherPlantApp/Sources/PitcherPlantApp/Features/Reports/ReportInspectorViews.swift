@@ -785,6 +785,8 @@ struct ImageEvidenceDetailView: View {
                     Image(systemName: "chevron.left")
                 }
                 .disabled(selectedPairIndex == 0)
+                .help(appState.t("reports.previousImagePair"))
+                .accessibilityLabel(Text(appState.t("reports.previousImagePair")))
 
                 Text("\(selectedPairIndex + 1) / \(imagePairs.count)")
                     .font(AppTypography.metadata)
@@ -796,6 +798,8 @@ struct ImageEvidenceDetailView: View {
                     Image(systemName: "chevron.right")
                 }
                 .disabled(selectedPairIndex >= imagePairs.count - 1)
+                .help(appState.t("reports.nextImagePair"))
+                .accessibilityLabel(Text(appState.t("reports.nextImagePair")))
             }
         }
     }
@@ -804,10 +808,14 @@ struct ImageEvidenceDetailView: View {
         HStack(spacing: 6) {
             Image(systemName: "minus.magnifyingglass")
                 .foregroundStyle(.secondary)
+                .accessibilityHidden(true)
             Slider(value: $zoom, in: 0.5...3.0, step: 0.1)
                 .frame(width: 72)
+                .accessibilityLabel(Text(appState.t("reports.zoomLevel")))
+                .accessibilityValue(Text("\(Int(zoom * 100))%"))
             Image(systemName: "plus.magnifyingglass")
                 .foregroundStyle(.secondary)
+                .accessibilityHidden(true)
             Text("\(Int(zoom * 100))%")
                 .font(.caption.monospacedDigit())
                 .foregroundStyle(.secondary)
@@ -947,6 +955,8 @@ private struct EvidenceHighlightNavigator: View {
                         Image(systemName: "chevron.left")
                     }
                     .disabled(selectedIndex == 0)
+                    .help(appState.t("reports.previousSharedToken"))
+                    .accessibilityLabel(Text(appState.t("reports.previousSharedToken")))
 
                     Text("\(selectedIndex + 1) / \(tokens.count)：\(tokens[safe: selectedIndex] ?? "")")
                         .font(AppTypography.metadata)
@@ -960,6 +970,8 @@ private struct EvidenceHighlightNavigator: View {
                         Image(systemName: "chevron.right")
                     }
                     .disabled(selectedIndex >= tokens.count - 1)
+                    .help(appState.t("reports.nextSharedToken"))
+                    .accessibilityLabel(Text(appState.t("reports.nextSharedToken")))
                 }
                 .buttonStyle(.borderless)
             }

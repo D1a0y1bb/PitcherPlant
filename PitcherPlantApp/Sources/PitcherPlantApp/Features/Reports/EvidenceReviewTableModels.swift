@@ -111,6 +111,26 @@ struct EvidenceReviewTableRow: Identifiable, Hashable, Sendable {
         }
     }
 
+    static func selectionID(reportID: UUID, sectionKind: ReportSectionKind, row: ReportTableRow) -> UUID {
+        selectionID(reportID: reportID, sectionKind: sectionKind, rowID: row.id, evidenceID: row.evidenceID ?? row.id)
+    }
+
+    static func selectionID(item: EvidenceCollectionItem) -> UUID {
+        selectionID(reportID: item.reportID, sectionKind: item.sectionKind, row: item.row)
+    }
+
+    private static func selectionID(reportID: UUID, sectionKind: ReportSectionKind, rowID: UUID, evidenceID: UUID) -> UUID {
+        UUID.pitcherPlantStable(
+            namespace: "evidence-review-target",
+            components: [
+                reportID.uuidString,
+                sectionKind.rawValue,
+                rowID.uuidString,
+                evidenceID.uuidString,
+            ]
+        )
+    }
+
     static func sorted(_ rows: [EvidenceReviewTableRow], by sortOrder: EvidenceReviewTableSortOrder) -> [EvidenceReviewTableRow] {
         rows.sorted { lhs, rhs in
             switch sortOrder {

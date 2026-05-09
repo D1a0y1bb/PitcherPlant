@@ -21,6 +21,7 @@ struct SettingsEditablePathControl: View {
             .frame(width: SettingsLayout.trailingWidth, alignment: .leading)
         }
         .buttonStyle(.bordered)
+        .help(title)
         .accessibilityLabel(title)
         .accessibilityValue(text)
         .frame(width: SettingsLayout.trailingWidth, alignment: .trailing)
@@ -35,12 +36,13 @@ struct SettingsReadOnlyPathRow: View {
 
     var body: some View {
         SettingsControlRow(title: title, subtitle: subtitle, icon: icon) {
-            SettingsPathDisplay(value: value)
+            SettingsPathDisplay(title: title, value: value)
         }
     }
 }
 
 struct SettingsPathDisplay: View {
+    let title: String
     let value: String
 
     var body: some View {
@@ -49,5 +51,8 @@ struct SettingsPathDisplay: View {
             .font(AppTypography.smallCode)
             .disabled(true)
             .frame(width: SettingsLayout.compactPathWidth, alignment: .leading)
+            .accessibilityLabel(Text(title))
+            .accessibilityValue(Text(value))
+            .help(value)
     }
 }

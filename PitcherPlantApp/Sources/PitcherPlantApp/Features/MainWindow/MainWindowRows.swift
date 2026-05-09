@@ -29,6 +29,7 @@ struct PresetTableRow: View {
             }
             .buttonStyle(.borderless)
             .help(appState.t("audit.deletePreset"))
+            .accessibilityLabel(Text(appState.t("audit.deletePreset")))
         }
         .padding(.horizontal, AppLayout.rowHorizontalPadding)
         .padding(.vertical, 7)
@@ -150,6 +151,7 @@ struct WhitelistTableRow: View {
             }
             .buttonStyle(.borderless)
             .help(appState.t("whitelist.deleteRule"))
+            .accessibilityLabel(Text(appState.t("whitelist.deleteRule")))
         }
         .font(AppTypography.rowSecondary)
         .padding(.horizontal, AppLayout.rowHorizontalPadding)

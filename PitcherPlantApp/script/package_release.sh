@@ -16,6 +16,7 @@ NOTARIZE="false"
 RELEASE_TAG="${RELEASE_TAG:-}"
 RELEASE_BUILD_NUMBER="${RELEASE_BUILD_NUMBER:-${GITHUB_RUN_NUMBER:-}}"
 RELEASE_DOWNLOAD_BASE_URL="${RELEASE_DOWNLOAD_BASE_URL:-}"
+REQUIRE_RELEASE_NOTES="${REQUIRE_RELEASE_NOTES:-false}"
 REQUIRED_STABLE_UPDATE_CHECK_URL="https://github.com/D1a0y1bb/PitcherPlant/releases/latest/download/appcast.xml?cachebust=1"
 REQUIRED_BETA_UPDATE_CHECK_URL="https://github.com/D1a0y1bb/PitcherPlant/releases/download/appcast-beta/appcast.xml"
 STABLE_UPDATE_CHECK_URL="${STABLE_UPDATE_CHECK_URL:-$REQUIRED_STABLE_UPDATE_CHECK_URL}"
@@ -33,6 +34,9 @@ Environment for developer-id distribution:
   APPLE_SIGNING_IDENTITY
   APPLE_ID
   APPLE_APP_SPECIFIC_PASSWORD
+
+Set REQUIRE_RELEASE_NOTES=true with RELEASE_TAG=vX.Y.Z, vX.Y.Z-beta, or
+vX.Y.Z-rc.N to require PitcherPlantApp/ReleaseNotes/<tag>.md.
 USAGE
 }
 
@@ -91,12 +95,42 @@ require_env() {
 }
 
 release_channel() {
-  if [[ "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+-(beta|rc)([.-].*)?$ ]]; then
+  if [[ "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+-(beta|rc\.[0-9]+)$ ]]; then
     printf 'beta\n'
   elif [[ "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
     printf 'stable\n'
   else
     printf 'development\n'
+  fi
+}
+
+validate_release_tag() {
+  if [[ "$RELEASE_TAG" == v* && "$(release_channel)" == "development" ]]; then
+    echo "Unsupported release tag: $RELEASE_TAG" >&2
+    echo "Use vX.Y.Z for stable, vX.Y.Z-beta for beta, or vX.Y.Z-rc.N for RC." >&2
+    exit 2
+  fi
+}
+
+require_release_notes_if_needed() {
+  local curated_notes_path
+
+  [[ "$REQUIRE_RELEASE_NOTES" == "true" ]] || return 0
+  if [[ -z "$RELEASE_TAG" ]]; then
+    echo "REQUIRE_RELEASE_NOTES=true requires RELEASE_TAG." >&2
+    exit 1
+  fi
+  if [[ "$(release_channel)" == "development" ]]; then
+    echo "Unsupported release tag: $RELEASE_TAG" >&2
+    echo "Use vX.Y.Z for stable, vX.Y.Z-beta for beta, or vX.Y.Z-rc.N for RC." >&2
+    exit 2
+  fi
+
+  curated_notes_path="$ROOT_DIR/ReleaseNotes/$RELEASE_TAG.md"
+  if [[ ! -f "$curated_notes_path" ]]; then
+    echo "Missing required release notes: $curated_notes_path" >&2
+    echo "Create PitcherPlantApp/ReleaseNotes/$RELEASE_TAG.md before packaging a real release." >&2
+    exit 1
   fi
 }
 
@@ -158,7 +192,9 @@ sparkle_signature_attributes() {
   printf '%s' "$SPARKLE_ED_PRIVATE_KEY" | "$sign_update_path" --ed-key-file - "$update_archive"
 }
 
+validate_release_tag
 RESOLVED_UPDATE_CHECK_URL="$(resolve_update_check_url)"
+require_release_notes_if_needed
 if [[ -z "$SPARKLE_ED_PRIVATE_KEY" ]]; then
   echo "Missing required environment variable: SPARKLE_ED_PRIVATE_KEY" >&2
   echo "Sparkle appcast generation always requires EdDSA signing, including dry-runs." >&2

@@ -25,6 +25,7 @@ struct SettingsTextControl: View {
             .lineLimit(1)
             .truncationMode(.middle)
             .frame(width: SettingsLayout.trailingWidth, alignment: .trailing)
+            .accessibilityLabel(Text(title))
     }
 }
 
@@ -128,6 +129,8 @@ struct SettingsActionRow: View {
                 Label(buttonTitle, systemImage: systemImage)
             }
             .buttonStyle(.bordered)
+            .help(buttonTitle)
+            .accessibilityLabel(Text(buttonTitle))
         }
     }
 }
@@ -157,6 +160,7 @@ struct SettingsMenuPicker<Value: Hashable>: View {
                     .font(AppTypography.badge)
                     .foregroundStyle(.primary)
                     .frame(width: 28, height: 28)
+                    .accessibilityHidden(true)
                     .background {
                         Circle()
                             .fill(Color.secondary.opacity(0.13))

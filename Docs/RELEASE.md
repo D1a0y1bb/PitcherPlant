@@ -16,6 +16,15 @@ cd PitcherPlantApp
 
 注意：已经发布且未内置 `SUPublicEDKey` 的版本无法安全验证后续 ad-hoc Sparkle 更新。第一次加入 Sparkle 公钥的版本需要用户手动下载安装；从该版本之后，后续版本才能通过 Sparkle 完整验证并安装。
 
+本地脚本也会生成 Sparkle appcast，因此需要通过环境变量提供 `SPARKLE_ED_PRIVATE_KEY`。如果是在本地制作真实带 tag 的发布包，还要提供对应 release notes：
+
+```bash
+cd PitcherPlantApp
+RELEASE_TAG=v0.1.8-beta REQUIRE_RELEASE_NOTES=true ./script/package_release.sh --distribution ad-hoc
+```
+
+`REQUIRE_RELEASE_NOTES=true` 时，`PitcherPlantApp/ReleaseNotes/<tag>.md` 不存在会直接失败。
+
 成功后产物位于：
 
 ```text
@@ -47,20 +56,30 @@ xattr -dr com.apple.quarantine /Applications/PitcherPlant.app
 
 ## GitHub Actions 发布
 
-推送 `v*` tag 会触发 `.github/workflows/release.yml`，默认走 `macos-26` runner 上可用的最高版本 Xcode 和 `developer-id` 分发；只有 Developer ID 签名和公证成功后才创建 GitHub Release：
+推送 `v*` tag 会触发 `.github/workflows/release.yml`，默认走 `macos-26` runner 上可用的最高版本 Xcode。workflow 会先检查签名 secrets：资料齐全时使用 `developer-id` 分发并执行公证；资料不全时退到 `ad-hoc` 分发，仍会创建 GitHub Release，但产物没有 Apple 公证。
 
 ```bash
 git tag v0.1.0-rc.1
 git push origin v0.1.0-rc.1
 ```
 
+真实发布只接受这些 tag：
+
+- 正式版：`vX.Y.Z`
+- beta：`vX.Y.Z-beta`
+- RC：`vX.Y.Z-rc.N`
+
+真实发布必须存在 `PitcherPlantApp/ReleaseNotes/<tag>.md`。缺少该文件时，workflow 会在发布前检查失败，不会上传 GitHub Release。
+
 也可以手动运行 Release workflow：
 
 - `dry_run=true`：只上传 artifact，不创建 GitHub Release。
-- `dry_run=false`：创建 GitHub Release；发布 Release 时必须使用 `developer-id`。
-- `distribution=ad-hoc`：手动 dry-run 验证使用，无需 Apple Developer 账号。
+- `dry_run=false`：创建 GitHub Release；会要求对应 `ReleaseNotes/<tag>.md` 存在。
+- `distribution=ad-hoc`：无需 Apple Developer 账号，产物 ad-hoc signed、not notarized。
 - `distribution=developer-id`：启用 Developer ID 签名和公证。
 - `xcode_path`：可选，手动指定 Xcode.app 路径；留空时自动选择 runner 上可用的最高版本 Xcode。
+
+正式版会作为 GitHub Latest 发布并使用 stable appcast。beta 和 RC 会以 prerelease 发布，`--latest=false`，客户端和静默检查都使用固定 `appcast-beta` 地址。
 
 ## Developer ID 可选配置
 
@@ -91,6 +110,7 @@ spctl --assess
 
 - CI workflow 通过。
 - Release workflow 通过。
+- `PitcherPlantApp/ReleaseNotes/<tag>.md` 已存在并被打进 `release-notes.md`。
 - `PitcherPlant-macOS-checksums.txt` 存在且覆盖 ZIP、DMG、xcarchive、dSYM。
 - ZIP 解包后包含 `PitcherPlant.app`。
 - DMG 可挂载且包含 `PitcherPlant.app`。

@@ -5,6 +5,7 @@ struct ReportLibrarySidebar: View {
     let reports: [AuditReport]
     let totalCount: Int
     @Binding var reportQuery: String
+    @State private var isLoadingMoreReports = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -50,12 +51,42 @@ struct ReportLibrarySidebar: View {
                 .listStyle(.plain)
             }
             .padding(.horizontal, 12)
-            .padding(.bottom, 12)
+
+            if totalCount > reports.count {
+                Button {
+                    loadMoreReports()
+                } label: {
+                    if isLoadingMoreReports {
+                        ProgressView()
+                            .controlSize(.small)
+                        Text(appState.t("reports.loadingMoreReports"))
+                    } else {
+                        Label(appState.t("reports.loadMoreReports"), systemImage: "arrow.down.circle")
+                    }
+                }
+                .buttonStyle(.bordered)
+                .disabled(isLoadingMoreReports)
+                .help(appState.t("reports.loadMoreReports"))
+                .accessibilityLabel(appState.t("reports.loadMoreReports"))
+                .frame(maxWidth: .infinity)
+                .padding(.horizontal, 12)
+            }
         }
+        .padding(.bottom, 12)
     }
 
     private var countText: String {
         totalCount > reports.count ? "\(reports.count)/\(totalCount)" : "\(reports.count)"
+    }
+
+    private func loadMoreReports() {
+        guard isLoadingMoreReports == false else { return }
+        let query = reportQuery
+        isLoadingMoreReports = true
+        Task { @MainActor in
+            await appState.loadMoreReportLibrary(query: query)
+            isLoadingMoreReports = false
+        }
     }
 }
 

@@ -189,6 +189,101 @@ func documentFeatureDatabaseCanLoadUnbatchedFeaturesByPathPrefix() async throws 
     #expect(scoped.map(\.id) == [unbatchedInScope.id])
 }
 
+@Test
+func documentFeatureDatabaseKeepsSubmissionItemsInSameBatchIsolatedByPathPrefix() async throws {
+    let root = FileManager.default.temporaryDirectory
+        .appendingPathComponent("pitcherplant-feature-batch-prefix-\(UUID().uuidString)", isDirectory: true)
+    let support = root.appendingPathComponent(".pitcherplant-macos", isDirectory: true)
+    try FileManager.default.createDirectory(at: support, withIntermediateDirectories: true)
+    let store = try DatabaseStore(rootDirectory: root)
+    try await store.prepare()
+
+    let batchID = UUID()
+    let teamARoot = root.appendingPathComponent("team-a", isDirectory: true)
+    let teamBRoot = root.appendingPathComponent("team-b", isDirectory: true)
+    let teamAFeature = DocumentFeature(document: syntheticDocument(index: 0, root: teamARoot), batchID: batchID)
+    let teamBFeature = DocumentFeature(document: syntheticDocument(index: 1, root: teamBRoot), batchID: batchID)
+    try await store.upsertDocumentFeatures([teamAFeature, teamBFeature])
+
+    let teamBCachedFeatures = try await store.loadDocumentFeatures(batchID: batchID, pathPrefix: teamBRoot.path)
+    let result = DocumentFeatureStore().buildFeatureResult(
+        for: [syntheticDocument(index: 1, root: teamBRoot)],
+        batchID: batchID,
+        cachedFeatures: teamBCachedFeatures
+    )
+
+    #expect(teamBCachedFeatures.map(\.id) == [teamBFeature.id])
+    #expect(result.orphanedFeatureIDs.isEmpty)
+}
+
+@Test
+func documentFeatureCacheKeepsSamePathBatchAndOrdinaryScopesIsolated() async throws {
+    let root = FileManager.default.temporaryDirectory
+        .appendingPathComponent("pitcherplant-feature-isolation-\(UUID().uuidString)", isDirectory: true)
+    let support = root.appendingPathComponent(".pitcherplant-macos", isDirectory: true)
+    try FileManager.default.createDirectory(at: support, withIntermediateDirectories: true)
+    let store = try DatabaseStore(rootDirectory: root)
+    try await store.prepare()
+
+    let document = syntheticDocument(index: 0, root: root)
+    let firstBatchID = UUID()
+    let secondBatchID = UUID()
+    let ordinary = DocumentFeature(
+        document: document,
+        scanID: UUID(),
+        updatedAt: Date(timeIntervalSince1970: 2_000)
+    )
+    let firstBatch = DocumentFeature(
+        document: document,
+        scanID: UUID(),
+        batchID: firstBatchID,
+        updatedAt: Date(timeIntervalSince1970: 2_100)
+    )
+    let secondBatch = DocumentFeature(
+        document: document,
+        scanID: UUID(),
+        batchID: secondBatchID,
+        updatedAt: Date(timeIntervalSince1970: 2_200)
+    )
+
+    #expect(Set([ordinary.id, firstBatch.id, secondBatch.id]).count == 3)
+
+    try await store.upsertDocumentFeatures([ordinary, firstBatch, secondBatch])
+
+    let loadedOrdinary = try await store.loadDocumentFeatures(pathPrefix: root.path, onlyUnbatched: true)
+    let loadedFirstBatch = try await store.loadDocumentFeatures(batchID: firstBatchID)
+    let loadedSecondBatch = try await store.loadDocumentFeatures(batchID: secondBatchID)
+
+    #expect(loadedOrdinary.map(\.id) == [ordinary.id])
+    #expect(loadedFirstBatch.map(\.id) == [firstBatch.id])
+    #expect(loadedSecondBatch.map(\.id) == [secondBatch.id])
+
+    let ordinaryScanID = UUID()
+    let ordinaryResult = DocumentFeatureStore().buildFeatureResult(
+        for: [document],
+        scanID: ordinaryScanID,
+        cachedFeatures: [firstBatch]
+    )
+    let rebuiltOrdinary = try #require(ordinaryResult.features.first)
+    #expect(ordinaryResult.reusedCount == 0)
+    #expect(ordinaryResult.rebuiltCount == 1)
+    #expect(rebuiltOrdinary.batchID == nil)
+    #expect(rebuiltOrdinary.id == ordinary.id)
+
+    let batchScanID = UUID()
+    let batchResult = DocumentFeatureStore().buildFeatureResult(
+        for: [document],
+        scanID: batchScanID,
+        batchID: firstBatchID,
+        cachedFeatures: [ordinary, firstBatch]
+    )
+    let reusedBatch = try #require(batchResult.features.first)
+    #expect(batchResult.reusedCount == 1)
+    #expect(batchResult.rebuiltCount == 0)
+    #expect(reusedBatch.batchID == firstBatchID)
+    #expect(reusedBatch.id == firstBatch.id)
+}
+
 private func syntheticDocument(index: Int, root: URL) -> ParsedDocument {
     let positiveTokens: String
     switch index {

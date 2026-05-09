@@ -35,6 +35,55 @@ func riskScoringAggregatesEvidenceIntoHighRiskOverview() throws {
 }
 
 @Test
+func metadataCollisionEvidenceKeepsExactPairsForSmallGroups() throws {
+    let files = ["a.md", "b.md", "c.md", "d.md"]
+    let records = RiskScoringService().evidenceRecords(
+        textPairs: [],
+        codePairs: [],
+        imagePairs: [],
+        metadataCollisions: [MetadataCollision(author: "SharedEditor", files: files)],
+        dedupPairs: [],
+        crossBatch: []
+    )
+
+    #expect(records.count == 6)
+    #expect(Set(records.map { "\($0.fileA)|\($0.fileB)" }) == [
+        "a.md|b.md",
+        "a.md|c.md",
+        "a.md|d.md",
+        "b.md|c.md",
+        "b.md|d.md",
+        "c.md|d.md",
+    ])
+    #expect(records.allSatisfy { $0.evidence == "共同元数据：SharedEditor" })
+    #expect(records.allSatisfy { $0.detailLines == [
+        "作者或最后修改者：SharedEditor",
+        "涉及文件数：4",
+    ] })
+}
+
+@Test
+func metadataCollisionEvidenceCapsLargeGroupsAndReportsOmittedPairs() throws {
+    let files = (1...20).map { String(format: "team-%02d.md", $0) }
+    let records = RiskScoringService().evidenceRecords(
+        textPairs: [],
+        codePairs: [],
+        imagePairs: [],
+        metadataCollisions: [MetadataCollision(author: "SharedEditor", files: files)],
+        dedupPairs: [],
+        crossBatch: []
+    )
+    let totalCombinations = files.count * (files.count - 1) / 2
+    let omittedCombinations = totalCombinations - MetadataCollisionEvidencePolicy.representativePairLimit
+
+    #expect(records.count == MetadataCollisionEvidencePolicy.representativePairLimit)
+    #expect(records.count < totalCombinations)
+    #expect(records.allSatisfy { $0.evidence.contains("已省略 \(omittedCombinations) 组") })
+    #expect(records.allSatisfy { $0.detailLines.contains("全部组合数：\(totalCombinations)") })
+    #expect(records.allSatisfy { $0.detailLines.contains("已省略组合数：\(omittedCombinations)") })
+}
+
+@Test
 func databasePersistsReviewsBatchesItemsAndDocumentFeatures() async throws {
     let root = FileManager.default.temporaryDirectory
         .appendingPathComponent("pitcherplant-operational-db-\(UUID().uuidString)", isDirectory: true)
@@ -305,6 +354,73 @@ func batchReviewAppliesDecisionAndAdvancesToNextPendingEvidence() async throws {
     #expect(review.severity == .high)
     #expect(review.reviewerNote == "人工确认")
     #expect(appState.selectedReportRowID == secondEvidenceID)
+}
+
+@Test
+@MainActor
+func decisionOnlyReviewPreservesExistingSeverityAndNote() async throws {
+    let root = FileManager.default.temporaryDirectory
+        .appendingPathComponent("pitcherplant-decision-only-review-\(UUID().uuidString)", isDirectory: true)
+    try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+    let appState = AppState(workspaceRoot: root)
+    try await appState.database.prepare()
+
+    let reportID = UUID()
+    let rowID = UUID()
+    let evidenceID = UUID()
+    let row = ReportTableRow(
+        id: rowID,
+        columns: ["alpha.md", "beta.md", "0.91", "shared exploit"],
+        detailTitle: "alpha.md ↔ beta.md",
+        detailBody: "shared exploit",
+        evidenceID: evidenceID,
+        evidenceType: .text,
+        riskAssessment: RiskAssessment(score: 0.91, reasons: ["文本复用"])
+    )
+    let section = ReportSection(
+        kind: .text,
+        title: "文本证据",
+        summary: "",
+        table: ReportTable(headers: ["A", "B", "Score", "Detail"], rows: [row])
+    )
+    let report = AuditReport(
+        id: reportID,
+        title: "Decision Only Review",
+        sourcePath: root.appendingPathComponent("report.html").path,
+        scanDirectoryPath: root.path,
+        metrics: [],
+        sections: [section]
+    )
+    try await appState.database.saveReport(report)
+    try await appState.database.upsertEvidenceReview(EvidenceReview(
+        reportID: reportID,
+        evidenceID: evidenceID,
+        evidenceType: .text,
+        decision: .confirmed,
+        severity: .high,
+        reviewerNote: "保留人工备注"
+    ))
+    await appState.reload()
+    appState.selectReport(reportID)
+    appState.selectReportSection(.text)
+    appState.selectedReportRowID = evidenceID
+
+    let target = EvidenceReviewTarget(
+        reportID: reportID,
+        reportTitle: report.title,
+        sectionKind: .text,
+        sectionTitle: section.title,
+        rowID: rowID,
+        evidenceID: evidenceID,
+        evidenceType: .text
+    )
+    await appState.applyReviewDecision(to: [target], decision: .ignored, preserveExistingReviewDetails: true)
+
+    let review = try #require(try await appState.database.loadEvidenceReviews(reportID: reportID).first)
+    #expect(review.evidenceID == evidenceID)
+    #expect(review.decision == .ignored)
+    #expect(review.severity == .high)
+    #expect(review.reviewerNote == "保留人工备注")
 }
 
 @Test

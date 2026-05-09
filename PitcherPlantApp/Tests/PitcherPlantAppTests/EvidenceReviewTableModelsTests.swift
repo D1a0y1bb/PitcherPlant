@@ -56,7 +56,7 @@ func evidenceReviewTableRowsMapReportEvidenceForAuditorScanning() throws {
 }
 
 @Test
-func evidenceReviewTableRowsUseUniqueSelectionIDsAcrossReports() {
+func evidenceReviewTableRowsUseCompositeIDForSelectionAndKeepEvidenceIDForReview() {
     let sharedEvidenceID = UUID()
     let firstReport = AuditReport(
         id: UUID(),
@@ -98,6 +98,6 @@ func evidenceReviewTableRowsUseUniqueSelectionIDsAcrossReports() {
     ]
 
     #expect(Set(rows.map(\.id)).count == 2)
-    #expect(Set(rows.map(\.target.id)).count == 2)
+    #expect(Set(rows.map(\.target.id)) == Set(rows.map(\.id)))
     #expect(Set(rows.map(\.target.evidenceID)).count == 1)
 }

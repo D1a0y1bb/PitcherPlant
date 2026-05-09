@@ -323,6 +323,8 @@ PitcherPlantApp/build/dist/release-notes.md
 
 发布脚本会执行 archive、导出、ZIP/DMG 打包、签名验证、DMG 验证、解包检查、挂载检查和 SHA-256 校验生成。
 
+Sparkle appcast 生成需要 `SPARKLE_ED_PRIVATE_KEY`。如果是在制作真实带 tag 的发布包，还要提供 `RELEASE_TAG` 并设置 `REQUIRE_RELEASE_NOTES=true`；缺少 `PitcherPlantApp/ReleaseNotes/<tag>.md` 时脚本会失败。
+
 Developer ID 分发命令：
 
 ```bash
@@ -330,7 +332,7 @@ cd PitcherPlantApp
 ./script/package_release.sh --distribution developer-id --notarize
 ```
 
-Developer ID 所需环境变量见 [Docs/RELEASE.md](Docs/RELEASE.md)。
+GitHub tag 发布接受 `vX.Y.Z`、`vX.Y.Z-beta` 和 `vX.Y.Z-rc.N`。推送 tag 会触发 release workflow：签名 secrets 齐全时使用 Developer ID 签名和公证；资料不全时发布 ad-hoc signed、not notarized 产物。release notes 要求和 Developer ID 所需环境变量见 [Docs/RELEASE.md](Docs/RELEASE.md)。
 
 ## 相关文档
 

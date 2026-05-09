@@ -2417,6 +2417,38 @@
         }
       }
     },
+    "fingerprints.loadMore": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Load More Fingerprints"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "加载更多指纹"
+          }
+        }
+      }
+    },
+    "fingerprints.loadingMore": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Loading more fingerprints"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "正在加载更多指纹"
+          }
+        }
+      }
+    },
     "fingerprints.tags": {
       "localizations": {
         "en": {
@@ -4017,6 +4049,70 @@
         }
       }
     },
+    "reports.nextImagePair": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Next Image Pair"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "下一组图片对比"
+          }
+        }
+      }
+    },
+    "reports.nextSharedToken": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Next Shared Token"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "下一个共享 token"
+          }
+        }
+      }
+    },
+    "reports.previousImagePair": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Previous Image Pair"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "上一组图片对比"
+          }
+        }
+      }
+    },
+    "reports.previousSharedToken": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Previous Shared Token"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "上一个共享 token"
+          }
+        }
+      }
+    },
     "reports.lineDiff": {
       "localizations": {
         "en": {
@@ -4273,6 +4369,22 @@
         }
       }
     },
+    "reports.zoomLevel": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zoom Level"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "缩放比例"
+          }
+        }
+      }
+    },
     "reports.regenerateExplanation": {
       "localizations": {
         "en": {
@@ -4381,6 +4493,70 @@
           "stringUnit": {
             "state": "translated",
             "value": "搜索当前章节证据"
+          }
+        }
+      }
+    },
+    "reports.loadMoreReports": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Load More Reports"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "加载更多报告"
+          }
+        }
+      }
+    },
+    "reports.loadingMoreReports": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Loading more reports"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "正在加载更多报告"
+          }
+        }
+      }
+    },
+    "reports.loadMoreRows": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Load More Evidence"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "加载更多证据"
+          }
+        }
+      }
+    },
+    "reports.loadingMoreRows": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Loading more evidence"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "正在加载更多证据"
           }
         }
       }
@@ -7569,6 +7745,22 @@
         }
       }
     },
+    "whitelist.acceptSuggestion": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Accept Whitelist Suggestion"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "接受白名单建议"
+          }
+        }
+      }
+    },
     "whitelist.author": {
       "localizations": {
         "en": {
@@ -7613,6 +7805,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "删除白名单规则"
+          }
+        }
+      }
+    },
+    "whitelist.dismissSuggestion": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ignore Whitelist Suggestion"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "忽略白名单建议"
           }
         }
       }

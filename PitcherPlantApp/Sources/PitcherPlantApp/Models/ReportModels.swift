@@ -378,6 +378,7 @@ struct FingerprintRecord: Codable, Identifiable, Hashable, Sendable {
     let size: Int
     let simhash: String
     let scanDir: String
+    var sourcePath: String?
     let scannedAt: Date
     var tags: [String]?
     var sourceReportID: UUID?
@@ -387,13 +388,14 @@ struct FingerprintRecord: Codable, Identifiable, Hashable, Sendable {
     var submissionItemID: UUID?
 
     init(
-        id: UUID = UUID(),
+        id: UUID? = nil,
         filename: String,
         ext: String,
         author: String,
         size: Int,
         simhash: String,
         scanDir: String,
+        sourcePath: String? = nil,
         scannedAt: Date = .now,
         tags: [String]? = nil,
         sourceReportID: UUID? = nil,
@@ -402,13 +404,25 @@ struct FingerprintRecord: Codable, Identifiable, Hashable, Sendable {
         teamName: String? = nil,
         submissionItemID: UUID? = nil
     ) {
-        self.id = id
+        self.id = id ?? Self.stableID(
+            filename: filename,
+            ext: ext,
+            author: author,
+            size: size,
+            simhash: simhash,
+            scanDir: scanDir,
+            sourcePath: sourcePath,
+            batchName: batchName,
+            challengeName: challengeName,
+            teamName: teamName
+        )
         self.filename = filename
         self.ext = ext
         self.author = author
         self.size = size
         self.simhash = simhash
         self.scanDir = scanDir
+        self.sourcePath = sourcePath
         self.scannedAt = scannedAt
         self.tags = tags
         self.sourceReportID = sourceReportID
@@ -416,6 +430,186 @@ struct FingerprintRecord: Codable, Identifiable, Hashable, Sendable {
         self.challengeName = challengeName
         self.teamName = teamName
         self.submissionItemID = submissionItemID
+    }
+
+    var identityKey: String {
+        Self.identityKey(
+            filename: filename,
+            ext: ext,
+            author: author,
+            size: size,
+            simhash: simhash,
+            scanDir: scanDir,
+            sourcePath: sourcePath,
+            batchName: batchName,
+            challengeName: challengeName,
+            teamName: teamName
+        )
+    }
+
+    func withStableIdentity() -> FingerprintRecord {
+        FingerprintRecord(
+            id: Self.stableID(
+                filename: filename,
+                ext: ext,
+                author: author,
+                size: size,
+                simhash: simhash,
+                scanDir: scanDir,
+                sourcePath: sourcePath,
+                batchName: batchName,
+                challengeName: challengeName,
+                teamName: teamName
+            ),
+            filename: filename,
+            ext: ext,
+            author: author,
+            size: size,
+            simhash: simhash,
+            scanDir: scanDir,
+            sourcePath: sourcePath,
+            scannedAt: scannedAt,
+            tags: tags,
+            sourceReportID: sourceReportID,
+            batchName: batchName,
+            challengeName: challengeName,
+            teamName: teamName,
+            submissionItemID: submissionItemID
+        )
+    }
+
+    static func stableID(
+        filename: String,
+        ext: String,
+        author: String,
+        size: Int,
+        simhash: String,
+        scanDir: String,
+        sourcePath: String?,
+        batchName: String?,
+        challengeName: String?,
+        teamName: String?
+    ) -> UUID {
+        UUID.pitcherPlantStable(
+            namespace: "fingerprint-record",
+            components: identityComponents(
+                filename: filename,
+                ext: ext,
+                author: author,
+                size: size,
+                simhash: simhash,
+                scanDir: scanDir,
+                sourcePath: sourcePath,
+                batchName: batchName,
+                challengeName: challengeName,
+                teamName: teamName
+            )
+        )
+    }
+
+    static func identityKey(
+        filename: String,
+        ext: String,
+        author: String,
+        size: Int,
+        simhash: String,
+        scanDir: String,
+        sourcePath: String?,
+        batchName: String?,
+        challengeName: String?,
+        teamName: String?
+    ) -> String {
+        stableID(
+            filename: filename,
+            ext: ext,
+            author: author,
+            size: size,
+            simhash: simhash,
+            scanDir: scanDir,
+            sourcePath: sourcePath,
+            batchName: batchName,
+            challengeName: challengeName,
+            teamName: teamName
+        ).uuidString
+    }
+
+    private static func identityComponents(
+        filename: String,
+        ext: String,
+        author: String,
+        size: Int,
+        simhash: String,
+        scanDir: String,
+        sourcePath: String?,
+        batchName: String?,
+        challengeName: String?,
+        teamName: String?
+    ) -> [String] {
+        let normalizedSourcePath = normalized(sourcePath)
+        if normalizedSourcePath.isEmpty == false {
+            return [
+                normalizedSourcePath,
+                normalized(filename),
+                normalized(ext),
+                normalized(author),
+                "\(size)",
+                normalized(simhash)
+            ]
+        }
+        return [
+            normalized(filename),
+            normalized(ext),
+            normalized(author),
+            "\(size)",
+            normalized(simhash),
+            normalized(scanDir),
+            normalized(challengeName),
+            normalized(teamName)
+        ]
+    }
+
+    func matchesAuditedDocument(_ other: FingerprintRecord) -> Bool {
+        let leftSourcePath = Self.normalized(sourcePath)
+        let rightSourcePath = Self.normalized(other.sourcePath)
+        if leftSourcePath.isEmpty == false, rightSourcePath.isEmpty == false {
+            return leftSourcePath == rightSourcePath
+                && size == other.size
+                && Self.normalized(simhash) == Self.normalized(other.simhash)
+        }
+
+        guard Self.normalized(filename) == Self.normalized(other.filename),
+              Self.normalized(ext) == Self.normalized(other.ext),
+              Self.normalized(author) == Self.normalized(other.author),
+              size == other.size,
+              Self.normalized(simhash) == Self.normalized(other.simhash),
+              Self.normalized(scanDir) == Self.normalized(other.scanDir)
+        else {
+            return false
+        }
+
+        let leftChallengeName = Self.normalized(challengeName)
+        let rightChallengeName = Self.normalized(other.challengeName)
+        if leftChallengeName.isEmpty == false,
+           rightChallengeName.isEmpty == false,
+           leftChallengeName != rightChallengeName {
+            return false
+        }
+
+        let leftTeamName = Self.normalized(teamName)
+        let rightTeamName = Self.normalized(other.teamName)
+        if leftTeamName.isEmpty == false,
+           rightTeamName.isEmpty == false,
+           leftTeamName != rightTeamName {
+            return false
+        }
+
+        return true
+    }
+
+    private static func normalized(_ value: String?) -> String {
+        value?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .lowercased() ?? ""
     }
 }
 

@@ -80,6 +80,7 @@ struct FingerprintLibraryView: View {
     @State private var importTags = ""
     @State private var exportTags = ""
     @State private var cleanupMatchCount = 0
+    @State private var isLoadingMoreFingerprints = false
     @State private var fingerprintQueryRefreshTask: Task<Void, Never>?
     @State private var cleanupCountRefreshTask: Task<Void, Never>?
 
@@ -118,6 +119,28 @@ struct FingerprintLibraryView: View {
                         idealHeight: nativeTableIdealHeight(rowCount: displayedRecords.count, minHeight: 220, maxHeight: 360),
                         maxHeight: .infinity
                     )
+                    if appState.fingerprintLibraryTotalCount > displayedRecords.count {
+                        HStack {
+                            Spacer()
+                            Button {
+                                loadMoreFingerprints()
+                            } label: {
+                                if isLoadingMoreFingerprints {
+                                    ProgressView()
+                                        .controlSize(.small)
+                                    Text(appState.t("fingerprints.loadingMore"))
+                                } else {
+                                    Label(appState.t("fingerprints.loadMore"), systemImage: "arrow.down.circle")
+                                }
+                            }
+                            .buttonStyle(.bordered)
+                            .disabled(isLoadingMoreFingerprints)
+                            .help(appState.t("fingerprints.loadMore"))
+                            .accessibilityLabel(appState.t("fingerprints.loadMore"))
+                            Spacer()
+                        }
+                        .padding(.vertical, 8)
+                    }
                 }
                 .frame(maxHeight: .infinity, alignment: .topLeading)
             }
@@ -173,6 +196,17 @@ struct FingerprintLibraryView: View {
             }
             guard Task.isCancelled == false else { return }
             await appState.refreshFingerprintLibrary(query: query)
+            isLoadingMoreFingerprints = false
+        }
+    }
+
+    private func loadMoreFingerprints() {
+        guard isLoadingMoreFingerprints == false else { return }
+        let query = query
+        isLoadingMoreFingerprints = true
+        Task { @MainActor in
+            await appState.loadMoreFingerprintLibrary(query: query)
+            isLoadingMoreFingerprints = false
         }
     }
 
@@ -826,12 +860,16 @@ private struct WhitelistSuggestionTableRow: View {
             }
             .buttonStyle(.borderless)
             .disabled(suggestion.status == .accepted)
+            .help(appState.t("whitelist.acceptSuggestion"))
+            .accessibilityLabel(Text(appState.t("whitelist.acceptSuggestion")))
 
             Button(action: dismiss) {
                 Image(systemName: "xmark")
             }
             .buttonStyle(.borderless)
             .disabled(suggestion.status == .dismissed)
+            .help(appState.t("whitelist.dismissSuggestion"))
+            .accessibilityLabel(Text(appState.t("whitelist.dismissSuggestion")))
         }
         .font(AppTypography.rowSecondary)
         .padding(.horizontal, AppLayout.rowHorizontalPadding)

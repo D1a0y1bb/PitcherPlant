@@ -135,6 +135,63 @@ func databaseStorePaginatesReportsFingerprintsAndAppendsJobEvents() async throws
 }
 
 @Test
+func fingerprintRecordsUseStableIdentityAcrossRepeatAudits() async throws {
+    let root = FileManager.default.temporaryDirectory
+        .appendingPathComponent("pitcherplant-fingerprint-identity-\(UUID().uuidString)", isDirectory: true)
+    try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+    let store = try DatabaseStore(rootDirectory: root)
+    try await store.prepare()
+
+    let scanName = root.lastPathComponent
+    let documentURL = root
+        .appendingPathComponent("web", isDirectory: true)
+        .appendingPathComponent("Alpha", isDirectory: true)
+        .appendingPathComponent("writeup.md")
+    let firstDocument = fingerprintTestDocument(
+        url: documentURL,
+        content: "stable proof token reused across repeated audits",
+        author: "alice"
+    )
+    let firstRecords = FingerprintAnalyzer().buildRecords(documents: [firstDocument], scanDirectory: scanName)
+    try await store.insertFingerprints(firstRecords)
+
+    let repeatedRecords = FingerprintAnalyzer().buildRecords(documents: [firstDocument], scanDirectory: scanName)
+    let historical = try await store.loadFingerprintRecords()
+    let selfMatches = CrossBatchReuseAnalyzer().analyze(
+        current: repeatedRecords,
+        historical: historical,
+        whitelistRules: [],
+        whitelistMode: .mark,
+        threshold: 0
+    )
+    try await store.insertFingerprints(repeatedRecords)
+
+    let firstRecord = try #require(firstRecords.first)
+    let repeatedRecord = try #require(repeatedRecords.first)
+    #expect(selfMatches.isEmpty)
+    #expect(try await store.loadFingerprintRecords().count == 1)
+    #expect(firstRecord.id == repeatedRecord.id)
+
+    var ignoredDuplicate = repeatedRecord
+    ignoredDuplicate.tags = ["ignored-duplicate-tag"]
+    try await store.insertFingerprints([ignoredDuplicate])
+    let ignoredTagSearch = try await store.searchFingerprintRecords(query: "ignored-duplicate-tag", limit: 10)
+    #expect(ignoredTagSearch.totalCount == 0)
+
+    let changedDocument = fingerprintTestDocument(
+        url: documentURL,
+        content: "changed proof token creates a new document version",
+        author: "alice"
+    )
+    let changedRecords = FingerprintAnalyzer().buildRecords(documents: [changedDocument], scanDirectory: scanName)
+    try await store.insertFingerprints(changedRecords)
+
+    let changedRecord = try #require(changedRecords.first)
+    #expect(try await store.loadFingerprintRecords().count == 2)
+    #expect(changedRecord.id != firstRecord.id)
+}
+
+@Test
 func databaseStorePersistsStructuredJobEventsAndReportSections() async throws {
     let root = FileManager.default.temporaryDirectory
         .appendingPathComponent("pitcherplant-db-\(UUID().uuidString)", isDirectory: true)
@@ -298,4 +355,17 @@ func databaseStoreFallsBackWhenWorkspaceRootIsReadOnly() async throws {
     try await store.prepare()
 
     #expect(try await store.debugTableRowCount(named: "audit_jobs") == 0)
+}
+
+private func fingerprintTestDocument(url: URL, content: String, author: String) -> ParsedDocument {
+    ParsedDocument(
+        url: url,
+        filename: url.lastPathComponent,
+        ext: url.pathExtension.isEmpty ? "md" : url.pathExtension,
+        content: content,
+        cleanText: TextNormalizer.clean(content),
+        codeBlocks: [],
+        author: author,
+        images: []
+    )
 }

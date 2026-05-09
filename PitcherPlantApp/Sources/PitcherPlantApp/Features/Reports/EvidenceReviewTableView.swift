@@ -119,7 +119,7 @@ struct EvidenceReviewTableView: View {
         let targets = rows
             .filter { selectedIDs.contains($0.id) }
             .map(\.target)
-        await appState.applyReviewDecision(to: targets, decision: decision, severity: nil, note: "")
+        await appState.applyReviewDecision(to: targets, decision: decision, preserveExistingReviewDetails: true)
     }
 
     private func riskImage(for risk: RiskLevel) -> String {

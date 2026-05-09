@@ -58,6 +58,15 @@ struct PitcherPlantDesktopApp: App {
                 }
             }
 
+            CommandGroup(replacing: .appSettings) {
+                Button(appState.t("settings.title")) {
+                    openWindow(id: AppWindow.main.rawValue)
+                    appState.selectedMainSidebar = .settings
+                    NSApp.activate(ignoringOtherApps: true)
+                }
+                .keyboardShortcut(",", modifiers: .command)
+            }
+
             PitcherPlantCommands(
                 appState: appState,
                 showMainWindow: {
@@ -65,19 +74,6 @@ struct PitcherPlantDesktopApp: App {
                     NSApp.activate(ignoringOtherApps: true)
                 }
             )
-        }
-
-        Settings {
-            SettingsRootView()
-                .id(appearanceSyncKey)
-                .environment(appState)
-                .environment(\.locale, appState.effectiveLocale ?? .current)
-                .preferredColorScheme(appState.effectiveColorScheme)
-                .modifier(AppAppearanceSyncModifier(appearance: appState.appSettings.appearance, syncKey: appearanceSyncKey))
-                .modifier(SystemMenuLocalizationModifier(appState: appState, syncKey: appearanceSyncKey))
-                .task {
-                    await appState.bootstrapIfNeeded()
-                }
         }
 
         MenuBarExtra {

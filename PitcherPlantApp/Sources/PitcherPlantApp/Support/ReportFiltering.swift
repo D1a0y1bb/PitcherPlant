@@ -116,6 +116,29 @@ struct ReportRowsViewModel: Equatable {
         )
     }
 
+    var hasMoreRows: Bool {
+        rows.count < totalRowCount
+    }
+
+    func appending(_ page: ReportRowsViewModel) -> ReportRowsViewModel {
+        guard sectionID == page.sectionID,
+              query == page.query,
+              filter == page.filter,
+              sortOrder == page.sortOrder else {
+            return page
+        }
+        var seenIDs = Set(rows.map(\.id))
+        let nextRows = rows + page.rows.filter { seenIDs.insert($0.id).inserted }
+        return ReportRowsViewModel(
+            sectionID: sectionID,
+            query: query,
+            filter: filter,
+            sortOrder: sortOrder,
+            rows: nextRows,
+            totalRowCount: page.totalRowCount
+        )
+    }
+
     var visibleRowIDs: [UUID] {
         rows.map(\.id)
     }

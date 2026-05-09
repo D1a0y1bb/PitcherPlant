@@ -8,7 +8,10 @@ struct ReportSectionsAndEvidenceView: View {
     @State private var evidenceFilter: ReportEvidenceFilter = .all
     @State private var evidenceSortOrder: ReportEvidenceSortOrder = .default
     @State private var rowsModel = ReportRowsViewModel.empty
+    @State private var isLoadingMoreRows = false
     @State private var queryDebounceTask: Task<Void, Never>?
+    @State private var rowsRefreshTask: Task<Void, Never>?
+    @State private var rowsPageTask: Task<Void, Never>?
 
     private var selectedSection: ReportSection? {
         appState.selectedReportSectionModel
@@ -29,7 +32,7 @@ struct ReportSectionsAndEvidenceView: View {
                 ReportSectionStrip(report: report)
 
                 if let section = selectedSection {
-                    if totalRowCount > 0 {
+                    if section.kind != .overview {
                         AppTablePanel {
                             VStack(spacing: 0) {
                                 EvidenceToolbar(
@@ -40,6 +43,29 @@ struct ReportSectionsAndEvidenceView: View {
                                     totalRowCount: totalRowCount
                                 )
                                 EvidenceList(report: report, section: section, rows: visibleRows)
+                                if rowsModel.hasMoreRows {
+                                    Divider()
+                                    HStack {
+                                        Spacer()
+                                        Button {
+                                            loadMoreRows()
+                                        } label: {
+                                            if isLoadingMoreRows {
+                                                ProgressView()
+                                                    .controlSize(.small)
+                                                Text(appState.t("reports.loadingMoreRows"))
+                                            } else {
+                                                Label(appState.t("reports.loadMoreRows"), systemImage: "arrow.down.circle")
+                                            }
+                                        }
+                                        .buttonStyle(.bordered)
+                                        .disabled(isLoadingMoreRows)
+                                        .help(appState.t("reports.loadMoreRows"))
+                                        .accessibilityLabel(appState.t("reports.loadMoreRows"))
+                                        Spacer()
+                                    }
+                                    .padding(.vertical, 12)
+                                }
                             }
                             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
                         }
@@ -64,6 +90,10 @@ struct ReportSectionsAndEvidenceView: View {
             .onChange(of: evidenceQuery) { _, _ in refreshRows() }
             .onChange(of: evidenceFilter) { _, _ in refreshRows() }
             .onChange(of: evidenceSortOrder) { _, _ in refreshRows() }
+            .onChange(of: appState.evidenceReviewRevision) { _, _ in
+                refreshRows()
+                syncVisibleEvidenceSelection()
+            }
             .onChange(of: appState.selectedReportSection) { _, _ in
                 refreshRows()
                 syncVisibleEvidenceSelection()
@@ -89,19 +119,65 @@ struct ReportSectionsAndEvidenceView: View {
             return
         }
         if let selectedID = appState.selectedReportRowID,
-           rowsModel.rows.contains(where: { $0.id == selectedID }) {
+           rowsModel.rows.contains(where: { $0.matchesSelection(selectedID) }) {
             return
         }
-        appState.selectedReportRowID = rowsModel.rows.first?.id
+        appState.selectedReportRowID = rowsModel.rows.first.map { $0.evidenceID ?? $0.id }
     }
 
     private func refreshRows() {
-        rowsModel = ReportRowsViewModel(
-            section: selectedSection,
-            query: evidenceQuery,
-            filter: evidenceFilter,
-            sortOrder: evidenceSortOrder
-        )
+        let section = selectedSection
+        let query = evidenceQuery
+        let filter = evidenceFilter
+        let sortOrder = evidenceSortOrder
+        rowsRefreshTask?.cancel()
+        rowsPageTask?.cancel()
+        isLoadingMoreRows = false
+        rowsRefreshTask = Task { @MainActor in
+            let model = await appState.reportRowsViewModel(
+                section: section,
+                query: query,
+                filter: filter,
+                sortOrder: sortOrder
+            )
+            guard Task.isCancelled == false else { return }
+            rowsModel = model
+            syncVisibleEvidenceSelection()
+        }
+    }
+
+    private func loadMoreRows() {
+        guard isLoadingMoreRows == false, rowsModel.hasMoreRows else {
+            return
+        }
+        let section = selectedSection
+        let query = evidenceQuery
+        let filter = evidenceFilter
+        let sortOrder = evidenceSortOrder
+        let current = rowsModel
+        let offset = current.rows.count
+        isLoadingMoreRows = true
+        rowsPageTask?.cancel()
+        rowsPageTask = Task { @MainActor in
+            let page = await appState.reportRowsViewModel(
+                section: section,
+                query: query,
+                filter: filter,
+                sortOrder: sortOrder,
+                offset: offset
+            )
+            guard Task.isCancelled == false else { return }
+            guard rowsModel.sectionID == current.sectionID,
+                  rowsModel.query == current.query,
+                  rowsModel.filter == current.filter,
+                  rowsModel.sortOrder == current.sortOrder else {
+                isLoadingMoreRows = false
+                return
+            }
+            rowsModel = current.appending(page)
+            isLoadingMoreRows = false
+            syncVisibleEvidenceSelection()
+        }
     }
 
     private func scheduleQueryUpdate(_ value: String) {
@@ -421,12 +497,22 @@ struct EvidenceCollectionView: View {
 
     private func syncSelection() {
         let selectedID = selectedEvidenceIDs.first
-        guard let item = selectedID.flatMap({ id in visibleItems.first(where: { ($0.row.evidenceID ?? $0.row.id) == id }) }) ?? visibleItems.first else {
+        let selectedItem = selectedID.flatMap { id in
+            visibleItems.first(where: { EvidenceReviewTableRow.selectionID(item: $0) == id })
+        } ?? visibleItems.first(where: { item in
+            guard appState.selectedReportID == item.reportID,
+                  let selectedReportRowID = appState.selectedReportRowID
+            else {
+                return false
+            }
+            return (item.row.evidenceID ?? item.row.id) == selectedReportRowID || item.row.id == selectedReportRowID
+        })
+        guard let item = selectedItem ?? visibleItems.first else {
             selectedEvidenceIDs = []
             appState.selectedReportRowID = nil
             return
         }
-        selectedEvidenceIDs = [item.row.evidenceID ?? item.row.id]
+        selectedEvidenceIDs = [EvidenceReviewTableRow.selectionID(item: item)]
         appState.selectEvidence(item)
     }
 
@@ -549,7 +635,7 @@ struct EvidenceList: View {
     @State private var selectedEvidenceIDs = Set<UUID>()
 
     var body: some View {
-        if rows.isEmpty, section.table != nil {
+        if rows.isEmpty, section.kind != .overview {
             ContentUnavailableView(appState.t("reports.noEvidence"), systemImage: "line.3.horizontal.decrease.circle", description: Text(appState.t("reports.noEvidenceDescription")))
                 .frame(minHeight: AppLayout.reportListMinHeight, maxHeight: .infinity)
         } else if section.kind == .overview {
@@ -590,9 +676,9 @@ struct EvidenceList: View {
     private func syncSelection() {
         if let selectedID = appState.selectedReportRowID,
            let row = rows.first(where: { ($0.evidenceID ?? $0.id) == selectedID || $0.id == selectedID }) {
-            selectedEvidenceIDs = [row.evidenceID ?? row.id]
+            selectedEvidenceIDs = [EvidenceReviewTableRow.selectionID(reportID: report.id, sectionKind: section.kind, row: row)]
         } else if let first = rows.first {
-            selectedEvidenceIDs = [first.evidenceID ?? first.id]
+            selectedEvidenceIDs = [EvidenceReviewTableRow.selectionID(reportID: report.id, sectionKind: section.kind, row: first)]
         } else {
             selectedEvidenceIDs = []
         }

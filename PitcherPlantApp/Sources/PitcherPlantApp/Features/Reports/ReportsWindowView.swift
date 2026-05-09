@@ -154,6 +154,7 @@ struct ReportsInlineView: View {
             AppToolbarBand {
                 ReportsCenterSelectorBar(
                     reports: filteredReports,
+                    totalCount: appState.reportLibraryTotalCount,
                     reportQuery: $reportQuery
                 )
             }
@@ -201,7 +202,9 @@ struct ReportsInlineView: View {
 private struct ReportsCenterSelectorBar: View {
     @Environment(AppState.self) private var appState
     let reports: [AuditReport]
+    let totalCount: Int
     @Binding var reportQuery: String
+    @State private var isLoadingMoreReports = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -222,14 +225,40 @@ private struct ReportsCenterSelectorBar: View {
                 }
             }
 
-            Text(reportQuery.isEmpty ? "\(reports.count) \(appState.t("common.countSuffix"))" : "\(reports.count) \(appState.t("reports.matchedReports"))")
-                .font(AppTypography.metadata)
-                .foregroundStyle(.secondary)
+            HStack(spacing: 12) {
+                Text(countText)
+                    .font(AppTypography.metadata)
+                    .foregroundStyle(.secondary)
+
+                if totalCount > reports.count {
+                    Button {
+                        loadMoreReports()
+                    } label: {
+                        if isLoadingMoreReports {
+                            ProgressView()
+                                .controlSize(.small)
+                            Text(appState.t("reports.loadingMoreReports"))
+                        } else {
+                            Label(appState.t("reports.loadMoreReports"), systemImage: "arrow.down.circle")
+                        }
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+                    .disabled(isLoadingMoreReports)
+                    .help(appState.t("reports.loadMoreReports"))
+                    .accessibilityLabel(appState.t("reports.loadMoreReports"))
+                }
+            }
 
             TextField(appState.t("reports.searchPrompt"), text: $reportQuery)
                 .textFieldStyle(.roundedBorder)
                 .frame(minWidth: 220, idealWidth: 320, maxWidth: 460)
         }
+    }
+
+    private var countText: String {
+        let count = totalCount > reports.count ? "\(reports.count)/\(totalCount)" : "\(reports.count)"
+        return reportQuery.isEmpty ? "\(count) \(appState.t("common.countSuffix"))" : "\(count) \(appState.t("reports.matchedReports"))"
     }
 
     private var titleBlock: some View {
@@ -281,6 +310,16 @@ private struct ReportsCenterSelectorBar: View {
             Label(appState.t("settings.exportReport"), systemImage: "square.and.arrow.up")
         }
         .disabled(appState.selectedReport == nil)
+    }
+
+    private func loadMoreReports() {
+        guard isLoadingMoreReports == false else { return }
+        let query = reportQuery
+        isLoadingMoreReports = true
+        Task { @MainActor in
+            await appState.loadMoreReportLibrary(query: query)
+            isLoadingMoreReports = false
+        }
     }
 
 }
