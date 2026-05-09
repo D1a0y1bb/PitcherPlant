@@ -66,15 +66,6 @@ struct SettingsRootView: View {
                             title: languageTitle
                         )
                     }
-
-                    SettingsDivider()
-
-                    SettingsToggleRow(
-                        title: appState.t("settings.menuBar"),
-                        subtitle: appState.t("settings.menuBarDescription"),
-                        icon: .menuBar,
-                        isOn: settingsBinding(\.showMenuBarExtra)
-                    )
                 }
 
                 SettingsGroup(title: appState.t("settings.appearance")) {

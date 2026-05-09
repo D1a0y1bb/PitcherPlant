@@ -76,19 +76,6 @@ struct PitcherPlantDesktopApp: App {
             )
         }
 
-        MenuBarExtra {
-            PitcherPlantMenuBarView(appState: appState)
-                .environment(appState)
-                .environment(\.locale, appState.effectiveLocale ?? .current)
-                .preferredColorScheme(appState.effectiveColorScheme)
-        } label: {
-            if appState.appSettings.showMenuBarExtra {
-                Image(systemName: "leaf")
-                    .symbolRenderingMode(.monochrome)
-                    .accessibilityLabel("PitcherPlant")
-            }
-        }
-        .menuBarExtraStyle(.window)
     }
 
     private func showAboutPanel() {

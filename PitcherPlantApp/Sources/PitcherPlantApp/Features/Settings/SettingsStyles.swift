@@ -53,7 +53,6 @@ struct SettingsRowIconStyle {
 
 extension SettingsRowIconStyle {
     static let language = SettingsRowIconStyle(systemImage: "globe", color: .blue)
-    static let menuBar = SettingsRowIconStyle(systemImage: "menubar.rectangle", color: .orange)
     static let theme = SettingsRowIconStyle(systemImage: "circle.lefthalf.filled", color: .indigo)
     static let inspector = SettingsRowIconStyle(systemImage: "sidebar.right", color: .teal)
     static let listDensity = SettingsRowIconStyle(systemImage: "list.bullet.rectangle", color: .purple)

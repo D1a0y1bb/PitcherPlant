@@ -38,7 +38,6 @@ struct AppSettings: Codable, Hashable, Sendable {
     var appearance: AppAppearance
     var showInspectorByDefault: Bool
     var compactRows: Bool
-    var showMenuBarExtra: Bool
     var preferInAppReports: Bool
     var defaultExportFormat: ExportRecord.Format
     var showAttachmentPreviews: Bool
@@ -49,7 +48,6 @@ struct AppSettings: Codable, Hashable, Sendable {
         appearance: .system,
         showInspectorByDefault: true,
         compactRows: true,
-        showMenuBarExtra: true,
         preferInAppReports: true,
         defaultExportFormat: .html,
         showAttachmentPreviews: true,

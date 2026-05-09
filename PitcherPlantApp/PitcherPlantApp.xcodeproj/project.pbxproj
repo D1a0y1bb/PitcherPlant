@@ -19,7 +19,6 @@
 		165BFA68924490812A106325 /* AnalyzerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 87E368BB66F8C9946724E4F4 /* AnalyzerTests.swift */; };
 		1705B2991572DD3C65098E85 /* MainWindowSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA73A59BEE30962F5D0EECD0 /* MainWindowSupport.swift */; };
 		1ACF06AC04A048D82A0B30CB /* AppVersionInfo.swift in Sources */ = {isa = PBXBuildFile; fileRef = 54162EA7478EAFCCE88C5709 /* AppVersionInfo.swift */; };
-		1B17F3120D231966A4CD3BB9 /* PitcherPlantMenuBarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49FE455BEF863D8F1AD2DF2B /* PitcherPlantMenuBarView.swift */; };
 		20E832FF85AE3A044C5AD3DD /* ReportInspectorViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7C73FC68D60FC392E1AF947 /* ReportInspectorViews.swift */; };
 		226949DD41EEA8D356BA06BA /* AuditRunner.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDB265F6090B7FE8324A83B2 /* AuditRunner.swift */; };
 		22E8AEE623DBC02AA53B1D3B /* PitcherPlantDesktopApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = D8B20F825AD69CF5EE6BF033 /* PitcherPlantDesktopApp.swift */; };
@@ -123,7 +122,6 @@
 		469A6C23D8D6999877D42361 /* ReportFiltering.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReportFiltering.swift; sourceTree = "<group>"; };
 		46E967429993B20181020800 /* Analyzers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Analyzers.swift; sourceTree = "<group>"; };
 		47C2832C89D8FC39CBD1B9E9 /* SettingsLayoutRows.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsLayoutRows.swift; sourceTree = "<group>"; };
-		49FE455BEF863D8F1AD2DF2B /* PitcherPlantMenuBarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PitcherPlantMenuBarView.swift; sourceTree = "<group>"; };
 		4AA176FFC61F4E3C6C10B4E3 /* LibraryViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibraryViews.swift; sourceTree = "<group>"; };
 		4BF556CB79EA2D6CC23D09D3 /* MainWindowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainWindowView.swift; sourceTree = "<group>"; };
 		54162EA7478EAFCCE88C5709 /* AppVersionInfo.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppVersionInfo.swift; sourceTree = "<group>"; };
@@ -337,7 +335,6 @@
 				370EFCF9DB94DFCAC5CE31F2 /* MainWindowRows.swift */,
 				CA73A59BEE30962F5D0EECD0 /* MainWindowSupport.swift */,
 				4BF556CB79EA2D6CC23D09D3 /* MainWindowView.swift */,
-				49FE455BEF863D8F1AD2DF2B /* PitcherPlantMenuBarView.swift */,
 				B1D904B478A4010745FF5C7A /* WorkspaceDashboardView.swift */,
 			);
 			path = MainWindow;
@@ -586,7 +583,6 @@
 				4266DF7DD0F054BE78C64008 /* NativeToolbarSupport.swift in Sources */,
 				127CC905AA3111E18E295DD2 /* PitcherPlantCommands.swift in Sources */,
 				22E8AEE623DBC02AA53B1D3B /* PitcherPlantDesktopApp.swift in Sources */,
-				1B17F3120D231966A4CD3BB9 /* PitcherPlantMenuBarView.swift in Sources */,
 				CCD5A11531FA1F623359DC55 /* ReportAssembler.swift in Sources */,
 				B22A7F68CB8FDB3A33014F50 /* ReportContentViews.swift in Sources */,
 				5ABE317374EE212C9D507DD2 /* ReportExporter.swift in Sources */,
@@ -680,7 +676,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 24;
+				CURRENT_PROJECT_VERSION = 25;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
@@ -699,7 +695,7 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				MACOSX_DEPLOYMENT_TARGET = 26.0;
-				MARKETING_VERSION = "0.1.8-beta";
+				MARKETING_VERSION = "0.1.9-beta";
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
@@ -769,7 +765,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 24;
+				CURRENT_PROJECT_VERSION = 25;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
@@ -782,7 +778,7 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				MACOSX_DEPLOYMENT_TARGET = 26.0;
-				MARKETING_VERSION = "0.1.8-beta";
+				MARKETING_VERSION = "0.1.9-beta";
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";

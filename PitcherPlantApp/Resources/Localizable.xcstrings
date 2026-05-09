@@ -2641,86 +2641,6 @@
         }
       }
     },
-    "menu.noAudits": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "No Audits"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "暂无审计"
-          }
-        }
-      }
-    },
-    "menu.noAuditsDescription": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Start an audit from the main window"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "从主窗口开始一次审计"
-          }
-        }
-      }
-    },
-    "menu.noReports": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "No Reports"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "暂无报告"
-          }
-        }
-      }
-    },
-    "menu.noReportsDescription": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Finished audits appear here"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "完成的审计会显示在这里"
-          }
-        }
-      }
-    },
-    "menu.recentAudits": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Recent Audits"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "最近审计"
-          }
-        }
-      }
-    },
     "menu.searchPrompt": {
       "localizations": {
         "en": {
@@ -5997,38 +5917,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "跟随系统或手动指定界面语言"
-          }
-        }
-      }
-    },
-    "settings.menuBar": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Menu Bar Panel"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "菜单栏面板"
-          }
-        }
-      }
-    },
-    "settings.menuBarDescription": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Search audits and reports from the menu bar"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "在菜单栏快速搜索审计和报告"
           }
         }
       }

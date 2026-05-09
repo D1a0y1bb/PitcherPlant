@@ -447,7 +447,6 @@ func appSettingsRoundTripPreservesEnumSelections() throws {
         appearance: .dark,
         showInspectorByDefault: false,
         compactRows: false,
-        showMenuBarExtra: true,
         preferInAppReports: false,
         defaultExportFormat: .pdf,
         showAttachmentPreviews: true
