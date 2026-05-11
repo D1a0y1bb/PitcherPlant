@@ -6,33 +6,50 @@ enum SettingsLayout {
     static let pageHorizontalPadding: CGFloat = 34
     static let pageTopPadding: CGFloat = 30
     static let pageBottomPadding: CGFloat = 40
-    static let sectionSpacing: CGFloat = 30
-    static let groupHorizontalPadding: CGFloat = 18
-    static let rowLeadingPadding: CGFloat = 18
-    static let rowTrailingPadding: CGFloat = 18
-    static let rowIconSize: CGFloat = 24
-    static let rowMinHeight: CGFloat = 46
+    static let sectionSpacing: CGFloat = 20
+    static let groupHorizontalPadding: CGFloat = 14
+    static let rowLeadingPadding: CGFloat = 14
+    static let rowTrailingPadding: CGFloat = 14
+    static let rowIconSize: CGFloat = 20
+    static let rowMinHeight: CGFloat = 38
     static let groupCornerRadius: CGFloat = 14
-    static let dividerLeadingPadding: CGFloat = rowLeadingPadding + rowIconSize + 18
+    static let dividerLeadingPadding: CGFloat = rowLeadingPadding
     static let trailingWidth: CGFloat = 380
-    static let menuWidth: CGFloat = 170
-    static let numberFieldWidth: CGFloat = 50
-    static let stepperWidth: CGFloat = 132
+    static let menuWidth: CGFloat = 156
+    static let numberFieldWidth: CGFloat = 62
+    static let stepperWidth: CGFloat = 26
+    static let thresholdControlSpacing: CGFloat = 4
     static let hintWidth: CGFloat = 70
-    static let thresholdControlWidth: CGFloat = stepperWidth + 8 + hintWidth
+    static let thresholdControlWidth: CGFloat = numberFieldWidth + thresholdControlSpacing + stepperWidth
     static let pathControlHeight: CGFloat = 34
     static let compactPathWidth: CGFloat = trailingWidth
 }
 
 struct SettingsGroup<Content: View>: View {
     let title: String
+    var badge: String?
     @ViewBuilder var content: Content
     @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text(title)
-                .font(AppTypography.sectionTitle)
+            HStack(spacing: 8) {
+                Text(title)
+                    .font(AppTypography.sectionTitle)
+
+                if let badge {
+                    Text(badge)
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                        .padding(.horizontal, 7)
+                        .padding(.vertical, 2)
+                        .background {
+                            Capsule()
+                                .fill(Color.primary.opacity(colorScheme == .dark ? 0.10 : 0.06))
+                        }
+                        .accessibilityLabel(Text(badge))
+                }
+            }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.horizontal, SettingsLayout.groupHorizontalPadding)
 

@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 struct SettingsEditablePathControl: View {
@@ -60,5 +61,28 @@ struct SettingsPathDisplay: View {
             .accessibilityLabel(Text(title))
             .accessibilityValue(Text(value))
             .help(value)
+    }
+}
+
+struct SettingsFolderActionRow: View {
+    let title: String
+    let subtitle: String
+    var icon: SettingsRowIconStyle = .generic
+    let url: URL
+
+    var body: some View {
+        SettingsActionRow(title: title, subtitle: subtitle, icon: icon) {
+            NSWorkspace.shared.open(directoryURL)
+        }
+        .accessibilityValue(Text(url.path))
+        .help(url.path)
+    }
+
+    private var directoryURL: URL {
+        var isDirectory = ObjCBool(false)
+        if FileManager.default.fileExists(atPath: url.path, isDirectory: &isDirectory) {
+            return isDirectory.boolValue ? url : url.deletingLastPathComponent()
+        }
+        return url.pathExtension.isEmpty ? url : url.deletingLastPathComponent()
     }
 }

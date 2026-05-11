@@ -6,13 +6,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Check for Updates..."
+            "value": "Check for Updates"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "检查更新..."
+            "value": "检查更新"
           }
         }
       }
@@ -9069,6 +9069,422 @@
           "stringUnit": {
             "state": "translated",
             "value": "总计"
+          }
+        }
+      }
+    },
+    "settings.betaBadge": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Beta"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Beta"
+          }
+        }
+      }
+    },
+    "settings.helpCenter": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Help Center"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "帮助中心"
+          }
+        }
+      }
+    },
+    "settings.helpCenterBody": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "PitcherPlant is a local-first macOS WriteUP audit workstation. A typical flow is choosing an audit directory, importing submission packages, running audits, reviewing evidence in Reports, and exporting results. Reports, evidence, fingerprints, and whitelist data are stored in the local workspace database."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "PitcherPlant 是本地优先的 macOS WriteUP 审计工作台。常用流程是选择审计目录，导入提交包，运行审计，在报告中心复核证据并导出结果。报告、证据、指纹和白名单数据保存在本机工作区数据库中。"
+          }
+        }
+      }
+    },
+    "settings.helpCenterDescription": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "View PitcherPlant usage guidance"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "查看 PitcherPlant 的使用说明"
+          }
+        }
+      }
+    },
+    "settings.infoApp": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "App"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "应用"
+          }
+        }
+      }
+    },
+    "settings.infoBundle": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bundle ID"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "标识符"
+          }
+        }
+      }
+    },
+    "settings.infoVersion": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Version"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "版本"
+          }
+        }
+      }
+    },
+    "settings.privacyPolicy": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Privacy Policy"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "隐私政策"
+          }
+        }
+      }
+    },
+    "settings.privacyPolicyBody": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "PitcherPlant processes audit data locally by default and stores databases, reports, and configuration in the local workspace. Unless you manually check for updates, submit an issue, or open an external link, the app does not upload your audit content."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "PitcherPlant 默认在本机处理审计数据，并把数据库、报告和配置保存到本机工作区。除非你主动打开更新检查、提交错误报告或访问外部链接，应用不会主动上传你的审计内容。"
+          }
+        }
+      }
+    },
+    "settings.privacyPolicyDescription": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "View local data and privacy notes"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "查看本地数据和隐私说明"
+          }
+        }
+      }
+    },
+    "settings.reportIssue": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Report Issue"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "报告错误"
+          }
+        }
+      }
+    },
+    "settings.reportIssueDescription": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Submit a problem you ran into while using PitcherPlant"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "提交你在使用 PitcherPlant 时遇到的问题"
+          }
+        }
+      }
+    },
+    "settings.reportIssueIncludeScreenshot": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Include screenshot in report"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "在报告中包含屏幕截图"
+          }
+        }
+      }
+    },
+    "settings.reportIssuePlaceholder": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Describe the issue you encountered"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "请描述你遇到的问题"
+          }
+        }
+      }
+    },
+    "settings.reportIssuePrompt": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "What happened?"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "发生了什么？"
+          }
+        }
+      }
+    },
+    "settings.reportIssueReviewNote": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The report includes the app version and macOS version to help with review."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "提交内容会带上应用版本和 macOS 版本，方便定位问题。"
+          }
+        }
+      }
+    },
+    "settings.reportIssueScreenshotCapturing": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Capturing the current app window..."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "正在截取当前 App 窗口…"
+          }
+        }
+      }
+    },
+    "settings.reportIssueScreenshotDenied": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Screen Recording permission was not granted, so the app window could not be captured."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "未获得屏幕录制权限，无法自动截取当前 App 窗口。"
+          }
+        }
+      }
+    },
+    "settings.reportIssueScreenshotFailed": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Screenshot capture failed. Try again later."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "截图失败，请稍后重试。"
+          }
+        }
+      }
+    },
+    "settings.reportIssueScreenshotReady": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The current app window was captured. Upload this screenshot manually after the GitHub page opens; the report body includes the image file path."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已截取当前 App 窗口。GitHub 页面打开后，请手动上传这张截图；提交内容会写入图片文件位置。"
+          }
+        }
+      }
+    },
+    "settings.reportIssueScreenshotUnavailable": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No capturable app window was found."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "没有找到可截取的 App 窗口。"
+          }
+        }
+      }
+    },
+    "settings.reportIssueSubmit": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Submit"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "提交"
+          }
+        }
+      }
+    },
+    "settings.reportIssueTitle": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Report App Issue"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "报告应用问题"
+          }
+        }
+      }
+    },
+    "settings.termsOfUse": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Terms of Use"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "使用条款"
+          }
+        }
+      }
+    },
+    "settings.termsOfUseBody": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "PitcherPlant is designed to assist security competition WriteUP review. App output is decision support for human reviewers, and final decisions should still consider competition rules, context, and manual verification. Do not use this app to process data you are not authorized to review."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "PitcherPlant 用于辅助安全竞赛 WriteUP 审查。应用输出只作为人工复核依据，最终判断仍应结合比赛规则、上下文和人工确认。请不要用本应用处理你无权审查的数据。"
+          }
+        }
+      }
+    },
+    "settings.termsOfUseDescription": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "View app usage terms"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "查看应用使用规则"
           }
         }
       }

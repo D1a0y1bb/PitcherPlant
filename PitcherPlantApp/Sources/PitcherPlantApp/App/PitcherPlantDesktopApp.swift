@@ -82,7 +82,7 @@ struct PitcherPlantDesktopApp: App {
                 .modifier(AppAppearanceSyncModifier(appearance: appState.appSettings.appearance, syncKey: appearanceSyncKey))
                 .modifier(SystemMenuLocalizationModifier(appState: appState, syncKey: appearanceSyncKey))
         }
-        .defaultSize(width: 1040, height: 720)
+        .defaultSize(width: 760, height: 720)
         .defaultLaunchBehavior(.suppressed)
         .windowStyle(.titleBar)
         .windowResizability(.contentMinSize)

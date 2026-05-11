@@ -8,7 +8,7 @@ struct SettingsControlRow<Content: View>: View {
 
     var body: some View {
         SettingsRowContainer {
-            HStack(alignment: .center, spacing: 18) {
+            HStack(alignment: .center, spacing: 16) {
                 SettingsRowIcon(style: icon)
 
                 SettingsRowText(title: title, subtitle: subtitle)
@@ -32,7 +32,7 @@ struct SettingsRowContainer<Content: View>: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.leading, SettingsLayout.rowLeadingPadding)
             .padding(.trailing, SettingsLayout.rowTrailingPadding)
-            .padding(.vertical, 5)
+            .padding(.vertical, 2)
             .frame(minHeight: SettingsLayout.rowMinHeight)
     }
 }
@@ -68,6 +68,10 @@ extension SettingsRowIconStyle {
     static let database = SettingsRowIconStyle(systemImage: "cylinder.split.1x2", color: .blue)
     static let recordCounts = SettingsRowIconStyle(systemImage: "number.square", color: .orange)
     static let dataActions = SettingsRowIconStyle(systemImage: "externaldrive", color: .green)
+    static let reportIssue = SettingsRowIconStyle(systemImage: "exclamationmark.bubble", color: .red)
+    static let helpCenter = SettingsRowIconStyle(systemImage: "questionmark.circle", color: .blue)
+    static let terms = SettingsRowIconStyle(systemImage: "list.bullet.rectangle.portrait", color: .primary)
+    static let privacy = SettingsRowIconStyle(systemImage: "lock", color: .primary)
     static let about = SettingsRowIconStyle(systemImage: "circle.fill", color: .primary)
     static let update = SettingsRowIconStyle(systemImage: "arrow.up.circle", color: .primary)
     static let generic = SettingsRowIconStyle(systemImage: "gearshape", color: .gray)
@@ -78,7 +82,7 @@ struct SettingsRowIcon: View {
 
     var body: some View {
         Image(systemName: style.systemImage)
-            .font(.system(size: 17, weight: .regular))
+            .font(.system(size: 14, weight: .regular))
             .symbolRenderingMode(.hierarchical)
             .foregroundStyle(.primary)
             .frame(width: SettingsLayout.rowIconSize, height: SettingsLayout.rowIconSize)
@@ -117,8 +121,12 @@ struct SettingsStatusText: View {
 }
 
 struct SettingsDivider: View {
+    @Environment(\.colorScheme) private var colorScheme
+
     var body: some View {
-        Divider()
+        Rectangle()
+            .fill(Color.primary.opacity(colorScheme == .dark ? 0.12 : 0.08))
+            .frame(height: 0.5)
             .padding(.leading, SettingsLayout.dividerLeadingPadding)
             .padding(.trailing, SettingsLayout.rowTrailingPadding)
     }

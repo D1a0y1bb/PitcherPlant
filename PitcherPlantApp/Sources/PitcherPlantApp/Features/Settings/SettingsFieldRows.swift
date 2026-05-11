@@ -130,7 +130,7 @@ struct SettingsActionRow: View {
     var body: some View {
         Button(action: action) {
             SettingsRowContainer {
-                HStack(alignment: .center, spacing: 18) {
+                HStack(alignment: .center, spacing: 16) {
                     SettingsRowIcon(style: icon)
 
                     SettingsRowText(title: title, subtitle: subtitle)
@@ -159,16 +159,37 @@ struct SettingsMenuPicker<Value: Hashable>: View {
     var systemImage: ((Value) -> String)?
 
     var body: some View {
-        Picker("", selection: $selection) {
+        Menu {
             ForEach(options, id: \.self) { option in
-                menuLabel(for: option)
-                    .tag(option)
+                Button {
+                    selection = option
+                } label: {
+                    menuLabel(for: option)
+                }
             }
+        } label: {
+            HStack(spacing: 8) {
+                Text(title(selection))
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+
+                Image(systemName: "chevron.up.chevron.down")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(.secondary)
+                    .frame(width: 26, height: 26)
+                    .background {
+                        Circle()
+                            .fill(Color.primary.opacity(0.08))
+                    }
+                    .accessibilityHidden(true)
+            }
+            .font(AppTypography.body.weight(.medium))
+            .frame(width: width, alignment: .trailing)
+            .contentShape(Rectangle())
         }
-        .labelsHidden()
-        .pickerStyle(.menu)
-        .controlSize(.regular)
+        .buttonStyle(.plain)
         .frame(width: width, alignment: .trailing)
+        .accessibilityValue(Text(title(selection)))
     }
 
     @ViewBuilder
@@ -190,25 +211,22 @@ struct SettingsNumberStepper: View {
     var fractionLength = 2
 
     var body: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: SettingsLayout.thresholdControlSpacing) {
             TextField(hint, value: clampedBinding, format: .number.precision(.fractionLength(fractionLength)))
                 .textFieldStyle(.roundedBorder)
                 .multilineTextAlignment(.center)
                 .font(AppTypography.code.weight(.medium))
-                .frame(width: SettingsLayout.numberFieldWidth + 12)
+                .frame(width: SettingsLayout.numberFieldWidth)
                 .accessibilityLabel(Text(title))
                 .accessibilityValue(Text(formattedValue(clamped(value))))
 
-            Stepper("", value: clampedBinding, in: range, step: step)
-                .labelsHidden()
-                .frame(width: SettingsLayout.stepperWidth - 46)
-                .accessibilityLabel(Text(title))
-                .accessibilityValue(Text(formattedValue(clamped(value))))
-
-            Text(hint)
-                .font(AppTypography.metadata)
-                .foregroundStyle(.secondary)
-                .frame(width: SettingsLayout.hintWidth, alignment: .trailing)
+            SettingsStepperButtons(
+                increment: { value = clamped(clamped(value) + step) },
+                decrement: { value = clamped(clamped(value) - step) },
+                canIncrement: clamped(value) < range.upperBound,
+                canDecrement: clamped(value) > range.lowerBound,
+                accessibilityLabel: title
+            )
         }
         .frame(width: SettingsLayout.thresholdControlWidth, alignment: .trailing)
     }
@@ -240,25 +258,22 @@ struct SettingsIntegerStepper: View {
     let hint: String
 
     var body: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: SettingsLayout.thresholdControlSpacing) {
             TextField(hint, value: clampedBinding, format: .number)
                 .textFieldStyle(.roundedBorder)
                 .multilineTextAlignment(.center)
                 .font(AppTypography.code.weight(.medium))
-                .frame(width: SettingsLayout.numberFieldWidth + 12)
+                .frame(width: SettingsLayout.numberFieldWidth)
                 .accessibilityLabel(Text(title))
                 .accessibilityValue(Text("\(clamped(value))"))
 
-            Stepper("", value: clampedBinding, in: range, step: step)
-                .labelsHidden()
-                .frame(width: SettingsLayout.stepperWidth - 46)
-                .accessibilityLabel(Text(title))
-                .accessibilityValue(Text("\(clamped(value))"))
-
-            Text(hint)
-                .font(AppTypography.metadata)
-                .foregroundStyle(.secondary)
-                .frame(width: SettingsLayout.hintWidth, alignment: .trailing)
+            SettingsStepperButtons(
+                increment: { value = clamped(clamped(value) + step) },
+                decrement: { value = clamped(clamped(value) - step) },
+                canIncrement: clamped(value) < range.upperBound,
+                canDecrement: clamped(value) > range.lowerBound,
+                accessibilityLabel: title
+            )
         }
         .frame(width: SettingsLayout.thresholdControlWidth, alignment: .trailing)
     }
@@ -272,5 +287,59 @@ struct SettingsIntegerStepper: View {
 
     private func clamped(_ candidate: Int) -> Int {
         min(max(candidate, range.lowerBound), range.upperBound)
+    }
+}
+
+private struct SettingsStepperButtons: View {
+    let increment: () -> Void
+    let decrement: () -> Void
+    let canIncrement: Bool
+    let canDecrement: Bool
+    let accessibilityLabel: String
+
+    var body: some View {
+        VStack(spacing: 0) {
+            stepButton(
+                systemImage: "chevron.up",
+                isEnabled: canIncrement,
+                action: increment,
+                accessibilitySuffix: "increase"
+            )
+
+            Rectangle()
+                .fill(Color.primary.opacity(0.08))
+                .frame(height: 0.5)
+                .padding(.horizontal, 5)
+
+            stepButton(
+                systemImage: "chevron.down",
+                isEnabled: canDecrement,
+                action: decrement,
+                accessibilitySuffix: "decrease"
+            )
+        }
+        .frame(width: SettingsLayout.stepperWidth, height: 32)
+        .background {
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .fill(Color.primary.opacity(0.075))
+        }
+    }
+
+    private func stepButton(
+        systemImage: String,
+        isEnabled: Bool,
+        action: @escaping () -> Void,
+        accessibilitySuffix: String
+    ) -> some View {
+        Button(action: action) {
+            Image(systemName: systemImage)
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(isEnabled ? .primary : .tertiary)
+                .frame(width: SettingsLayout.stepperWidth, height: 15.75)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .disabled(!isEnabled)
+        .accessibilityLabel(Text("\(accessibilityLabel) \(accessibilitySuffix)"))
     }
 }
