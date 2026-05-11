@@ -21,7 +21,6 @@ struct WorkspaceDashboardView: View {
         switch presentationMode {
         case .map:
             WorkspaceMapEntryView(
-                presentationMode: $presentationMode,
                 mapStyleMode: $mapStyleMode,
                 mapDepthMode: $mapDepthMode
             )
