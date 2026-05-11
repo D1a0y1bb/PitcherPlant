@@ -17,10 +17,12 @@ struct PresetTableRow: View {
             }
             Spacer()
             Button(appState.t("audit.applyPreset")) { appState.applyPreset(preset) }
+                .accessibilityLabel(Text(appState.tf("audit.applyPreset.accessibility", preset.name)))
             Button(appState.t("audit.runPreset")) {
                 appState.beginAudit(using: preset)
             }
                 .disabled(appState.isRunningAudit)
+                .accessibilityLabel(Text(appState.tf("audit.runPreset.accessibility", preset.name)))
             Button(role: .destructive) {
                 appState.deletePreset(preset)
             } label: {
@@ -29,7 +31,7 @@ struct PresetTableRow: View {
             }
             .buttonStyle(.borderless)
             .help(appState.t("audit.deletePreset"))
-            .accessibilityLabel(Text(appState.t("audit.deletePreset")))
+            .accessibilityLabel(Text(appState.tf("audit.deletePreset.accessibility", preset.name)))
         }
         .padding(.horizontal, AppLayout.rowHorizontalPadding)
         .padding(.vertical, 7)

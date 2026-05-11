@@ -266,6 +266,14 @@ final class AppState {
         jobs.filter { $0.status == .queued }.count
     }
 
+    private var hasActiveAuditWork: Bool {
+        isRunningAudit || currentAuditTask != nil || currentAuditWorkerTask != nil
+    }
+
+    var canImportSubmissionPackage: Bool {
+        hasActiveAuditWork == false && isImportingSubmissionPackage == false
+    }
+
     var selectedReport: AuditReport? {
         reports.first(where: { $0.id == selectedReportID })
             ?? reportLibraryReports.first(where: { $0.id == selectedReportID })
@@ -551,7 +559,10 @@ final class AppState {
     }
 
     func beginAudit() {
-        guard !isRunningAudit, currentAuditTask == nil else {
+        guard !hasActiveAuditWork else {
+            return
+        }
+        guard validateConfigurationForAudit(draftConfiguration) else {
             return
         }
         currentAuditTask = Task {
@@ -1069,7 +1080,7 @@ final class AppState {
     }
 
     func importSubmissionPackageWithPanel() {
-        guard isImportingSubmissionPackage == false else {
+        guard canBeginSubmissionImport() else {
             return
         }
         let panel = NSOpenPanel()
@@ -1083,7 +1094,7 @@ final class AppState {
     }
 
     func importSubmissionPackage(at url: URL) async {
-        guard isImportingSubmissionPackage == false else {
+        guard canBeginSubmissionImport() else {
             return
         }
         isImportingSubmissionPackage = true
@@ -1092,6 +1103,7 @@ final class AppState {
         let supportDirectory = database.databaseURL.deletingLastPathComponent()
         let outputDirectory = URL(fileURLWithPath: draftConfiguration.outputDirectoryPath)
         let reportNameTemplate = draftConfiguration.reportNameTemplate
+        let language = appSettings.language
         do {
             let imported = try await Task.detached(priority: .userInitiated) {
                 let service = SubmissionImportService()
@@ -1101,25 +1113,157 @@ final class AppState {
                     outputDirectory: outputDirectory,
                     template: reportNameTemplate
                 )
-                return (result, jobs)
+                var validJobs: [AuditJob] = []
+                var validationIssues = Set<SubmissionImportIssue>()
+                for job in jobs {
+                    let issues = job.configuration.validationIssues()
+                    if issues.isEmpty {
+                        validJobs.append(job)
+                    } else {
+                        for issue in issues {
+                            validationIssues.insert(
+                                SubmissionImportIssue(
+                                    path: job.configuration.directoryPath,
+                                    severity: .error,
+                                    message: issue.localizedDescription(language: language)
+                                )
+                            )
+                        }
+                    }
+                }
+                return (result, validJobs, Array(validationIssues))
             }.value
             let result = imported.0
             let jobsToQueue = imported.1
+            let importIssues = result.issues + imported.2
             try await database.upsertSubmissionBatch(result.batch, items: result.items)
             for job in jobsToQueue {
                 try await database.upsertJob(job)
             }
             await reload()
-            showNotice(title: t("notice.importSucceeded"), message: tf("notice.importQueuedSubmissionsMessage", result.items.count), tone: .success)
-            beginQueuedAudits()
+            showSubmissionImportNotice(
+                importedItemCount: result.items.count,
+                queuedJobCount: jobsToQueue.count,
+                issues: importIssues
+            )
+            if jobsToQueue.isEmpty == false {
+                beginQueuedAudits()
+            }
         } catch {
             showNotice(title: t("notice.importFailed"), message: error.localizedDescription, tone: .error)
         }
     }
 
+    private func canBeginSubmissionImport() -> Bool {
+        guard hasActiveAuditWork == false else {
+            showNotice(
+                title: t("notice.importUnavailable"),
+                message: t("notice.importUnavailableAuditRunningMessage"),
+                tone: .info
+            )
+            return false
+        }
+        guard isImportingSubmissionPackage == false else {
+            showNotice(
+                title: t("notice.importUnavailable"),
+                message: t("notice.importUnavailableImportRunningMessage"),
+                tone: .info
+            )
+            return false
+        }
+        return true
+    }
+
+    private func showSubmissionImportNotice(
+        importedItemCount: Int,
+        queuedJobCount: Int,
+        issues: [SubmissionImportIssue]
+    ) {
+        let hasIssues = issues.isEmpty == false
+        let hasErrorIssue = issues.contains { $0.severity == .error }
+
+        if queuedJobCount == 0 {
+            let message = hasIssues
+                ? tf(
+                    "notice.importNoQueuedJobsWithIssuesMessage",
+                    importedItemCount,
+                    issues.count,
+                    submissionImportIssueSummary(issues)
+                )
+                : tf("notice.importNoQueuedJobsMessage", importedItemCount)
+            showNotice(
+                title: t("notice.importNoQueuedJobs"),
+                message: message,
+                tone: hasErrorIssue ? .error : .info
+            )
+            return
+        }
+
+        if hasIssues {
+            showNotice(
+                title: t("notice.importSucceededWithIssues"),
+                message: tf(
+                    "notice.importQueuedSubmissionsWithIssuesMessage",
+                    importedItemCount,
+                    queuedJobCount,
+                    issues.count,
+                    submissionImportIssueSummary(issues)
+                ),
+                tone: .info
+            )
+            return
+        }
+
+        showNotice(
+            title: t("notice.importSucceeded"),
+            message: tf("notice.importQueuedSubmissionsMessage", importedItemCount, queuedJobCount),
+            tone: .success
+        )
+    }
+
+    private func submissionImportIssueSummary(_ issues: [SubmissionImportIssue], limit: Int = 3) -> String {
+        let orderedIssues = issues.sorted {
+            if $0.severity.rawValue != $1.severity.rawValue {
+                return $0.severity.rawValue < $1.severity.rawValue
+            }
+            if $0.path != $1.path {
+                return $0.path < $1.path
+            }
+            return $0.message < $1.message
+        }
+        let visibleIssues = orderedIssues.prefix(limit)
+        let visibleSummary: String = visibleIssues.map { issue in
+            let severity = issue.severity == .error
+                ? t("notice.importIssueSeverityError")
+                : t("notice.importIssueSeverityWarning")
+            return "[\(severity)] \(shortImportIssuePath(issue.path)): \(issue.message)"
+        }.joined(separator: "；")
+        let remainingCount = orderedIssues.count - visibleIssues.count
+        guard remainingCount > 0 else {
+            return visibleSummary
+        }
+        return visibleSummary + "；" + tf("notice.importIssueMore", remainingCount)
+    }
+
+    private func shortImportIssuePath(_ path: String) -> String {
+        guard path.count > 96 else {
+            return path
+        }
+        let url = URL(fileURLWithPath: path)
+        let parent = url.deletingLastPathComponent().lastPathComponent
+        let leaf = url.lastPathComponent
+        guard parent.isEmpty == false, leaf.isEmpty == false else {
+            return leaf.isEmpty ? path : leaf
+        }
+        return ".../\(parent)/\(leaf)"
+    }
+
     @discardableResult
     func startAudit() async -> AuditReport? {
         guard !Task.isCancelled, !isRunningAudit else {
+            return nil
+        }
+        guard validateConfigurationForAudit(draftConfiguration) else {
             return nil
         }
         isRunningAudit = true
@@ -1142,6 +1286,48 @@ final class AppState {
         }
     }
 
+    private func validateConfigurationForAudit(_ configuration: AuditConfiguration) -> Bool {
+        do {
+            try configuration.validateForAudit()
+            return true
+        } catch let validationError as AuditConfigurationValidationError {
+            showNotice(
+                title: t("notice.auditConfigurationInvalid"),
+                message: localizedAuditConfigurationIssueSummary(validationError.issues),
+                tone: .error
+            )
+            return false
+        } catch {
+            showNotice(
+                title: t("notice.auditConfigurationInvalid"),
+                message: error.localizedDescription,
+                tone: .error
+            )
+            return false
+        }
+    }
+
+    private func localizedAuditConfigurationIssueSummary(_ issues: [AuditConfigurationValidationIssue]) -> String {
+        issues.map { $0.localizedDescription(language: appSettings.language) }.joined(separator: "\n")
+    }
+
+    private func markQueuedJobInvalid(_ job: AuditJob, issues: [AuditConfigurationValidationIssue]) async {
+        let failedJob = job.failed(localizedAuditConfigurationIssueSummary(issues))
+        do {
+            try await database.upsertJob(failedJob)
+            replaceJobInMemory(failedJob)
+            await reload()
+        } catch {
+            showNotice(title: t("notice.retryFailed"), message: error.localizedDescription, tone: .error)
+            return
+        }
+        showNotice(
+            title: t("notice.auditConfigurationInvalid"),
+            message: failedJob.latestMessage,
+            tone: .error
+        )
+    }
+
     @discardableResult
     private func processQueuedAudits() async -> AuditReport? {
         guard !Task.isCancelled, !isRunningAudit else {
@@ -1159,6 +1345,11 @@ final class AppState {
                 .first
             else {
                 break
+            }
+            let validationIssues = queuedJob.configuration.validationIssues()
+            guard validationIssues.isEmpty else {
+                await markQueuedJobInvalid(queuedJob, issues: validationIssues)
+                continue
             }
             if let report = await performAudit(job: queuedJob, saveDraft: false, selectCompletedReport: false) {
                 latestReport = report

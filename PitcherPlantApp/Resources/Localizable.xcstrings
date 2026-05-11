@@ -129,6 +129,22 @@
         }
       }
     },
+    "audit.applyPreset.accessibility": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Apply preset %@"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "套用预设 %@"
+          }
+        }
+      }
+    },
     "audit.batchImport": {
       "localizations": {
         "en": {
@@ -205,6 +221,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "删除预设"
+          }
+        }
+      }
+    },
+    "audit.deletePreset.accessibility": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Delete preset %@"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "删除预设 %@"
           }
         }
       }
@@ -301,6 +333,150 @@
           "stringUnit": {
             "state": "translated",
             "value": "导入提交包"
+          }
+        }
+      }
+    },
+    "audit.validation.inputDirectoryInvalid": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The audit directory does not exist or is not a folder: %@"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "审计目录不存在或不是目录：%@"
+          }
+        }
+      }
+    },
+    "audit.validation.inputDirectoryRequired": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choose an audit directory."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "请选择审计目录。"
+          }
+        }
+      }
+    },
+    "audit.validation.numberRange": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ must be within %@."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ 必须在 %@ 范围内。"
+          }
+        }
+      }
+    },
+    "audit.validation.outputDirectoryFile": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The report directory path points to a file, not a folder: %@"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "报告目录当前是文件，不是目录：%@"
+          }
+        }
+      }
+    },
+    "audit.validation.outputDirectoryCannotCreate": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The report directory could not be created: %@ (%@)"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "报告目录无法创建：%@（%@）"
+          }
+        }
+      }
+    },
+    "audit.validation.outputDirectoryNotWritable": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The report directory is not writable: %@"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "报告目录不可写：%@"
+          }
+        }
+      }
+    },
+    "audit.validation.outputDirectoryRequired": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choose a report directory."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "请选择报告目录。"
+          }
+        }
+      }
+    },
+    "audit.validation.outputDirectoryWriteTestFailed": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The report directory write test failed: %@ (%@)"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "报告目录写入测试失败：%@（%@）"
+          }
+        }
+      }
+    },
+    "audit.validation.outputParentMissing": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The parent folder for the report directory does not exist: %@"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "报告目录的上级目录不存在：%@"
           }
         }
       }
@@ -461,6 +637,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "运行"
+          }
+        }
+      }
+    },
+    "audit.runPreset.accessibility": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Run preset %@"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "运行预设 %@"
           }
         }
       }
@@ -1277,6 +1469,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "暂无"
+          }
+        }
+      }
+    },
+    "common.ok": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "OK"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "确定"
           }
         }
       }
@@ -2705,6 +2913,22 @@
         }
       }
     },
+    "notice.auditConfigurationInvalid": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Invalid Audit Configuration"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "审计配置无效"
+          }
+        }
+      }
+    },
     "notice.auditFailed": {
       "localizations": {
         "en": {
@@ -2961,18 +3185,130 @@
         }
       }
     },
-    "notice.importQueuedSubmissionsMessage": {
+    "notice.importIssueMore": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "%d submissions queued"
+            "value": "%d more issues not shown"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "%d 个提交已入队"
+            "value": "还有 %d 个问题未显示"
+          }
+        }
+      }
+    },
+    "notice.importIssueSeverityError": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Error"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "错误"
+          }
+        }
+      }
+    },
+    "notice.importIssueSeverityWarning": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Warning"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "警告"
+          }
+        }
+      }
+    },
+    "notice.importNoQueuedJobs": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No Audit Jobs Queued"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "没有可排队的审计任务"
+          }
+        }
+      }
+    },
+    "notice.importNoQueuedJobsMessage": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Import completed and found %d submissions, but no runnable audit jobs were created."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "导入完成，识别到 %d 个提交包，但没有生成可执行的审计任务。"
+          }
+        }
+      }
+    },
+    "notice.importNoQueuedJobsWithIssuesMessage": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Import completed and found %d submissions, but no runnable audit jobs were created; %d issues were reported: %@"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "导入完成，识别到 %d 个提交包，但没有生成可执行的审计任务；发现 %d 个问题：%@"
+          }
+        }
+      }
+    },
+    "notice.importQueuedSubmissionsMessage": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Found %d submissions, queued %d audit jobs, and started processing."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "识别到 %d 个提交包，已排队 %d 个审计任务并开始执行。"
+          }
+        }
+      }
+    },
+    "notice.importQueuedSubmissionsWithIssuesMessage": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Found %d submissions, queued %d audit jobs, and started processing; %d import issues were reported: %@"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "识别到 %d 个提交包，已排队 %d 个审计任务并开始执行；另有 %d 个导入问题：%@"
           }
         }
       }
@@ -2989,6 +3325,70 @@
           "stringUnit": {
             "state": "translated",
             "value": "导入完成"
+          }
+        }
+      }
+    },
+    "notice.importSucceededWithIssues": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Import Complete With Issues"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "导入完成，有问题需要处理"
+          }
+        }
+      }
+    },
+    "notice.importUnavailable": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Import Unavailable"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "暂不能导入"
+          }
+        }
+      }
+    },
+    "notice.importUnavailableAuditRunningMessage": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "An audit is currently running. Wait for it to finish or cancel it before importing a submission package."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "当前有审计任务正在运行。请等待完成或取消后再导入提交包。"
+          }
+        }
+      }
+    },
+    "notice.importUnavailableImportRunningMessage": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A submission package import is still in progress. Try again later."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "上一次提交包导入仍在处理，请稍后再试。"
           }
         }
       }
@@ -7441,18 +7841,34 @@
         }
       }
     },
-    "toolbar.newScan": {
+    "toolbar.newAudit": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "New Scan"
+            "value": "New Audit"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "新建扫描任务"
+            "value": "新建审计"
+          }
+        }
+      }
+    },
+    "toolbar.newScan": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "New Audit"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "新建审计"
           }
         }
       }

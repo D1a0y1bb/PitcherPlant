@@ -109,6 +109,7 @@ struct ContentPlainSection<Content: View>: View {
             VStack(alignment: .leading, spacing: 3) {
                 Text(title)
                     .font(AppTypography.sectionTitle)
+                    .accessibilityAddTraits(.isHeader)
                 if subtitle.isEmpty == false {
                     Text(subtitle)
                         .font(AppTypography.metadata)
@@ -208,6 +209,7 @@ struct AppInspectorPanel<Content: View>: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(title)
                         .font(AppTypography.sectionTitle)
+                        .accessibilityAddTraits(.isHeader)
                     if subtitle.isEmpty == false {
                         Text(subtitle)
                             .font(AppTypography.metadata)
@@ -313,17 +315,18 @@ struct AppControlRow<Content: View>: View {
     @ViewBuilder var content: Content
 
     var body: some View {
+        ViewThatFits(in: .horizontal) {
+            horizontalLayout
+            verticalLayout
+        }
+        .padding(.horizontal, AppLayout.rowHorizontalPadding)
+        .padding(.vertical, AppLayout.rowVerticalPadding)
+        .frame(minHeight: AppLayout.rowMinHeight)
+    }
+
+    private var horizontalLayout: some View {
         HStack(alignment: .center, spacing: 16) {
-            VStack(alignment: .leading, spacing: 2) {
-                Text(title)
-                    .font(AppTypography.rowPrimary)
-                if subtitle.isEmpty == false {
-                    Text(subtitle)
-                        .font(AppTypography.supporting)
-                        .foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-            }
+            titleBlock
             .frame(maxWidth: .infinity, alignment: .leading)
 
             Spacer(minLength: 12)
@@ -331,8 +334,28 @@ struct AppControlRow<Content: View>: View {
             content
                 .frame(width: trailingWidth, alignment: .trailing)
         }
-        .padding(.horizontal, AppLayout.rowHorizontalPadding)
-        .padding(.vertical, AppLayout.rowVerticalPadding)
-        .frame(minHeight: AppLayout.rowMinHeight)
+    }
+
+    private var verticalLayout: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            titleBlock
+
+            content
+                .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var titleBlock: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(title)
+                .font(AppTypography.rowPrimary)
+            if subtitle.isEmpty == false {
+                Text(subtitle)
+                    .font(AppTypography.supporting)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
     }
 }

@@ -325,6 +325,149 @@ struct AuditConfiguration: Codable, Hashable, Sendable {
     }
 }
 
+struct AuditConfigurationValidationError: LocalizedError, Hashable, Sendable {
+    let issues: [AuditConfigurationValidationIssue]
+
+    var errorDescription: String? {
+        issues.map { $0.localizedDescription(language: .zhHans) }.joined(separator: "\n")
+    }
+}
+
+enum AuditConfigurationValidationIssue: Hashable, Sendable {
+    case inputDirectoryRequired
+    case inputDirectoryInvalid(String)
+    case outputDirectoryRequired
+    case outputDirectoryFile(String)
+    case outputDirectoryCannotCreate(String, String)
+    case outputDirectoryNotWritable(String)
+    case outputDirectoryWriteTestFailed(String, String)
+    case numberRange(fieldKey: String, range: String)
+
+    func localizedDescription(language: AppLanguage) -> String {
+        switch self {
+        case .inputDirectoryRequired:
+            return Self.localized("audit.validation.inputDirectoryRequired", language: language)
+        case .inputDirectoryInvalid(let path):
+            return Self.localized("audit.validation.inputDirectoryInvalid", language: language, path)
+        case .outputDirectoryRequired:
+            return Self.localized("audit.validation.outputDirectoryRequired", language: language)
+        case .outputDirectoryFile(let path):
+            return Self.localized("audit.validation.outputDirectoryFile", language: language, path)
+        case .outputDirectoryCannotCreate(let path, let reason):
+            return Self.localized("audit.validation.outputDirectoryCannotCreate", language: language, path, reason)
+        case .outputDirectoryNotWritable(let path):
+            return Self.localized("audit.validation.outputDirectoryNotWritable", language: language, path)
+        case .outputDirectoryWriteTestFailed(let path, let reason):
+            return Self.localized("audit.validation.outputDirectoryWriteTestFailed", language: language, path, reason)
+        case .numberRange(let fieldKey, let range):
+            let fieldTitle = LocalizationStrings.text(fieldKey, language: language)
+            return Self.localized("audit.validation.numberRange", language: language, fieldTitle, range)
+        }
+    }
+
+    private static func localized(_ key: String, language: AppLanguage, _ arguments: CVarArg...) -> String {
+        String(
+            format: LocalizationStrings.text(key, language: language),
+            locale: LocalizationStrings.locale(for: language),
+            arguments: arguments
+        )
+    }
+}
+
+extension AuditConfiguration {
+    func validateForAudit() throws {
+        let issues = validationIssues()
+        guard issues.isEmpty else {
+            throw AuditConfigurationValidationError(issues: issues)
+        }
+    }
+
+    func validationIssues() -> [AuditConfigurationValidationIssue] {
+        var issues: [AuditConfigurationValidationIssue] = []
+        let fileManager = FileManager.default
+
+        validateInputDirectory(fileManager: fileManager, issues: &issues)
+        validateOutputDirectory(fileManager: fileManager, issues: &issues)
+        validateThresholds(issues: &issues)
+
+        return issues
+    }
+
+    private func validateInputDirectory(fileManager: FileManager, issues: inout [AuditConfigurationValidationIssue]) {
+        let path = directoryPath
+        guard path.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false else {
+            issues.append(.inputDirectoryRequired)
+            return
+        }
+
+        var isDirectory = ObjCBool(false)
+        guard fileManager.fileExists(atPath: path, isDirectory: &isDirectory) else {
+            issues.append(.inputDirectoryInvalid(path))
+            return
+        }
+        guard isDirectory.boolValue else {
+            issues.append(.inputDirectoryInvalid(path))
+            return
+        }
+    }
+
+    private func validateOutputDirectory(fileManager: FileManager, issues: inout [AuditConfigurationValidationIssue]) {
+        let path = outputDirectoryPath
+        guard path.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false else {
+            issues.append(.outputDirectoryRequired)
+            return
+        }
+
+        var isDirectory = ObjCBool(false)
+        if fileManager.fileExists(atPath: path, isDirectory: &isDirectory) {
+            guard isDirectory.boolValue else {
+                issues.append(.outputDirectoryFile(path))
+                return
+            }
+        } else {
+            do {
+                try fileManager.createDirectory(
+                    at: URL(fileURLWithPath: path, isDirectory: true),
+                    withIntermediateDirectories: true
+                )
+            } catch {
+                issues.append(.outputDirectoryCannotCreate(path, error.localizedDescription))
+                return
+            }
+        }
+
+        guard fileManager.isWritableFile(atPath: path) else {
+            issues.append(.outputDirectoryNotWritable(path))
+            return
+        }
+
+        let probeURL = URL(fileURLWithPath: path, isDirectory: true)
+            .appendingPathComponent(".pitcherplant-write-test-\(UUID().uuidString)")
+        do {
+            try Data().write(to: probeURL, options: .atomic)
+            try? fileManager.removeItem(at: probeURL)
+        } catch {
+            try? fileManager.removeItem(at: probeURL)
+            issues.append(.outputDirectoryWriteTestFailed(path, error.localizedDescription))
+        }
+    }
+
+    private func validateThresholds(issues: inout [AuditConfigurationValidationIssue]) {
+        if textThreshold.isFinite == false || (0.0...1.0).contains(textThreshold) == false {
+            issues.append(.numberRange(fieldKey: "audit.textThreshold", range: "0.00-1.00"))
+        }
+        if dedupThreshold.isFinite == false || (0.0...1.0).contains(dedupThreshold) == false {
+            issues.append(.numberRange(fieldKey: "audit.dedupThreshold", range: "0.00-1.00"))
+        }
+        if (0...64).contains(imageThreshold) == false {
+            issues.append(.numberRange(fieldKey: "audit.imageThreshold", range: "0-64"))
+        }
+        if (0...64).contains(simhashThreshold) == false {
+            issues.append(.numberRange(fieldKey: "audit.simhashThreshold", range: "0-64"))
+        }
+    }
+}
+
 enum AuditToolbarScanMode: String, CaseIterable, Sendable {
     case auto
     case deep

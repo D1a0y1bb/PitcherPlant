@@ -38,6 +38,7 @@ struct NativePageHeader<Actions: View>: View {
         VStack(alignment: .leading, spacing: 4) {
             Text(title)
                 .font(AppTypography.pageTitle)
+                .accessibilityAddTraits(.isHeader)
             Text(subtitle)
                 .font(AppTypography.supporting)
                 .foregroundStyle(.secondary)
@@ -97,6 +98,7 @@ struct SearchHeader: View {
         VStack(alignment: .leading, spacing: 2) {
             Text(title)
                 .font(AppTypography.sectionTitle)
+                .accessibilityAddTraits(.isHeader)
             Text("\(count) \(appState.t("common.countSuffix"))")
                 .font(AppTypography.metadata)
                 .foregroundStyle(.secondary)
@@ -173,16 +175,84 @@ struct SettingsTextRow: View {
     }
 }
 
-struct SettingsNumberRow<F: ParseableFormatStyle>: View where F.FormatInput == Double, F.FormatOutput == String {
+struct SettingsPathPickerRow: View {
+    @Environment(AppState.self) private var appState
     let title: String
-    @Binding var value: Double
-    let format: F
+    @Binding var text: String
+    var canCreateDirectories = false
 
     var body: some View {
-        AppControlRow(title: title, trailingWidth: 120) {
-            TextField("", value: $value, format: format)
-                .textFieldStyle(.roundedBorder)
-                .accessibilityLabel(Text(title))
+        AppControlRow(title: title) {
+            HStack(spacing: 8) {
+                TextField(title, text: $text)
+                    .textFieldStyle(.roundedBorder)
+                    .font(AppTypography.smallCode)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+                    .accessibilityLabel(Text(title))
+
+                Button {
+                    chooseDirectory()
+                } label: {
+                    Image(systemName: "folder")
+                }
+                .help(appState.t("settings.choose"))
+                .accessibilityLabel(Text(appState.t("settings.choose")))
+            }
+        }
+    }
+
+    private func chooseDirectory() {
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = false
+        panel.canChooseDirectories = true
+        panel.allowsMultipleSelection = false
+        panel.canCreateDirectories = canCreateDirectories
+        panel.prompt = appState.t("settings.choose")
+        panel.directoryURL = startingDirectoryURL()
+
+        if panel.runModal() == .OK, let url = panel.url {
+            text = url.path
+        }
+    }
+
+    private func startingDirectoryURL() -> URL? {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmed.isEmpty == false else {
+            return nil
+        }
+
+        let url = URL(fileURLWithPath: (trimmed as NSString).expandingTildeInPath, isDirectory: true)
+        var isDirectory: ObjCBool = false
+        if FileManager.default.fileExists(atPath: url.path, isDirectory: &isDirectory), isDirectory.boolValue {
+            return url
+        }
+
+        let parentURL = url.deletingLastPathComponent()
+        if FileManager.default.fileExists(atPath: parentURL.path, isDirectory: &isDirectory), isDirectory.boolValue {
+            return parentURL
+        }
+
+        return nil
+    }
+}
+
+struct SettingsNumberRow: View {
+    let title: String
+    @Binding var value: Double
+    let range: ClosedRange<Double>
+    let step: Double
+    let hint: String
+
+    var body: some View {
+        AppControlRow(title: title, trailingWidth: SettingsLayout.thresholdControlWidth) {
+            SettingsNumberStepper(
+                title: title,
+                value: $value,
+                range: range,
+                step: step,
+                hint: hint
+            )
         }
     }
 }
@@ -190,12 +260,19 @@ struct SettingsNumberRow<F: ParseableFormatStyle>: View where F.FormatInput == D
 struct SettingsIntegerRow: View {
     let title: String
     @Binding var value: Int
+    let range: ClosedRange<Int>
+    let step: Int
+    let hint: String
 
     var body: some View {
-        AppControlRow(title: title, trailingWidth: 120) {
-            TextField("", value: $value, format: .number)
-                .textFieldStyle(.roundedBorder)
-                .accessibilityLabel(Text(title))
+        AppControlRow(title: title, trailingWidth: SettingsLayout.thresholdControlWidth) {
+            SettingsIntegerStepper(
+                title: title,
+                value: $value,
+                range: range,
+                step: step,
+                hint: hint
+            )
         }
     }
 }

@@ -884,6 +884,7 @@ private struct RecentReportsTable: View {
 struct NewAuditView: View {
     @Environment(AppState.self) private var appState
     @State private var presetName = ""
+    @State private var validationIssue: String?
 
     var body: some View {
         NativePage {
@@ -891,27 +892,32 @@ struct NewAuditView: View {
                 title: appState.t("audit.title"),
                 subtitle: appState.t("audit.subtitle"),
                 actions: {
-                    Button {
-                        appState.toggleAudit()
+                    Button(role: appState.isRunningAudit ? .destructive : nil) {
+                        handleAuditAction()
                     } label: {
                         Label(
                             appState.isRunningAudit ? appState.t("command.cancelAudit") : appState.t("command.startAudit"),
                             systemImage: appState.isRunningAudit ? "stop.fill" : "play.fill"
                         )
                     }
+                    .buttonStyle(.borderedProminent)
+                    .tint(appState.isRunningAudit ? Color.red : Color.accentColor)
                 }
             )
 
+            validationBanner
+
             NativeSection(title: appState.t("audit.paths"), subtitle: appState.t("audit.paths.subtitle")) {
                 VStack(spacing: 0) {
-                    SettingsTextRow(title: appState.t("audit.directory"), text: Binding(
-                        get: { appState.draftConfiguration.directoryPath },
-                        set: { newValue in appState.updateDraft { $0.directoryPath = newValue } }
-                    ))
-                    SettingsTextRow(title: appState.t("audit.outputDirectory"), text: Binding(
-                        get: { appState.draftConfiguration.outputDirectoryPath },
-                        set: { newValue in appState.updateDraft { $0.outputDirectoryPath = newValue } }
-                    ))
+                    SettingsPathPickerRow(
+                        title: appState.t("audit.directory"),
+                        text: draftBinding(\.directoryPath)
+                    )
+                    SettingsPathPickerRow(
+                        title: appState.t("audit.outputDirectory"),
+                        text: draftBinding(\.outputDirectoryPath),
+                        canCreateDirectories: true
+                    )
                 }
             }
 
@@ -922,28 +928,40 @@ struct NewAuditView: View {
                     } label: {
                         Label(appState.t("audit.importSubmissions"), systemImage: "tray.and.arrow.down")
                     }
-                    .disabled(appState.isImportingSubmissionPackage)
+                    .disabled(!appState.canImportSubmissionPackage)
                 }
             }
 
             NativeSection(title: appState.t("audit.parameters"), subtitle: appState.t("audit.parameters.subtitle")) {
                 VStack(spacing: 0) {
-                    SettingsNumberRow(title: appState.t("audit.textThreshold"), value: Binding(
-                        get: { appState.draftConfiguration.textThreshold },
-                        set: { newValue in appState.updateDraft { $0.textThreshold = newValue } }
-                    ), format: .number.precision(.fractionLength(2)))
-                    SettingsNumberRow(title: appState.t("audit.dedupThreshold"), value: Binding(
-                        get: { appState.draftConfiguration.dedupThreshold },
-                        set: { newValue in appState.updateDraft { $0.dedupThreshold = newValue } }
-                    ), format: .number.precision(.fractionLength(2)))
-                    SettingsIntegerRow(title: appState.t("audit.imageThreshold"), value: Binding(
-                        get: { appState.draftConfiguration.imageThreshold },
-                        set: { newValue in appState.updateDraft { $0.imageThreshold = newValue } }
-                    ))
-                    SettingsIntegerRow(title: appState.t("audit.simhashThreshold"), value: Binding(
-                        get: { appState.draftConfiguration.simhashThreshold },
-                        set: { newValue in appState.updateDraft { $0.simhashThreshold = newValue } }
-                    ))
+                    SettingsNumberRow(
+                        title: appState.t("audit.textThreshold"),
+                        value: draftBinding(\.textThreshold),
+                        range: 0...1,
+                        step: 0.05,
+                        hint: "0.00-1.00"
+                    )
+                    SettingsNumberRow(
+                        title: appState.t("audit.dedupThreshold"),
+                        value: draftBinding(\.dedupThreshold),
+                        range: 0...1,
+                        step: 0.05,
+                        hint: "0.00-1.00"
+                    )
+                    SettingsIntegerRow(
+                        title: appState.t("audit.imageThreshold"),
+                        value: draftBinding(\.imageThreshold),
+                        range: 0...64,
+                        step: 1,
+                        hint: "0-64"
+                    )
+                    SettingsIntegerRow(
+                        title: appState.t("audit.simhashThreshold"),
+                        value: draftBinding(\.simhashThreshold),
+                        range: 0...64,
+                        step: 1,
+                        hint: "0-64"
+                    )
                     AppControlRow(title: appState.t("audit.visionOCR"), trailingWidth: 80) {
                         Toggle("", isOn: Binding(
                             get: { appState.draftConfiguration.useVisionOCR },
@@ -995,6 +1013,118 @@ struct NewAuditView: View {
         }
     }
 
+    @ViewBuilder
+    private var validationBanner: some View {
+        if let validationIssue {
+            HStack(alignment: .top, spacing: 10) {
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .foregroundStyle(.orange)
+                    .frame(width: 18)
+
+                Text(validationIssue)
+                    .font(AppTypography.supporting)
+                    .foregroundStyle(.primary)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal, AppLayout.rowHorizontalPadding)
+            .padding(.vertical, 10)
+            .background {
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .fill(Color.orange.opacity(0.12))
+            }
+            .overlay {
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .strokeBorder(Color.orange.opacity(0.35), lineWidth: 0.5)
+            }
+            .accessibilityElement(children: .combine)
+        }
+    }
+
+    private func handleAuditAction() {
+        if appState.isRunningAudit {
+            validationIssue = nil
+            appState.cancelAudit()
+            return
+        }
+
+        if let issue = validateDraftConfiguration() {
+            validationIssue = issue
+            return
+        }
+
+        validationIssue = nil
+        appState.beginAudit()
+    }
+
+    private func draftBinding<Value>(_ keyPath: WritableKeyPath<AuditConfiguration, Value>) -> Binding<Value> {
+        Binding(
+            get: { appState.draftConfiguration[keyPath: keyPath] },
+            set: { newValue in
+                validationIssue = nil
+                appState.updateDraft { configuration in
+                    configuration[keyPath: keyPath] = newValue
+                }
+            }
+        )
+    }
+
+    private func validateDraftConfiguration() -> String? {
+        let configuration = appState.draftConfiguration
+        let fileManager = FileManager.default
+        let inputPath = normalizedPath(configuration.directoryPath)
+        let outputPath = normalizedPath(configuration.outputDirectoryPath)
+
+        guard inputPath.isEmpty == false else {
+            return appState.t("audit.validation.inputDirectoryRequired")
+        }
+
+        var isDirectory: ObjCBool = false
+        guard fileManager.fileExists(atPath: inputPath, isDirectory: &isDirectory), isDirectory.boolValue else {
+            return appState.tf("audit.validation.inputDirectoryInvalid", inputPath)
+        }
+
+        guard outputPath.isEmpty == false else {
+            return appState.t("audit.validation.outputDirectoryRequired")
+        }
+
+        isDirectory = false
+        if fileManager.fileExists(atPath: outputPath, isDirectory: &isDirectory) {
+            guard isDirectory.boolValue else {
+                return appState.tf("audit.validation.outputDirectoryFile", outputPath)
+            }
+        } else {
+            let parentPath = URL(fileURLWithPath: outputPath, isDirectory: true).deletingLastPathComponent().path
+            isDirectory = false
+            guard fileManager.fileExists(atPath: parentPath, isDirectory: &isDirectory), isDirectory.boolValue else {
+                return appState.tf("audit.validation.outputParentMissing", parentPath)
+            }
+        }
+
+        if configuration.textThreshold.isFinite == false || (0.0...1.0).contains(configuration.textThreshold) == false {
+            return appState.tf("audit.validation.numberRange", appState.t("audit.textThreshold"), "0.00-1.00")
+        }
+
+        if configuration.dedupThreshold.isFinite == false || (0.0...1.0).contains(configuration.dedupThreshold) == false {
+            return appState.tf("audit.validation.numberRange", appState.t("audit.dedupThreshold"), "0.00-1.00")
+        }
+
+        if (0...64).contains(configuration.imageThreshold) == false {
+            return appState.tf("audit.validation.numberRange", appState.t("audit.imageThreshold"), "0-64")
+        }
+
+        if (0...64).contains(configuration.simhashThreshold) == false {
+            return appState.tf("audit.validation.numberRange", appState.t("audit.simhashThreshold"), "0-64")
+        }
+
+        return nil
+    }
+
+    private func normalizedPath(_ path: String) -> String {
+        let trimmed = path.trimmingCharacters(in: .whitespacesAndNewlines)
+        return (trimmed as NSString).expandingTildeInPath
+    }
 }
 
 private struct EmptyInlineRow: View {
@@ -1007,6 +1137,7 @@ private struct EmptyInlineRow: View {
             Image(systemName: systemImage)
                 .foregroundStyle(.secondary)
                 .frame(width: 22)
+                .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)
                     .font(AppTypography.rowPrimary)
@@ -1019,5 +1150,6 @@ private struct EmptyInlineRow: View {
         }
         .padding(.horizontal, AppLayout.rowHorizontalPadding)
         .padding(.vertical, 18)
+        .accessibilityElement(children: .combine)
     }
 }

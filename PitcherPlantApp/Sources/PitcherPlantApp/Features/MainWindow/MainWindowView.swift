@@ -13,7 +13,6 @@ struct MainWindowView: View {
     @State private var windowWidth: CGFloat = 0
     @State private var settingsSearchText = ""
     @State private var reportSearchText = ""
-    @State private var toolbarSearchText = ""
     private let layoutPolicy = MainWindowLayoutPolicy()
     private let inspectorTransitionPolicy = MainWindowInspectorTransitionPolicy()
 
@@ -89,7 +88,7 @@ struct MainWindowView: View {
             Alert(
                 title: Text(notice.title),
                 message: Text(notice.message),
-                dismissButton: .default(Text("OK")) {
+                dismissButton: .default(Text(appState.t("common.ok"))) {
                     appState.dismissNotice()
                 }
             )
@@ -120,36 +119,30 @@ struct MainWindowView: View {
         appState.selectedMainSidebar == .reports || appState.selectedMainSidebar.reportSectionKind != nil
     }
 
+    private var supportsToolbarSearch: Bool {
+        appState.selectedMainSidebar == .settings || isReportSearchContext
+    }
+
     private var toolbarSearchBinding: Binding<String> {
         Binding {
-            switch appState.selectedMainSidebar {
-            case .settings:
-                settingsSearchText
-            case .reports, .textEvidence, .codeEvidence, .imageEvidence, .metadataEvidence, .dedupEvidence, .crossBatchEvidence:
-                reportSearchText
-            default:
-                toolbarSearchText
+            if appState.selectedMainSidebar == .settings {
+                return settingsSearchText
             }
+            return reportSearchText
         } set: { value in
-            switch appState.selectedMainSidebar {
-            case .settings:
+            if appState.selectedMainSidebar == .settings {
                 settingsSearchText = value
-            case .reports, .textEvidence, .codeEvidence, .imageEvidence, .metadataEvidence, .dedupEvidence, .crossBatchEvidence:
+            } else if isReportSearchContext {
                 reportSearchText = value
-            default:
-                toolbarSearchText = value
             }
         }
     }
 
     private var toolbarSearchPrompt: String {
-        switch appState.selectedMainSidebar {
-        case .settings:
+        if appState.selectedMainSidebar == .settings {
             appState.t("settings.searchPrompt")
-        case .reports, .textEvidence, .codeEvidence, .imageEvidence, .metadataEvidence, .dedupEvidence, .crossBatchEvidence:
+        } else {
             appState.t("reports.searchPrompt")
-        default:
-            appState.t("menu.searchPrompt")
         }
     }
 
@@ -198,8 +191,7 @@ struct MainWindowView: View {
     }
 
     private var detailColumn: some View {
-        mainContent
-            .searchable(text: toolbarSearchBinding, prompt: toolbarSearchPrompt)
+        searchableMainContent
             .frame(
                 minWidth: AppLayout.contentMinWidth,
                 maxWidth: .infinity,
@@ -220,6 +212,16 @@ struct MainWindowView: View {
                     )
             }
             .animation(motion(inspectorColumnAnimation), value: isInspectorColumnVisible)
+    }
+
+    @ViewBuilder
+    private var searchableMainContent: some View {
+        if supportsToolbarSearch {
+            mainContent
+                .searchable(text: toolbarSearchBinding, prompt: toolbarSearchPrompt)
+        } else {
+            mainContent
+        }
     }
 
     private var inspectorPresentation: Binding<Bool> {
@@ -330,10 +332,10 @@ struct MainWindowView: View {
         Button {
             showNewAuditComposer()
         } label: {
-            Label(appState.t("toolbar.newScan"), systemImage: "plus")
+            Label(appState.t("toolbar.newAudit"), systemImage: "plus")
         }
-        .help(appState.t("toolbar.newScan"))
-        .accessibilityLabel(appState.t("toolbar.newScan"))
+        .help(appState.t("toolbar.newAudit"))
+        .accessibilityLabel(appState.t("toolbar.newAudit"))
     }
 
     private var importPackageToolbarButton: some View {
@@ -342,7 +344,7 @@ struct MainWindowView: View {
         } label: {
             Label(appState.t("audit.importSubmissions"), systemImage: "tray.and.arrow.down")
         }
-        .disabled(appState.isImportingSubmissionPackage)
+        .disabled(!appState.canImportSubmissionPackage)
         .help(appState.t("audit.importSubmissions"))
         .accessibilityLabel(appState.t("audit.importSubmissions"))
     }
