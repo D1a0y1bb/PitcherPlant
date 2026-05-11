@@ -2,6 +2,14 @@ import SwiftUI
 
 private let workspaceFirstRowTopOffset: CGFloat = -6
 private let workspaceDashboardSpacing: CGFloat = 18
+private let workspaceStatusColumnMinimumWidth: CGFloat = 96
+private let workspaceStatusColumnSpacing: CGFloat = 14
+private let workspaceCardIconWidth: CGFloat = 22
+private let workspaceCardIconFont: Font = AppTypography.rowPrimary
+private let workspaceStatusLabelSpacing: CGFloat = 8
+private let workspaceStatusLabelValueSpacing: CGFloat = 8
+private let workspaceStatusRowsMinimumHeight: CGFloat = 120
+private let workspaceStatusRowsSpacing: CGFloat = 30
 
 struct WorkspaceDashboardView: View {
     @Environment(AppState.self) private var appState
@@ -143,17 +151,18 @@ struct WorkspaceDashboardView: View {
             tint: .blue,
             minHeight: 206
         ) {
-            WorkspaceMetricGrid(metrics: [
-                WorkspaceMetric(title: appState.t("workspace.summary.jobs"), value: "\(appState.jobs.count)", systemImage: "clock.arrow.circlepath", tint: .blue),
-                WorkspaceMetric(title: appState.t("status.running"), value: "\(runningCount)", systemImage: "play.circle", tint: .green),
-                WorkspaceMetric(title: appState.t("workspace.latestProgress"), value: latestProgressText, unit: "%", systemImage: "gauge.with.dots.needle.50percent", tint: .orange)
-            ])
-
-            WorkspaceFactStrip(items: [
-                WorkspaceFact(title: appState.t("status.succeeded"), value: "\(completedCount)", systemImage: "checkmark.circle.fill", tint: .green),
-                WorkspaceFact(title: appState.t("status.failed"), value: "\(failedCount)", systemImage: "exclamationmark.triangle.fill", tint: .orange),
-                WorkspaceFact(title: appState.t("status.queued"), value: "\(queuedCount)", systemImage: "clock", tint: .gray)
-            ])
+            WorkspaceStatusRows(
+                metrics: [
+                    WorkspaceMetric(title: appState.t("workspace.summary.jobs"), value: "\(appState.jobs.count)", systemImage: "clock.arrow.circlepath", tint: .blue),
+                    WorkspaceMetric(title: appState.t("status.running"), value: "\(runningCount)", systemImage: "play.circle", tint: .green),
+                    WorkspaceMetric(title: appState.t("workspace.latestProgress"), value: latestProgressText, unit: "%", systemImage: "gauge.with.dots.needle.50percent", tint: .orange)
+                ],
+                facts: [
+                    WorkspaceFact(title: appState.t("status.succeeded"), value: "\(completedCount)", systemImage: "checkmark.circle.fill", tint: .green),
+                    WorkspaceFact(title: appState.t("status.failed"), value: "\(failedCount)", systemImage: "exclamationmark.triangle.fill", tint: .orange),
+                    WorkspaceFact(title: appState.t("status.queued"), value: "\(queuedCount)", systemImage: "clock", tint: .indigo)
+                ]
+            )
         }
     }
 
@@ -165,41 +174,44 @@ struct WorkspaceDashboardView: View {
             tint: .green,
             minHeight: 206
         ) {
-            WorkspaceMetricGrid(metrics: [
-                WorkspaceMetric(title: appState.t("workspace.summary.reports"), value: "\(reportCount)", systemImage: "doc.text", tint: .indigo),
-                WorkspaceMetric(title: appState.t("workspace.summary.fingerprints"), value: "\(fingerprintCount)", systemImage: "number", tint: .cyan),
-                WorkspaceMetric(title: appState.t("workspace.summary.whitelist"), value: "\(appState.whitelistRules.count)", systemImage: "checkmark.shield", tint: .green)
-            ])
-
-            WorkspaceFactStrip(items: [
-                WorkspaceFact(title: appState.t("audit.visionOCR"), value: appState.draftConfiguration.useVisionOCR ? appState.t("common.enabled") : appState.t("common.disabled"), systemImage: "text.viewfinder", tint: .blue),
-                WorkspaceFact(title: appState.t("audit.whitelistMode"), value: appState.title(for: appState.draftConfiguration.whitelistMode), systemImage: "slider.horizontal.3", tint: .purple),
-                WorkspaceFact(title: appState.t("workspace.reportDirectory"), value: currentReportDirectoryName, systemImage: "folder.badge.gearshape", tint: .gray)
-            ])
+            WorkspaceStatusRows(
+                metrics: [
+                    WorkspaceMetric(title: appState.t("workspace.summary.reports"), value: "\(reportCount)", systemImage: "doc.text", tint: .indigo),
+                    WorkspaceMetric(title: appState.t("workspace.summary.fingerprints"), value: "\(fingerprintCount)", systemImage: "number", tint: .cyan),
+                    WorkspaceMetric(title: appState.t("workspace.summary.whitelist"), value: "\(appState.whitelistRules.count)", systemImage: "checkmark.shield", tint: .green)
+                ],
+                facts: [
+                    WorkspaceFact(title: appState.t("audit.visionOCR"), value: appState.draftConfiguration.useVisionOCR ? appState.t("common.enabled") : appState.t("common.disabled"), systemImage: "text.viewfinder", tint: .blue),
+                    WorkspaceFact(title: appState.t("audit.whitelistMode"), value: appState.title(for: appState.draftConfiguration.whitelistMode), systemImage: "slider.horizontal.3", tint: .purple),
+                    WorkspaceFact(title: appState.t("workspace.reportDirectory"), value: currentReportDirectoryName, systemImage: "folder.badge.gearshape", tint: .orange)
+                ]
+            )
         }
     }
 
     private var recentJobsCard: some View {
-        WorkspaceDashboardCard(
+        let recentJobs = Array(appState.jobs.prefix(1))
+
+        return WorkspaceDashboardCard(
             title: appState.t("workspace.recentJobs"),
-            subtitle: "\(min(appState.jobs.count, 3)) \(appState.t("common.countSuffix"))",
+            subtitle: "\(recentJobs.count) \(appState.t("common.countSuffix"))",
             systemImage: "clock.arrow.circlepath",
-            tint: .orange,
-            minHeight: 226
+            tint: .orange
         ) {
-            RecentJobsCompactList(jobs: Array(appState.jobs.prefix(3)))
+            RecentJobsCompactList(jobs: recentJobs)
         }
     }
 
     private var recentReportsCard: some View {
-        WorkspaceDashboardCard(
+        let recentReports = Array(appState.reports.sorted(by: { $0.createdAt > $1.createdAt }).prefix(1))
+
+        return WorkspaceDashboardCard(
             title: appState.t("workspace.recentReports"),
-            subtitle: "\(min(appState.reports.count, 3)) \(appState.t("common.countSuffix"))",
+            subtitle: "\(recentReports.count) \(appState.t("common.countSuffix"))",
             systemImage: "doc.text.magnifyingglass",
-            tint: .indigo,
-            minHeight: 226
+            tint: .indigo
         ) {
-            RecentReportsCompactList(reports: Array(appState.reports.sorted(by: { $0.createdAt > $1.createdAt }).prefix(3)))
+            RecentReportsCompactList(reports: recentReports)
         }
     }
 
@@ -260,6 +272,19 @@ private struct WorkspaceEvidenceOverviewItem: Identifiable {
     let tint: Color
 }
 
+private struct WorkspaceStatusRows: View {
+    let metrics: [WorkspaceMetric]
+    let facts: [WorkspaceFact]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: workspaceStatusRowsSpacing) {
+            WorkspaceMetricGrid(metrics: metrics)
+            WorkspaceFactStrip(items: facts)
+        }
+        .frame(maxWidth: .infinity, minHeight: workspaceStatusRowsMinimumHeight, alignment: .topLeading)
+    }
+}
+
 private struct WorkspaceDashboardCard<Content: View>: View {
     let title: String
     let subtitle: String
@@ -283,12 +308,13 @@ private struct WorkspaceDashboardCard<Content: View>: View {
         ) {
             VStack(alignment: .leading, spacing: 14) {
                 HStack(alignment: .firstTextBaseline, spacing: 10) {
-                    Label {
+                    HStack(alignment: .center, spacing: workspaceStatusLabelSpacing) {
+                        Image(systemName: systemImage)
+                            .font(workspaceCardIconFont)
+                            .foregroundStyle(tint)
+                            .frame(width: workspaceCardIconWidth, alignment: .leading)
                         Text(title)
                             .font(AppTypography.sectionTitle)
-                    } icon: {
-                        Image(systemName: systemImage)
-                            .foregroundStyle(tint)
                     }
 
                     Spacer(minLength: 12)
@@ -315,41 +341,43 @@ private struct WorkspaceDashboardCard<Content: View>: View {
 
 private struct WorkspaceMetricGrid: View {
     let metrics: [WorkspaceMetric]
-    private let labelIconWidth: CGFloat = 18
-    private let labelSpacing: CGFloat = 8
 
     private var columns: [GridItem] {
-        Array(repeating: GridItem(.flexible(minimum: 96), spacing: 14), count: min(max(metrics.count, 1), 3))
+        Array(
+            repeating: GridItem(.flexible(minimum: workspaceStatusColumnMinimumWidth), spacing: workspaceStatusColumnSpacing),
+            count: min(max(metrics.count, 1), 3)
+        )
     }
 
     var body: some View {
         LazyVGrid(columns: columns, alignment: .leading, spacing: 14) {
             ForEach(metrics) { metric in
-                VStack(alignment: .leading, spacing: 7) {
-                    HStack(spacing: labelSpacing) {
+                VStack(alignment: .leading, spacing: workspaceStatusLabelValueSpacing) {
+                    HStack(alignment: .center, spacing: workspaceStatusLabelSpacing) {
                         Image(systemName: metric.systemImage)
-                            .frame(width: labelIconWidth, alignment: .leading)
+                            .font(workspaceCardIconFont)
+                            .foregroundStyle(metric.tint)
+                            .frame(width: workspaceCardIconWidth, alignment: .leading)
                         Text(metric.title)
+                            .foregroundStyle(.secondary)
                             .lineLimit(1)
                     }
                     .font(AppTypography.metadata)
-                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
 
                     HStack(alignment: .firstTextBaseline, spacing: 2) {
                         Text(metric.value)
-                            .font(.title.weight(.semibold))
-                            .monospacedDigit()
-                            .foregroundStyle(metric.tint)
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.75)
+                            .font(.title.weight(.semibold).monospacedDigit())
 
                         if metric.unit.isEmpty == false {
                             Text(metric.unit)
                                 .font(AppTypography.supporting.weight(.semibold))
-                                .foregroundStyle(metric.tint)
                         }
                     }
-                    .padding(.leading, labelIconWidth + labelSpacing)
+                    .foregroundStyle(metric.tint)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+                    .padding(.leading, workspaceCardIconWidth + workspaceStatusLabelSpacing)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
@@ -360,15 +388,18 @@ private struct WorkspaceMetricGrid: View {
 private struct WorkspaceFactStrip: View {
     let items: [WorkspaceFact]
 
+    private var columns: [GridItem] {
+        Array(
+            repeating: GridItem(.flexible(minimum: workspaceStatusColumnMinimumWidth), spacing: workspaceStatusColumnSpacing),
+            count: min(max(items.count, 1), 3)
+        )
+    }
+
     var body: some View {
         ViewThatFits(in: .horizontal) {
-            HStack(spacing: 0) {
-                ForEach(Array(items.enumerated()), id: \.element.id) { index, item in
+            LazyVGrid(columns: columns, alignment: .leading, spacing: 0) {
+                ForEach(items) { item in
                     factItem(item)
-                    if index < items.count - 1 {
-                        Divider()
-                            .padding(.horizontal, 14)
-                    }
                 }
             }
 
@@ -382,21 +413,25 @@ private struct WorkspaceFactStrip: View {
     }
 
     private func factItem(_ item: WorkspaceFact) -> some View {
-        HStack(alignment: .firstTextBaseline, spacing: 8) {
-            Image(systemName: item.systemImage)
-                .foregroundStyle(item.tint)
-                .frame(width: 16)
-
-            VStack(alignment: .leading, spacing: 2) {
+        VStack(alignment: .leading, spacing: workspaceStatusLabelValueSpacing) {
+            HStack(alignment: .center, spacing: workspaceStatusLabelSpacing) {
+                Image(systemName: item.systemImage)
+                    .font(workspaceCardIconFont)
+                    .foregroundStyle(item.tint)
+                    .frame(width: workspaceCardIconWidth, alignment: .leading)
                 Text(item.title)
                     .font(AppTypography.metadata)
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
-                Text(item.value)
-                    .font(AppTypography.supporting.weight(.medium))
-                    .lineLimit(1)
-                    .truncationMode(.middle)
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
+
+            Text(item.value)
+                .font(.title3.weight(.semibold).monospacedDigit())
+                .foregroundStyle(item.tint)
+                .lineLimit(1)
+                .truncationMode(.middle)
+                .padding(.leading, workspaceCardIconWidth + workspaceStatusLabelSpacing)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
@@ -529,8 +564,12 @@ private struct WorkspaceEvidenceBarList: View {
         VStack(alignment: .leading, spacing: 10) {
             ForEach(items) { item in
                 VStack(alignment: .leading, spacing: 5) {
-                    HStack(spacing: 8) {
-                        Label(item.title, systemImage: item.systemImage)
+                    HStack(spacing: workspaceStatusLabelSpacing) {
+                        Image(systemName: item.systemImage)
+                            .font(workspaceCardIconFont)
+                            .foregroundStyle(item.tint)
+                            .frame(width: workspaceCardIconWidth, alignment: .leading)
+                        Text(item.title)
                             .font(AppTypography.metadata.weight(.medium))
                             .foregroundStyle(.secondary)
                             .lineLimit(1)
@@ -562,11 +601,11 @@ private struct WorkspaceLowEvidenceList: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             ForEach(items) { item in
-                HStack(spacing: 8) {
+                HStack(spacing: workspaceStatusLabelSpacing) {
                     Image(systemName: item.systemImage)
-                        .font(.caption)
+                        .font(workspaceCardIconFont)
                         .foregroundStyle(item.tint)
-                        .frame(width: 16)
+                        .frame(width: workspaceCardIconWidth, alignment: .leading)
                     Text(item.title)
                         .font(AppTypography.metadata.weight(.medium))
                         .foregroundStyle(.secondary)
@@ -584,10 +623,6 @@ private struct WorkspaceLowEvidenceList: View {
 private struct RecentJobsCompactList: View {
     @Environment(AppState.self) private var appState
     let jobs: [AuditJob]
-
-    private var placeholderCount: Int {
-        max(0, 3 - jobs.count)
-    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -614,17 +649,9 @@ private struct RecentJobsCompactList: View {
                         )
                     }
                     .buttonStyle(.plain)
-
-                    if index < jobs.count - 1 || placeholderCount > 0 {
+                    if index < jobs.count - 1 {
                         Divider()
                     }
-                }
-            }
-
-            ForEach(0..<placeholderCount, id: \.self) { index in
-                WorkspacePreviewPlaceholderRow()
-                if index < placeholderCount - 1 {
-                    Divider()
                 }
             }
         }
@@ -634,10 +661,6 @@ private struct RecentJobsCompactList: View {
 private struct RecentReportsCompactList: View {
     @Environment(AppState.self) private var appState
     let reports: [AuditReport]
-
-    private var placeholderCount: Int {
-        max(0, 3 - reports.count)
-    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -662,17 +685,9 @@ private struct RecentReportsCompactList: View {
                         )
                     }
                     .buttonStyle(.plain)
-
-                    if index < reports.count - 1 || placeholderCount > 0 {
+                    if index < reports.count - 1 {
                         Divider()
                     }
-                }
-            }
-
-            ForEach(0..<placeholderCount, id: \.self) { index in
-                WorkspacePreviewPlaceholderRow()
-                if index < placeholderCount - 1 {
-                    Divider()
                 }
             }
         }
@@ -690,8 +705,9 @@ private struct WorkspacePreviewRow: View {
     var body: some View {
         HStack(alignment: .center, spacing: 11) {
             Image(systemName: systemImage)
+                .font(workspaceCardIconFont)
                 .foregroundStyle(tint)
-                .frame(width: 18)
+                .frame(width: workspaceCardIconWidth, alignment: .leading)
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)
@@ -733,8 +749,9 @@ private struct WorkspaceEmptyDashboardState: View {
     var body: some View {
         HStack(alignment: .center, spacing: 12) {
             Image(systemName: systemImage)
+                .font(workspaceCardIconFont)
                 .foregroundStyle(.secondary)
-                .frame(width: 22)
+                .frame(width: workspaceCardIconWidth, alignment: .leading)
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)
                     .font(AppTypography.rowPrimary)
@@ -746,33 +763,6 @@ private struct WorkspaceEmptyDashboardState: View {
             Spacer()
         }
         .padding(.vertical, 9)
-    }
-}
-
-private struct WorkspacePreviewPlaceholderRow: View {
-    var body: some View {
-        HStack(alignment: .center, spacing: 11) {
-            Circle()
-                .fill(Color.primary.opacity(0.08))
-                .frame(width: 18, height: 18)
-
-            VStack(alignment: .leading, spacing: 6) {
-                Capsule()
-                    .fill(Color.primary.opacity(0.09))
-                    .frame(width: 150, height: 8)
-                Capsule()
-                    .fill(Color.primary.opacity(0.06))
-                    .frame(width: 210, height: 7)
-            }
-
-            Spacer(minLength: 0)
-
-            Capsule()
-                .fill(Color.primary.opacity(0.07))
-                .frame(width: 44, height: 18)
-        }
-        .padding(.vertical, 10)
-        .accessibilityHidden(true)
     }
 }
 
