@@ -24,7 +24,7 @@ struct SettingsTextControl: View {
             .multilineTextAlignment(.trailing)
             .lineLimit(1)
             .truncationMode(.middle)
-            .frame(width: SettingsLayout.trailingWidth, alignment: .trailing)
+            .frame(maxWidth: SettingsLayout.trailingWidth, alignment: .trailing)
             .accessibilityLabel(Text(title))
     }
 }
@@ -34,16 +34,20 @@ struct SettingsNumberFieldRow: View {
     let subtitle: String
     var icon: SettingsRowIconStyle = .generic
     @Binding var value: Double
+    var range: ClosedRange<Double> = 0...1
+    var step: Double = 0.05
     let hint: String
+    var fractionLength = 2
 
     var body: some View {
         SettingsControlRow(title: title, subtitle: subtitle, icon: icon) {
             SettingsNumberStepper(
                 title: title,
                 value: $value,
-                range: 0...1,
-                step: 0.05,
-                hint: hint
+                range: range,
+                step: step,
+                hint: hint,
+                fractionLength: fractionLength
             )
         }
     }
@@ -54,6 +58,8 @@ struct SettingsIntegerFieldRow: View {
     let subtitle: String
     var icon: SettingsRowIconStyle = .generic
     @Binding var value: Int
+    var range: ClosedRange<Int> = 0...64
+    var step: Int = 1
     let hint: String
 
     var body: some View {
@@ -61,8 +67,8 @@ struct SettingsIntegerFieldRow: View {
             SettingsIntegerStepper(
                 title: title,
                 value: $value,
-                range: 0...64,
-                step: 1,
+                range: range,
+                step: step,
                 hint: hint
             )
         }
@@ -119,19 +125,29 @@ struct SettingsActionRow: View {
     let title: String
     let subtitle: String
     var icon: SettingsRowIconStyle = .generic
-    let buttonTitle: String
-    let systemImage: String
     let action: () -> Void
 
     var body: some View {
-        SettingsControlRow(title: title, subtitle: subtitle, icon: icon) {
-            Button(action: action) {
-                Label(buttonTitle, systemImage: systemImage)
+        Button(action: action) {
+            SettingsRowContainer {
+                HStack(alignment: .center, spacing: 18) {
+                    SettingsRowIcon(style: icon)
+
+                    SettingsRowText(title: title, subtitle: subtitle)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(.tertiary)
+                        .frame(width: 18, alignment: .trailing)
+                        .accessibilityHidden(true)
+                }
             }
-            .buttonStyle(.bordered)
-            .help(buttonTitle)
-            .accessibilityLabel(Text(buttonTitle))
         }
+        .buttonStyle(.plain)
+        .contentShape(Rectangle())
+        .help(title)
+        .accessibilityLabel(Text(title))
     }
 }
 
@@ -143,36 +159,16 @@ struct SettingsMenuPicker<Value: Hashable>: View {
     var systemImage: ((Value) -> String)?
 
     var body: some View {
-        Menu {
+        Picker("", selection: $selection) {
             ForEach(options, id: \.self) { option in
-                Button {
-                    selection = option
-                } label: {
-                    menuLabel(for: option)
-                }
+                menuLabel(for: option)
+                    .tag(option)
             }
-        } label: {
-            HStack(spacing: 7) {
-                menuLabel(for: selection)
-                    .frame(maxWidth: .infinity, alignment: .trailing)
-
-                Image(systemName: "chevron.up.chevron.down")
-                    .font(AppTypography.badge)
-                    .foregroundStyle(.primary)
-                    .frame(width: 28, height: 28)
-                    .accessibilityHidden(true)
-                    .background {
-                        Circle()
-                            .fill(Color.secondary.opacity(0.13))
-                    }
-            }
-            .font(AppTypography.supporting.weight(.medium))
-            .lineLimit(1)
-            .frame(width: width, alignment: .trailing)
         }
-        .menuStyle(.button)
-        .buttonStyle(.plain)
-        .fixedSize()
+        .labelsHidden()
+        .pickerStyle(.menu)
+        .controlSize(.regular)
+        .frame(width: width, alignment: .trailing)
     }
 
     @ViewBuilder
@@ -191,22 +187,23 @@ struct SettingsNumberStepper: View {
     let range: ClosedRange<Double>
     let step: Double
     let hint: String
+    var fractionLength = 2
 
     var body: some View {
         HStack(spacing: 8) {
-            TextField(hint, value: clampedBinding, format: .number.precision(.fractionLength(2)))
+            TextField(hint, value: clampedBinding, format: .number.precision(.fractionLength(fractionLength)))
                 .textFieldStyle(.roundedBorder)
                 .multilineTextAlignment(.center)
                 .font(AppTypography.code.weight(.medium))
                 .frame(width: SettingsLayout.numberFieldWidth + 12)
                 .accessibilityLabel(Text(title))
-                .accessibilityValue(Text(String(format: "%.2f", clamped(value))))
+                .accessibilityValue(Text(formattedValue(clamped(value))))
 
             Stepper("", value: clampedBinding, in: range, step: step)
                 .labelsHidden()
                 .frame(width: SettingsLayout.stepperWidth - 46)
                 .accessibilityLabel(Text(title))
-                .accessibilityValue(Text(String(format: "%.2f", clamped(value))))
+                .accessibilityValue(Text(formattedValue(clamped(value))))
 
             Text(hint)
                 .font(AppTypography.metadata)
@@ -225,6 +222,13 @@ struct SettingsNumberStepper: View {
 
     private func clamped(_ candidate: Double) -> Double {
         min(max(candidate, range.lowerBound), range.upperBound)
+    }
+
+    private func formattedValue(_ value: Double) -> String {
+        if fractionLength == 0 {
+            return "\(Int(value.rounded()))"
+        }
+        return String(format: "%.\(fractionLength)f", value)
     }
 }
 

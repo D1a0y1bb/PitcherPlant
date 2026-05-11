@@ -1,425 +1,358 @@
 import SwiftUI
-
-enum SettingsRootPresentation: Equatable {
-    case standalone
-    case embeddedInMainWindow
-
-    var topPadding: CGFloat {
-        switch self {
-        case .standalone:
-            return 28
-        case .embeddedInMainWindow:
-            return AppLayout.titlebarScrollContentTopPadding
-        }
-    }
-}
+import AppKit
 
 struct SettingsRootView: View {
     @Environment(AppState.self) private var appState
-    @Binding private var searchText: String
-    private let presentation: SettingsRootPresentation
     @State private var selectedCalibrationPreset: AuditCalibrationPreset = .balanced
     @State private var calibrationResult: CalibrationEvaluationResult?
     @State private var calibrationMessage: String?
 
-    init(
-        searchText: Binding<String> = .constant(""),
-        presentation: SettingsRootPresentation = .standalone
-    ) {
-        _searchText = searchText
-        self.presentation = presentation
-    }
-
     var body: some View {
-        Group {
-            if presentation == .embeddedInMainWindow {
-                AppPageShell(spacing: 28) {
-                    settingsContent
-                }
-            } else {
-                ScrollView {
-                    settingsContent
-                        .padding(.horizontal, 24)
-                        .padding(.top, presentation.topPadding)
-                        .padding(.bottom, 28)
-                        .frame(maxWidth: .infinity, alignment: .topLeading)
-                }
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-            }
+        SettingsPaneScroll {
+            applicationSettings
+            auditDefaultsSettings
+            calibrationSettings
+            auditAssistantSettings
+            reportSettings
+            dataSettings
+            aboutSettings
         }
-        .environment(\.settingsSearchQuery, searchText)
+        .frame(minWidth: 760, minHeight: 560)
+        .background(
+            SettingsWindowChromeSupport(title: appState.t("settings.title"))
+                .frame(width: 0, height: 0)
+        )
+        .onAppear(perform: clearInitialControlFocus)
     }
 
     @ViewBuilder
-    private var settingsContent: some View {
-        VStack(alignment: .leading, spacing: 28) {
-                SettingsGroup(title: appState.t("settings.general")) {
-                    SettingsPickerRow(
-                        title: appState.t("settings.language"),
-                        subtitle: appState.t("settings.languageDescription"),
-                        icon: .language
-                    ) {
-                        SettingsMenuPicker(
-                            selection: settingsBinding(\.language),
-                            options: AppLanguage.allCases,
-                            width: SettingsLayout.menuWidth,
-                            title: languageTitle
-                        )
-                    }
-                }
+    private var applicationSettings: some View {
+        SettingsGroup(title: appState.t("settings.application")) {
+            SettingsPickerRow(
+                title: appState.t("settings.language"),
+                subtitle: appState.t("settings.languageDescription"),
+                icon: .language
+            ) {
+                SettingsMenuPicker(
+                    selection: settingsBinding(\.language),
+                    options: AppLanguage.allCases,
+                    width: SettingsLayout.menuWidth,
+                    title: languageTitle
+                )
+            }
 
-                SettingsGroup(title: appState.t("settings.appearance")) {
-                    SettingsPickerRow(
-                        title: appState.t("settings.theme"),
-                        subtitle: appState.t("settings.themeDescription"),
-                        icon: .theme
-                    ) {
-                        SettingsMenuPicker(
-                            selection: settingsBinding(\.appearance),
-                            options: AppAppearance.allCases,
-                            width: SettingsLayout.menuWidth,
-                            title: appearanceTitle
-                        )
-                    }
+            SettingsDivider()
 
-                    SettingsDivider()
+            SettingsPickerRow(
+                title: appState.t("settings.theme"),
+                subtitle: appState.t("settings.themeDescription"),
+                icon: .theme
+            ) {
+                SettingsMenuPicker(
+                    selection: settingsBinding(\.appearance),
+                    options: AppAppearance.allCases,
+                    width: SettingsLayout.menuWidth,
+                    title: appearanceTitle
+                )
+            }
 
-                    SettingsToggleRow(
-                        title: appState.t("settings.inspectorDefault"),
-                        subtitle: appState.t("settings.inspectorDefaultDescription"),
-                        icon: .inspector,
-                        isOn: settingsBinding(\.showInspectorByDefault)
-                    )
+            SettingsDivider()
 
-                    SettingsDivider()
+            SettingsToggleRow(
+                title: appState.t("settings.inspectorDefault"),
+                subtitle: appState.t("settings.inspectorDefaultDescription"),
+                icon: .inspector,
+                isOn: settingsBinding(\.showInspectorByDefault)
+            )
 
-                    SettingsToggleRow(
-                        title: appState.t("settings.compactRows"),
-                        subtitle: appState.t("settings.compactRowsDescription"),
-                        icon: .listDensity,
-                        isOn: settingsBinding(\.compactRows)
-                    )
-                }
+            SettingsDivider()
 
-                SettingsGroup(title: appState.t("settings.auditDefaults")) {
-                    SettingsPathRow(
-                        title: appState.t("audit.directory"),
-                        subtitle: appState.t("settings.auditDirectoryDescription"),
-                        icon: .inputFolder,
-                        text: draftBinding(\.directoryPath)
-                    )
+            SettingsToggleRow(
+                title: appState.t("settings.compactRows"),
+                subtitle: appState.t("settings.compactRowsDescription"),
+                icon: .listDensity,
+                isOn: settingsBinding(\.compactRows)
+            )
+        }
+    }
 
-                    SettingsDivider()
+    private var auditDefaultsSettings: some View {
+        SettingsGroup(title: appState.t("settings.auditDefaults")) {
+            SettingsPathRow(
+                title: appState.t("audit.directory"),
+                subtitle: appState.t("settings.auditDirectoryDescription"),
+                icon: .inputFolder,
+                text: draftBinding(\.directoryPath)
+            )
 
-                    SettingsPathRow(
-                        title: appState.t("audit.outputDirectory"),
-                        subtitle: appState.t("settings.reportDirectoryDescription"),
-                        icon: .outputFolder,
-                        text: draftBinding(\.outputDirectoryPath)
-                    )
+            SettingsDivider()
 
-                    SettingsDivider()
+            SettingsPathRow(
+                title: appState.t("audit.outputDirectory"),
+                subtitle: appState.t("settings.reportDirectoryDescription"),
+                icon: .outputFolder,
+                text: draftBinding(\.outputDirectoryPath)
+            )
 
-                    SettingsNumberFieldRow(
-                        title: appState.t("audit.textThreshold"),
-                        subtitle: appState.t("settings.textThresholdDescription"),
-                        icon: .textThreshold,
-                        value: draftDoubleBinding(\.textThreshold),
-                        hint: "0.00–1.00"
-                    )
+            SettingsDivider()
 
-                    SettingsDivider()
+            SettingsNumberFieldRow(
+                title: appState.t("audit.textThreshold"),
+                subtitle: appState.t("settings.textThresholdDescription"),
+                icon: .textThreshold,
+                value: draftDoubleBinding(\.textThreshold),
+                hint: "0.00-1.00"
+            )
 
-                    SettingsNumberFieldRow(
-                        title: appState.t("audit.dedupThreshold"),
-                        subtitle: appState.t("settings.dedupThresholdDescription"),
-                        icon: .duplicateThreshold,
-                        value: draftDoubleBinding(\.dedupThreshold),
-                        hint: "0.00–1.00"
-                    )
+            SettingsDivider()
 
-                    SettingsDivider()
+            SettingsNumberFieldRow(
+                title: appState.t("audit.dedupThreshold"),
+                subtitle: appState.t("settings.dedupThresholdDescription"),
+                icon: .duplicateThreshold,
+                value: draftDoubleBinding(\.dedupThreshold),
+                hint: "0.00-1.00"
+            )
 
-                    SettingsIntegerFieldRow(
-                        title: appState.t("audit.imageThreshold"),
-                        subtitle: appState.t("settings.imageThresholdDescription"),
-                        icon: .imageThreshold,
-                        value: draftIntBinding(\.imageThreshold),
-                        hint: "0–64"
-                    )
+            SettingsDivider()
 
-                    SettingsDivider()
+            SettingsIntegerFieldRow(
+                title: appState.t("audit.imageThreshold"),
+                subtitle: appState.t("settings.imageThresholdDescription"),
+                icon: .imageThreshold,
+                value: draftIntBinding(\.imageThreshold),
+                hint: "0-64"
+            )
 
-                    SettingsIntegerFieldRow(
-                        title: appState.t("audit.simhashThreshold"),
-                        subtitle: appState.t("settings.simhashThresholdDescription"),
-                        icon: .simhashThreshold,
-                        value: draftIntBinding(\.simhashThreshold),
-                        hint: "bit"
-                    )
+            SettingsDivider()
 
-                    SettingsDivider()
+            SettingsIntegerFieldRow(
+                title: appState.t("audit.simhashThreshold"),
+                subtitle: appState.t("settings.simhashThresholdDescription"),
+                icon: .simhashThreshold,
+                value: draftIntBinding(\.simhashThreshold),
+                hint: "0-64"
+            )
 
-                    SettingsToggleRow(
-                        title: appState.t("audit.visionOCR"),
-                        subtitle: appState.t("settings.visionOCRDescription"),
-                        icon: .vision,
-                        isOn: draftBoolBinding(\.useVisionOCR)
-                    )
+            SettingsDivider()
 
-                    SettingsDivider()
+            SettingsToggleRow(
+                title: appState.t("audit.visionOCR"),
+                subtitle: appState.t("settings.visionOCRDescription"),
+                icon: .vision,
+                isOn: draftBoolBinding(\.useVisionOCR)
+            )
 
-                    SettingsPickerRow(
-                        title: appState.t("audit.whitelistMode"),
-                        subtitle: currentValueSubtitle(
-                            appState.t("settings.whitelistModeDescription"),
-                            value: appState.title(for: appState.draftConfiguration.whitelistMode)
-                        ),
-                        icon: .whitelist
-                    ) {
-                        SettingsMenuPicker(
-                            selection: draftBinding(\.whitelistMode),
-                            options: AuditConfiguration.WhitelistMode.allCases,
-                            width: SettingsLayout.menuWidth,
-                            title: { appState.title(for: $0) }
-                        )
-                    }
-                }
+            SettingsDivider()
 
-                SettingsGroup(title: appState.t("settings.calibration")) {
-                    SettingsPickerRow(
-                        title: appState.t("settings.calibrationPreset"),
-                        subtitle: appState.subtitle(for: selectedCalibrationPreset),
-                        icon: .calibrationPreset
-                    ) {
-                        SettingsMenuPicker(
-                            selection: $selectedCalibrationPreset,
-                            options: AuditCalibrationPreset.allCases,
-                            width: SettingsLayout.menuWidth,
-                            title: { appState.title(for: $0) }
-                        )
-                    }
+            SettingsPickerRow(
+                title: appState.t("audit.whitelistMode"),
+                subtitle: currentValueSubtitle(
+                    appState.t("settings.whitelistModeDescription"),
+                    value: appState.title(for: appState.draftConfiguration.whitelistMode)
+                ),
+                icon: .whitelist
+            ) {
+                SettingsMenuPicker(
+                    selection: draftBinding(\.whitelistMode),
+                    options: AuditConfiguration.WhitelistMode.allCases,
+                    width: SettingsLayout.menuWidth,
+                    title: { appState.title(for: $0) }
+                )
+            }
+        }
+    }
 
-                    SettingsDivider()
+    private var calibrationSettings: some View {
+        SettingsGroup(title: appState.t("settings.calibration")) {
+            SettingsPickerRow(
+                title: appState.t("settings.calibrationPreset"),
+                subtitle: appState.subtitle(for: selectedCalibrationPreset),
+                icon: .calibrationPreset
+            ) {
+                SettingsMenuPicker(
+                    selection: $selectedCalibrationPreset,
+                    options: AuditCalibrationPreset.allCases,
+                    width: SettingsLayout.menuWidth,
+                    title: { appState.title(for: $0) }
+                )
+            }
 
-                    SettingsButtonGroupRow(
-                        title: appState.t("settings.calibrationEvaluation"),
-                        subtitle: calibrationSummaryText,
-                        icon: .calibrationRun
-                    ) {
-                        Button {
-                            applyCalibrationPreset()
-                        } label: {
-                            Label(appState.t("settings.applyPreset"), systemImage: "slider.horizontal.3")
-                        }
-                        .help(appState.t("settings.applyPreset"))
-                        .accessibilityLabel(Text(appState.t("settings.applyPreset")))
+            SettingsDivider()
 
-                        Button {
-                            runCalibration()
-                        } label: {
-                            Label(appState.t("settings.runCalibration"), systemImage: "chart.xyaxis.line")
-                        }
-                        .help(appState.t("settings.runCalibration"))
-                        .accessibilityLabel(Text(appState.t("settings.runCalibration")))
-                    }
+            SettingsActionRow(
+                title: appState.t("settings.applyPreset"),
+                subtitle: appState.subtitle(for: selectedCalibrationPreset),
+                icon: .calibrationRun
+            ) {
+                applyCalibrationPreset()
+            }
 
-                    if let calibrationResult {
-                        SettingsDivider()
-                        CalibrationResultRows(result: calibrationResult)
-                    } else if let calibrationMessage {
-                        SettingsDivider()
-                        SettingsValueRow(
-                            title: appState.t("settings.calibrationStatus"),
-                            subtitle: calibrationMessage,
-                            icon: .calibrationStatus,
-                            value: ""
-                        )
-                    }
-                }
+            SettingsDivider()
 
-                SettingsGroup(title: appState.t("settings.auditAssistant")) {
-                    SettingsPickerRow(
-                        title: appState.t("settings.auditAssistantMode"),
-                        subtitle: currentValueSubtitle(appState.t("settings.auditAssistantModeDescription"), value: auditAssistantModeTitle(auditAssistantMode)),
-                        icon: .assistantMode
-                    ) {
-                        SettingsMenuPicker(
-                            selection: auditAssistantBinding(\.mode),
-                            options: AuditAssistantConfiguration.Mode.allCases,
-                            width: SettingsLayout.menuWidth,
-                            title: auditAssistantModeTitle,
-                            systemImage: auditAssistantModeImage
-                        )
-                    }
+            SettingsActionRow(
+                title: appState.t("settings.runCalibration"),
+                subtitle: calibrationSummaryText,
+                icon: .calibrationStatus
+            ) {
+                runCalibration()
+            }
 
-                    SettingsDivider()
+            if let calibrationResult {
+                SettingsDivider()
+                CalibrationResultRows(result: calibrationResult)
+            } else if let calibrationMessage {
+                SettingsDivider()
+                SettingsValueRow(
+                    title: appState.t("settings.calibrationStatus"),
+                    subtitle: calibrationMessage,
+                    icon: .calibrationStatus,
+                    value: ""
+                )
+            }
+        }
+    }
 
-                    SettingsTextFieldRow(
-                        title: auditAssistantEndpointTitle,
-                        subtitle: auditAssistantEndpointSubtitle,
-                        icon: auditAssistantEndpointIcon,
-                        text: auditAssistantBinding(\.endpointOrCommand)
-                    )
-                    .disabled(auditAssistantMode == .disabled)
+    private var auditAssistantSettings: some View {
+        SettingsGroup(title: appState.t("settings.auditAssistant")) {
+            SettingsPickerRow(
+                title: appState.t("settings.auditAssistantMode"),
+                subtitle: currentValueSubtitle(appState.t("settings.auditAssistantModeDescription"), value: auditAssistantModeTitle(auditAssistantMode)),
+                icon: .assistantMode
+            ) {
+                SettingsMenuPicker(
+                    selection: auditAssistantBinding(\.mode),
+                    options: AuditAssistantConfiguration.Mode.allCases,
+                    width: SettingsLayout.menuWidth,
+                    title: auditAssistantModeTitle,
+                    systemImage: auditAssistantModeImage
+                )
+            }
 
-                    SettingsDivider()
+            SettingsDivider()
 
-                    SettingsAssistantTimeoutRow(
-                        title: appState.t("settings.auditAssistantTimeout"),
-                        subtitle: appState.t("settings.auditAssistantTimeoutDescription"),
-                        icon: .assistantTimeout,
-                        value: auditAssistantBinding(\.timeoutSeconds)
-                    )
-                    .disabled(auditAssistantMode == .disabled)
+            SettingsTextFieldRow(
+                title: auditAssistantEndpointTitle,
+                subtitle: auditAssistantEndpointSubtitle,
+                icon: auditAssistantEndpointIcon,
+                text: auditAssistantBinding(\.endpointOrCommand)
+            )
+            .disabled(auditAssistantMode == .disabled)
 
-                    SettingsDivider()
+            SettingsDivider()
 
-                    SettingsTextFieldRow(
-                        title: appState.t("settings.auditAssistantKeychain"),
-                        subtitle: appState.t("settings.auditAssistantKeychainDescription"),
-                        icon: .assistantCredential,
-                        text: auditAssistantBinding(\.keychainCredentialReference)
-                    )
-                    .disabled(auditAssistantMode != .externalAPI)
-                }
+            SettingsNumberFieldRow(
+                title: appState.t("settings.auditAssistantTimeout"),
+                subtitle: appState.t("settings.auditAssistantTimeoutDescription"),
+                icon: .assistantTimeout,
+                value: auditAssistantBinding(\.timeoutSeconds),
+                range: 1...300,
+                step: 5,
+                hint: appState.t("common.seconds"),
+                fractionLength: 0
+            )
+            .disabled(auditAssistantMode == .disabled)
 
-                SettingsGroup(title: appState.t("settings.reports")) {
-                    SettingsToggleRow(
-                        title: appState.t("settings.preferInAppReports"),
-                        subtitle: appState.t("settings.preferInAppReportsDescription"),
-                        icon: .reportPreference,
-                        isOn: settingsBinding(\.preferInAppReports)
-                    )
+            SettingsDivider()
 
-                    SettingsDivider()
+            SettingsTextFieldRow(
+                title: appState.t("settings.auditAssistantKeychain"),
+                subtitle: appState.t("settings.auditAssistantKeychainDescription"),
+                icon: .assistantCredential,
+                text: auditAssistantBinding(\.keychainCredentialReference)
+            )
+            .disabled(auditAssistantMode != .externalAPI)
+        }
+    }
 
-                    SettingsPickerRow(
-                        title: appState.t("settings.defaultExportFormat"),
-                        subtitle: currentValueSubtitle(
-                            appState.t("settings.defaultExportFormatDescription"),
-                            value: appState.appSettings.defaultExportFormat.displayTitle
-                        ),
-                        icon: .exportFormat
-                    ) {
-                        SettingsMenuPicker(
-                            selection: settingsBinding(\.defaultExportFormat),
-                            options: ExportRecord.Format.allCases,
-                            width: SettingsLayout.menuWidth,
-                            title: { $0.displayTitle }
-                        )
-                    }
+    private var reportSettings: some View {
+        SettingsGroup(title: appState.t("settings.reports")) {
+            SettingsToggleRow(
+                title: appState.t("settings.preferInAppReports"),
+                subtitle: appState.t("settings.preferInAppReportsDescription"),
+                icon: .reportPreference,
+                isOn: settingsBinding(\.preferInAppReports)
+            )
 
-                    SettingsDivider()
+            SettingsDivider()
 
-                    SettingsToggleRow(
-                        title: appState.t("settings.attachmentPreview"),
-                        subtitle: appState.t("settings.attachmentPreviewDescription"),
-                        icon: .attachmentPreview,
-                        isOn: settingsBinding(\.showAttachmentPreviews)
-                    )
-                }
+            SettingsPickerRow(
+                title: appState.t("settings.defaultExportFormat"),
+                subtitle: currentValueSubtitle(
+                    appState.t("settings.defaultExportFormatDescription"),
+                    value: appState.appSettings.defaultExportFormat.displayTitle
+                ),
+                icon: .exportFormat
+            ) {
+                SettingsMenuPicker(
+                    selection: settingsBinding(\.defaultExportFormat),
+                    options: ExportRecord.Format.allCases,
+                    width: SettingsLayout.menuWidth,
+                    title: { $0.displayTitle }
+                )
+            }
 
-                SettingsGroup(title: appState.t("settings.data")) {
-                    SettingsReadOnlyPathRow(
-                        title: appState.t("settings.databaseLocation"),
-                        subtitle: appState.t("settings.databaseLocationDescription"),
-                        icon: .database,
-                        value: appState.database.databaseURL.path
-                    )
+            SettingsDivider()
 
-                    SettingsDivider()
+            SettingsToggleRow(
+                title: appState.t("settings.attachmentPreview"),
+                subtitle: appState.t("settings.attachmentPreviewDescription"),
+                icon: .attachmentPreview,
+                isOn: settingsBinding(\.showAttachmentPreviews)
+            )
+        }
+    }
 
-                    SettingsValueRow(
-                        title: appState.t("settings.recordCounts"),
-                        subtitle: appState.t("settings.recordCountsDescription"),
-                        icon: .recordCounts,
-                        value: recordCounts
-                    )
+    private var dataSettings: some View {
+        SettingsGroup(title: appState.t("settings.data")) {
+            SettingsReadOnlyPathRow(
+                title: appState.t("settings.databaseLocation"),
+                subtitle: appState.t("settings.databaseLocationDescription"),
+                icon: .database,
+                value: appState.database.databaseURL.path
+            )
 
-                    SettingsDivider()
+            SettingsDivider()
 
-                    SettingsButtonGroupRow(
-                        title: appState.t("settings.dataActions"),
-                        subtitle: appState.t("settings.dataActionsDescription"),
-                        icon: .dataActions
-                    ) {
-                        Button {
-                            NSWorkspace.shared.open(appState.database.databaseURL.deletingLastPathComponent())
-                        } label: {
-                            Label(appState.t("settings.openDataDirectory"), systemImage: "folder")
-                        }
-                        .help(appState.t("settings.openDataDirectory"))
-                        .accessibilityLabel(Text(appState.t("settings.openDataDirectory")))
+            SettingsValueRow(
+                title: appState.t("settings.recordCounts"),
+                subtitle: appState.t("settings.recordCountsDescription"),
+                icon: .recordCounts,
+                value: recordCounts
+            )
 
-                        Button {
-                            Task { await appState.reload() }
-                        } label: {
-                            Label(appState.t("settings.reloadData"), systemImage: "arrow.clockwise")
-                        }
-                        .help(appState.t("settings.reloadData"))
-                        .accessibilityLabel(Text(appState.t("settings.reloadData")))
-                    }
-                }
+            SettingsDivider()
 
-                SettingsGroup(title: appState.t("settings.shortcuts")) {
-                    SettingsActionRow(
-                        title: appState.isRunningAudit ? appState.t("command.cancelAudit") : appState.t("command.startAudit"),
-                        subtitle: appState.t("settings.startAuditDescription"),
-                        icon: appState.isRunningAudit ? .cancelAudit : .startAudit,
-                        buttonTitle: appState.isRunningAudit ? appState.t("toolbar.cancel") : appState.t("toolbar.start"),
-                        systemImage: appState.isRunningAudit ? "stop.fill" : "play.fill"
-                    ) {
-                        appState.toggleAudit()
-                    }
+            SettingsActionRow(
+                title: appState.t("settings.openDataDirectory"),
+                subtitle: appState.t("settings.dataActionsDescription"),
+                icon: .dataActions
+            ) {
+                NSWorkspace.shared.open(appState.database.databaseURL.deletingLastPathComponent())
+            }
+        }
+    }
 
-                    SettingsDivider()
+    private var aboutSettings: some View {
+        let version = AppVersionInfo.current
 
-                    SettingsActionRow(
-                        title: appState.t("settings.openReports"),
-                        subtitle: appState.t("settings.openReportsDescription"),
-                        icon: .openReports,
-                        buttonTitle: appState.t("settings.openReports"),
-                        systemImage: "doc.text.magnifyingglass"
-                    ) {
-                        appState.showReportsCenter()
-                    }
+        return SettingsGroup(title: appState.t("settings.about")) {
+            SettingsValueRow(
+                title: appState.t("settings.version"),
+                subtitle: "",
+                icon: .about,
+                value: version.versionAndBuild
+            )
 
-                    SettingsDivider()
+            SettingsDivider()
 
-                    SettingsButtonGroupRow(
-                        title: appState.t("settings.reportActions"),
-                        subtitle: appState.t("settings.reportActionsDescription"),
-                        icon: .reportActions
-                    ) {
-                        Button {
-                            appState.exportSelectedReportAsHTML()
-                        } label: {
-                            Label(appState.t("settings.exportHTML"), systemImage: "chevron.left.forwardslash.chevron.right")
-                        }
-                        .disabled(appState.selectedReport == nil)
-                        .help(appState.t("settings.exportHTML"))
-                        .accessibilityLabel(Text(appState.t("settings.exportHTML")))
-
-                        Button {
-                            appState.exportSelectedReportAsPDF()
-                        } label: {
-                            Label(appState.t("settings.exportPDF"), systemImage: "doc.richtext")
-                        }
-                        .disabled(appState.selectedReport == nil)
-                        .help(appState.t("settings.exportPDF"))
-                        .accessibilityLabel(Text(appState.t("settings.exportPDF")))
-
-                        Button {
-                            appState.openSelectedReportSource()
-                        } label: {
-                            Label(appState.t("settings.openFinder"), systemImage: "folder")
-                        }
-                        .disabled(appState.selectedReport == nil)
-                        .help(appState.t("settings.openFinder"))
-                        .accessibilityLabel(Text(appState.t("settings.openFinder")))
-                    }
-                }
+            SettingsActionRow(
+                title: appState.t("about.checkUpdates"),
+                subtitle: "",
+                icon: .update
+            ) {
+                appState.checkForUpdatesManually()
+            }
         }
     }
 
@@ -461,6 +394,12 @@ struct SettingsRootView: View {
         } catch {
             calibrationResult = nil
             calibrationMessage = error.localizedDescription
+        }
+    }
+
+    private func clearInitialControlFocus() {
+        DispatchQueue.main.async {
+            NSApp.keyWindow?.makeFirstResponder(nil)
         }
     }
 
@@ -578,59 +517,20 @@ struct SettingsRootView: View {
     }
 }
 
-private struct SettingsAssistantTimeoutRow: View {
-    let title: String
-    let subtitle: String
-    var icon: SettingsRowIconStyle = .assistantTimeout
-    @Binding var value: Double
+private struct SettingsPaneScroll<Content: View>: View {
+    @ViewBuilder var content: Content
 
     var body: some View {
-        SettingsControlRow(title: title, subtitle: subtitle, icon: icon) {
-            SettingsAssistantTimeoutStepper(value: $value)
+        ScrollView {
+            VStack(alignment: .leading, spacing: SettingsLayout.sectionSpacing) {
+                content
+            }
+            .frame(maxWidth: SettingsLayout.pageMaxWidth, alignment: .topLeading)
+            .frame(maxWidth: .infinity, alignment: .top)
+            .padding(.horizontal, SettingsLayout.pageHorizontalPadding)
+            .padding(.top, SettingsLayout.pageTopPadding)
+            .padding(.bottom, SettingsLayout.pageBottomPadding)
         }
-    }
-}
-
-private struct SettingsAssistantTimeoutStepper: View {
-    @Environment(AppState.self) private var appState
-    @Binding var value: Double
-
-    private let range: ClosedRange<Double> = 1...300
-    private let step: Double = 5
-
-    var body: some View {
-        HStack(spacing: 8) {
-            TextField(appState.t("common.seconds"), value: clampedBinding, format: .number.precision(.fractionLength(0)))
-                .textFieldStyle(.roundedBorder)
-                .multilineTextAlignment(.center)
-                .font(AppTypography.code.weight(.medium))
-                .frame(width: SettingsLayout.numberFieldWidth + 12)
-                .accessibilityLabel(Text(appState.t("settings.auditAssistantTimeout")))
-                .accessibilityValue(Text("\(Int(clamped(value)))"))
-
-            Stepper("", value: clampedBinding, in: range, step: step)
-                .labelsHidden()
-                .frame(width: SettingsLayout.stepperWidth - 46)
-                .accessibilityLabel(Text(appState.t("settings.auditAssistantTimeout")))
-                .accessibilityValue(Text("\(Int(clamped(value)))"))
-
-            Text(appState.t("common.seconds"))
-                .font(AppTypography.metadata)
-                .foregroundStyle(.secondary)
-                .frame(width: SettingsLayout.hintWidth, alignment: .trailing)
-        }
-        .frame(width: SettingsLayout.thresholdControlWidth, alignment: .trailing)
-    }
-
-    private var clampedBinding: Binding<Double> {
-        Binding(
-            get: { clamped(value) },
-            set: { value = clamped($0) }
-        )
-    }
-
-    private func clamped(_ candidate: Double) -> Double {
-        min(max(candidate, range.lowerBound), range.upperBound)
     }
 }
 

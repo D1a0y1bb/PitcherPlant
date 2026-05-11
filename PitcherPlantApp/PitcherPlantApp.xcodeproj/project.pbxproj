@@ -37,6 +37,7 @@
 		52F05F122239396D7264B963 /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = D673FE8D6282EE7380206D3C /* Sparkle */; };
 		55FB9244B5B59426F4080EF9 /* MainWindowLayoutPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 33E047B895AB3D17E261D2AD /* MainWindowLayoutPolicy.swift */; };
 		56E47645240E1C3E3D032F1B /* Typography.swift in Sources */ = {isa = PBXBuildFile; fileRef = 65239D837F7125DDE36465A7 /* Typography.swift */; };
+		59ADA81CA8C17EB934AD6F9C /* SettingsWindowChromeSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = E63EB1F326A3A94C7D46B68A /* SettingsWindowChromeSupport.swift */; };
 		5A1BDC7815064C75F1281B3D /* EvidenceReviewTableModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0F94AF6A27D6A9120BD939C2 /* EvidenceReviewTableModels.swift */; };
 		5ABE317374EE212C9D507DD2 /* ReportExporter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 58D12DF8783F55B02E4AD0E1 /* ReportExporter.swift */; };
 		5D125E012649B55D4C9FF41E /* EvidenceReviewTableView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7F860CDE2440435797FC27D6 /* EvidenceReviewTableView.swift */; };
@@ -166,6 +167,7 @@
 		DBB55A314F8FAD2F30606AD3 /* NativeToolbarSupport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeToolbarSupport.swift; sourceTree = "<group>"; };
 		E02E2A9EBDD61AF8EB8A15FF /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		E18F48FACAE380029052976A /* ReportModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReportModels.swift; sourceTree = "<group>"; };
+		E63EB1F326A3A94C7D46B68A /* SettingsWindowChromeSupport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsWindowChromeSupport.swift; sourceTree = "<group>"; };
 		E8DE8E1448418CE47B397DC7 /* LocalizationResourceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalizationResourceTests.swift; sourceTree = "<group>"; };
 		EB7D836E4BAE584D68A8771F /* EnvironmentSupport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EnvironmentSupport.swift; sourceTree = "<group>"; };
 		EFDDCDC96DC50EA13344FF89 /* ReportAssembler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReportAssembler.swift; sourceTree = "<group>"; };
@@ -323,6 +325,7 @@
 				7C1FB0D5C276B9F29035D603 /* SettingsPathControls.swift */,
 				5D684506393797F240E731AA /* SettingsRootView.swift */,
 				3C41049ABF3348F1AB4240F0 /* SettingsStyles.swift */,
+				E63EB1F326A3A94C7D46B68A /* SettingsWindowChromeSupport.swift */,
 			);
 			path = Settings;
 			sourceTree = "<group>";
@@ -597,6 +600,7 @@
 				E0968ED079E63D82CBBD2EF8 /* SettingsPathControls.swift in Sources */,
 				0F406771B516A94A398EA9AA /* SettingsRootView.swift in Sources */,
 				5EFE25EEC256A6780006F171 /* SettingsStyles.swift in Sources */,
+				59ADA81CA8C17EB934AD6F9C /* SettingsWindowChromeSupport.swift in Sources */,
 				77B4149FC7503861A643DC86 /* SubmissionImportService.swift in Sources */,
 				D0C6CFF3D16216B53B687BE0 /* Theme.swift in Sources */,
 				56E47645240E1C3E3D032F1B /* Typography.swift in Sources */,

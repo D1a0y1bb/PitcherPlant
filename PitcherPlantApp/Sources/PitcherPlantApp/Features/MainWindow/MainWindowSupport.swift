@@ -57,7 +57,6 @@ struct MainSidebarView: View {
             Section(appState.t("sidebar.libraries")) {
                 sidebarRow(.fingerprints)
                 sidebarRow(.whitelist)
-                sidebarRow(.settings)
             }
         }
         .listStyle(.sidebar)
@@ -94,7 +93,6 @@ struct MainSidebarView: View {
         case .crossBatchEvidence: return .pink
         case .fingerprints: return .blue
         case .whitelist: return .green
-        case .settings: return .orange
         }
     }
 

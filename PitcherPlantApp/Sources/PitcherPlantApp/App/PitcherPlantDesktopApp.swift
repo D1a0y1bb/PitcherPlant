@@ -60,9 +60,7 @@ struct PitcherPlantDesktopApp: App {
 
             CommandGroup(replacing: .appSettings) {
                 Button(appState.t("settings.title")) {
-                    openWindow(id: AppWindow.main.rawValue)
-                    appState.selectedMainSidebar = .settings
-                    NSApp.activate(ignoringOtherApps: true)
+                    openSettingsWindow()
                 }
                 .keyboardShortcut(",", modifiers: .command)
             }
@@ -76,6 +74,23 @@ struct PitcherPlantDesktopApp: App {
             )
         }
 
+        WindowGroup(appState.t("settings.title"), id: AppWindow.settings.rawValue) {
+            SettingsRootView()
+                .environment(appState)
+                .environment(\.locale, appState.effectiveLocale ?? .current)
+                .preferredColorScheme(appState.effectiveColorScheme)
+                .modifier(AppAppearanceSyncModifier(appearance: appState.appSettings.appearance, syncKey: appearanceSyncKey))
+                .modifier(SystemMenuLocalizationModifier(appState: appState, syncKey: appearanceSyncKey))
+        }
+        .defaultSize(width: 1040, height: 720)
+        .defaultLaunchBehavior(.suppressed)
+        .windowStyle(.titleBar)
+        .windowResizability(.contentMinSize)
+    }
+
+    private func openSettingsWindow() {
+        openWindow(id: AppWindow.settings.rawValue)
+        NSApp.activate(ignoringOtherApps: true)
     }
 
     private func showAboutPanel() {

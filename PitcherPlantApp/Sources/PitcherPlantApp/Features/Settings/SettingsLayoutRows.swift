@@ -1,15 +1,21 @@
 import SwiftUI
+import AppKit
 
 enum SettingsLayout {
-    static let horizontalPadding: CGFloat = 14
-    static let groupHorizontalPadding: CGFloat = 20
+    static let pageMaxWidth: CGFloat = 780
+    static let pageHorizontalPadding: CGFloat = 48
+    static let pageTopPadding: CGFloat = 42
+    static let pageBottomPadding: CGFloat = 44
+    static let sectionSpacing: CGFloat = 34
+    static let groupHorizontalPadding: CGFloat = 18
     static let rowLeadingPadding: CGFloat = 18
-    static let rowIconSize: CGFloat = 28
-    static let rowIconCornerRadius: CGFloat = 7
+    static let rowTrailingPadding: CGFloat = 14
+    static let rowIconSize: CGFloat = 24
     static let rowMinHeight: CGFloat = 56
-    static let dividerLeadingPadding: CGFloat = rowLeadingPadding + rowIconSize + 16
-    static let trailingWidth: CGFloat = 360
-    static let menuWidth: CGFloat = 220
+    static let groupCornerRadius: CGFloat = 14
+    static let dividerLeadingPadding: CGFloat = rowLeadingPadding + rowIconSize + 18
+    static let trailingWidth: CGFloat = 330
+    static let menuWidth: CGFloat = 190
     static let numberFieldWidth: CGFloat = 50
     static let stepperWidth: CGFloat = 132
     static let hintWidth: CGFloat = 70
@@ -21,9 +27,10 @@ enum SettingsLayout {
 struct SettingsGroup<Content: View>: View {
     let title: String
     @ViewBuilder var content: Content
+    @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 10) {
             Text(title)
                 .font(AppTypography.sectionTitle)
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -33,18 +40,17 @@ struct SettingsGroup<Content: View>: View {
                 content
             }
             .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.vertical, 2)
             .background {
-                RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .fill(.regularMaterial)
+                RoundedRectangle(cornerRadius: SettingsLayout.groupCornerRadius, style: .continuous)
+                    .fill(groupFill)
             }
-            .overlay {
-                RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .strokeBorder(Color(nsColor: .separatorColor).opacity(0.28), lineWidth: 0.5)
-            }
+            .clipShape(RoundedRectangle(cornerRadius: SettingsLayout.groupCornerRadius, style: .continuous))
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.bottom, 16)
+    }
+
+    private var groupFill: Color {
+        Color.primary.opacity(colorScheme == .dark ? 0.08 : 0.045)
     }
 }
 

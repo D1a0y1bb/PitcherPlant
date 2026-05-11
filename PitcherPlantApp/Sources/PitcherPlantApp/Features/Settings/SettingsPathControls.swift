@@ -9,22 +9,26 @@ struct SettingsEditablePathControl: View {
         Button {
             chooseDirectory()
         } label: {
-            Label {
+            HStack(spacing: 6) {
                 Text(text.isEmpty ? title : text)
-                    .font(AppTypography.smallCode)
+                    .font(.body)
+                    .foregroundStyle(.secondary)
                     .lineLimit(1)
                     .truncationMode(.middle)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-            } icon: {
-                Image(systemName: "folder")
+                    .frame(maxWidth: .infinity, alignment: .trailing)
+
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(.tertiary)
+                    .accessibilityHidden(true)
             }
-            .frame(width: SettingsLayout.trailingWidth, alignment: .leading)
+            .frame(maxWidth: SettingsLayout.trailingWidth, alignment: .trailing)
         }
-        .buttonStyle(.bordered)
+        .buttonStyle(.plain)
         .help(title)
         .accessibilityLabel(title)
         .accessibilityValue(text)
-        .frame(width: SettingsLayout.trailingWidth, alignment: .trailing)
+        .frame(maxWidth: SettingsLayout.trailingWidth, alignment: .trailing)
     }
 }
 
@@ -46,11 +50,13 @@ struct SettingsPathDisplay: View {
     let value: String
 
     var body: some View {
-        TextField("", text: .constant(value))
-            .textFieldStyle(.roundedBorder)
-            .font(AppTypography.smallCode)
-            .disabled(true)
-            .frame(width: SettingsLayout.compactPathWidth, alignment: .leading)
+        Text(value)
+            .font(.body)
+            .foregroundStyle(.secondary)
+            .lineLimit(1)
+            .truncationMode(.middle)
+            .textSelection(.enabled)
+            .frame(maxWidth: SettingsLayout.compactPathWidth, alignment: .trailing)
             .accessibilityLabel(Text(title))
             .accessibilityValue(Text(value))
             .help(value)

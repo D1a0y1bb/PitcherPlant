@@ -2,6 +2,7 @@ import Foundation
 
 enum AppWindow: String {
     case main
+    case settings
 }
 
 enum MainSidebarItem: String, Codable, CaseIterable, Identifiable, Sendable {
@@ -20,7 +21,6 @@ enum MainSidebarItem: String, Codable, CaseIterable, Identifiable, Sendable {
     case crossBatchEvidence
     case fingerprints
     case whitelist
-    case settings
 
     var id: String { rawValue }
 
@@ -41,7 +41,6 @@ enum MainSidebarItem: String, Codable, CaseIterable, Identifiable, Sendable {
         case .crossBatchEvidence: return "跨批次"
         case .fingerprints: return "指纹库"
         case .whitelist: return "白名单"
-        case .settings: return "设置"
         }
     }
 
@@ -62,7 +61,6 @@ enum MainSidebarItem: String, Codable, CaseIterable, Identifiable, Sendable {
         case .crossBatchEvidence: return "sidebar.crossBatchEvidence"
         case .fingerprints: return "sidebar.fingerprints"
         case .whitelist: return "sidebar.whitelist"
-        case .settings: return "sidebar.settings"
         }
     }
 
@@ -83,7 +81,6 @@ enum MainSidebarItem: String, Codable, CaseIterable, Identifiable, Sendable {
         case .crossBatchEvidence: return "arrow.triangle.branch"
         case .fingerprints: return "server.rack"
         case .whitelist: return "checklist"
-        case .settings: return "gearshape.fill"
         }
     }
 
@@ -116,7 +113,7 @@ enum MainSidebarItem: String, Codable, CaseIterable, Identifiable, Sendable {
         switch self {
         case .workspace, .allEvidence, .favoriteEvidence, .watchedEvidence, .history, .reports, .textEvidence, .codeEvidence, .imageEvidence, .metadataEvidence, .dedupEvidence, .crossBatchEvidence:
             return true
-        case .newAudit, .fingerprints, .whitelist, .settings:
+        case .newAudit, .fingerprints, .whitelist:
             return false
         }
     }

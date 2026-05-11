@@ -6,12 +6,12 @@ private let inspectorColumnAnimation = Animation.smooth(duration: 0.32, extraBou
 struct MainWindowView: View {
     @Environment(AppState.self) private var appState
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.openWindow) private var openWindow
     @SceneStorage("pitcherplant.inspectorVisible") private var inspectorVisible = false
     @State private var columnVisibility: NavigationSplitViewVisibility = .all
     @State private var autoCollapsedSidebar = false
     @State private var applyingSidebarPolicy = false
     @State private var windowWidth: CGFloat = 0
-    @State private var settingsSearchText = ""
     @State private var reportSearchText = ""
     private let layoutPolicy = MainWindowLayoutPolicy()
     private let inspectorTransitionPolicy = MainWindowInspectorTransitionPolicy()
@@ -43,9 +43,6 @@ struct MainWindowView: View {
             handleSidebarVisibilityChange(visibility)
         }
         .onChange(of: appState.selectedMainSidebar) { _, _ in
-            if appState.selectedMainSidebar != .settings {
-                settingsSearchText = ""
-            }
             if !isReportSearchContext {
                 reportSearchText = ""
             }
@@ -120,30 +117,21 @@ struct MainWindowView: View {
     }
 
     private var supportsToolbarSearch: Bool {
-        appState.selectedMainSidebar == .settings || isReportSearchContext
+        isReportSearchContext
     }
 
     private var toolbarSearchBinding: Binding<String> {
         Binding {
-            if appState.selectedMainSidebar == .settings {
-                return settingsSearchText
-            }
             return reportSearchText
         } set: { value in
-            if appState.selectedMainSidebar == .settings {
-                settingsSearchText = value
-            } else if isReportSearchContext {
+            if isReportSearchContext {
                 reportSearchText = value
             }
         }
     }
 
     private var toolbarSearchPrompt: String {
-        if appState.selectedMainSidebar == .settings {
-            appState.t("settings.searchPrompt")
-        } else {
-            appState.t("reports.searchPrompt")
-        }
+        appState.t("reports.searchPrompt")
     }
 
     private func motion(_ animation: Animation) -> Animation? {
@@ -313,8 +301,8 @@ struct MainWindowView: View {
         ToolbarItemGroup(placement: .primaryAction) {
             startAuditToolbarButton
             reloadToolbarButton
-            settingsToolbarButton
             inspectorToolbarButton
+            settingsToolbarButton
         }
     }
 
@@ -326,6 +314,17 @@ struct MainWindowView: View {
         }
         .help(appState.t("update.button.help"))
         .accessibilityLabel(appState.t("update.button.accessibility"))
+    }
+
+    private var settingsToolbarButton: some View {
+        Button {
+            openWindow(id: AppWindow.settings.rawValue)
+            NSApp.activate(ignoringOtherApps: true)
+        } label: {
+            Label(appState.t("toolbar.settings"), systemImage: "gearshape")
+        }
+        .help(appState.t("toolbar.settings"))
+        .accessibilityLabel(appState.t("toolbar.settings"))
     }
 
     private var newAuditToolbarButton: some View {
@@ -379,16 +378,6 @@ struct MainWindowView: View {
         .accessibilityLabel(appState.t("toolbar.reload"))
     }
 
-    private var settingsToolbarButton: some View {
-        Button {
-            selectMainSidebarItem(.settings)
-        } label: {
-            Label(appState.t("toolbar.settings"), systemImage: "gear")
-        }
-        .help(appState.t("toolbar.settings"))
-        .accessibilityLabel(appState.t("toolbar.settings"))
-    }
-
     private var inspectorToolbarButton: some View {
         Button {
             withAnimation(motion(inspectorColumnAnimation)) {
@@ -424,11 +413,6 @@ struct MainWindowView: View {
             FingerprintLibraryView()
         case .whitelist:
             WhitelistLibraryView()
-        case .settings:
-            SettingsRootView(
-                searchText: $settingsSearchText,
-                presentation: .embeddedInMainWindow
-            )
         }
     }
 }

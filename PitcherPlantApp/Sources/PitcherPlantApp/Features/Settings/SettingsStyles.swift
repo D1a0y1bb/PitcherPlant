@@ -1,7 +1,6 @@
 import SwiftUI
 
 struct SettingsControlRow<Content: View>: View {
-    @Environment(\.settingsSearchQuery) private var searchQuery
     let title: String
     let subtitle: String
     let icon: SettingsRowIconStyle
@@ -9,27 +8,31 @@ struct SettingsControlRow<Content: View>: View {
 
     var body: some View {
         SettingsRowContainer {
-            HStack(alignment: .center, spacing: 16) {
-                SettingsRowIcon(style: icon)
+            ViewThatFits(in: .horizontal) {
+                HStack(alignment: .center, spacing: 18) {
+                    SettingsRowIcon(style: icon)
 
-                SettingsRowText(title: title, subtitle: subtitle)
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                    SettingsRowText(title: title, subtitle: subtitle)
+                        .frame(maxWidth: .infinity, alignment: .leading)
 
-                Spacer(minLength: 12)
+                    Spacer(minLength: 12)
 
-                content
-                    .frame(width: SettingsLayout.trailingWidth, alignment: .trailing)
+                    content
+                        .frame(maxWidth: SettingsLayout.trailingWidth, alignment: .trailing)
+                }
+
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack(spacing: 10) {
+                        SettingsRowIcon(style: icon)
+                        SettingsRowText(title: title, subtitle: subtitle)
+                    }
+
+                    content
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
             }
         }
-        .opacity(searchOpacity)
         .help(subtitle)
-    }
-
-    private var searchOpacity: Double {
-        guard !searchQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-            return 1
-        }
-        return settingMatchesSearch(title, subtitle, query: searchQuery) ? 1 : 0.28
     }
 }
 
@@ -40,8 +43,8 @@ struct SettingsRowContainer<Content: View>: View {
         content
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.leading, SettingsLayout.rowLeadingPadding)
-            .padding(.trailing, SettingsLayout.groupHorizontalPadding)
-            .padding(.vertical, 10)
+            .padding(.trailing, SettingsLayout.rowTrailingPadding)
+            .padding(.vertical, 9)
             .frame(minHeight: SettingsLayout.rowMinHeight)
     }
 }
@@ -77,10 +80,8 @@ extension SettingsRowIconStyle {
     static let database = SettingsRowIconStyle(systemImage: "cylinder.split.1x2", color: .blue)
     static let recordCounts = SettingsRowIconStyle(systemImage: "number.square", color: .orange)
     static let dataActions = SettingsRowIconStyle(systemImage: "externaldrive", color: .green)
-    static let startAudit = SettingsRowIconStyle(systemImage: "play.fill", color: .green)
-    static let cancelAudit = SettingsRowIconStyle(systemImage: "stop.fill", color: .red)
-    static let openReports = SettingsRowIconStyle(systemImage: "doc.text.magnifyingglass", color: .indigo)
-    static let reportActions = SettingsRowIconStyle(systemImage: "square.and.arrow.up.on.square", color: .pink)
+    static let about = SettingsRowIconStyle(systemImage: "circle.fill", color: .primary)
+    static let update = SettingsRowIconStyle(systemImage: "arrow.up.circle", color: .primary)
     static let generic = SettingsRowIconStyle(systemImage: "gearshape", color: .gray)
 }
 
@@ -88,17 +89,12 @@ struct SettingsRowIcon: View {
     let style: SettingsRowIconStyle
 
     var body: some View {
-        ZStack {
-            RoundedRectangle(cornerRadius: SettingsLayout.rowIconCornerRadius, style: .continuous)
-                .fill(style.color)
-
-            Image(systemName: style.systemImage)
-                .font(.system(size: 12, weight: .semibold))
-                .foregroundStyle(.white)
-                .symbolRenderingMode(.hierarchical)
-        }
-        .frame(width: SettingsLayout.rowIconSize, height: SettingsLayout.rowIconSize)
-        .accessibilityHidden(true)
+        Image(systemName: style.systemImage)
+            .font(.system(size: 17, weight: .regular))
+            .symbolRenderingMode(.hierarchical)
+            .foregroundStyle(.primary)
+            .frame(width: SettingsLayout.rowIconSize, height: SettingsLayout.rowIconSize)
+            .accessibilityHidden(true)
     }
 }
 
@@ -107,11 +103,21 @@ struct SettingsRowText: View {
     let subtitle: String
 
     var body: some View {
-        Text(title)
-            .font(AppTypography.rowPrimary.weight(.semibold))
-            .lineLimit(2)
-            .fixedSize(horizontal: false, vertical: true)
-            .accessibilityHint(subtitle)
+        VStack(alignment: .leading, spacing: 2) {
+            Text(title)
+                .font(.body.weight(.medium))
+                .lineLimit(2)
+                .fixedSize(horizontal: false, vertical: true)
+
+            if subtitle.isEmpty == false {
+                Text(subtitle)
+                    .font(AppTypography.metadata)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(2)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .accessibilityHint(subtitle)
     }
 }
 
@@ -124,7 +130,7 @@ struct SettingsStatusText: View {
 
     var body: some View {
         Text(text)
-            .font(AppTypography.metadata)
+            .font(.body)
             .foregroundStyle(.secondary)
             .lineLimit(1)
             .truncationMode(.middle)
@@ -136,19 +142,6 @@ struct SettingsDivider: View {
     var body: some View {
         Divider()
             .padding(.leading, SettingsLayout.dividerLeadingPadding)
-            .padding(.trailing, SettingsLayout.groupHorizontalPadding)
+            .padding(.trailing, SettingsLayout.rowTrailingPadding)
     }
-}
-
-private func settingMatchesSearch(_ title: String, _ subtitle: String, query: String) -> Bool {
-    let trimmedQuery = query.trimmingCharacters(in: .whitespacesAndNewlines)
-    guard !trimmedQuery.isEmpty else {
-        return true
-    }
-    return title.localizedCaseInsensitiveContains(trimmedQuery)
-        || subtitle.localizedCaseInsensitiveContains(trimmedQuery)
-}
-
-extension EnvironmentValues {
-    @Entry var settingsSearchQuery = ""
 }
