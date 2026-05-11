@@ -9,6 +9,7 @@ struct MainWindowView: View {
     @Environment(\.openWindow) private var openWindow
     @SceneStorage("pitcherplant.inspectorVisible") private var inspectorVisible = false
     @State private var columnVisibility: NavigationSplitViewVisibility = .all
+    @State private var workspacePresentationMode: WorkspacePresentationMode = .map
     @State private var autoCollapsedSidebar = false
     @State private var applyingSidebarPolicy = false
     @State private var windowWidth: CGFloat = 0
@@ -132,6 +133,10 @@ struct MainWindowView: View {
 
     private var toolbarSearchPrompt: String {
         appState.t("reports.searchPrompt")
+    }
+
+    private var workspacePresentationBinding: Binding<WorkspacePresentationMode> {
+        $workspacePresentationMode
     }
 
     private func motion(_ animation: Animation) -> Animation? {
@@ -284,6 +289,16 @@ struct MainWindowView: View {
         NSApp.activate(ignoringOtherApps: true)
     }
 
+    private func toggleWorkspacePresentation() {
+        if appState.selectedMainSidebar == .workspace && workspacePresentationMode == .map {
+            workspacePresentationMode = .dashboard
+        } else {
+            workspacePresentationMode = .map
+            selectMainSidebarItem(.workspace)
+        }
+        NSApp.activate(ignoringOtherApps: true)
+    }
+
     @ToolbarContentBuilder
     private var mainToolbarItems: some ToolbarContent {
         ToolbarItemGroup(placement: .primaryAction) {
@@ -301,6 +316,7 @@ struct MainWindowView: View {
         ToolbarItemGroup(placement: .primaryAction) {
             startAuditToolbarButton
             reloadToolbarButton
+            workspacePresentationToolbarButton
             inspectorToolbarButton
             settingsToolbarButton
         }
@@ -378,6 +394,20 @@ struct MainWindowView: View {
         .accessibilityLabel(appState.t("toolbar.reload"))
     }
 
+    private var workspacePresentationToolbarButton: some View {
+        let showingMap = appState.selectedMainSidebar == .workspace && workspacePresentationMode == .map
+        let title = showingMap ? appState.t("toolbar.showWorkspaceDashboard") : appState.t("toolbar.showWorkspaceMap")
+        let systemImage = showingMap ? "square.grid.2x2" : "airplane.departure"
+
+        return Button {
+            toggleWorkspacePresentation()
+        } label: {
+            Label(title, systemImage: systemImage)
+        }
+        .help(title)
+        .accessibilityLabel(title)
+    }
+
     private var inspectorToolbarButton: some View {
         Button {
             withAnimation(motion(inspectorColumnAnimation)) {
@@ -398,7 +428,7 @@ struct MainWindowView: View {
     private var mainContent: some View {
         switch appState.selectedMainSidebar {
         case .workspace:
-            WorkspaceDashboardView()
+            WorkspaceDashboardView(presentationMode: workspacePresentationBinding)
         case .newAudit:
             NewAuditView()
         case .history:

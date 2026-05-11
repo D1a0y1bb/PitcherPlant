@@ -13,8 +13,18 @@ private let workspaceStatusRowsSpacing: CGFloat = 30
 
 struct WorkspaceDashboardView: View {
     @Environment(AppState.self) private var appState
+    @Binding var presentationMode: WorkspacePresentationMode
 
     var body: some View {
+        switch presentationMode {
+        case .map:
+            WorkspaceMapEntryView(presentationMode: $presentationMode)
+        case .dashboard:
+            dashboardContent
+        }
+    }
+
+    private var dashboardContent: some View {
         AppPageShell(spacing: workspaceDashboardSpacing) {
             dashboardRow {
                 auditStatusCard

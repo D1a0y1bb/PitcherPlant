@@ -11,6 +11,7 @@ struct SettingsRootView: View {
         SettingsPaneScroll {
             applicationSettings
             auditDefaultsSettings
+            thresholdSettings
             calibrationSettings
             auditAssistantSettings
             reportSettings
@@ -96,6 +97,35 @@ struct SettingsRootView: View {
 
             SettingsDivider()
 
+            SettingsToggleRow(
+                title: appState.t("audit.visionOCR"),
+                subtitle: appState.t("settings.visionOCRDescription"),
+                icon: .vision,
+                isOn: draftBoolBinding(\.useVisionOCR)
+            )
+
+            SettingsDivider()
+
+            SettingsPickerRow(
+                title: appState.t("audit.whitelistMode"),
+                subtitle: currentValueSubtitle(
+                    appState.t("settings.whitelistModeDescription"),
+                    value: appState.title(for: appState.draftConfiguration.whitelistMode)
+                ),
+                icon: .whitelist
+            ) {
+                SettingsMenuPicker(
+                    selection: draftBinding(\.whitelistMode),
+                    options: AuditConfiguration.WhitelistMode.allCases,
+                    width: SettingsLayout.menuWidth,
+                    title: { appState.title(for: $0) }
+                )
+            }
+        }
+    }
+
+    private var thresholdSettings: some View {
+        SettingsGroup(title: appState.t("settings.thresholds")) {
             SettingsNumberFieldRow(
                 title: appState.t("audit.textThreshold"),
                 subtitle: appState.t("settings.textThresholdDescription"),
@@ -133,33 +163,6 @@ struct SettingsRootView: View {
                 value: draftIntBinding(\.simhashThreshold),
                 hint: "0-64"
             )
-
-            SettingsDivider()
-
-            SettingsToggleRow(
-                title: appState.t("audit.visionOCR"),
-                subtitle: appState.t("settings.visionOCRDescription"),
-                icon: .vision,
-                isOn: draftBoolBinding(\.useVisionOCR)
-            )
-
-            SettingsDivider()
-
-            SettingsPickerRow(
-                title: appState.t("audit.whitelistMode"),
-                subtitle: currentValueSubtitle(
-                    appState.t("settings.whitelistModeDescription"),
-                    value: appState.title(for: appState.draftConfiguration.whitelistMode)
-                ),
-                icon: .whitelist
-            ) {
-                SettingsMenuPicker(
-                    selection: draftBinding(\.whitelistMode),
-                    options: AuditConfiguration.WhitelistMode.allCases,
-                    width: SettingsLayout.menuWidth,
-                    title: { appState.title(for: $0) }
-                )
-            }
         }
     }
 

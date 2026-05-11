@@ -8,28 +8,16 @@ struct SettingsControlRow<Content: View>: View {
 
     var body: some View {
         SettingsRowContainer {
-            ViewThatFits(in: .horizontal) {
-                HStack(alignment: .center, spacing: 18) {
-                    SettingsRowIcon(style: icon)
+            HStack(alignment: .center, spacing: 18) {
+                SettingsRowIcon(style: icon)
 
-                    SettingsRowText(title: title, subtitle: subtitle)
-                        .frame(maxWidth: .infinity, alignment: .leading)
+                SettingsRowText(title: title, subtitle: subtitle)
+                    .frame(maxWidth: .infinity, alignment: .leading)
 
-                    Spacer(minLength: 12)
+                Spacer(minLength: 12)
 
-                    content
-                        .frame(maxWidth: SettingsLayout.trailingWidth, alignment: .trailing)
-                }
-
-                VStack(alignment: .leading, spacing: 8) {
-                    HStack(spacing: 10) {
-                        SettingsRowIcon(style: icon)
-                        SettingsRowText(title: title, subtitle: subtitle)
-                    }
-
-                    content
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                }
+                content
+                    .frame(width: SettingsLayout.trailingWidth, alignment: .trailing)
             }
         }
         .help(subtitle)
@@ -44,7 +32,7 @@ struct SettingsRowContainer<Content: View>: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.leading, SettingsLayout.rowLeadingPadding)
             .padding(.trailing, SettingsLayout.rowTrailingPadding)
-            .padding(.vertical, 9)
+            .padding(.vertical, 5)
             .frame(minHeight: SettingsLayout.rowMinHeight)
     }
 }
@@ -103,20 +91,10 @@ struct SettingsRowText: View {
     let subtitle: String
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Text(title)
-                .font(.body.weight(.medium))
-                .lineLimit(2)
-                .fixedSize(horizontal: false, vertical: true)
-
-            if subtitle.isEmpty == false {
-                Text(subtitle)
-                    .font(AppTypography.metadata)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(2)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-        }
+        Text(title)
+            .font(.body.weight(.medium))
+            .lineLimit(1)
+            .fixedSize(horizontal: false, vertical: true)
         .accessibilityHint(subtitle)
     }
 }

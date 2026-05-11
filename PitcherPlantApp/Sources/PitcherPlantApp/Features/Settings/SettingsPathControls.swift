@@ -22,13 +22,13 @@ struct SettingsEditablePathControl: View {
                     .foregroundStyle(.tertiary)
                     .accessibilityHidden(true)
             }
-            .frame(maxWidth: SettingsLayout.trailingWidth, alignment: .trailing)
+            .frame(width: SettingsLayout.trailingWidth, alignment: .trailing)
         }
         .buttonStyle(.plain)
         .help(title)
         .accessibilityLabel(title)
         .accessibilityValue(text)
-        .frame(maxWidth: SettingsLayout.trailingWidth, alignment: .trailing)
+        .frame(width: SettingsLayout.trailingWidth, alignment: .trailing)
     }
 }
 

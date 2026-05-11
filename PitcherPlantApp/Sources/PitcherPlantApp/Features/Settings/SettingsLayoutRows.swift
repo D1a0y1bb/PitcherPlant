@@ -2,20 +2,20 @@ import SwiftUI
 import AppKit
 
 enum SettingsLayout {
-    static let pageMaxWidth: CGFloat = 780
-    static let pageHorizontalPadding: CGFloat = 48
-    static let pageTopPadding: CGFloat = 42
-    static let pageBottomPadding: CGFloat = 44
-    static let sectionSpacing: CGFloat = 34
+    static let pageMaxWidth: CGFloat = 850
+    static let pageHorizontalPadding: CGFloat = 34
+    static let pageTopPadding: CGFloat = 30
+    static let pageBottomPadding: CGFloat = 40
+    static let sectionSpacing: CGFloat = 30
     static let groupHorizontalPadding: CGFloat = 18
     static let rowLeadingPadding: CGFloat = 18
-    static let rowTrailingPadding: CGFloat = 14
+    static let rowTrailingPadding: CGFloat = 18
     static let rowIconSize: CGFloat = 24
-    static let rowMinHeight: CGFloat = 56
+    static let rowMinHeight: CGFloat = 46
     static let groupCornerRadius: CGFloat = 14
     static let dividerLeadingPadding: CGFloat = rowLeadingPadding + rowIconSize + 18
-    static let trailingWidth: CGFloat = 330
-    static let menuWidth: CGFloat = 190
+    static let trailingWidth: CGFloat = 380
+    static let menuWidth: CGFloat = 170
     static let numberFieldWidth: CGFloat = 50
     static let stepperWidth: CGFloat = 132
     static let hintWidth: CGFloat = 70
