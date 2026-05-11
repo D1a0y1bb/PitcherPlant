@@ -1,5 +1,8 @@
 import SwiftUI
 
+private let sidebarRowLeadingPadding: CGFloat = 8
+private let sidebarSectionHeaderLeadingPadding: CGFloat = sidebarRowLeadingPadding
+
 struct EvidenceFocusedReportsView: View {
     @Environment(AppState.self) private var appState
     let kind: ReportSectionKind?
@@ -32,34 +35,50 @@ struct MainSidebarView: View {
 
     var body: some View {
         List(selection: $selection) {
-            Section(appState.t("sidebar.categories")) {
+            Section {
                 sidebarRow(.workspace)
                 sidebarRow(.newAudit)
                 sidebarRow(.history)
                 sidebarRow(.reports)
+            } header: {
+                sidebarSectionHeader(appState.t("sidebar.categories"))
             }
 
-            Section(appState.t("sidebar.evidenceCollections")) {
+            Section {
                 sidebarRow(.allEvidence)
                 sidebarRow(.favoriteEvidence)
                 sidebarRow(.watchedEvidence)
+            } header: {
+                sidebarSectionHeader(appState.t("sidebar.evidenceCollections"))
             }
 
-            Section(appState.t("sidebar.evidenceTypes")) {
+            Section {
                 sidebarRow(.textEvidence)
                 sidebarRow(.codeEvidence)
                 sidebarRow(.imageEvidence)
                 sidebarRow(.metadataEvidence)
                 sidebarRow(.dedupEvidence)
                 sidebarRow(.crossBatchEvidence)
+            } header: {
+                sidebarSectionHeader(appState.t("sidebar.evidenceTypes"))
             }
 
-            Section(appState.t("sidebar.libraries")) {
+            Section {
                 sidebarRow(.fingerprints)
                 sidebarRow(.whitelist)
+            } header: {
+                sidebarSectionHeader(appState.t("sidebar.libraries"))
             }
         }
         .listStyle(.sidebar)
+    }
+
+    private func sidebarSectionHeader(_ title: String) -> some View {
+        Text(title)
+            .font(.caption.weight(.semibold))
+            .foregroundStyle(.secondary)
+            .padding(.leading, sidebarSectionHeaderLeadingPadding)
+            .textCase(nil)
     }
 
     private func sidebarRow(_ item: MainSidebarItem, title: String? = nil) -> some View {
@@ -72,7 +91,7 @@ struct MainSidebarView: View {
             Spacer()
         }
         .padding(.vertical, 3)
-        .padding(.leading, 8)
+        .padding(.leading, sidebarRowLeadingPadding)
         .tag(item)
     }
 

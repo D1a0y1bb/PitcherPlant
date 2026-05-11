@@ -582,47 +582,89 @@ private struct NativeScanOptionsMenu: View {
     @Environment(AppState.self) private var appState
     @SceneStorage("pitcherplant.toolbar.scanMode") private var selectedModeRaw = AuditToolbarScanMode.standard.rawValue
     @SceneStorage("pitcherplant.toolbar.template") private var selectedTemplateRaw = AuditToolbarTemplate.defaultAudit.rawValue
+    @State private var isShowingOptions = false
 
     var body: some View {
-        Menu {
-            Section(appState.t("toolbar.titleSelector")) {
+        Button {
+            isShowingOptions.toggle()
+        } label: {
+            Label(appState.t("toolbar.titleSelector"), systemImage: "slider.horizontal.3")
+        }
+        .help(appState.t("toolbar.titleSelector"))
+        .accessibilityLabel(appState.t("toolbar.titleSelector"))
+        .popover(isPresented: $isShowingOptions, attachmentAnchor: .rect(.bounds), arrowEdge: .top) {
+            scanOptionsPanel
+        }
+    }
+
+    private var scanOptionsPanel: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            VStack(alignment: .leading, spacing: 6) {
+                panelSectionTitle(appState.t("toolbar.titleSelector"))
                 scanModeButton(.auto)
                 scanModeButton(.deep)
                 scanModeButton(.standard)
                 scanModeButton(.quick)
             }
 
-            Section(appState.t("toolbar.mode.templates")) {
+            Divider()
+
+            VStack(alignment: .leading, spacing: 6) {
+                panelSectionTitle(appState.t("toolbar.mode.templates"))
                 templateButton(.defaultAudit)
                 templateButton(.evidenceReview)
                 templateButton(.fastScreening)
             }
 
+            Divider()
+
             Toggle(isOn: temporaryScanBinding) {
                 Label(appState.t("toolbar.mode.temporary"), systemImage: "wand.and.stars")
             }
-        } label: {
-            Label(appState.t("toolbar.titleSelector"), systemImage: "slider.horizontal.3")
         }
-        .menuIndicator(.hidden)
-        .help(appState.t("toolbar.titleSelector"))
-        .accessibilityLabel(appState.t("toolbar.titleSelector"))
+        .padding(14)
+        .frame(width: 240)
+    }
+
+    private func panelSectionTitle(_ title: String) -> some View {
+        Text(title)
+            .font(AppTypography.metadata.weight(.semibold))
+            .foregroundStyle(.secondary)
     }
 
     private func scanModeButton(_ mode: AuditToolbarScanMode) -> some View {
         Button {
             selectMode(mode)
+            isShowingOptions = false
         } label: {
-            Label(scanModeTitle(mode), systemImage: selectedMode == mode ? "checkmark.circle.fill" : "circle")
+            optionRow(title: scanModeTitle(mode), isSelected: selectedMode == mode)
         }
+        .buttonStyle(.plain)
     }
 
     private func templateButton(_ template: AuditToolbarTemplate) -> some View {
         Button {
             selectTemplate(template)
+            isShowingOptions = false
         } label: {
-            Label(templateTitle(template), systemImage: selectedTemplate == template ? "checkmark.circle.fill" : "circle")
+            optionRow(title: templateTitle(template), isSelected: selectedTemplate == template)
         }
+        .buttonStyle(.plain)
+    }
+
+    private func optionRow(title: String, isSelected: Bool) -> some View {
+        HStack(spacing: 10) {
+            Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
+                .frame(width: 18, alignment: .center)
+                .foregroundStyle(isSelected ? Color.accentColor : Color.secondary)
+
+            Text(title)
+                .foregroundStyle(.primary)
+
+            Spacer(minLength: 12)
+        }
+        .contentShape(Rectangle())
+        .padding(.vertical, 3)
     }
 
     private var selectedMode: AuditToolbarScanMode {
