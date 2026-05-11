@@ -10,6 +10,8 @@ struct WorkspaceMapEntryView: View {
     @Binding var presentationMode: WorkspacePresentationMode
     @Namespace private var mapScope
     @State private var planePulse = false
+    @State private var mapStyleMode: WorkspaceMapStyleMode = .explore
+    @State private var mapDepthMode: WorkspaceMapDepthMode = .twoD
 
     private let nodes = WorkspaceMapNode.defaultNodes
     private let routes = WorkspaceMapRoute.defaultRoutes
@@ -41,7 +43,7 @@ struct WorkspaceMapEntryView: View {
     }
 
     private var routeMap: some View {
-        Map(initialPosition: .camera(WorkspaceMapNode.camera), interactionModes: .all, scope: mapScope) {
+        Map(initialPosition: .camera(WorkspaceMapNode.camera(for: mapDepthMode)), interactionModes: .all, scope: mapScope) {
             ForEach(routes) { route in
                 MapPolyline(coordinates: route.coordinates, contourStyle: .geodesic)
                     .stroke(
@@ -62,14 +64,8 @@ struct WorkspaceMapEntryView: View {
                 }
             }
         }
-        .mapStyle(
-            .standard(
-                elevation: .flat,
-                emphasis: .muted,
-                pointsOfInterest: .excludingAll,
-                showsTraffic: false
-            )
-        )
+        .id("\(mapStyleMode.rawValue)-\(mapDepthMode.rawValue)")
+        .mapStyle(mapStyleMode.mapStyle(for: mapDepthMode))
         .mapControls {
             MapCompass(scope: mapScope)
             MapZoomStepper(scope: mapScope)
@@ -117,6 +113,18 @@ struct WorkspaceMapEntryView: View {
                     )
                 }
 
+                ViewThatFits(in: .horizontal) {
+                    HStack(spacing: 12) {
+                        mapStylePicker
+                        mapDepthPicker
+                    }
+
+                    VStack(alignment: .leading, spacing: 10) {
+                        mapStylePicker
+                        mapDepthPicker
+                    }
+                }
+
                 HStack(spacing: 10) {
                     Button {
                         appState.importSubmissionPackageWithPanel()
@@ -140,6 +148,32 @@ struct WorkspaceMapEntryView: View {
                 .controlSize(.small)
             }
         }
+    }
+
+    private var mapStylePicker: some View {
+        Picker(appState.t("workspace.map.stylePicker"), selection: $mapStyleMode) {
+            ForEach(WorkspaceMapStyleMode.allCases) { style in
+                Text(style.localizedTitle(appState))
+                    .tag(style)
+            }
+        }
+        .pickerStyle(.segmented)
+        .controlSize(.small)
+        .frame(maxWidth: 238)
+        .accessibilityLabel(appState.t("workspace.map.stylePicker"))
+    }
+
+    private var mapDepthPicker: some View {
+        Picker(appState.t("workspace.map.depthPicker"), selection: $mapDepthMode) {
+            ForEach(WorkspaceMapDepthMode.allCases) { depth in
+                Text(depth.localizedTitle(appState))
+                    .tag(depth)
+            }
+        }
+        .pickerStyle(.segmented)
+        .controlSize(.small)
+        .frame(maxWidth: 128)
+        .accessibilityLabel(appState.t("workspace.map.depthPicker"))
     }
 
     private var reportCount: Int {
@@ -199,6 +233,81 @@ struct WorkspaceMapEntryView: View {
     }
 }
 
+private enum WorkspaceMapStyleMode: String, CaseIterable, Hashable, Identifiable, Sendable {
+    case explore
+    case satellite
+    case hybrid
+
+    var id: String { rawValue }
+
+    @MainActor
+    func localizedTitle(_ appState: AppState) -> String {
+        switch self {
+        case .explore:
+            return appState.t("workspace.map.style.explore")
+        case .satellite:
+            return appState.t("workspace.map.style.satellite")
+        case .hybrid:
+            return appState.t("workspace.map.style.hybrid")
+        }
+    }
+
+    func mapStyle(for depthMode: WorkspaceMapDepthMode) -> MapStyle {
+        switch self {
+        case .explore:
+            return .standard(
+                elevation: depthMode.elevation,
+                emphasis: .muted,
+                pointsOfInterest: .excludingAll,
+                showsTraffic: false
+            )
+        case .satellite:
+            return .imagery(elevation: depthMode.elevation)
+        case .hybrid:
+            return .hybrid(
+                elevation: depthMode.elevation,
+                pointsOfInterest: .excludingAll,
+                showsTraffic: false
+            )
+        }
+    }
+}
+
+private enum WorkspaceMapDepthMode: String, CaseIterable, Hashable, Identifiable, Sendable {
+    case twoD
+    case threeD
+
+    var id: String { rawValue }
+
+    var elevation: MapStyle.Elevation {
+        switch self {
+        case .twoD:
+            return .flat
+        case .threeD:
+            return .realistic
+        }
+    }
+
+    var pitch: Double {
+        switch self {
+        case .twoD:
+            return 0
+        case .threeD:
+            return 55
+        }
+    }
+
+    @MainActor
+    func localizedTitle(_ appState: AppState) -> String {
+        switch self {
+        case .twoD:
+            return appState.t("workspace.map.depth.2d")
+        case .threeD:
+            return appState.t("workspace.map.depth.3d")
+        }
+    }
+}
+
 private struct WorkspaceMapNode: Identifiable {
     let id: String
     let titleKey: String
@@ -218,12 +327,12 @@ private struct WorkspaceMapNode: Identifiable {
     static let fingerprint = CLLocationCoordinate2D(latitude: 1.3521, longitude: 103.8198)
 
     @MainActor
-    static var camera: MapCamera {
+    static func camera(for depthMode: WorkspaceMapDepthMode) -> MapCamera {
         MapCamera(
             centerCoordinate: CLLocationCoordinate2D(latitude: 23.8, longitude: 122.8),
             distance: 5_700_000,
             heading: 40,
-            pitch: 0
+            pitch: depthMode.pitch
         )
     }
 
