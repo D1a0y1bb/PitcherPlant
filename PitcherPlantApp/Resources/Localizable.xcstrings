@@ -8721,6 +8721,22 @@
         }
       }
     },
+    "workspace.map.modePanelTitle": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Map Modes"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "地图模式"
+          }
+        }
+      }
+    },
     "workspace.map.currentRoute": {
       "localizations": {
         "en": {
@@ -8993,6 +9009,22 @@
         }
       }
     },
+    "workspace.map.providerLine": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Map data and other providers"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "高德地图和其他数据提供商"
+          }
+        }
+      }
+    },
     "workspace.map.reportRoute": {
       "localizations": {
         "en": {
@@ -9101,6 +9133,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "探索"
+          }
+        }
+      }
+    },
+    "workspace.map.style.driving": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Driving"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "驾车"
           }
         }
       }

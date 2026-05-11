@@ -14,11 +14,17 @@ private let workspaceStatusRowsSpacing: CGFloat = 30
 struct WorkspaceDashboardView: View {
     @Environment(AppState.self) private var appState
     @Binding var presentationMode: WorkspacePresentationMode
+    @Binding var mapStyleMode: WorkspaceMapStyleMode
+    @Binding var mapDepthMode: WorkspaceMapDepthMode
 
     var body: some View {
         switch presentationMode {
         case .map:
-            WorkspaceMapEntryView(presentationMode: $presentationMode)
+            WorkspaceMapEntryView(
+                presentationMode: $presentationMode,
+                mapStyleMode: $mapStyleMode,
+                mapDepthMode: $mapDepthMode
+            )
         case .dashboard:
             dashboardContent
         }

@@ -10,6 +10,9 @@ struct MainWindowView: View {
     @SceneStorage("pitcherplant.inspectorVisible") private var inspectorVisible = false
     @State private var columnVisibility: NavigationSplitViewVisibility = .all
     @State private var workspacePresentationMode: WorkspacePresentationMode = .map
+    @State private var workspaceMapStyleMode: WorkspaceMapStyleMode = .explore
+    @State private var workspaceMapDepthMode: WorkspaceMapDepthMode = .twoD
+    @State private var isShowingWorkspaceMapModePanel = false
     @State private var autoCollapsedSidebar = false
     @State private var applyingSidebarPolicy = false
     @State private var windowWidth: CGFloat = 0
@@ -47,7 +50,15 @@ struct MainWindowView: View {
             if !isReportSearchContext {
                 reportSearchText = ""
             }
+            if !isWorkspaceMapVisible {
+                isShowingWorkspaceMapModePanel = false
+            }
             applySidebarPolicy(windowWidth: windowWidth)
+        }
+        .onChange(of: workspacePresentationMode) { _, _ in
+            if !isWorkspaceMapVisible {
+                isShowingWorkspaceMapModePanel = false
+            }
         }
         .onChange(of: appState.appSettings.showInspectorByDefault) { _, visible in
             if !appState.selectedMainSidebar.allowsInspector {
@@ -119,6 +130,10 @@ struct MainWindowView: View {
 
     private var supportsToolbarSearch: Bool {
         isReportSearchContext
+    }
+
+    private var isWorkspaceMapVisible: Bool {
+        appState.selectedMainSidebar == .workspace && workspacePresentationMode == .map
     }
 
     private var toolbarSearchBinding: Binding<String> {
@@ -319,6 +334,10 @@ struct MainWindowView: View {
             workspacePresentationToolbarButton
             inspectorToolbarButton
             settingsToolbarButton
+            if isWorkspaceMapVisible {
+                workspaceMapModeToolbarButton
+                workspaceMapDepthToolbarButton
+            }
         }
     }
 
@@ -341,6 +360,35 @@ struct MainWindowView: View {
         }
         .help(appState.t("toolbar.settings"))
         .accessibilityLabel(appState.t("toolbar.settings"))
+    }
+
+    private var workspaceMapModeToolbarButton: some View {
+        Button {
+            isShowingWorkspaceMapModePanel.toggle()
+        } label: {
+            Label(appState.t("workspace.map.modePanelTitle"), systemImage: "map.fill")
+        }
+        .help(appState.t("workspace.map.modePanelTitle"))
+        .accessibilityLabel(appState.t("workspace.map.modePanelTitle"))
+        .popover(
+            isPresented: $isShowingWorkspaceMapModePanel,
+            attachmentAnchor: .rect(.bounds),
+            arrowEdge: .top
+        ) {
+            WorkspaceMapModePanel(mapStyleMode: $workspaceMapStyleMode)
+        }
+    }
+
+    private var workspaceMapDepthToolbarButton: some View {
+        Button {
+            workspaceMapDepthMode.toggle()
+        } label: {
+            Text(workspaceMapDepthMode.localizedTitle(appState))
+                .font(.system(size: 12, weight: .semibold))
+                .monospacedDigit()
+        }
+        .help(appState.t("workspace.map.depthPicker"))
+        .accessibilityLabel(appState.t("workspace.map.depthPicker"))
     }
 
     private var newAuditToolbarButton: some View {
@@ -428,7 +476,11 @@ struct MainWindowView: View {
     private var mainContent: some View {
         switch appState.selectedMainSidebar {
         case .workspace:
-            WorkspaceDashboardView(presentationMode: workspacePresentationBinding)
+            WorkspaceDashboardView(
+                presentationMode: workspacePresentationBinding,
+                mapStyleMode: $workspaceMapStyleMode,
+                mapDepthMode: $workspaceMapDepthMode
+            )
         case .newAudit:
             NewAuditView()
         case .history:

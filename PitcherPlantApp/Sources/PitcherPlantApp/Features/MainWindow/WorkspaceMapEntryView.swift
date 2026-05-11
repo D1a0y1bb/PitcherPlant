@@ -8,10 +8,10 @@ struct WorkspaceMapEntryView: View {
     @Environment(AppState.self) private var appState
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Binding var presentationMode: WorkspacePresentationMode
+    @Binding var mapStyleMode: WorkspaceMapStyleMode
+    @Binding var mapDepthMode: WorkspaceMapDepthMode
     @Namespace private var mapScope
     @State private var planePulse = false
-    @State private var mapStyleMode: WorkspaceMapStyleMode = .explore
-    @State private var mapDepthMode: WorkspaceMapDepthMode = .twoD
 
     private let nodes = WorkspaceMapNode.defaultNodes
     private let routes = WorkspaceMapRoute.defaultRoutes
@@ -113,18 +113,6 @@ struct WorkspaceMapEntryView: View {
                     )
                 }
 
-                ViewThatFits(in: .horizontal) {
-                    HStack(spacing: 12) {
-                        mapStylePicker
-                        mapDepthPicker
-                    }
-
-                    VStack(alignment: .leading, spacing: 10) {
-                        mapStylePicker
-                        mapDepthPicker
-                    }
-                }
-
                 HStack(spacing: 10) {
                     Button {
                         appState.importSubmissionPackageWithPanel()
@@ -148,32 +136,6 @@ struct WorkspaceMapEntryView: View {
                 .controlSize(.small)
             }
         }
-    }
-
-    private var mapStylePicker: some View {
-        Picker(appState.t("workspace.map.stylePicker"), selection: $mapStyleMode) {
-            ForEach(WorkspaceMapStyleMode.allCases) { style in
-                Text(style.localizedTitle(appState))
-                    .tag(style)
-            }
-        }
-        .pickerStyle(.segmented)
-        .controlSize(.small)
-        .frame(maxWidth: 238)
-        .accessibilityLabel(appState.t("workspace.map.stylePicker"))
-    }
-
-    private var mapDepthPicker: some View {
-        Picker(appState.t("workspace.map.depthPicker"), selection: $mapDepthMode) {
-            ForEach(WorkspaceMapDepthMode.allCases) { depth in
-                Text(depth.localizedTitle(appState))
-                    .tag(depth)
-            }
-        }
-        .pickerStyle(.segmented)
-        .controlSize(.small)
-        .frame(maxWidth: 128)
-        .accessibilityLabel(appState.t("workspace.map.depthPicker"))
     }
 
     private var reportCount: Int {
@@ -233,10 +195,43 @@ struct WorkspaceMapEntryView: View {
     }
 }
 
-private enum WorkspaceMapStyleMode: String, CaseIterable, Hashable, Identifiable, Sendable {
+struct WorkspaceMapModePanel: View {
+    @Environment(AppState.self) private var appState
+    @Binding var mapStyleMode: WorkspaceMapStyleMode
+
+    var body: some View {
+        VStack(alignment: .center, spacing: 12) {
+            HStack(alignment: .top, spacing: 12) {
+                ForEach(WorkspaceMapStyleMode.allCases) { style in
+                    WorkspaceMapModeTile(
+                        title: style.localizedTitle(appState),
+                        isSelected: mapStyleMode == style
+                    ) {
+                        mapStyleMode = style
+                    } preview: {
+                        WorkspaceMapModePreview(style: style)
+                    }
+                }
+            }
+
+            WorkspaceMapProviderFooter()
+        }
+        .padding(.top, 16)
+        .padding(.horizontal, 20)
+        .padding(.bottom, 14)
+        .frame(width: 380)
+        .glassEffect(
+            .regular,
+            in: RoundedRectangle(cornerRadius: 24, style: .continuous)
+        )
+    }
+}
+
+enum WorkspaceMapStyleMode: String, CaseIterable, Hashable, Identifiable, Sendable {
     case explore
-    case satellite
+    case driving
     case hybrid
+    case satellite
 
     var id: String { rawValue }
 
@@ -245,6 +240,8 @@ private enum WorkspaceMapStyleMode: String, CaseIterable, Hashable, Identifiable
         switch self {
         case .explore:
             return appState.t("workspace.map.style.explore")
+        case .driving:
+            return appState.t("workspace.map.style.driving")
         case .satellite:
             return appState.t("workspace.map.style.satellite")
         case .hybrid:
@@ -261,6 +258,13 @@ private enum WorkspaceMapStyleMode: String, CaseIterable, Hashable, Identifiable
                 pointsOfInterest: .excludingAll,
                 showsTraffic: false
             )
+        case .driving:
+            return .standard(
+                elevation: depthMode.elevation,
+                emphasis: .automatic,
+                pointsOfInterest: .excludingAll,
+                showsTraffic: true
+            )
         case .satellite:
             return .imagery(elevation: depthMode.elevation)
         case .hybrid:
@@ -273,7 +277,7 @@ private enum WorkspaceMapStyleMode: String, CaseIterable, Hashable, Identifiable
     }
 }
 
-private enum WorkspaceMapDepthMode: String, CaseIterable, Hashable, Identifiable, Sendable {
+enum WorkspaceMapDepthMode: String, CaseIterable, Hashable, Identifiable, Sendable {
     case twoD
     case threeD
 
@@ -304,6 +308,102 @@ private enum WorkspaceMapDepthMode: String, CaseIterable, Hashable, Identifiable
             return appState.t("workspace.map.depth.2d")
         case .threeD:
             return appState.t("workspace.map.depth.3d")
+        }
+    }
+
+    mutating func toggle() {
+        switch self {
+        case .twoD:
+            self = .threeD
+        case .threeD:
+            self = .twoD
+        }
+    }
+}
+
+struct WorkspaceMapModeTile<Preview: View>: View {
+    let title: String
+    let isSelected: Bool
+    let action: () -> Void
+    let preview: () -> Preview
+
+    var body: some View {
+        Button(action: action) {
+            VStack(spacing: 7) {
+                preview()
+                    .frame(width: 72, height: 54)
+                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    .overlay {
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            .stroke(isSelected ? Color.blue : Color.white.opacity(0.42), lineWidth: isSelected ? 2.5 : 1)
+                    }
+                    .shadow(color: Color.black.opacity(0.14), radius: 6, x: 0, y: 3)
+
+                Text(title)
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(.primary)
+                    .lineLimit(1)
+            }
+            .frame(width: 76)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+struct WorkspaceMapModePreview: View {
+    let style: WorkspaceMapStyleMode
+
+    var body: some View {
+        Map(initialPosition: .region(previewRegion), interactionModes: [])
+            .mapStyle(style.previewMapStyle)
+            .allowsHitTesting(false)
+            .overlay(alignment: .center) {
+                if style == .driving {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .font(.system(size: 18, weight: .semibold))
+                        .foregroundStyle(.yellow, .black.opacity(0.72))
+                        .shadow(color: Color.black.opacity(0.2), radius: 3, x: 0, y: 1)
+                }
+            }
+    }
+
+    private var previewRegion: MKCoordinateRegion {
+        MKCoordinateRegion(
+            center: CLLocationCoordinate2D(latitude: 31.2304, longitude: 121.4737),
+            span: MKCoordinateSpan(latitudeDelta: 0.055, longitudeDelta: 0.075)
+        )
+    }
+}
+
+private struct WorkspaceMapProviderFooter: View {
+    @Environment(AppState.self) private var appState
+
+    var body: some View {
+        HStack(spacing: 4) {
+            Label {
+                Text(appState.t("workspace.map.providerLine"))
+            } icon: {
+                Image(systemName: "map.fill")
+            }
+            .font(.system(size: 9, weight: .medium))
+            .foregroundStyle(.secondary.opacity(0.58))
+        }
+        .frame(maxWidth: .infinity)
+    }
+}
+
+private extension WorkspaceMapStyleMode {
+    var previewMapStyle: MapStyle {
+        switch self {
+        case .explore:
+            return .standard(elevation: .flat, emphasis: .muted, pointsOfInterest: .excludingAll, showsTraffic: false)
+        case .driving:
+            return .standard(elevation: .flat, emphasis: .automatic, pointsOfInterest: .excludingAll, showsTraffic: true)
+        case .hybrid:
+            return .hybrid(elevation: .flat, pointsOfInterest: .excludingAll, showsTraffic: true)
+        case .satellite:
+            return .imagery(elevation: .flat)
         }
     }
 }
