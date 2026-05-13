@@ -498,12 +498,14 @@ extension AuditConfiguration {
     }
 
     private static func isSafeReportFileName(_ value: String) -> Bool {
-        let pathComponents = value.components(separatedBy: CharacterSet(charactersIn: "/\\"))
         guard value.isEmpty == false,
               value != ".",
               value != "..",
-              pathComponents.contains("..") == false,
               value.rangeOfCharacter(from: CharacterSet(charactersIn: "/\\")) == nil else {
+            return false
+        }
+        let components = value.components(separatedBy: CharacterSet(charactersIn: "/\\"))
+        guard !components.contains("..") else {
             return false
         }
         return true

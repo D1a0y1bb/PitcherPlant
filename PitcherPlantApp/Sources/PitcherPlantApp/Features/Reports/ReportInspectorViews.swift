@@ -700,9 +700,7 @@ struct CodeEvidenceComparisonView: View {
 
     var body: some View {
         let selectedHighlight = highlights[safe: selectedHighlightIndex]
-        let attachmentsForMode = renderedRowID == row.id && renderedMode == selectedMode && renderedAttachments.isEmpty == false
-            ? renderedAttachments
-            : codeAttachments
+        let attachmentsForMode = renderedMode == selectedMode && renderedRowID == row.id && renderedAttachments.isEmpty == false ? renderedAttachments : codeAttachments
         if codeAttachments.count == 2 {
             InspectorSection(title: appState.t("reports.codeViewer")) {
                 ViewThatFits(in: .horizontal) {
@@ -761,17 +759,14 @@ struct CodeEvidenceComparisonView: View {
     }
 
     private func updateRenderedAttachments() async {
-        let rowID = row.id
         let mode = selectedMode
-        renderedRowID = nil
-        renderedMode = nil
-        renderedAttachments = []
+        let rowID = row.id
         let rendered = await CodeAttachmentRenderCache.shared.renderedAttachments(codeAttachments, mode: mode)
-        guard Task.isCancelled == false, rowID == row.id, mode == selectedMode else {
+        guard Task.isCancelled == false, mode == selectedMode else {
             return
         }
-        renderedRowID = rowID
         renderedMode = mode
+        renderedRowID = rowID
         renderedAttachments = rendered
     }
 }
