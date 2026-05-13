@@ -30,6 +30,10 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: pitcherplant-release-${{ github.repository }}
+  cancel-in-progress: false
+
 jobs:
   macos-release:
     name: Build macOS release
@@ -429,8 +433,94 @@ jobs:
         if: steps.release.outputs.publish_release == 'true' && steps.release.outputs.release_prerelease == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
+          CURRENT_TAG: ${{ steps.release.outputs.tag_name }}
         run: |
+          set -euo pipefail
+
           CHANNEL_TAG="appcast-beta"
+          LOCAL_APPCAST="PitcherPlantApp/build/dist/appcast.xml"
+
+          extract_appcast_release_tag() {
+            python3 - "$1" <<'PY'
+          import re
+          import sys
+          import xml.etree.ElementTree as ET
+
+          appcast_path = sys.argv[1]
+          try:
+              root = ET.parse(appcast_path).getroot()
+          except Exception as error:
+              print(f"Unable to parse appcast XML at {appcast_path}: {error}", file=sys.stderr)
+              sys.exit(2)
+
+          enclosure = root.find("./channel/item/enclosure")
+          url = enclosure.attrib.get("url", "") if enclosure is not None else ""
+          match = re.search(r"/releases/download/([^/]+)/", url)
+          if match:
+              print(match.group(1))
+          PY
+          }
+
+          compare_prerelease_tags() {
+            python3 - "$1" "$2" <<'PY'
+          import re
+          import sys
+
+          def prerelease_key(tag):
+              match = re.fullmatch(r"v(\d+)\.(\d+)\.(\d+)-(beta|rc\.(\d+))", tag)
+              if not match:
+                  raise ValueError(f"unsupported prerelease tag: {tag}")
+
+              major, minor, patch = (int(match.group(index)) for index in (1, 2, 3))
+              suffix = match.group(4)
+              if suffix == "beta":
+                  suffix_key = (0, 0)
+              else:
+                  suffix_key = (1, int(match.group(5)))
+              return (major, minor, patch, *suffix_key)
+
+          current = prerelease_key(sys.argv[1])
+          existing = prerelease_key(sys.argv[2])
+          print((current > existing) - (current < existing))
+          PY
+          }
+
+          ensure_appcast_targets_current_tag() {
+            local appcast_path="$1"
+            local label="$2"
+            local target_tag
+
+            target_tag="$(extract_appcast_release_tag "$appcast_path")"
+            if [ "$target_tag" != "$CURRENT_TAG" ]; then
+              echo "$label appcast points at '${target_tag:-<missing>}' instead of '$CURRENT_TAG'."
+              exit 1
+            fi
+          }
+
+          validate_existing_channel_order() {
+            local existing_appcast="$1"
+            local existing_tag
+            local comparison
+
+            existing_tag="$(extract_appcast_release_tag "$existing_appcast")"
+            if [ -z "$existing_tag" ]; then
+              echo "Existing appcast-beta asset does not expose a release download tag."
+              exit 1
+            fi
+
+            comparison="$(compare_prerelease_tags "$CURRENT_TAG" "$existing_tag")"
+            if [ "$comparison" -lt 0 ]; then
+              echo "Refusing to replace appcast-beta: current tag '$CURRENT_TAG' is older than existing channel tag '$existing_tag'."
+              exit 1
+            fi
+          }
+
+          ensure_appcast_targets_current_tag "$LOCAL_APPCAST" "Local"
+
+          EXISTING_APPCAST_DIR="$(mktemp -d)"
+          AFTER_UPLOAD_DIR="$(mktemp -d)"
+          trap 'rm -rf "$EXISTING_APPCAST_DIR" "$AFTER_UPLOAD_DIR"' EXIT
+
           if ! gh release view "$CHANNEL_TAG" >/dev/null 2>&1; then
             gh release create "$CHANNEL_TAG" \
               --target "$GITHUB_SHA" \
@@ -442,6 +532,22 @@ jobs:
             gh release edit "$CHANNEL_TAG" --prerelease --latest=false
           fi
 
+          channel_asset_names="$(gh release view "$CHANNEL_TAG" --json assets --jq '.assets[].name')"
+          if grep -Fxq 'appcast.xml' <<< "$channel_asset_names"; then
+            gh release download "$CHANNEL_TAG" \
+              --pattern 'appcast.xml' \
+              --dir "$EXISTING_APPCAST_DIR" \
+              --clobber
+            validate_existing_channel_order "$EXISTING_APPCAST_DIR/appcast.xml"
+          fi
+
           gh release upload "$CHANNEL_TAG" \
             PitcherPlantApp/build/dist/appcast.xml \
             --clobber
+
+          gh release edit "$CHANNEL_TAG" --prerelease --latest=false
+          gh release download "$CHANNEL_TAG" \
+            --pattern 'appcast.xml' \
+            --dir "$AFTER_UPLOAD_DIR" \
+            --clobber
+          ensure_appcast_targets_current_tag "$AFTER_UPLOAD_DIR/appcast.xml" "Uploaded"

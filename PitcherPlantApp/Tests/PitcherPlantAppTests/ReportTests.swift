@@ -104,16 +104,15 @@ func reportRowsViewModelAppendsPagedRowsWithoutDuplicates() {
 }
 
 @Test
-@MainActor
-func evidenceImageCacheReusesDecodedImages() throws {
+func evidenceImageCacheReusesDecodedImages() async throws {
     let cache = EvidenceImageCache()
-    let pixelPNG = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII="
+    let pixelImage = "R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw=="
 
-    let first = try #require(cache.image(for: pixelPNG))
-    let second = try #require(cache.image(for: pixelPNG))
+    let first = try #require(await cache.image(for: pixelImage, maxPixelSize: 32))
+    let second = try #require(await cache.image(for: pixelImage, maxPixelSize: 32))
 
     #expect(first === second)
-    #expect(cache.cachedImageCount() == 1)
+    #expect(await cache.cachedImageCount() == 1)
 }
 
 @Test

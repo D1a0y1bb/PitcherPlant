@@ -84,9 +84,17 @@ struct AuditAssistantService {
         }
 
         let payloadData = try JSONEncoder().encode(payload(for: row, review: review))
+        let timeoutSeconds = configuration.timeoutSeconds
 
-        return try await LocalCommandExecution(command: command, payloadData: payloadData)
-            .run(timeoutSeconds: configuration.timeoutSeconds)
+        let executionTask = Task.detached(priority: .utility) {
+            try await LocalCommandExecution(command: command, payloadData: payloadData)
+                .run(timeoutSeconds: timeoutSeconds)
+        }
+        return try await withTaskCancellationHandler {
+            try await executionTask.value
+        } onCancel: {
+            executionTask.cancel()
+        }
     }
 
     private func externalAPIExplanation(
@@ -123,15 +131,16 @@ struct AuditAssistantService {
     private final class LocalCommandExecution: @unchecked Sendable {
         private let command: String
         private let payloadData: Data
-        private let process = Process()
-        private let input = Pipe()
         private let outputFileURL = FileManager.default.temporaryDirectory
             .appendingPathComponent("pitcherplant-assistant-\(UUID().uuidString).stdout")
         private let errorFileURL = FileManager.default.temporaryDirectory
             .appendingPathComponent("pitcherplant-assistant-\(UUID().uuidString).stderr")
-        private var outputFileHandle: FileHandle?
-        private var errorFileHandle: FileHandle?
+        private var inputReadDescriptor: Int32 = -1
+        private var inputWriteDescriptor: Int32 = -1
+        private var outputDescriptor: Int32 = -1
+        private var errorDescriptor: Int32 = -1
         private var processID: pid_t?
+        private var processHasExited = false
 
         init(command: String, payloadData: Data) {
             self.command = command
@@ -139,34 +148,32 @@ struct AuditAssistantService {
         }
 
         func run(timeoutSeconds: Double) async throws -> String {
-            try prepareOutputFiles()
+            try Task.checkCancellation()
+            try prepareProcessIO()
             defer {
+                cleanupDescriptors()
                 cleanupOutputFiles()
             }
 
-            process.executableURL = URL(fileURLWithPath: "/bin/zsh")
-            process.arguments = ["-lc", command]
-            process.standardInput = input
-            process.standardOutput = outputFileHandle
-            process.standardError = errorFileHandle
-
-            try process.run()
-            processID = process.processIdentifier
-            _ = setpgid(process.processIdentifier, process.processIdentifier)
-            input.fileHandleForWriting.write(payloadData)
-            input.fileHandleForWriting.closeFile()
+            try spawnProcessGroup()
+            closeDescriptor(&inputReadDescriptor)
+            closeDescriptor(&outputDescriptor)
+            closeDescriptor(&errorDescriptor)
+            try writePayloadAndCloseInput()
 
             let deadline = Date().addingTimeInterval(max(timeoutSeconds, 0.1))
             do {
-                while process.isRunning {
+                while reapIfExited() == false {
                     if Date() >= deadline {
-                        terminate()
+                        await terminate()
                         throw AssistantError.timeout
                     }
                     try await Task.sleep(nanoseconds: 20_000_000)
                 }
+            } catch AssistantError.timeout {
+                throw AssistantError.timeout
             } catch {
-                terminate()
+                await terminate()
                 throw error
             }
 
@@ -174,7 +181,7 @@ struct AuditAssistantService {
         }
 
         private func readOutput() throws -> String {
-            closeOutputFiles()
+            cleanupDescriptors()
             let stdout = (try? Data(contentsOf: outputFileURL)) ?? Data()
             let stderr = (try? Data(contentsOf: errorFileURL)) ?? Data()
             let text = String(data: stdout.isEmpty ? stderr : stdout, encoding: .utf8)?
@@ -185,43 +192,192 @@ struct AuditAssistantService {
             return text
         }
 
-        private func prepareOutputFiles() throws {
-            _ = FileManager.default.createFile(atPath: outputFileURL.path, contents: nil)
-            _ = FileManager.default.createFile(atPath: errorFileURL.path, contents: nil)
-            outputFileHandle = try FileHandle(forWritingTo: outputFileURL)
-            errorFileHandle = try FileHandle(forWritingTo: errorFileURL)
+        private func prepareProcessIO() throws {
+            var pipeDescriptors = [Int32](repeating: 0, count: 2)
+            guard pipe(&pipeDescriptors) == 0 else {
+                throw posixError(errno)
+            }
+            inputReadDescriptor = pipeDescriptors[0]
+            inputWriteDescriptor = pipeDescriptors[1]
+            outputDescriptor = try openOutputFile(at: outputFileURL)
+            errorDescriptor = try openOutputFile(at: errorFileURL)
         }
 
-        private func closeOutputFiles() {
-            outputFileHandle?.closeFile()
-            outputFileHandle = nil
-            errorFileHandle?.closeFile()
-            errorFileHandle = nil
+        private func openOutputFile(at url: URL) throws -> Int32 {
+            let descriptor = url.path.withCString { path in
+                open(path, O_WRONLY | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR)
+            }
+            guard descriptor >= 0 else {
+                throw posixError(errno)
+            }
+            return descriptor
+        }
+
+        private func spawnProcessGroup() throws {
+            var fileActions: posix_spawn_file_actions_t?
+            var attributes: posix_spawnattr_t?
+            var fileActionsInitialized = false
+            var attributesInitialized = false
+            try checkSpawnSetup(posix_spawn_file_actions_init(&fileActions))
+            fileActionsInitialized = true
+            try checkSpawnSetup(posix_spawnattr_init(&attributes))
+            attributesInitialized = true
+            defer {
+                if fileActionsInitialized {
+                    posix_spawn_file_actions_destroy(&fileActions)
+                }
+                if attributesInitialized {
+                    posix_spawnattr_destroy(&attributes)
+                }
+            }
+
+            try checkSpawnSetup(posix_spawn_file_actions_adddup2(&fileActions, inputReadDescriptor, STDIN_FILENO))
+            try checkSpawnSetup(posix_spawn_file_actions_adddup2(&fileActions, outputDescriptor, STDOUT_FILENO))
+            try checkSpawnSetup(posix_spawn_file_actions_adddup2(&fileActions, errorDescriptor, STDERR_FILENO))
+            try checkSpawnSetup(posix_spawn_file_actions_addclose(&fileActions, inputWriteDescriptor))
+            try checkSpawnSetup(posix_spawn_file_actions_addclose(&fileActions, inputReadDescriptor))
+            try checkSpawnSetup(posix_spawn_file_actions_addclose(&fileActions, outputDescriptor))
+            try checkSpawnSetup(posix_spawn_file_actions_addclose(&fileActions, errorDescriptor))
+
+            try checkSpawnSetup(posix_spawnattr_setflags(&attributes, Int16(POSIX_SPAWN_SETPGROUP)))
+            try checkSpawnSetup(posix_spawnattr_setpgroup(&attributes, 0))
+
+            let shellPath = "/bin/zsh"
+            let arguments = [shellPath, "-lc", command]
+            var cArguments: [UnsafeMutablePointer<CChar>?] = []
+            for argument in arguments {
+                guard let cArgument = strdup(argument) else {
+                    throw posixError(ENOMEM)
+                }
+                cArguments.append(cArgument)
+            }
+            cArguments.append(nil)
+            defer {
+                for argument in cArguments {
+                    free(argument)
+                }
+            }
+
+            var spawnedProcessID: pid_t = 0
+            let result = posix_spawn(
+                &spawnedProcessID,
+                shellPath,
+                &fileActions,
+                &attributes,
+                cArguments,
+                environ
+            )
+            guard result == 0 else {
+                throw posixError(result)
+            }
+            processID = spawnedProcessID
+            processHasExited = false
+        }
+
+        private func writePayloadAndCloseInput() throws {
+            defer {
+                closeDescriptor(&inputWriteDescriptor)
+            }
+            var offset = 0
+            try payloadData.withUnsafeBytes { buffer in
+                while offset < buffer.count {
+                    guard let baseAddress = buffer.baseAddress else {
+                        return
+                    }
+                    let written = write(inputWriteDescriptor, baseAddress.advanced(by: offset), buffer.count - offset)
+                    if written > 0 {
+                        offset += written
+                    } else if written == -1 && errno == EINTR {
+                        continue
+                    } else if written == -1 && errno == EPIPE {
+                        return
+                    } else {
+                        throw posixError(errno)
+                    }
+                }
+            }
+        }
+
+        private func reapIfExited() -> Bool {
+            guard let processID, processHasExited == false else {
+                return true
+            }
+
+            var status: Int32 = 0
+            while true {
+                let result = waitpid(processID, &status, WNOHANG)
+                if result == processID {
+                    processHasExited = true
+                    return true
+                }
+                if result == 0 {
+                    return false
+                }
+                if errno == EINTR {
+                    continue
+                }
+                if errno == ECHILD {
+                    processHasExited = true
+                    return true
+                }
+                return false
+            }
+        }
+
+        private func cleanupDescriptors() {
+            closeDescriptor(&inputReadDescriptor)
+            closeDescriptor(&inputWriteDescriptor)
+            closeDescriptor(&outputDescriptor)
+            closeDescriptor(&errorDescriptor)
+        }
+
+        private func closeDescriptor(_ descriptor: inout Int32) {
+            if descriptor >= 0 {
+                close(descriptor)
+                descriptor = -1
+            }
         }
 
         private func cleanupOutputFiles() {
-            closeOutputFiles()
             try? FileManager.default.removeItem(at: outputFileURL)
             try? FileManager.default.removeItem(at: errorFileURL)
         }
 
-        private func terminate() {
-            guard process.isRunning else {
+        private func terminate() async {
+            guard let processID, processHasExited == false else {
                 return
             }
-            let descendantIDs = descendantProcessIDs(of: process.processIdentifier)
+            let descendantIDs = descendantProcessIDs(of: processID)
             signal(descendantIDs, SIGTERM)
+            await wait(nanoseconds: 100_000_000)
+
+            let stubbornDescendantIDs = descendantProcessIDs(of: processID)
+            signal(Set(descendantIDs + stubbornDescendantIDs), SIGKILL)
+            await wait(nanoseconds: 100_000_000)
+
             signalProcessGroup(SIGTERM)
-            process.terminate()
+            kill(processID, SIGTERM)
+            await waitForProcessExit(nanoseconds: 200_000_000)
 
-            let deadline = Date().addingTimeInterval(0.2)
-            while process.isRunning && Date() < deadline {
-                Thread.sleep(forTimeInterval: 0.02)
-            }
-
-            let remainingDescendantIDs = descendantProcessIDs(of: process.processIdentifier)
-            signal(Set(descendantIDs + remainingDescendantIDs), SIGKILL)
+            let remainingDescendantIDs = descendantProcessIDs(of: processID)
+            signal(Set(descendantIDs + stubbornDescendantIDs + remainingDescendantIDs), SIGKILL)
             signalProcessGroup(SIGKILL)
+            kill(processID, SIGKILL)
+            await waitForProcessExit(nanoseconds: 200_000_000)
+        }
+
+        private func waitForProcessExit(nanoseconds: UInt64) async {
+            let deadline = Date().addingTimeInterval(Double(nanoseconds) / 1_000_000_000)
+            while reapIfExited() == false && Date() < deadline {
+                await wait(nanoseconds: 20_000_000)
+            }
+            _ = reapIfExited()
+        }
+
+        private func wait(nanoseconds: UInt64) async {
+            do {
+                try await Task.sleep(nanoseconds: nanoseconds)
+            } catch {}
         }
 
         private func signal<S: Sequence>(_ processIDs: S, _ signal: Int32) where S.Element == pid_t {
@@ -234,9 +390,16 @@ struct AuditAssistantService {
             if let processID {
                 kill(-processID, signal)
             }
-            if process.isRunning {
-                kill(process.processIdentifier, signal)
+        }
+
+        private func checkSpawnSetup(_ result: Int32) throws {
+            guard result == 0 else {
+                throw posixError(result)
             }
+        }
+
+        private func posixError(_ code: Int32) -> POSIXError {
+            POSIXError(POSIXErrorCode(rawValue: code) ?? .EIO)
         }
 
         private func descendantProcessIDs(of rootID: pid_t) -> [pid_t] {

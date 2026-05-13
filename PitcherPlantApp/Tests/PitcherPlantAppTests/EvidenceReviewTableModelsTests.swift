@@ -1,4 +1,5 @@
 import Foundation
+import AppKit
 import Testing
 @testable import PitcherPlantApp
 
@@ -100,4 +101,52 @@ func evidenceReviewTableRowsUseCompositeIDForSelectionAndKeepEvidenceIDForReview
     #expect(Set(rows.map(\.id)).count == 2)
     #expect(Set(rows.map(\.target.id)) == Set(rows.map(\.id)))
     #expect(Set(rows.map(\.target.evidenceID)).count == 1)
+}
+
+@Test
+func crossBatchSelectionIDMatchesEvidenceReviewTableRowID() {
+    let evidenceID = UUID()
+    let report = AuditReport(
+        id: UUID(),
+        title: "Cross Batch",
+        sourcePath: "/tmp/cross.html",
+        scanDirectoryPath: "/tmp/submissions",
+        metrics: [],
+        sections: []
+    )
+    let section = ReportSection(kind: .crossBatch, title: "跨批次", summary: "")
+    let row = ReportTableRow(
+        id: UUID(),
+        columns: ["current.md", "history.md", "0.86", "same proof"],
+        detailTitle: "current.md ↔ history.md",
+        detailBody: "same proof",
+        evidenceID: evidenceID,
+        evidenceType: .crossBatch
+    )
+
+    let tableRow = EvidenceReviewTableRow(report: report, section: section, row: row)
+    let selectionID = EvidenceReviewTableRow.selectionID(reportID: report.id, sectionKind: section.kind, row: row)
+
+    #expect(selectionID == tableRow.id)
+    #expect(selectionID == tableRow.target.id)
+    #expect(selectionID != evidenceID)
+    #expect(tableRow.target.evidenceID == evidenceID)
+}
+
+@Test
+func evidenceImageCacheDecodesBase64ImageAsynchronously() async {
+    let cache = EvidenceImageCache()
+    let tinyImage = "R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw=="
+
+    let decoded = await cache.image(for: tinyImage, maxPixelSize: 32)
+    let decodedAgain = await cache.image(for: tinyImage, maxPixelSize: 32)
+    let cachedCount = await cache.cachedImageCount()
+    _ = await cache.image(for: tinyImage, maxPixelSize: 64)
+    let cachedCountAfterSecondSize = await cache.cachedImageCount()
+
+    #expect(decoded != nil)
+    #expect(decodedAgain != nil)
+    #expect(decoded?.image.size.width == decodedAgain?.image.size.width)
+    #expect(cachedCount == 1)
+    #expect(cachedCountAfterSecondSize == 2)
 }

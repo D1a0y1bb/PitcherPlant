@@ -465,6 +465,22 @@
         }
       }
     },
+    "audit.validation.reportNameTemplateInvalid": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The report file name template is invalid: %@. Use a file name only; do not include paths, .., /, or \\."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "报告文件名模板无效：%@。请只使用文件名，不要包含路径、..、/ 或 \\。"
+          }
+        }
+      }
+    },
     "audit.validation.outputParentMissing": {
       "localizations": {
         "en": {

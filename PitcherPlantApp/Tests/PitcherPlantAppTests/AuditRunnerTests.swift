@@ -43,6 +43,40 @@ func auditRunnerProducesNativeReportRowsForAppViewing() async throws {
 }
 
 @Test
+func auditRunnerRejectsReportTemplateOutsideOutputDirectory() async throws {
+    let root = FileManager.default.temporaryDirectory
+        .appendingPathComponent("pitcherplant-report-template-runner-\(UUID().uuidString)", isDirectory: true)
+    let source = root.appendingPathComponent("source", isDirectory: true)
+    let reports = root.appendingPathComponent("reports", isDirectory: true)
+    try FileManager.default.createDirectory(at: source, withIntermediateDirectories: true)
+    try FileManager.default.createDirectory(at: reports, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: root) }
+
+    try "shared evidence".write(to: source.appendingPathComponent("alpha.md"), atomically: true, encoding: .utf8)
+    try "shared evidence".write(to: source.appendingPathComponent("beta.md"), atomically: true, encoding: .utf8)
+
+    var configuration = AuditConfiguration.defaults(for: root)
+    configuration.directoryPath = source.path
+    configuration.outputDirectoryPath = reports.path
+    configuration.reportNameTemplate = "../escape.html"
+
+    do {
+        _ = try await AuditRunner().run(
+            configuration: configuration,
+            importedFingerprints: [],
+            whitelistRules: []
+        ) { _, _ in }
+        Issue.record("报告模板包含路径穿越时不应写出报告")
+    } catch let error as AuditConfigurationValidationError {
+        #expect(error.issues.contains(.reportNameTemplateInvalid("../escape.html")))
+    } catch {
+        Issue.record("预期配置校验错误，实际为 \(error)")
+    }
+
+    #expect(FileManager.default.fileExists(atPath: root.appendingPathComponent("escape.html").path) == false)
+}
+
+@Test
 func auditRunnerFailsWhenDirectoryHasNoAuditableDocuments() async throws {
     let root = FileManager.default.temporaryDirectory
         .appendingPathComponent("pitcherplant-empty-audit-\(UUID().uuidString)", isDirectory: true)

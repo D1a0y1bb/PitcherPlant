@@ -953,11 +953,16 @@ struct CrossBatchList: View {
     }
 
     private func syncSelection() {
+        guard let report = appState.selectedReport else {
+            selectedEvidenceIDs = []
+            return
+        }
+        let section = appState.selectedReportSectionModel ?? ReportSection(kind: .crossBatch, title: appState.title(for: ReportSectionKind.crossBatch), summary: "")
         if let selectedID = appState.selectedReportRowID,
            let row = rows.first(where: { ($0.evidenceID ?? $0.id) == selectedID || $0.id == selectedID }) {
-            selectedEvidenceIDs = [row.evidenceID ?? row.id]
+            selectedEvidenceIDs = [EvidenceReviewTableRow.selectionID(reportID: report.id, sectionKind: section.kind, row: row)]
         } else if let first = rows.first {
-            selectedEvidenceIDs = [first.evidenceID ?? first.id]
+            selectedEvidenceIDs = [EvidenceReviewTableRow.selectionID(reportID: report.id, sectionKind: section.kind, row: first)]
         } else {
             selectedEvidenceIDs = []
         }

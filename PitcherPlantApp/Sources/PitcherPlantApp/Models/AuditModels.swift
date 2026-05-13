@@ -338,6 +338,7 @@ enum AuditConfigurationValidationIssue: Hashable, Sendable {
     case outputDirectoryCannotCreate(String, String)
     case outputDirectoryNotWritable(String)
     case outputDirectoryWriteTestFailed(String, String)
+    case reportNameTemplateInvalid(String)
     case numberRange(fieldKey: String, range: String)
 
     func localizedDescription(language: AppLanguage) -> String {
@@ -356,6 +357,8 @@ enum AuditConfigurationValidationIssue: Hashable, Sendable {
             return Self.localized("audit.validation.outputDirectoryNotWritable", language: language, path)
         case .outputDirectoryWriteTestFailed(let path, let reason):
             return Self.localized("audit.validation.outputDirectoryWriteTestFailed", language: language, path, reason)
+        case .reportNameTemplateInvalid(let template):
+            return Self.localized("audit.validation.reportNameTemplateInvalid", language: language, template)
         case .numberRange(let fieldKey, let range):
             let fieldTitle = LocalizationStrings.text(fieldKey, language: language)
             return Self.localized("audit.validation.numberRange", language: language, fieldTitle, range)
@@ -385,9 +388,31 @@ extension AuditConfiguration {
 
         validateInputDirectory(fileManager: fileManager, issues: &issues)
         validateOutputDirectory(fileManager: fileManager, issues: &issues)
+        validateReportNameTemplate(issues: &issues)
         validateThresholds(issues: &issues)
 
         return issues
+    }
+
+    func reportFileURL(scanDirectoryTitle: String, timestamp: String) throws -> URL {
+        let fileName = reportFileName(scanDirectoryTitle: scanDirectoryTitle, timestamp: timestamp)
+        guard Self.isSafeReportFileName(fileName) else {
+            throw AuditConfigurationValidationError(issues: [.reportNameTemplateInvalid(reportNameTemplate)])
+        }
+
+        let outputDirectory = URL(fileURLWithPath: outputDirectoryPath, isDirectory: true).standardizedFileURL
+        let fileURL = outputDirectory.appendingPathComponent(fileName, isDirectory: false).standardizedFileURL
+        guard fileURL.deletingLastPathComponent().standardizedFileURL.path == outputDirectory.path else {
+            throw AuditConfigurationValidationError(issues: [.reportNameTemplateInvalid(reportNameTemplate)])
+        }
+        return fileURL
+    }
+
+    private func reportFileName(scanDirectoryTitle: String, timestamp: String) -> String {
+        reportNameTemplate
+            .replacingOccurrences(of: "{dir}", with: scanDirectoryTitle)
+            .replacingOccurrences(of: "{date}", with: timestamp)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     private func validateInputDirectory(fileManager: FileManager, issues: inout [AuditConfigurationValidationIssue]) {
@@ -449,6 +474,14 @@ extension AuditConfiguration {
         }
     }
 
+    private func validateReportNameTemplate(issues: inout [AuditConfigurationValidationIssue]) {
+        let sampleName = reportFileName(scanDirectoryTitle: "sample", timestamp: "2026-01-01_000000")
+        guard Self.isSafeReportFileName(sampleName) else {
+            issues.append(.reportNameTemplateInvalid(reportNameTemplate))
+            return
+        }
+    }
+
     private func validateThresholds(issues: inout [AuditConfigurationValidationIssue]) {
         if textThreshold.isFinite == false || (0.0...1.0).contains(textThreshold) == false {
             issues.append(.numberRange(fieldKey: "audit.textThreshold", range: "0.00-1.00"))
@@ -462,6 +495,18 @@ extension AuditConfiguration {
         if (0...64).contains(simhashThreshold) == false {
             issues.append(.numberRange(fieldKey: "audit.simhashThreshold", range: "0-64"))
         }
+    }
+
+    private static func isSafeReportFileName(_ value: String) -> Bool {
+        let pathComponents = value.components(separatedBy: CharacterSet(charactersIn: "/\\"))
+        guard value.isEmpty == false,
+              value != ".",
+              value != "..",
+              pathComponents.contains("..") == false,
+              value.rangeOfCharacter(from: CharacterSet(charactersIn: "/\\")) == nil else {
+            return false
+        }
+        return true
     }
 }
 

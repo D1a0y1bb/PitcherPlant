@@ -706,6 +706,32 @@ func exportFormatsIncludeReviewAndAttachments() throws {
 }
 
 @Test
+func evidenceBundleExportRejectsDirectoryTargetWithoutDeletingIt() throws {
+    let root = FileManager.default.temporaryDirectory
+        .appendingPathComponent("pitcherplant-bundle-directory-\(UUID().uuidString)", isDirectory: true)
+    let targetDirectory = root.appendingPathComponent("bundle.zip", isDirectory: true)
+    try FileManager.default.createDirectory(at: targetDirectory, withIntermediateDirectories: true)
+    let sentinelURL = targetDirectory.appendingPathComponent("keep.txt")
+    try "existing export folder".write(to: sentinelURL, atomically: true, encoding: .utf8)
+    defer { try? FileManager.default.removeItem(at: root) }
+
+    let report = AuditReport(
+        title: "目录保护",
+        sourcePath: root.appendingPathComponent("report.html").path,
+        scanDirectoryPath: root.path,
+        metrics: [],
+        sections: []
+    )
+
+    do {
+        try ReportExporter.exportEvidenceBundle(report: report, to: targetDirectory)
+        Issue.record("Evidence Bundle 目标是目录时不应继续导出")
+    } catch {
+        #expect(FileManager.default.fileExists(atPath: sentinelURL.path))
+    }
+}
+
+@Test
 @MainActor
 func longReportPDFPreservesTailEvidenceInStandaloneAndBundle() throws {
     let root = FileManager.default.temporaryDirectory
@@ -812,6 +838,75 @@ func fingerprintPackageRoundTripsAndCleanupByTag() async throws {
     let deletedCount = try await store.deleteFingerprintRecords(tag: "imported")
     #expect(deletedCount == 2)
     #expect(try await store.loadFingerprintRecords().isEmpty)
+}
+
+@Test
+func fingerprintPackageRejectsOversizedJSONBeforeImport() throws {
+    let root = FileManager.default.temporaryDirectory
+        .appendingPathComponent("pitcherplant-oversized-fingerprint-json-\(UUID().uuidString)", isDirectory: true)
+    try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+
+    let packageURL = root.appendingPathComponent("fingerprints.json")
+    _ = FileManager.default.createFile(atPath: packageURL.path, contents: nil)
+    let handle = try FileHandle(forWritingTo: packageURL)
+    try handle.truncate(atOffset: UInt64(FingerprintPackageService.maxJSONPackageBytes + 1))
+    try handle.close()
+
+    try expectFingerprintPackageImportError(contains: "指纹包文件过大") {
+        _ = try FingerprintPackageService().importPackage(from: packageURL)
+    }
+}
+
+@Test
+func fingerprintPackageRejectsOversizedZipFingerprintEntry() throws {
+    let root = FileManager.default.temporaryDirectory
+        .appendingPathComponent("pitcherplant-oversized-fingerprint-zip-\(UUID().uuidString)", isDirectory: true)
+    try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+
+    let packageURL = root.appendingPathComponent("fingerprints.zip")
+    let oversizedSize = FingerprintPackageService.maxArchiveEntryBytes + 1
+    let archive = try Archive(url: packageURL, accessMode: .create, pathEncoding: nil)
+    try archive.addEntry(with: "fingerprints.json", type: .file, uncompressedSize: Int64(oversizedSize), compressionMethod: .deflate) { _, size in
+        Data(repeating: UInt8(ascii: " "), count: size)
+    }
+
+    try expectFingerprintPackageImportError(contains: "展开后过大") {
+        _ = try FingerprintPackageService().importPackage(from: packageURL)
+    }
+}
+
+@Test
+func fingerprintPackageRejectsRecordCountAboveLimit() throws {
+    let root = FileManager.default.temporaryDirectory
+        .appendingPathComponent("pitcherplant-oversized-fingerprint-record-count-\(UUID().uuidString)", isDirectory: true)
+    try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+
+    let packageURL = root.appendingPathComponent("fingerprints.json")
+    let package = FingerprintPackage(
+        manifest: FingerprintPackageManifest(
+            packageName: "Too Many Fingerprints",
+            recordCount: FingerprintPackageService.maxRecordCount + 1,
+            exportedAt: Date(timeIntervalSince1970: 0)
+        ),
+        records: []
+    )
+    let encoder = JSONEncoder()
+    encoder.dateEncodingStrategy = .iso8601
+    try encoder.encode(package).write(to: packageURL)
+
+    try expectFingerprintPackageImportError(contains: "记录数超过上限") {
+        _ = try FingerprintPackageService().importPackage(from: packageURL)
+    }
+}
+
+private func expectFingerprintPackageImportError(contains expectedMessage: String, operation: () throws -> Void) throws {
+    do {
+        try operation()
+        Issue.record("Expected fingerprint package import to fail")
+    } catch let error as NSError {
+        #expect(error.domain == "PitcherPlant.FingerprintPackage")
+        #expect(error.localizedDescription.contains(expectedMessage))
+    }
 }
 
 private func parsedDocument(filename: String, root: URL, content: String, author: String) -> ParsedDocument {

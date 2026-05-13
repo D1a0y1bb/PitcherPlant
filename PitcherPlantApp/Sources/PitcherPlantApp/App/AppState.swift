@@ -391,9 +391,9 @@ final class AppState {
         appUpdater.checkForUpdates()
     }
 
-    private func performSilentUpdateCheck() async {
+    func performSilentUpdateCheck(updateCheckService: UpdateCheckService = UpdateCheckService()) async {
         do {
-            let result = try await UpdateCheckService().check()
+            let result = try await updateCheckService.check()
             guard !Task.isCancelled else {
                 return
             }
@@ -406,7 +406,7 @@ final class AppState {
             }
         } catch is CancellationError {
         } catch {
-            availableUpdate = nil
+            return
         }
     }
 

@@ -1,20 +1,29 @@
 import AppKit
 import CryptoKit
+import ImageIO
 import SwiftUI
 
-@MainActor
-final class EvidenceImageCache {
+final class EvidenceDecodedImage: @unchecked Sendable {
+    let image: NSImage
+
+    init(image: NSImage) {
+        self.image = image
+    }
+}
+
+actor EvidenceImageCache {
     static let shared = EvidenceImageCache()
-    private var imagesByKey: [String: NSImage] = [:]
+    private var imagesByKey: [String: EvidenceDecodedImage] = [:]
     private var accessOrder: [String] = []
     private let limit = 160
 
-    func image(for base64: String) -> NSImage? {
-        let key = cacheKey(for: base64)
+    func image(for base64: String, maxPixelSize: Int) async -> EvidenceDecodedImage? {
+        let key = Self.cacheKey(for: base64, maxPixelSize: maxPixelSize)
         if let image = imagesByKey[key] {
             return image
         }
-        guard let data = Data(base64Encoded: base64), let image = NSImage(data: data) else {
+
+        guard let image = await Self.decodeImage(base64: base64, maxPixelSize: maxPixelSize) else {
             return nil
         }
         imagesByKey[key] = image
@@ -27,15 +36,41 @@ final class EvidenceImageCache {
         imagesByKey.count
     }
 
+    nonisolated static func cacheKey(for value: String, maxPixelSize: Int) -> String {
+        "\(stableContentDigest(value))|\(maxPixelSize)"
+    }
+
+    private nonisolated static func decodeImage(base64: String, maxPixelSize: Int) async -> EvidenceDecodedImage? {
+        await Task.detached(priority: .utility) {
+            guard let data = Data(base64Encoded: base64) else {
+                return nil
+            }
+
+            let sourceOptions = [kCGImageSourceShouldCache: false] as CFDictionary
+            guard let source = CGImageSourceCreateWithData(data as CFData, sourceOptions),
+                  let cgImage = CGImageSourceCreateThumbnailAtIndex(
+                    source,
+                    0,
+                    [
+                        kCGImageSourceCreateThumbnailFromImageAlways: true,
+                        kCGImageSourceCreateThumbnailWithTransform: true,
+                        kCGImageSourceShouldCacheImmediately: true,
+                        kCGImageSourceThumbnailMaxPixelSize: maxPixelSize,
+                    ] as CFDictionary
+                  ) else {
+                return NSImage(data: data).map { EvidenceDecodedImage(image: $0) }
+            }
+
+            let size = CGSize(width: cgImage.width, height: cgImage.height)
+            return EvidenceDecodedImage(image: NSImage(cgImage: cgImage, size: size))
+        }.value
+    }
+
     private func trimIfNeeded() {
         while accessOrder.count > limit, let key = accessOrder.first {
             accessOrder.removeFirst()
             imagesByKey.removeValue(forKey: key)
         }
-    }
-
-    private func cacheKey(for value: String) -> String {
-        stableContentDigest(value)
     }
 }
 
@@ -65,6 +100,133 @@ actor CodeDiffCache {
         while accessOrder.count > limit, let key = accessOrder.first {
             accessOrder.removeFirst()
             rowsByKey.removeValue(forKey: key)
+        }
+    }
+}
+
+struct CodeDiffSummary: Hashable, Sendable {
+    let shared: Int
+    let leftOnly: Int
+    let rightOnly: Int
+    let fragment: String?
+}
+
+actor CodeDiffSummaryCache {
+    static let shared = CodeDiffSummaryCache()
+    private var summariesByKey: [String: CodeDiffSummary] = [:]
+    private var accessOrder: [String] = []
+    private let limit = 80
+
+    func summary(left: String, right: String) -> CodeDiffSummary {
+        let key = CodeDiffCache.key(left: left, right: right)
+        if let summary = summariesByKey[key] {
+            return summary
+        }
+
+        let leftTokens = Set(EvidenceTokenAnalyzer.tokens(in: left))
+        let rightTokens = Set(EvidenceTokenAnalyzer.tokens(in: right))
+        let summary = CodeDiffSummary(
+            shared: leftTokens.intersection(rightTokens).count,
+            leftOnly: leftTokens.subtracting(rightTokens).count,
+            rightOnly: rightTokens.subtracting(leftTokens).count,
+            fragment: EvidenceTokenAnalyzer.bestSharedFragment(left: left, right: right)
+        )
+        summariesByKey[key] = summary
+        accessOrder.append(key)
+        trimIfNeeded()
+        return summary
+    }
+
+    private func trimIfNeeded() {
+        while accessOrder.count > limit, let key = accessOrder.first {
+            accessOrder.removeFirst()
+            summariesByKey.removeValue(forKey: key)
+        }
+    }
+}
+
+actor EvidenceTextAnalysisCache {
+    static let shared = EvidenceTextAnalysisCache()
+    private var highlightsByKey: [String: [String]] = [:]
+    private var accessOrder: [String] = []
+    private let limit = 120
+
+    func sharedHighlights(in values: [String], fallback: String) -> [String] {
+        let key = Self.key(values: values, fallback: fallback)
+        if let highlights = highlightsByKey[key] {
+            return highlights
+        }
+        let highlights = EvidenceTokenAnalyzer.sharedHighlights(in: values, fallback: fallback)
+        highlightsByKey[key] = highlights
+        accessOrder.append(key)
+        trimIfNeeded()
+        return highlights
+    }
+
+    private nonisolated static func key(values: [String], fallback: String) -> String {
+        let valueKey = values.map(stableContentDigest).joined(separator: "|")
+        return "\(valueKey)|\(stableContentDigest(fallback))"
+    }
+
+    private func trimIfNeeded() {
+        while accessOrder.count > limit, let key = accessOrder.first {
+            accessOrder.removeFirst()
+            highlightsByKey.removeValue(forKey: key)
+        }
+    }
+}
+
+private actor CodeAttachmentRenderCache {
+    static let shared = CodeAttachmentRenderCache()
+    private var attachmentsByKey: [String: [ReportAttachment]] = [:]
+    private var accessOrder: [String] = []
+    private let limit = 80
+
+    func renderedAttachments(_ attachments: [ReportAttachment], mode: CodeViewerMode) -> [ReportAttachment] {
+        let key = Self.key(attachments: attachments, mode: mode)
+        if let rendered = attachmentsByKey[key] {
+            return rendered
+        }
+        let rendered = attachments.map { $0.transformedBody(mode.render($0.body)) }
+        attachmentsByKey[key] = rendered
+        accessOrder.append(key)
+        trimIfNeeded()
+        return rendered
+    }
+
+    private nonisolated static func key(attachments: [ReportAttachment], mode: CodeViewerMode) -> String {
+        let bodyKey = attachments.map(attachmentCacheKey).joined(separator: "|")
+        return "\(mode.rawValue)|\(bodyKey)"
+    }
+
+    private nonisolated static func attachmentCacheKey(_ attachment: ReportAttachment) -> String {
+        let source = attachment.sourceReference
+        let pageNumber = source?.pageNumber.map { String($0) } ?? ""
+        let textRange = source?.textRange.map { "\($0.location):\($0.length)" } ?? ""
+        let lineRange = source?.lineRange.map { "\($0.start):\($0.end)" } ?? ""
+        let imageIndex = source?.imageIndex.map { String($0) } ?? ""
+        let imageDigest = attachment.imageBase64.map(stableContentDigest) ?? ""
+        let bodyDigest = stableContentDigest(attachment.body)
+        return stableContentDigest([
+            attachment.title,
+            attachment.subtitle,
+            attachment.sourceReferenceText,
+            source?.filePath ?? "",
+            pageNumber,
+            textRange,
+            lineRange,
+            imageIndex,
+            source?.hashAnchor ?? "",
+            source?.sourceLabel ?? "",
+            imageDigest,
+            bodyDigest,
+        ].joined(separator: "\u{1f}"))
+    }
+
+    private func trimIfNeeded() {
+        while accessOrder.count > limit, let key = accessOrder.first {
+            accessOrder.removeFirst()
+            attachmentsByKey.removeValue(forKey: key)
         }
     }
 }
@@ -507,15 +669,15 @@ struct TextEvidenceComparisonView: View {
                     )
                 }
             }
-            .task(id: row.id) { updateHighlights() }
+            .task(id: row.id) { await updateHighlights() }
             .onChange(of: highlights.count) { _, count in
                 selectedHighlightIndex = min(selectedHighlightIndex, max(count - 1, 0))
             }
         }
     }
 
-    private func updateHighlights() {
-        highlights = EvidenceTokenAnalyzer.sharedHighlights(
+    private func updateHighlights() async {
+        highlights = await EvidenceTextAnalysisCache.shared.sharedHighlights(
             in: textAttachments.map { $0.body },
             fallback: row.evidencePreview
         )
@@ -528,6 +690,9 @@ struct CodeEvidenceComparisonView: View {
     @State private var selectedMode: CodeViewerMode = .original
     @State private var selectedHighlightIndex = 0
     @State private var highlights: [String] = []
+    @State private var renderedAttachments: [ReportAttachment] = []
+    @State private var renderedMode: CodeViewerMode?
+    @State private var renderedRowID: UUID?
 
     private var codeAttachments: [ReportAttachment] {
         Array(row.attachments.filter { $0.imageBase64 == nil }.prefix(2))
@@ -535,7 +700,9 @@ struct CodeEvidenceComparisonView: View {
 
     var body: some View {
         let selectedHighlight = highlights[safe: selectedHighlightIndex]
-        let renderedAttachments = codeAttachments.map { $0.transformedBody(selectedMode.render($0.body)) }
+        let attachmentsForMode = renderedRowID == row.id && renderedMode == selectedMode && renderedAttachments.isEmpty == false
+            ? renderedAttachments
+            : codeAttachments
         if codeAttachments.count == 2 {
             InspectorSection(title: appState.t("reports.codeViewer")) {
                 ViewThatFits(in: .horizontal) {
@@ -559,13 +726,13 @@ struct CodeEvidenceComparisonView: View {
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
 
-                CodeDiffSummaryView(left: codeAttachments[0].body, right: codeAttachments[1].body)
-                CodeLineDiffView(left: codeAttachments[0].body, right: codeAttachments[1].body)
+                CodeDiffSummaryView(rowID: row.id, left: codeAttachments[0].body, right: codeAttachments[1].body)
+                CodeLineDiffView(rowID: row.id, left: codeAttachments[0].body, right: codeAttachments[1].body)
                 EvidenceHighlightNavigator(tokens: highlights, selectedIndex: $selectedHighlightIndex, title: appState.t("reports.sharedHighlights"))
 
                 VStack(alignment: .leading, spacing: 12) {
                     evidenceContextCards(
-                        attachments: renderedAttachments,
+                        attachments: attachmentsForMode,
                         fallback: row.detailBody,
                         style: .code,
                         highlights: highlights,
@@ -578,19 +745,40 @@ struct CodeEvidenceComparisonView: View {
                     .lineLimit(8)
                     .textSelection(.enabled)
             }
-            .task(id: row.id) { updateHighlights() }
+            .task(id: row.id) { await updateHighlights() }
+            .task(id: CodeRenderRequest(rowID: row.id, mode: selectedMode)) { await updateRenderedAttachments() }
             .onChange(of: highlights.count) { _, count in
                 selectedHighlightIndex = min(selectedHighlightIndex, max(count - 1, 0))
             }
         }
     }
 
-    private func updateHighlights() {
-        highlights = EvidenceTokenAnalyzer.sharedHighlights(
+    private func updateHighlights() async {
+        highlights = await EvidenceTextAnalysisCache.shared.sharedHighlights(
             in: codeAttachments.map { $0.body },
             fallback: row.detailBody
         )
     }
+
+    private func updateRenderedAttachments() async {
+        let rowID = row.id
+        let mode = selectedMode
+        renderedRowID = nil
+        renderedMode = nil
+        renderedAttachments = []
+        let rendered = await CodeAttachmentRenderCache.shared.renderedAttachments(codeAttachments, mode: mode)
+        guard Task.isCancelled == false, rowID == row.id, mode == selectedMode else {
+            return
+        }
+        renderedRowID = rowID
+        renderedMode = mode
+        renderedAttachments = rendered
+    }
+}
+
+private struct CodeRenderRequest: Hashable {
+    let rowID: UUID
+    let mode: CodeViewerMode
 }
 
 @ViewBuilder
@@ -735,8 +923,7 @@ struct ImageEvidenceDetailView: View {
                 label: index == 0 ? "A" : "B",
                 attachment: attachment,
                 showsPreview: showsPreviews,
-                zoom: zoom,
-                decodedImage: decodedImage
+                zoom: zoom
             )
         }
     }
@@ -828,15 +1015,10 @@ struct ImageEvidenceDetailView: View {
             ForEach(Array(values.enumerated()), id: \.offset) { _, attachment in
                 AttachmentSummaryCard(
                     attachment: attachment,
-                    showsPreview: showsPreviews,
-                    decodedImage: decodedImage
+                    showsPreview: showsPreviews
                 )
             }
         }
-    }
-
-    private func decodedImage(_ value: String) -> NSImage? {
-        EvidenceImageCache.shared.image(for: value)
     }
 }
 
@@ -1026,54 +1208,59 @@ private enum CodeViewerMode: String, CaseIterable, Identifiable {
 
 private struct CodeDiffSummaryView: View {
     @Environment(AppState.self) private var appState
+    let rowID: UUID
     let left: String
     let right: String
+    @State private var summary: CodeDiffSummary?
 
     var body: some View {
-        let leftTokens = Set(EvidenceTokenAnalyzer.tokens(in: left))
-        let rightTokens = Set(EvidenceTokenAnalyzer.tokens(in: right))
-        let shared = leftTokens.intersection(rightTokens).count
-        let leftOnly = leftTokens.subtracting(rightTokens).count
-        let rightOnly = rightTokens.subtracting(leftTokens).count
-        let fragment = EvidenceTokenAnalyzer.bestSharedFragment(left: left, right: right) ?? appState.t("reports.sharedFragment.empty")
+        Group {
+            if let summary {
+                let fragment = summary.fragment ?? appState.t("reports.sharedFragment.empty")
 
-        VStack(alignment: .leading, spacing: 6) {
-            ViewThatFits(in: .horizontal) {
-                HStack(spacing: 12) {
-                    Label(appState.tf("reports.diff.sharedCount", shared), systemImage: "equal.square")
-                    Label(appState.tf("reports.diff.leftOnlyCount", leftOnly), systemImage: "arrow.left.square")
-                    Label(appState.tf("reports.diff.rightOnlyCount", rightOnly), systemImage: "arrow.right.square")
-                }
+                VStack(alignment: .leading, spacing: 6) {
+                    ViewThatFits(in: .horizontal) {
+                        HStack(spacing: 12) {
+                            Label(appState.tf("reports.diff.sharedCount", summary.shared), systemImage: "equal.square")
+                            Label(appState.tf("reports.diff.leftOnlyCount", summary.leftOnly), systemImage: "arrow.left.square")
+                            Label(appState.tf("reports.diff.rightOnlyCount", summary.rightOnly), systemImage: "arrow.right.square")
+                        }
 
-                VStack(alignment: .leading, spacing: 4) {
-                    Label(appState.tf("reports.diff.sharedCount", shared), systemImage: "equal.square")
-                    Label(appState.tf("reports.diff.leftOnlyCount", leftOnly), systemImage: "arrow.left.square")
-                    Label(appState.tf("reports.diff.rightOnlyCount", rightOnly), systemImage: "arrow.right.square")
+                        VStack(alignment: .leading, spacing: 4) {
+                            Label(appState.tf("reports.diff.sharedCount", summary.shared), systemImage: "equal.square")
+                            Label(appState.tf("reports.diff.leftOnlyCount", summary.leftOnly), systemImage: "arrow.left.square")
+                            Label(appState.tf("reports.diff.rightOnlyCount", summary.rightOnly), systemImage: "arrow.right.square")
+                        }
+                    }
+                    .font(AppTypography.metadata)
+                    .foregroundStyle(.secondary)
+
+                    Text(appState.tf("reports.diff.longestSharedFragment", fragment))
+                        .font(AppTypography.metadata)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(2)
+                        .textSelection(.enabled)
                 }
+                .frame(maxWidth: .infinity, alignment: .leading)
+            } else {
+                ProgressView()
+                    .controlSize(.small)
+                    .frame(maxWidth: .infinity, minHeight: 32, alignment: .leading)
             }
-            .font(AppTypography.metadata)
-            .foregroundStyle(.secondary)
-
-            Text(appState.tf("reports.diff.longestSharedFragment", fragment))
-                .font(AppTypography.metadata)
-                .foregroundStyle(.secondary)
-                .lineLimit(2)
-                .textSelection(.enabled)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .task(id: rowID) {
+            summary = await CodeDiffSummaryCache.shared.summary(left: left, right: right)
+        }
     }
 }
 
 private struct CodeLineDiffView: View {
     @Environment(AppState.self) private var appState
+    let rowID: UUID
     let left: String
     let right: String
     @State private var rows: [CodeLineDiffRow] = []
     @State private var isLoading = true
-
-    private var cacheKey: String {
-        CodeDiffCache.key(left: left, right: right)
-    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
@@ -1114,7 +1301,7 @@ private struct CodeLineDiffView: View {
                 .frame(minHeight: 120, maxHeight: 220)
             }
         }
-        .task(id: cacheKey) {
+        .task(id: rowID) {
             isLoading = true
             rows = await CodeDiffCache.shared.rows(left: left, right: right)
             isLoading = false
@@ -1182,17 +1369,22 @@ private struct FlowTokenLine: View {
 private struct AttachmentSummaryCard: View {
     let attachment: ReportAttachment
     let showsPreview: Bool
-    let decodedImage: (String) -> NSImage?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             AttachmentHeader(attachment: attachment)
 
-            if showsPreview, let image = attachment.imageBase64.flatMap(decodedImage) {
-                Image(nsImage: image)
-                    .resizable()
-                    .aspectRatio(contentMode: .fit)
-                    .frame(maxWidth: .infinity, minHeight: 120, maxHeight: 200)
+            if showsPreview, let imageBase64 = attachment.imageBase64 {
+                EvidenceAsyncImage(
+                    base64: imageBase64,
+                    maxPixelSize: 640,
+                    identity: attachment.imageLoadIdentity
+                ) { image in
+                    Image(nsImage: image)
+                        .resizable()
+                        .aspectRatio(contentMode: .fit)
+                        .frame(maxWidth: .infinity, minHeight: 120, maxHeight: 200)
+                }
             }
 
             Text(attachment.body)
@@ -1209,7 +1401,6 @@ private struct ImageComparisonCard: View {
     let attachment: ReportAttachment
     let showsPreview: Bool
     let zoom: Double
-    let decodedImage: (String) -> NSImage?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -1222,14 +1413,20 @@ private struct ImageComparisonCard: View {
                 AttachmentHeader(attachment: attachment)
             }
 
-            if showsPreview, let image = attachment.imageBase64.flatMap(decodedImage) {
-                ScrollView([.horizontal, .vertical]) {
-                    Image(nsImage: image)
-                        .resizable()
-                        .aspectRatio(contentMode: .fit)
-                        .frame(width: displaySize(for: image).width, height: displaySize(for: image).height)
+            if showsPreview, let imageBase64 = attachment.imageBase64 {
+                EvidenceAsyncImage(
+                    base64: imageBase64,
+                    maxPixelSize: 1_200,
+                    identity: attachment.imageLoadIdentity
+                ) { image in
+                    ScrollView([.horizontal, .vertical]) {
+                        Image(nsImage: image)
+                            .resizable()
+                            .aspectRatio(contentMode: .fit)
+                            .frame(width: displaySize(for: image).width, height: displaySize(for: image).height)
+                    }
+                    .frame(maxWidth: .infinity, minHeight: 180, maxHeight: 260)
                 }
-                .frame(maxWidth: .infinity, minHeight: 180, maxHeight: 260)
             }
 
             Text(attachment.body)
@@ -1246,6 +1443,40 @@ private struct ImageComparisonCard: View {
         let ratio = image.size.height / max(image.size.width, 1)
         let baseHeight = min(max(baseWidth * ratio, 150), 260)
         return CGSize(width: baseWidth * CGFloat(zoom), height: baseHeight * CGFloat(zoom))
+    }
+}
+
+private struct EvidenceAsyncImage<Content: View>: View {
+    let base64: String
+    let maxPixelSize: Int
+    let identity: String
+    @ViewBuilder var content: (NSImage) -> Content
+    @State private var image: NSImage?
+    @State private var failed = false
+
+    var body: some View {
+        Group {
+            if let image {
+                content(image)
+            } else if failed {
+                EmptyView()
+            } else {
+                ProgressView()
+                    .controlSize(.small)
+                    .frame(maxWidth: .infinity, minHeight: 120, alignment: .center)
+            }
+        }
+        .task(id: "\(identity)|\(maxPixelSize)") {
+            failed = false
+            image = nil
+            if let decoded = await EvidenceImageCache.shared.image(for: base64, maxPixelSize: maxPixelSize) {
+                guard Task.isCancelled == false else { return }
+                image = decoded.image
+            } else {
+                guard Task.isCancelled == false else { return }
+                failed = true
+            }
+        }
     }
 }
 
@@ -1374,6 +1605,15 @@ private enum EvidenceTokenAnalyzer {
 }
 
 private extension ReportAttachment {
+    var imageLoadIdentity: String {
+        [
+            title,
+            subtitle,
+            sourceReferenceText,
+            imageBase64.map(stableContentDigest) ?? "",
+        ].joined(separator: "|")
+    }
+
     func transformedBody(_ body: String) -> ReportAttachment {
         ReportAttachment(
             title: title,
