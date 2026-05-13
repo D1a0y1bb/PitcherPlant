@@ -38,6 +38,38 @@ func toolbarScanModesWriteRealAuditConfiguration() {
 }
 
 @Test
+func reportNameTemplateRejectsPathTraversalAndNestedPaths() throws {
+    let root = FileManager.default.temporaryDirectory
+        .appendingPathComponent("pitcherplant-report-template-\(UUID().uuidString)", isDirectory: true)
+    let input = root.appendingPathComponent("input", isDirectory: true)
+    let output = root.appendingPathComponent("reports", isDirectory: true)
+    try FileManager.default.createDirectory(at: input, withIntermediateDirectories: true)
+    try FileManager.default.createDirectory(at: output, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: root) }
+
+    var configuration = AuditConfiguration.defaults(for: root)
+    configuration.directoryPath = input.path
+    configuration.outputDirectoryPath = output.path
+
+    configuration.reportNameTemplate = "../escape.html"
+    #expect(configuration.validationIssues().contains(.reportNameTemplateInvalid("../escape.html")))
+
+    configuration.reportNameTemplate = "nested/report.html"
+    #expect(configuration.validationIssues().contains(.reportNameTemplateInvalid("nested/report.html")))
+
+    configuration.reportNameTemplate = #"nested\report.html"#
+    #expect(configuration.validationIssues().contains(.reportNameTemplateInvalid(#"nested\report.html"#)))
+
+    configuration.reportNameTemplate = "team..1-{dir}-{date}.html"
+    #expect(configuration.validationIssues().contains(.reportNameTemplateInvalid("team..1-{dir}-{date}.html")) == false)
+
+    configuration.reportNameTemplate = "safe-{dir}-{date}.html"
+    let reportURL = try configuration.reportFileURL(scanDirectoryTitle: "input", timestamp: "2026-01-01_000000")
+    #expect(reportURL.deletingLastPathComponent().standardizedFileURL.path == output.standardizedFileURL.path)
+    #expect(reportURL.lastPathComponent == "safe-input-2026-01-01_000000.html")
+}
+
+@Test
 func releaseWorkflowPublishesAdHocArtifactsWhenSigningSecretsAreMissing() throws {
     let root = try testRepositoryRoot()
     let workflow = try String(

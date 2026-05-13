@@ -23,6 +23,22 @@ func pdfIngestionExtractsEmbeddedImagesBeforePageFallback() throws {
 }
 
 @Test
+func pdfEmbeddedImageExtractorHandlesZeroPagePDF() throws {
+    let root = FileManager.default.temporaryDirectory
+        .appendingPathComponent("pitcherplant-zero-page-pdf-\(UUID().uuidString)", isDirectory: true)
+    try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: root) }
+
+    let pdfURL = root.appendingPathComponent("empty.pdf")
+    try writePDFWithoutPages(to: pdfURL)
+
+    let images = try PDFEmbeddedImageExtractor(configuration: AuditConfiguration.defaults(for: root))
+        .extract(from: pdfURL)
+
+    #expect(images.isEmpty)
+}
+
+@Test
 func ingestionSkipsOfficeTempsAndReadsLossyText() throws {
     let root = FileManager.default.temporaryDirectory
         .appendingPathComponent("pitcherplant-ingestion-\(UUID().uuidString)", isDirectory: true)
@@ -119,6 +135,14 @@ private func writePDFWithEmbeddedImage(to url: URL) throws {
     context.fill(mediaBox)
     context.draw(image, in: CGRect(x: 36, y: 36, width: 108, height: 108))
     context.endPDFPage()
+    context.closePDF()
+}
+
+private func writePDFWithoutPages(to url: URL) throws {
+    guard let consumer = CGDataConsumer(url: url as CFURL),
+          let context = CGContext(consumer: consumer, mediaBox: nil, nil) else {
+        throw CocoaError(.fileWriteUnknown)
+    }
     context.closePDF()
 }
 

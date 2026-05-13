@@ -83,6 +83,10 @@ struct FingerprintPackageImportResult: Hashable, Sendable {
 }
 
 struct FingerprintPackageService {
+    static let maxJSONPackageBytes = 32 * 1024 * 1024
+    static let maxArchiveEntryBytes = 32 * 1024 * 1024
+    static let maxRecordCount = 50_000
+
     func exportPackage(
         records: [FingerprintRecord],
         to url: URL,
@@ -149,6 +153,7 @@ struct FingerprintPackageService {
 
     private func readPackage(from url: URL) throws -> FingerprintPackage {
         if url.pathExtension.lowercased() == "json" {
+            try validateFileSize(at: url, limit: Self.maxJSONPackageBytes)
             return try decode(FingerprintPackage.self, from: Data(contentsOf: url))
         }
 
@@ -160,12 +165,18 @@ struct FingerprintPackageService {
                 userInfo: [NSLocalizedDescriptionKey: "指纹包缺少 fingerprints.json"]
             )
         }
-        return try decode(FingerprintPackage.self, from: read(entry, in: archive))
+        return try decode(FingerprintPackage.self, from: read(entry, in: archive, limit: Self.maxArchiveEntryBytes))
     }
 
     private func validate(_ package: FingerprintPackage) throws {
         guard package.manifest.schemaVersion <= FingerprintPackageManifest.currentSchemaVersion else {
             throw packageError(code: 2, message: "指纹包 schemaVersion \(package.manifest.schemaVersion) 高于当前支持版本 \(FingerprintPackageManifest.currentSchemaVersion)")
+        }
+        guard package.manifest.recordCount <= Self.maxRecordCount else {
+            throw packageError(code: 5, message: "指纹包记录数超过上限：manifest=\(package.manifest.recordCount)，上限=\(Self.maxRecordCount)")
+        }
+        guard package.records.count <= Self.maxRecordCount else {
+            throw packageError(code: 6, message: "指纹包记录数组超过上限：实际=\(package.records.count)，上限=\(Self.maxRecordCount)")
         }
         guard package.manifest.recordCount == package.records.count else {
             throw packageError(code: 3, message: "指纹包记录数校验失败：manifest=\(package.manifest.recordCount)，实际=\(package.records.count)")
@@ -232,9 +243,26 @@ struct FingerprintPackageService {
         return try decoder.decode(type, from: data)
     }
 
-    private func read(_ entry: Entry, in archive: Archive) throws -> Data {
+    private func validateFileSize(at url: URL, limit: Int) throws {
+        let attributes = try FileManager.default.attributesOfItem(atPath: url.path)
+        let size = (attributes[.size] as? NSNumber)?.int64Value ?? 0
+        guard size <= Int64(limit) else {
+            throw packageError(code: 7, message: "指纹包文件过大：\(size) 字节，上限 \(limit) 字节")
+        }
+    }
+
+    private func read(_ entry: Entry, in archive: Archive, limit: Int) throws -> Data {
+        if entry.uncompressedSize > UInt32(limit) {
+            throw packageError(code: 8, message: "指纹包 fingerprints.json 展开后过大：\(entry.uncompressedSize) 字节，上限 \(limit) 字节")
+        }
+
         var data = Data()
-        _ = try archive.extract(entry) { part in data.append(part) }
+        _ = try archive.extract(entry) { part in
+            guard data.count + part.count <= limit else {
+                throw packageError(code: 8, message: "指纹包 fingerprints.json 展开后过大：超过 \(limit) 字节")
+            }
+            data.append(part)
+        }
         return data
     }
 

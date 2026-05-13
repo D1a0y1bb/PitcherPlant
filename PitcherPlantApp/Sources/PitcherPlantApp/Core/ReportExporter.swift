@@ -178,7 +178,29 @@ enum ReportExporter {
     }
 
     static func exportEvidenceBundle(report: AuditReport, to url: URL) throws {
-        try? FileManager.default.removeItem(at: url)
+        let fileManager = FileManager.default
+        var isDirectory = ObjCBool(false)
+        if fileManager.fileExists(atPath: url.path, isDirectory: &isDirectory), isDirectory.boolValue {
+            throw CocoaError(.fileWriteInvalidFileName)
+        }
+
+        let parent = url.deletingLastPathComponent()
+        try fileManager.createDirectory(at: parent, withIntermediateDirectories: true)
+        let temporaryURL = parent.appendingPathComponent(".\(url.lastPathComponent).\(UUID().uuidString).tmp")
+        do {
+            try writeEvidenceBundleArchive(report: report, to: temporaryURL)
+            if fileManager.fileExists(atPath: url.path) {
+                _ = try fileManager.replaceItemAt(url, withItemAt: temporaryURL)
+            } else {
+                try fileManager.moveItem(at: temporaryURL, to: url)
+            }
+        } catch {
+            try? fileManager.removeItem(at: temporaryURL)
+            throw error
+        }
+    }
+
+    private static func writeEvidenceBundleArchive(report: AuditReport, to url: URL) throws {
         let archive = try Archive(url: url, accessMode: .create, pathEncoding: nil)
         try add(Data(htmlString(from: report).utf8), path: "report.html", to: archive)
         try add(Data(ReportMarkdownFormatter.string(from: report).utf8), path: "report.md", to: archive)

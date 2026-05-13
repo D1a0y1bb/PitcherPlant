@@ -450,6 +450,10 @@ final class PDFEmbeddedImageExtractor {
         images = []
         seenSignatures = []
 
+        guard document.numberOfPages > 0 else {
+            return []
+        }
+
         for pageIndex in 1...document.numberOfPages {
             try Task.checkCancellation()
             guard let page = document.page(at: pageIndex), let dictionary = page.dictionary else {

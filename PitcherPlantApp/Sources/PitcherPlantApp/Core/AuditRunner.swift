@@ -115,10 +115,7 @@ struct AuditRunner {
 
         let title = directoryURL.lastPathComponent.isEmpty ? "PitcherPlant 报告" : directoryURL.lastPathComponent
         let timestamp = DateFormatter.pitcherPlantFileName.string(from: .now)
-        let sourceURL = URL(fileURLWithPath: configuration.outputDirectoryPath)
-            .appendingPathComponent(configuration.reportNameTemplate
-                .replacingOccurrences(of: "{dir}", with: title)
-                .replacingOccurrences(of: "{date}", with: timestamp))
+        let sourceURL = try configuration.reportFileURL(scanDirectoryTitle: title, timestamp: timestamp)
 
         try FileManager.default.createDirectory(at: sourceURL.deletingLastPathComponent(), withIntermediateDirectories: true)
 
