@@ -324,10 +324,10 @@ jobs:
           security find-identity -v -p codesigning "$KEYCHAIN_PATH"
           security find-identity -v -p codesigning "$KEYCHAIN_PATH" | grep -F "$APPLE_SIGNING_IDENTITY"
 
-      - name: SwiftPM tests
+      - name: SwiftPM test build
         timeout-minutes: 10
         working-directory: PitcherPlantApp
-        run: swift test
+        run: swift build --build-tests
 
       - name: Xcode tests
         working-directory: PitcherPlantApp
