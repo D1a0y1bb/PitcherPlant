@@ -84,7 +84,7 @@ struct AuditReportListRow: View {
         }
         .font(AppTypography.rowSecondary)
         .padding(.horizontal, AppLayout.rowHorizontalPadding)
-        .padding(.vertical, 7)
+        .padding(.vertical, appState.appSettings.compactRows ? 5 : 9)
     }
 }
 
@@ -157,7 +157,7 @@ struct WhitelistTableRow: View {
         }
         .font(AppTypography.rowSecondary)
         .padding(.horizontal, AppLayout.rowHorizontalPadding)
-        .padding(.vertical, 7)
+        .padding(.vertical, appState.appSettings.compactRows ? 5 : 9)
     }
 }
 

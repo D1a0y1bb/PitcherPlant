@@ -16,6 +16,7 @@ enum SettingsLayout {
     static let dividerLeadingPadding: CGFloat = rowLeadingPadding
     static let trailingWidth: CGFloat = 380
     static let menuWidth: CGFloat = 156
+    static let wideMenuWidth: CGFloat = 240
     static let numberFieldWidth: CGFloat = 62
     static let stepperWidth: CGFloat = 26
     static let thresholdControlSpacing: CGFloat = 4
@@ -92,13 +93,28 @@ struct SettingsPathRow: View {
     @Binding var text: String
 
     var body: some View {
-        SettingsControlRow(title: title, subtitle: subtitle, icon: icon) {
-            SettingsEditablePathControl(
-                title: title,
-                text: $text,
-                chooseDirectory: chooseDirectory
-            )
+        Button {
+            chooseDirectory()
+        } label: {
+            SettingsRowContainer {
+                HStack(alignment: .center, spacing: 16) {
+                    SettingsRowIcon(style: icon)
+
+                    SettingsRowText(title: title, subtitle: subtitle)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(.tertiary)
+                        .frame(width: 18, alignment: .trailing)
+                        .accessibilityHidden(true)
+                }
+            }
         }
+        .buttonStyle(.plain)
+        .contentShape(Rectangle())
+        .help(subtitle)
+        .accessibilityLabel(Text(title))
     }
 
     private func chooseDirectory() {
@@ -108,9 +124,24 @@ struct SettingsPathRow: View {
         panel.allowsMultipleSelection = false
         panel.canCreateDirectories = true
         panel.prompt = appState.t("settings.choose")
+        panel.directoryURL = startingDirectoryURL()
 
         if panel.runModal() == .OK, let url = panel.url {
             text = url.path
         }
+    }
+
+    private func startingDirectoryURL() -> URL? {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmed.isEmpty == false else {
+            return nil
+        }
+
+        let url = URL(fileURLWithPath: (trimmed as NSString).expandingTildeInPath, isDirectory: true)
+        var isDirectory = ObjCBool(false)
+        if FileManager.default.fileExists(atPath: url.path, isDirectory: &isDirectory), isDirectory.boolValue {
+            return url
+        }
+        return url.deletingLastPathComponent()
     }
 }

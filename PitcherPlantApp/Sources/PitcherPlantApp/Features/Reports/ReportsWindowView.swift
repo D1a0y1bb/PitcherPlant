@@ -69,6 +69,13 @@ struct ReportsWindowView: View {
     private var reportWindowToolbarItems: some ToolbarContent {
         ToolbarItem(placement: .primaryAction) {
             Menu {
+                Button { appState.exportSelectedReportUsingDefaultFormat() } label: {
+                    Label(
+                        appState.tf("settings.exportDefaultFormat", appState.title(for: appState.appSettings.defaultExportFormat)),
+                        systemImage: "square.and.arrow.up"
+                    )
+                }
+                Divider()
                 Button { appState.exportSelectedReportAsHTML() } label: {
                     Label("HTML", systemImage: "chevron.left.forwardslash.chevron.right")
                 }
@@ -300,6 +307,13 @@ private struct ReportsCenterSelectorBar: View {
 
     private var exportMenu: some View {
         Menu {
+            Button { appState.exportSelectedReportUsingDefaultFormat() } label: {
+                Label(
+                    appState.tf("settings.exportDefaultFormat", appState.title(for: appState.appSettings.defaultExportFormat)),
+                    systemImage: "square.and.arrow.up"
+                )
+            }
+            Divider()
             Button { appState.exportSelectedReportAsHTML() } label: { Label("HTML", systemImage: "chevron.left.forwardslash.chevron.right") }
             Button { appState.exportSelectedReportAsPDF() } label: { Label("PDF", systemImage: "doc.richtext") }
             Button { appState.exportSelectedReportAsCSV() } label: { Label("CSV", systemImage: "tablecells") }

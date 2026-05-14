@@ -626,15 +626,23 @@ struct EvidenceSemanticDetailView: View {
     let row: ReportTableRow
 
     var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            semanticContent
+            AssistantEvidenceExplanationView(row: row)
+        }
+    }
+
+    @ViewBuilder
+    private var semanticContent: some View {
         switch row.evidenceType {
         case .text, .dedup:
             TextEvidenceComparisonView(row: row)
         case .code:
             CodeEvidenceComparisonView(row: row)
         case .metadata, .crossBatch, nil:
-            AssistantEvidenceExplanationView(row: row)
-        case .image:
             EmptyView()
+        case .image:
+            ImageEvidenceDetailView(attachments: row.attachments, showsPreviews: true)
         }
     }
 }
@@ -804,82 +812,274 @@ struct AssistantEvidenceExplanationView: View {
     @Environment(AppState.self) private var appState
     let row: ReportTableRow
     @State private var phase: AssistantPhase = .idle
-    @State private var cachedExplanation: String?
+    @State private var cachedResult: AuditAssistantResult?
+    @State private var assistantTask: Task<Void, Never>?
 
     var body: some View {
         InspectorSection(title: appState.t("reports.assistantExplanation")) {
             VStack(alignment: .leading, spacing: 10) {
-                HStack(spacing: 8) {
-                    Button {
-                        Task { await runAssistant() }
-                    } label: {
-                        Label(buttonTitle, systemImage: "sparkles")
-                    }
-                    .disabled(phase == .loading)
+                if assistantConfiguration.mode == .disabled {
+                    Text(appState.t("reports.assistantDisabled"))
+                        .font(AppTypography.body)
+                        .foregroundStyle(.secondary)
+                } else {
+                    HStack(spacing: 8) {
+                        Button {
+                            runAssistant()
+                        } label: {
+                            Label(buttonTitle, systemImage: "sparkles")
+                        }
+                        .disabled(phase == .loading)
 
-                    if phase == .loading {
-                        ProgressView()
-                            .controlSize(.small)
+                        if phase == .loading {
+                            ProgressView()
+                                .controlSize(.small)
+                            Button(appState.t("common.cancel")) {
+                                assistantTask?.cancel()
+                                phase = .idle
+                            }
+                            .buttonStyle(.borderless)
+                        }
                     }
+                    .buttonStyle(.borderless)
+
+                    switch phase {
+                    case .failed(let message):
+                        Text(message)
+                            .font(AppTypography.body)
+                            .foregroundStyle(.red)
+                            .textSelection(.enabled)
+                    default:
+                        AssistantResultView(result: displayedResult)
+                    }
+
+                    HStack(spacing: 10) {
+                        Button {
+                            copyResult()
+                        } label: {
+                            Label(appState.t("reports.copyAssistantResult"), systemImage: "doc.on.doc")
+                        }
+
+                        Button {
+                            applyAssistantNote()
+                        } label: {
+                            Label(appState.t("reports.applyAssistantNote"), systemImage: "square.and.pencil")
+                        }
+                        .disabled(displayedResult.noteDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+
+                        Button {
+                            applyAssistantSeverity()
+                        } label: {
+                            Label(appState.t("reports.applyAssistantSeverity"), systemImage: "exclamationmark.triangle")
+                        }
+                        .disabled(displayedResult.suggestedSeverity == nil && displayedResult.suggestedDecision == nil)
+                    }
+                    .buttonStyle(.borderless)
+                    .controlSize(.small)
                 }
-                .buttonStyle(.borderless)
-
-                Text(displayedExplanation)
-                    .font(AppTypography.body)
-                    .foregroundStyle(.secondary)
-                    .textSelection(.enabled)
             }
         }
         .onChange(of: row.id) { _, _ in
+            assistantTask?.cancel()
             phase = .idle
-            cachedExplanation = nil
+            cachedResult = nil
+            Task {
+                if let latest = await appState.latestAssistantSuggestion(for: row) {
+                    cachedResult = latest.result
+                    phase = .loaded(latest.result)
+                }
+            }
+        }
+        .onAppear {
+            Task {
+                if cachedResult == nil, let latest = await appState.latestAssistantSuggestion(for: row) {
+                    cachedResult = latest.result
+                    phase = .loaded(latest.result)
+                }
+            }
+        }
+        .onDisappear {
+            assistantTask?.cancel()
         }
     }
 
     private var buttonTitle: String {
-        if cachedExplanation != nil {
+        if cachedResult != nil {
             return appState.t("reports.regenerateExplanation")
         }
         return appState.t("reports.generateExplanation")
     }
 
-    private var displayedExplanation: String {
-        switch phase {
-        case .idle:
-            return cachedExplanation ?? AuditAssistantService().localExplanation(for: row, review: appState.review(for: row))
-        case .loading:
-            return cachedExplanation ?? appState.t("reports.generatingExplanation")
-        case .loaded(let text):
-            return text
-        case .failed(let message):
-            return message
-        }
+    private var assistantConfiguration: AuditAssistantConfiguration {
+        appState.appSettings.auditAssistant ?? AuditAssistantConfiguration()
     }
 
-    private func runAssistant() async {
-        phase = .loading
-        do {
-            let text = try await AuditAssistantService().explanation(
+    private var displayedResult: AuditAssistantResult {
+        switch phase {
+        case .idle:
+            return cachedResult ?? AuditAssistantService().localExplanation(
                 for: row,
                 review: appState.review(for: row),
                 configuration: appState.appSettings.auditAssistant ?? AuditAssistantConfiguration()
             )
-            cachedExplanation = text
-            phase = .loaded(text)
-        } catch {
-            phase = .failed(error.localizedDescription)
+        case .loading:
+            return cachedResult ?? AuditAssistantResult(
+                summary: appState.t("reports.generatingExplanation"),
+                provider: (appState.appSettings.auditAssistant ?? AuditAssistantConfiguration()).provider,
+                model: (appState.appSettings.auditAssistant ?? AuditAssistantConfiguration()).effectiveModel
+            )
+        case .loaded(let text):
+            return text
+        case .failed(let message):
+            return AuditAssistantResult(
+                summary: message,
+                provider: (appState.appSettings.auditAssistant ?? AuditAssistantConfiguration()).provider,
+                model: (appState.appSettings.auditAssistant ?? AuditAssistantConfiguration()).effectiveModel
+            )
+        }
+    }
+
+    private func runAssistant() {
+        assistantTask?.cancel()
+        phase = .loading
+        assistantTask = Task {
+            do {
+                let result = try await AuditAssistantService().suggestion(
+                    for: row,
+                    review: appState.review(for: row),
+                    configuration: appState.appSettings.auditAssistant ?? AuditAssistantConfiguration()
+                )
+                guard Task.isCancelled == false else {
+                    return
+                }
+                cachedResult = result
+                phase = .loaded(result)
+                await appState.saveAssistantSuggestion(for: row, result: result)
+            } catch is CancellationError {
+                phase = .idle
+            } catch {
+                phase = .failed(error.localizedDescription)
+            }
+        }
+    }
+
+    private func copyResult() {
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(displayedResult.displayText, forType: .string)
+    }
+
+    private func applyAssistantNote() {
+        let result = displayedResult
+        let existing = appState.review(for: row)
+        let decision = result.suggestedDecision ?? existing?.decision ?? .pending
+        let severity = result.suggestedSeverity ?? existing?.severity ?? row.riskAssessment?.level
+        Task {
+            await appState.saveReview(
+                for: row,
+                decision: decision,
+                severity: severity,
+                note: result.noteDraft
+            )
+        }
+    }
+
+    private func applyAssistantSeverity() {
+        let result = displayedResult
+        let existing = appState.review(for: row)
+        let decision = result.suggestedDecision ?? existing?.decision ?? .pending
+        let note = existing?.reviewerNote ?? row.review?.reviewerNote ?? ""
+        Task {
+            await appState.saveReview(
+                for: row,
+                decision: decision,
+                severity: result.suggestedSeverity ?? existing?.severity ?? row.riskAssessment?.level,
+                note: note
+            )
         }
     }
 
     private enum AssistantPhase: Equatable {
         case idle
         case loading
-        case loaded(String)
+        case loaded(AuditAssistantResult)
         case failed(String)
 
         var isError: Bool {
             if case .failed = self { return true }
             return false
+        }
+    }
+}
+
+private struct AssistantResultView: View {
+    @Environment(AppState.self) private var appState
+    let result: AuditAssistantResult
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(result.summary)
+                .font(AppTypography.body)
+                .foregroundStyle(.secondary)
+                .textSelection(.enabled)
+
+            if result.triggerReasons.isEmpty == false {
+                assistantList(title: appState.t("reports.assistantTriggerReasons"), values: result.triggerReasons)
+            }
+
+            if result.checkpoints.isEmpty == false {
+                assistantList(title: appState.t("reports.assistantCheckpoints"), values: result.checkpoints)
+            }
+
+            if result.suggestedDecision != nil || result.suggestedSeverity != nil {
+                HStack(spacing: 8) {
+                    if let decision = result.suggestedDecision {
+                        Text(appState.tf("reports.assistantDecisionSuggestion", appState.title(for: decision)))
+                    }
+                    if let severity = result.suggestedSeverity {
+                        Text(appState.tf("reports.assistantSeveritySuggestion", appState.title(for: severity)))
+                    }
+                }
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            }
+
+            if result.noteDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(appState.t("reports.assistantNoteDraft"))
+                        .font(.caption.weight(.semibold))
+                    Text(result.noteDraft)
+                        .font(AppTypography.body)
+                        .foregroundStyle(.secondary)
+                        .textSelection(.enabled)
+                }
+            }
+
+            Text(providerText)
+                .font(.caption)
+                .foregroundStyle(.tertiary)
+                .lineLimit(2)
+                .textSelection(.enabled)
+        }
+    }
+
+    private var providerText: String {
+        var parts = [appState.title(for: result.provider), result.model].filter { $0.isEmpty == false }
+        if let requestID = result.requestID, requestID.isEmpty == false {
+            parts.append(requestID)
+        }
+        return parts.joined(separator: " · ")
+    }
+
+    private func assistantList(title: String, values: [String]) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(title)
+                .font(.caption.weight(.semibold))
+            ForEach(values, id: \.self) { value in
+                Text("• \(value)")
+                    .font(AppTypography.body)
+                    .foregroundStyle(.secondary)
+                    .textSelection(.enabled)
+            }
         }
     }
 }

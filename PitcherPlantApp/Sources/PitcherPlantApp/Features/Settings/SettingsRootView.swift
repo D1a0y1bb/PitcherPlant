@@ -6,9 +6,16 @@ import CoreGraphics
 struct SettingsRootView: View {
     @Environment(AppState.self) private var appState
     @State private var selectedCalibrationPreset: AuditCalibrationPreset = .balanced
-    @State private var calibrationResult: CalibrationEvaluationResult?
     @State private var calibrationMessage: String?
     @State private var activeAboutPanel: SettingsAboutPanel?
+    @State private var auditAssistantCredentialDraft = ""
+    @State private var auditAssistantBaseURLRevealed = true
+    @State private var auditAssistantModelRevealed = true
+    @State private var auditAssistantCredentialRevealed = false
+    @State private var hasSavedAuditAssistantCredential = false
+    @State private var auditAssistantConnectionMessage: String?
+    @State private var isTestingAuditAssistant = false
+    @State private var settingsNotice: SettingsNotice?
 
     var body: some View {
         SettingsPaneScroll {
@@ -30,7 +37,17 @@ struct SettingsRootView: View {
             SettingsAboutPanelView(panel: panel, version: AppVersionInfo.current)
                 .environment(appState)
         }
-        .onAppear(perform: clearInitialControlFocus)
+        .alert(item: $settingsNotice) { notice in
+            Alert(
+                title: Text(notice.title),
+                message: Text(notice.message),
+                dismissButton: .default(Text(appState.t("common.ok")))
+            )
+        }
+        .onAppear {
+            clearInitialControlFocus()
+            refreshAuditAssistantCredentialPresence()
+        }
     }
 
     @ViewBuilder
@@ -86,20 +103,20 @@ struct SettingsRootView: View {
 
     private var auditDefaultsSettings: some View {
         SettingsGroup(title: appState.t("settings.auditDefaults")) {
-            SettingsFolderActionRow(
+            SettingsPathRow(
                 title: appState.t("audit.directory"),
                 subtitle: appState.t("settings.auditDirectoryDescription"),
                 icon: .inputFolder,
-                url: URL(fileURLWithPath: appState.draftConfiguration.directoryPath)
+                text: draftBinding(\.directoryPath)
             )
 
             SettingsDivider()
 
-            SettingsFolderActionRow(
+            SettingsPathRow(
                 title: appState.t("audit.outputDirectory"),
                 subtitle: appState.t("settings.reportDirectoryDescription"),
                 icon: .outputFolder,
-                url: URL(fileURLWithPath: appState.draftConfiguration.outputDirectoryPath)
+                text: draftBinding(\.outputDirectoryPath)
             )
 
             SettingsDivider()
@@ -198,26 +215,13 @@ struct SettingsRootView: View {
                 applyCalibrationPreset()
             }
 
-            SettingsDivider()
-
-            SettingsActionRow(
-                title: appState.t("settings.runCalibration"),
-                subtitle: calibrationSummaryText,
-                icon: .calibrationStatus
-            ) {
-                runCalibration()
-            }
-
-            if let calibrationResult {
-                SettingsDivider()
-                CalibrationResultRows(result: calibrationResult)
-            } else if let calibrationMessage {
+            if let calibrationMessage {
                 SettingsDivider()
                 SettingsValueRow(
                     title: appState.t("settings.calibrationStatus"),
-                    subtitle: calibrationMessage,
+                    subtitle: appState.t("settings.calibrationDescription"),
                     icon: .calibrationStatus,
-                    value: ""
+                    value: calibrationMessage
                 )
             }
         }
@@ -241,13 +245,63 @@ struct SettingsRootView: View {
 
             SettingsDivider()
 
-            SettingsTextFieldRow(
-                title: auditAssistantEndpointTitle,
-                subtitle: auditAssistantEndpointSubtitle,
-                icon: auditAssistantEndpointIcon,
-                text: auditAssistantBinding(\.endpointOrCommand)
+            SettingsPickerRow(
+                title: appState.t("settings.auditAssistantProvider"),
+                subtitle: currentValueSubtitle(appState.t("settings.auditAssistantProviderDescription"), value: auditAssistantProviderTitle(auditAssistantProvider)),
+                icon: .assistantProvider
+            ) {
+                SettingsMenuPicker(
+                    selection: auditAssistantProviderBinding,
+                    options: AuditAssistantConfiguration.Provider.allCases,
+                    width: SettingsLayout.wideMenuWidth,
+                    title: auditAssistantProviderTitle,
+                    systemImage: auditAssistantProviderImage
+                )
+            }
+            .disabled(auditAssistantMode != .externalAPI)
+
+            SettingsDivider()
+
+            SettingsPickerRow(
+                title: appState.t("settings.auditAssistantProtocol"),
+                subtitle: currentValueSubtitle(appState.t("settings.auditAssistantProtocolDescription"), value: auditAssistantProtocolTitle(auditAssistantProtocol)),
+                icon: .assistantProtocol
+            ) {
+                SettingsMenuPicker(
+                    selection: auditAssistantBinding(\.apiProtocol),
+                    options: auditAssistantProvider.supportedProtocols,
+                    width: SettingsLayout.wideMenuWidth,
+                    title: auditAssistantProtocolTitle,
+                    systemImage: auditAssistantProtocolImage
+                )
+            }
+            .disabled(auditAssistantMode != .externalAPI)
+
+            SettingsDivider()
+
+            SettingsRevealableTextFieldRow(
+                title: appState.t("settings.auditAssistantBaseURL"),
+                subtitle: appState.t("settings.auditAssistantBaseURLDescription"),
+                icon: .assistantEndpoint,
+                text: auditAssistantBinding(\.baseURL),
+                isRevealed: $auditAssistantBaseURLRevealed,
+                revealTitle: appState.t("settings.showText"),
+                concealTitle: appState.t("settings.hideText")
             )
-            .disabled(auditAssistantMode == .disabled)
+            .disabled(auditAssistantMode != .externalAPI)
+
+            SettingsDivider()
+
+            SettingsRevealableTextFieldRow(
+                title: appState.t("settings.auditAssistantModel"),
+                subtitle: appState.t("settings.auditAssistantModelDescription"),
+                icon: .assistantModel,
+                text: auditAssistantBinding(\.model),
+                isRevealed: $auditAssistantModelRevealed,
+                revealTitle: appState.t("settings.showText"),
+                concealTitle: appState.t("settings.hideText")
+            )
+            .disabled(auditAssistantMode != .externalAPI)
 
             SettingsDivider()
 
@@ -265,13 +319,85 @@ struct SettingsRootView: View {
 
             SettingsDivider()
 
-            SettingsTextFieldRow(
-                title: appState.t("settings.auditAssistantKeychain"),
-                subtitle: appState.t("settings.auditAssistantKeychainDescription"),
-                icon: .assistantCredential,
-                text: auditAssistantBinding(\.keychainCredentialReference)
+            SettingsIntegerFieldRow(
+                title: appState.t("settings.auditAssistantMaxTokens"),
+                subtitle: appState.t("settings.auditAssistantMaxTokensDescription"),
+                icon: .assistantTokens,
+                value: auditAssistantBinding(\.maxOutputTokens),
+                range: 100...8000,
+                step: 100,
+                hint: appState.t("settings.auditAssistantTokensHint")
             )
             .disabled(auditAssistantMode != .externalAPI)
+
+            SettingsDivider()
+
+            SettingsNumberFieldRow(
+                title: appState.t("settings.auditAssistantTemperature"),
+                subtitle: appState.t("settings.auditAssistantTemperatureDescription"),
+                icon: .assistantTemperature,
+                value: auditAssistantBinding(\.temperature),
+                range: 0...2,
+                step: 0.1,
+                hint: "",
+                fractionLength: 1
+            )
+            .disabled(auditAssistantMode != .externalAPI)
+
+            SettingsDivider()
+
+            SettingsPickerRow(
+                title: appState.t("settings.auditAssistantDataSharing"),
+                subtitle: currentValueSubtitle(appState.t("settings.auditAssistantDataSharingDescription"), value: auditAssistantDataSharingTitle(auditAssistantDataSharingLevel)),
+                icon: .assistantData
+            ) {
+                SettingsMenuPicker(
+                    selection: auditAssistantBinding(\.dataSharingLevel),
+                    options: AuditAssistantConfiguration.DataSharingLevel.allCases,
+                    width: SettingsLayout.menuWidth,
+                    title: auditAssistantDataSharingTitle,
+                    systemImage: auditAssistantDataSharingImage
+                )
+            }
+            .disabled(auditAssistantMode == .disabled)
+
+            SettingsDivider()
+
+            SettingsRevealableTextFieldRow(
+                title: appState.t("settings.auditAssistantAPIKey"),
+                subtitle: appState.t("settings.auditAssistantAPIKeyDescription"),
+                icon: .assistantCredential,
+                placeholder: auditAssistantCredentialPlaceholder,
+                text: $auditAssistantCredentialDraft,
+                isRevealed: $auditAssistantCredentialRevealed,
+                revealTitle: appState.t("settings.showText"),
+                concealTitle: appState.t("settings.hideText"),
+                onRevealRequest: revealAuditAssistantCredential
+            )
+            .disabled(auditAssistantMode != .externalAPI)
+
+            SettingsDivider()
+
+            SettingsButtonGroupRow(
+                title: appState.t("settings.auditAssistantConnection"),
+                subtitle: auditAssistantConnectionMessage ?? appState.t("settings.auditAssistantConnectionDescription"),
+                icon: .assistantConnection
+            ) {
+                Button(appState.t("settings.auditAssistantSaveKey")) {
+                    saveAuditAssistantCredential()
+                }
+                .disabled(auditAssistantMode != .externalAPI)
+
+                Button(appState.t("settings.auditAssistantDeleteKey")) {
+                    deleteAuditAssistantCredential()
+                }
+                .disabled(auditAssistantMode != .externalAPI)
+
+                Button(isTestingAuditAssistant ? appState.t("settings.auditAssistantTesting") : appState.t("settings.auditAssistantTest")) {
+                    testAuditAssistantConnection()
+                }
+                .disabled(auditAssistantMode != .externalAPI || isTestingAuditAssistant)
+            }
         }
     }
 
@@ -290,7 +416,7 @@ struct SettingsRootView: View {
                 title: appState.t("settings.defaultExportFormat"),
                 subtitle: currentValueSubtitle(
                     appState.t("settings.defaultExportFormatDescription"),
-                    value: appState.appSettings.defaultExportFormat.displayTitle
+                    value: appState.title(for: appState.appSettings.defaultExportFormat)
                 ),
                 icon: .exportFormat
             ) {
@@ -298,7 +424,7 @@ struct SettingsRootView: View {
                     selection: settingsBinding(\.defaultExportFormat),
                     options: ExportRecord.Format.allCases,
                     width: SettingsLayout.menuWidth,
-                    title: { $0.displayTitle }
+                    title: { appState.title(for: $0) }
                 )
             }
 
@@ -402,39 +528,12 @@ struct SettingsRootView: View {
         return "\(appState.jobs.count) \(appState.t("status.audits")) · \(reportCount) \(appState.t("status.reports")) · \(fingerprintCount) \(appState.t("status.fingerprints")) · \(appState.whitelistRules.count) \(appState.t("sidebar.whitelist"))"
     }
 
-    private var calibrationSummaryText: String {
-        if let calibrationResult {
-            return appState.tf(
-                "settings.calibrationSummary",
-                calibrationResult.summary.sampleCount,
-                calibrationResult.summary.precision,
-                calibrationResult.summary.recall,
-                calibrationResult.summary.f1
-            )
-        }
-        return appState.t("settings.calibrationDescription")
-    }
-
     private func applyCalibrationPreset() {
         let preset = selectedCalibrationPreset
         appState.updateDraft { configuration in
             configuration = configuration.applyingCalibrationPreset(preset)
         }
-    }
-
-    private func runCalibration() {
-        guard let manifestURL = CalibrationManifestLocator.manifestURL(workspaceRoot: appState.workspaceRoot) else {
-            calibrationResult = nil
-            calibrationMessage = appState.t("settings.calibrationMissingManifest")
-            return
-        }
-        do {
-            calibrationResult = try CalibrationService(manifestURL: manifestURL).evaluate(configuration: appState.draftConfiguration)
-            calibrationMessage = nil
-        } catch {
-            calibrationResult = nil
-            calibrationMessage = error.localizedDescription
-        }
+        calibrationMessage = appState.tf("settings.calibrationPresetApplied", appState.title(for: preset))
     }
 
     private func clearInitialControlFocus() {
@@ -447,28 +546,40 @@ struct SettingsRootView: View {
         (appState.appSettings.auditAssistant ?? AuditAssistantConfiguration()).mode
     }
 
-    private var auditAssistantEndpointTitle: String {
-        switch auditAssistantMode {
-        case .disabled: return appState.t("settings.auditAssistantEndpointCommand")
-        case .localCommand: return appState.t("settings.auditAssistantLocalCommand")
-        case .externalAPI: return appState.t("settings.auditAssistantAPIEndpoint")
-        }
+    private var auditAssistantProvider: AuditAssistantConfiguration.Provider {
+        (appState.appSettings.auditAssistant ?? AuditAssistantConfiguration()).provider
     }
 
-    private var auditAssistantEndpointSubtitle: String {
-        switch auditAssistantMode {
-        case .disabled: return appState.t("settings.auditAssistantDisabledSubtitle")
-        case .localCommand: return appState.t("settings.auditAssistantLocalSubtitle")
-        case .externalAPI: return appState.t("settings.auditAssistantAPISubtitle")
-        }
+    private var auditAssistantProtocol: AuditAssistantConfiguration.APIProtocol {
+        (appState.appSettings.auditAssistant ?? AuditAssistantConfiguration()).apiProtocol
     }
 
-    private var auditAssistantEndpointIcon: SettingsRowIconStyle {
-        switch auditAssistantMode {
-        case .disabled: return .assistantCommand
-        case .localCommand: return .assistantCommand
-        case .externalAPI: return .assistantMode
-        }
+    private var auditAssistantDataSharingLevel: AuditAssistantConfiguration.DataSharingLevel {
+        (appState.appSettings.auditAssistant ?? AuditAssistantConfiguration()).dataSharingLevel
+    }
+
+    private var auditAssistantProviderBinding: Binding<AuditAssistantConfiguration.Provider> {
+        Binding(
+            get: {
+                (appState.appSettings.auditAssistant ?? AuditAssistantConfiguration()).provider
+            },
+            set: { provider in
+                appState.updateSettings { settings in
+                    var configuration = settings.auditAssistant ?? AuditAssistantConfiguration()
+                    configuration.provider = provider
+                    if provider.supportedProtocols.contains(configuration.apiProtocol) == false {
+                        configuration.apiProtocol = provider.defaultProtocol
+                    }
+                    configuration.baseURL = provider.defaultBaseURL
+                    configuration.model = provider.defaultModel
+                    configuration.credentialID = provider.defaultCredentialID
+                    settings.auditAssistant = configuration
+                }
+                auditAssistantCredentialDraft = ""
+                auditAssistantCredentialRevealed = false
+                refreshAuditAssistantCredentialPresence()
+            }
+        )
     }
 
     private func settingsBinding<Value>(_ keyPath: WritableKeyPath<AppSettings, Value>) -> Binding<Value> {
@@ -548,13 +659,199 @@ struct SettingsRootView: View {
         appState.title(for: mode)
     }
 
+    private func auditAssistantProviderTitle(_ provider: AuditAssistantConfiguration.Provider) -> String {
+        appState.title(for: provider)
+    }
+
+    private func auditAssistantProtocolTitle(_ apiProtocol: AuditAssistantConfiguration.APIProtocol) -> String {
+        appState.title(for: apiProtocol)
+    }
+
+    private func auditAssistantDataSharingTitle(_ level: AuditAssistantConfiguration.DataSharingLevel) -> String {
+        appState.title(for: level)
+    }
+
     private func auditAssistantModeImage(_ mode: AuditAssistantConfiguration.Mode) -> String {
         switch mode {
         case .disabled: return "slash.circle"
-        case .localCommand: return "terminal"
         case .externalAPI: return "network"
         }
     }
+
+    private func auditAssistantProviderImage(_ provider: AuditAssistantConfiguration.Provider) -> String {
+        switch provider {
+        case .customOpenAICompatible: return "slider.horizontal.3"
+        case .openAI: return "sparkles"
+        case .anthropic: return "text.bubble"
+        case .gemini: return "diamond"
+        case .deepSeek: return "magnifyingglass"
+        case .kimi: return "moon"
+        case .miniMax: return "m.circle"
+        }
+    }
+
+    private func auditAssistantProtocolImage(_ apiProtocol: AuditAssistantConfiguration.APIProtocol) -> String {
+        switch apiProtocol {
+        case .openAIChatCompletions: return "text.bubble"
+        case .openAIResponses: return "sparkles"
+        case .anthropicMessages: return "message"
+        case .geminiGenerateContent: return "diamond"
+        case .miniMaxChatCompletion: return "m.circle"
+        }
+    }
+
+    private func auditAssistantDataSharingImage(_ level: AuditAssistantConfiguration.DataSharingLevel) -> String {
+        switch level {
+        case .summaryOnly: return "lock"
+        case .evidenceDetail: return "doc.text"
+        case .fullContext: return "doc.richtext"
+        }
+    }
+
+    private var auditAssistantCredentialPlaceholder: String {
+        if auditAssistantCredentialDraft.isEmpty && hasSavedAuditAssistantCredential {
+            return appState.t("settings.auditAssistantKeySavedPlaceholder")
+        }
+        return appState.t("settings.auditAssistantAPIKey")
+    }
+
+    private func refreshAuditAssistantCredentialPresence() {
+        do {
+            let configuration = appState.appSettings.auditAssistant ?? AuditAssistantConfiguration()
+            let store = AuditAssistantCredentialStore()
+            try store.migrateLegacyDefaultCredentialIfNeeded(to: configuration.credentialID)
+            hasSavedAuditAssistantCredential = try store.exists(id: configuration.credentialID)
+            if hasSavedAuditAssistantCredential == false {
+                auditAssistantCredentialDraft = ""
+                auditAssistantCredentialRevealed = false
+            }
+        } catch {
+            hasSavedAuditAssistantCredential = false
+            auditAssistantConnectionMessage = error.localizedDescription
+        }
+    }
+
+    private func revealAuditAssistantCredential() -> Bool {
+        guard auditAssistantCredentialDraft.isEmpty, hasSavedAuditAssistantCredential else {
+            return true
+        }
+
+        do {
+            let configuration = appState.appSettings.auditAssistant ?? AuditAssistantConfiguration()
+            auditAssistantCredentialDraft = try AuditAssistantCredentialStore().read(
+                id: configuration.credentialID,
+                allowAuthenticationUI: true
+            )
+            hasSavedAuditAssistantCredential = true
+            return true
+        } catch {
+            auditAssistantConnectionMessage = error.localizedDescription
+            presentSettingsNotice(error.localizedDescription)
+            return false
+        }
+    }
+
+    @discardableResult
+    private func saveAuditAssistantCredential(showAlert: Bool = true) -> Bool {
+        guard auditAssistantCredentialDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false else {
+            let message = appState.t("settings.auditAssistantKeyEmpty")
+            auditAssistantConnectionMessage = message
+            if showAlert {
+                presentSettingsNotice(message)
+            }
+            return false
+        }
+
+        do {
+            let configuration = appState.appSettings.auditAssistant ?? AuditAssistantConfiguration()
+            try AuditAssistantCredentialStore().save(auditAssistantCredentialDraft, id: configuration.credentialID)
+            hasSavedAuditAssistantCredential = true
+            auditAssistantCredentialRevealed = true
+            auditAssistantConnectionMessage = appState.t("settings.auditAssistantKeySaved")
+            if showAlert {
+                presentSettingsNotice(appState.t("settings.auditAssistantKeySaved"))
+            }
+            return true
+        } catch {
+            auditAssistantConnectionMessage = error.localizedDescription
+            if showAlert {
+                presentSettingsNotice(error.localizedDescription)
+            }
+            return false
+        }
+    }
+
+    private func deleteAuditAssistantCredential() {
+        do {
+            let configuration = appState.appSettings.auditAssistant ?? AuditAssistantConfiguration()
+            try AuditAssistantCredentialStore().deleteIfPresent(id: configuration.credentialID)
+            auditAssistantCredentialDraft = ""
+            hasSavedAuditAssistantCredential = false
+            auditAssistantCredentialRevealed = false
+            auditAssistantConnectionMessage = appState.t("settings.auditAssistantKeyDeleted")
+            presentSettingsNotice(appState.t("settings.auditAssistantKeyDeleted"))
+        } catch {
+            auditAssistantConnectionMessage = error.localizedDescription
+            presentSettingsNotice(error.localizedDescription)
+        }
+    }
+
+    private func testAuditAssistantConnection() {
+        let credential: String
+        do {
+            credential = try auditAssistantCredentialForConnectionTest()
+        } catch AuditAssistantCredentialStore.CredentialError.missingCredential {
+            let message = appState.t("settings.auditAssistantKeyEmpty")
+            auditAssistantConnectionMessage = message
+            presentSettingsNotice(message)
+            return
+        } catch {
+            auditAssistantConnectionMessage = error.localizedDescription
+            presentSettingsNotice(error.localizedDescription)
+            return
+        }
+
+        isTestingAuditAssistant = true
+        auditAssistantConnectionMessage = appState.t("settings.auditAssistantTesting")
+        Task { @MainActor in
+            do {
+                let configuration = appState.appSettings.auditAssistant ?? AuditAssistantConfiguration()
+                let result = try await AuditAssistantService().testConnection(configuration: configuration, credentialOverride: credential)
+                let message = appState.tf("settings.auditAssistantTestSucceeded", result.model)
+                auditAssistantConnectionMessage = message
+                presentSettingsNotice(message)
+            } catch {
+                auditAssistantConnectionMessage = error.localizedDescription
+                presentSettingsNotice(error.localizedDescription)
+            }
+            isTestingAuditAssistant = false
+        }
+    }
+
+    private func auditAssistantCredentialForConnectionTest() throws -> String {
+        let draft = auditAssistantCredentialDraft.trimmingCharacters(in: .whitespacesAndNewlines)
+        if draft.isEmpty == false {
+            return draft
+        }
+        guard hasSavedAuditAssistantCredential else {
+            throw AuditAssistantCredentialStore.CredentialError.missingCredential
+        }
+        let configuration = appState.appSettings.auditAssistant ?? AuditAssistantConfiguration()
+        return try AuditAssistantCredentialStore().read(
+            id: configuration.credentialID,
+            allowAuthenticationUI: true
+        )
+    }
+
+    private func presentSettingsNotice(_ message: String) {
+        settingsNotice = SettingsNotice(title: appState.t("settings.auditAssistant"), message: message)
+    }
+}
+
+private struct SettingsNotice: Identifiable {
+    let id = UUID()
+    let title: String
+    let message: String
 }
 
 private struct SettingsPaneScroll<Content: View>: View {
@@ -1055,57 +1352,5 @@ private struct SettingsDiagnosticSummary: View {
         }
         .font(.footnote)
         .textSelection(.enabled)
-    }
-}
-
-private struct CalibrationResultRows: View {
-    @Environment(AppState.self) private var appState
-    let result: CalibrationEvaluationResult
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack(spacing: 12) {
-                Text(appState.t("common.type")).frame(width: 80, alignment: .leading)
-                Text(appState.t("common.samples")).frame(width: 54, alignment: .trailing)
-                Text("P").frame(width: 54, alignment: .trailing)
-                Text("R").frame(width: 54, alignment: .trailing)
-                Text("F1").frame(width: 54, alignment: .trailing)
-                Text(appState.t("settings.calibrationThreshold")).frame(maxWidth: .infinity, alignment: .leading)
-            }
-            .font(AppTypography.tableHeader)
-            .foregroundStyle(.secondary)
-            .padding(.horizontal, AppLayout.rowHorizontalPadding)
-
-            ForEach(result.rows) { row in
-                HStack(spacing: 12) {
-                    Label(appState.title(for: row.kind), systemImage: row.kind.sectionKind.systemImage)
-                        .frame(width: 80, alignment: .leading)
-                    Text("\(row.sampleCount)").frame(width: 54, alignment: .trailing)
-                    Text(Self.metric(row.metrics.precision)).frame(width: 54, alignment: .trailing)
-                    Text(Self.metric(row.metrics.recall)).frame(width: 54, alignment: .trailing)
-                    Text(Self.metric(row.metrics.f1)).frame(width: 54, alignment: .trailing)
-                    Text(row.thresholdDescription)
-                        .foregroundStyle(.secondary)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                }
-                .font(AppTypography.rowSecondary.monospacedDigit())
-                .padding(.horizontal, AppLayout.rowHorizontalPadding)
-                .padding(.vertical, 5)
-                .accessibilityLabel(
-                    appState.tf(
-                        "settings.calibrationRowAccessibility",
-                        appState.title(for: row.kind),
-                        row.sampleCount,
-                        Self.metric(row.metrics.precision),
-                        Self.metric(row.metrics.recall),
-                        Self.metric(row.metrics.f1)
-                    )
-                )
-            }
-        }
-    }
-
-    private static func metric(_ value: Double) -> String {
-        String(format: "%.2f", value)
     }
 }

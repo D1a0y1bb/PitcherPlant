@@ -44,11 +44,12 @@ struct ReportLibrarySidebar: View {
                         ForEach(reports) { report in
                             ReportLibraryRow(report: report)
                                 .tag(report.id)
-                                .listRowInsets(EdgeInsets(top: 4, leading: 10, bottom: 4, trailing: 10))
+                                .listRowInsets(reportLibraryRowInsets)
                         }
                     }
                 }
                 .listStyle(.plain)
+                .environment(\.defaultMinListRowHeight, reportLibraryRowHeight)
             }
             .padding(.horizontal, 12)
 
@@ -77,6 +78,19 @@ struct ReportLibrarySidebar: View {
 
     private var countText: String {
         totalCount > reports.count ? "\(reports.count)/\(totalCount)" : "\(reports.count)"
+    }
+
+    private var reportLibraryRowHeight: CGFloat {
+        appState.appSettings.compactRows ? 34 : 44
+    }
+
+    private var reportLibraryRowInsets: EdgeInsets {
+        EdgeInsets(
+            top: appState.appSettings.compactRows ? 4 : 8,
+            leading: 10,
+            bottom: appState.appSettings.compactRows ? 4 : 8,
+            trailing: 10
+        )
     }
 
     private func loadMoreReports() {
@@ -110,6 +124,6 @@ struct ReportLibraryRow: View {
                     .foregroundStyle(.secondary)
             }
         }
-        .padding(.vertical, 5)
+        .padding(.vertical, appState.appSettings.compactRows ? 5 : 8)
     }
 }

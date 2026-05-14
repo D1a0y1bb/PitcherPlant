@@ -18,14 +18,120 @@ struct SettingsTextControl: View {
     @Binding var text: String
 
     var body: some View {
-        TextField(title, text: $text)
-            .textFieldStyle(.roundedBorder)
-            .font(AppTypography.smallCode)
-            .multilineTextAlignment(.trailing)
-            .lineLimit(1)
-            .truncationMode(.middle)
-            .frame(maxWidth: SettingsLayout.trailingWidth, alignment: .trailing)
-            .accessibilityLabel(Text(title))
+        SettingsPlainTextControl(title: title, text: $text)
+            .frame(width: SettingsLayout.trailingWidth, alignment: .trailing)
+    }
+}
+
+struct SettingsRevealableTextFieldRow: View {
+    let title: String
+    let subtitle: String
+    var icon: SettingsRowIconStyle = .generic
+    var placeholder: String? = nil
+    @Binding var text: String
+    @Binding var isRevealed: Bool
+    let revealTitle: String
+    let concealTitle: String
+    var onRevealRequest: (() -> Bool)?
+
+    var body: some View {
+        SettingsControlRow(title: title, subtitle: subtitle, icon: icon) {
+            SettingsRevealableTextControl(
+                title: title,
+                placeholder: placeholder ?? title,
+                text: $text,
+                isRevealed: $isRevealed,
+                revealTitle: revealTitle,
+                concealTitle: concealTitle,
+                onRevealRequest: onRevealRequest
+            )
+        }
+    }
+}
+
+private struct SettingsRevealableTextControl: View {
+    let title: String
+    let placeholder: String
+    @Binding var text: String
+    @Binding var isRevealed: Bool
+    let revealTitle: String
+    let concealTitle: String
+    var onRevealRequest: (() -> Bool)?
+
+    var body: some View {
+        SettingsFieldChrome {
+            if isRevealed {
+                TextField(placeholder, text: $text)
+                    .textFieldStyle(.plain)
+                    .font(AppTypography.smallCode)
+                    .multilineTextAlignment(.trailing)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+                    .accessibilityLabel(Text(title))
+            } else {
+                SecureField(placeholder, text: $text)
+                    .textFieldStyle(.plain)
+                    .font(AppTypography.smallCode)
+                    .multilineTextAlignment(.trailing)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+                    .accessibilityLabel(Text(title))
+            }
+
+            Button {
+                if isRevealed {
+                    isRevealed = false
+                } else if onRevealRequest?() ?? true {
+                    isRevealed = true
+                }
+            } label: {
+                Image(systemName: isRevealed ? "eye.slash" : "eye")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(.secondary)
+                    .frame(width: 24, height: 24)
+            }
+            .buttonStyle(.plain)
+            .help(isRevealed ? concealTitle : revealTitle)
+            .accessibilityLabel(Text(isRevealed ? concealTitle : revealTitle))
+        }
+        .frame(width: SettingsLayout.trailingWidth, alignment: .trailing)
+    }
+}
+
+private struct SettingsPlainTextControl: View {
+    let title: String
+    @Binding var text: String
+
+    var body: some View {
+        SettingsFieldChrome {
+            TextField(title, text: $text)
+                .textFieldStyle(.plain)
+                .font(AppTypography.smallCode)
+                .multilineTextAlignment(.trailing)
+                .lineLimit(1)
+                .truncationMode(.middle)
+                .accessibilityLabel(Text(title))
+        }
+    }
+}
+
+private struct SettingsFieldChrome<Content: View>: View {
+    @ViewBuilder var content: Content
+
+    var body: some View {
+        HStack(spacing: 6) {
+            content
+        }
+        .padding(.horizontal, 9)
+        .frame(height: 30)
+        .background {
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .fill(Color(nsColor: .textBackgroundColor))
+        }
+        .overlay {
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .strokeBorder(Color(nsColor: .separatorColor).opacity(0.75), lineWidth: 0.8)
+        }
     }
 }
 
@@ -172,6 +278,8 @@ struct SettingsMenuPicker<Value: Hashable>: View {
                 Text(title(selection))
                     .lineLimit(1)
                     .truncationMode(.tail)
+                    .allowsTightening(true)
+                    .minimumScaleFactor(0.88)
 
                 Image(systemName: "chevron.up.chevron.down")
                     .font(.system(size: 12, weight: .semibold))

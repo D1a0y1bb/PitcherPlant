@@ -33,6 +33,42 @@ func databasePersistsStructuredJobEventPayloads() async throws {
 }
 
 @Test
+func databasePersistsAssistantSuggestionsSeparatelyFromReviews() async throws {
+    let root = FileManager.default.temporaryDirectory
+        .appendingPathComponent("pitcherplant-assistant-suggestion-\(UUID().uuidString)", isDirectory: true)
+    try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+    let store = try DatabaseStore(rootDirectory: root)
+    try await store.prepare()
+
+    let reportID = UUID()
+    let evidenceID = UUID()
+    let result = AuditAssistantResult(
+        summary: "建议人工复核",
+        triggerReasons: ["共享作者"],
+        checkpoints: ["核对提交时间"],
+        suggestedDecision: .confirmed,
+        suggestedSeverity: .high,
+        noteDraft: "共享作者和时间接近，建议确认。",
+        provider: .customOpenAICompatible,
+        model: "gpt-5.4-mini",
+        requestID: "req-1",
+        tokenUsage: ["total_tokens": 32],
+        requestHash: "hash-1",
+        createdAt: Date(timeIntervalSince1970: 2_000)
+    )
+    let record = AuditAssistantSuggestionRecord(reportID: reportID, evidenceID: evidenceID, result: result)
+
+    try await store.saveAssistantSuggestion(record)
+    let loaded = try #require(try await store.latestAssistantSuggestion(reportID: reportID, evidenceID: evidenceID))
+
+    #expect(loaded.result.summary == "建议人工复核")
+    #expect(loaded.result.suggestedDecision == .confirmed)
+    #expect(loaded.result.suggestedSeverity == .high)
+    #expect(loaded.provider == .customOpenAICompatible)
+    #expect(try await store.debugTableExists(named: "assistant_suggestions"))
+}
+
+@Test
 func databaseStorePaginatesReportsFingerprintsAndAppendsJobEvents() async throws {
     let root = FileManager.default.temporaryDirectory
         .appendingPathComponent("pitcherplant-pagination-\(UUID().uuidString)", isDirectory: true)

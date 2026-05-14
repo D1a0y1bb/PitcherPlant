@@ -63,9 +63,10 @@ struct JobHistoryView: View {
                 }
                 .frame(
                     minHeight: 120,
-                    idealHeight: nativeTableIdealHeight(rowCount: filteredJobs.count, minHeight: 160, maxHeight: 360),
+                    idealHeight: nativeTableIdealHeight(rowCount: filteredJobs.count, minHeight: 160, maxHeight: 360, rowHeight: settingsListRowHeight(compact: appState.appSettings.compactRows)),
                     maxHeight: .infinity
                 )
+                .environment(\.defaultMinListRowHeight, settingsListRowHeight(compact: appState.appSettings.compactRows))
             }
         }
         .padding(AppLayout.pagePadding)
@@ -111,14 +112,15 @@ struct FingerprintLibraryView: View {
                             record: record,
                             context: fingerprintContext(record)
                         )
-                        .listRowInsets(EdgeInsets(top: 4, leading: 0, bottom: 4, trailing: 0))
+                        .listRowInsets(settingsListRowInsets(compact: appState.appSettings.compactRows, leading: 0, trailing: 0))
                     }
                     .listStyle(.plain)
                     .frame(
                         minHeight: 180,
-                        idealHeight: nativeTableIdealHeight(rowCount: displayedRecords.count, minHeight: 220, maxHeight: 360),
+                        idealHeight: nativeTableIdealHeight(rowCount: displayedRecords.count, minHeight: 220, maxHeight: 360, rowHeight: settingsListRowHeight(compact: appState.appSettings.compactRows)),
                         maxHeight: .infinity
                     )
+                    .environment(\.defaultMinListRowHeight, settingsListRowHeight(compact: appState.appSettings.compactRows))
                     if appState.fingerprintLibraryTotalCount > displayedRecords.count {
                         HStack {
                             Spacer()
@@ -637,14 +639,15 @@ private struct WhitelistSuggestionsSection: View {
                             accept: { accept(suggestion) },
                             dismiss: { dismiss(suggestion) }
                         )
-                        .listRowInsets(EdgeInsets(top: 4, leading: 0, bottom: 4, trailing: 0))
+                        .listRowInsets(settingsListRowInsets(compact: appState.appSettings.compactRows, leading: 0, trailing: 0))
                     }
                     .listStyle(.plain)
                     .frame(
                         minHeight: 120,
-                        idealHeight: nativeTableIdealHeight(rowCount: suggestions.count, minHeight: 160, maxHeight: 260),
+                        idealHeight: nativeTableIdealHeight(rowCount: suggestions.count, minHeight: 160, maxHeight: 260, rowHeight: settingsListRowHeight(compact: appState.appSettings.compactRows)),
                         maxHeight: .infinity
                     )
+                    .environment(\.defaultMinListRowHeight, settingsListRowHeight(compact: appState.appSettings.compactRows))
                 }
             }
         }
@@ -697,14 +700,15 @@ private struct WhitelistRulesSection: View {
                     WhitelistRuleHeader()
                     List(rules) { rule in
                         WhitelistTableRow(rule: rule)
-                            .listRowInsets(EdgeInsets(top: 4, leading: 0, bottom: 4, trailing: 0))
+                            .listRowInsets(settingsListRowInsets(compact: appState.appSettings.compactRows, leading: 0, trailing: 0))
                     }
                     .listStyle(.plain)
                     .frame(
                         minHeight: 70,
-                        idealHeight: nativeTableIdealHeight(rowCount: rules.count, minHeight: 100, maxHeight: 220),
+                        idealHeight: nativeTableIdealHeight(rowCount: rules.count, minHeight: 100, maxHeight: 220, rowHeight: settingsListRowHeight(compact: appState.appSettings.compactRows)),
                         maxHeight: .infinity
                     )
+                    .environment(\.defaultMinListRowHeight, settingsListRowHeight(compact: appState.appSettings.compactRows))
                 }
             }
         }
@@ -731,8 +735,16 @@ private struct WhitelistRuleHeader: View {
     }
 }
 
-private func nativeTableIdealHeight(rowCount: Int, minHeight: CGFloat = 86, maxHeight: CGFloat = 480) -> CGFloat {
-    min(max(CGFloat(rowCount) * 28 + 42, minHeight), maxHeight)
+private func settingsListRowHeight(compact: Bool) -> CGFloat {
+    compact ? 28 : 36
+}
+
+private func settingsListRowInsets(compact: Bool, leading: CGFloat, trailing: CGFloat) -> EdgeInsets {
+    EdgeInsets(top: compact ? 4 : 8, leading: leading, bottom: compact ? 4 : 8, trailing: trailing)
+}
+
+private func nativeTableIdealHeight(rowCount: Int, minHeight: CGFloat = 86, maxHeight: CGFloat = 480, rowHeight: CGFloat = 28) -> CGFloat {
+    min(max(CGFloat(rowCount) * rowHeight + 42, minHeight), maxHeight)
 }
 
 private struct WhitelistSuggestionToolbar: View {
@@ -873,7 +885,7 @@ private struct WhitelistSuggestionTableRow: View {
         }
         .font(AppTypography.rowSecondary)
         .padding(.horizontal, AppLayout.rowHorizontalPadding)
-        .padding(.vertical, 7)
+        .padding(.vertical, appState.appSettings.compactRows ? 5 : 9)
     }
 
 }

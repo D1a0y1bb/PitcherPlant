@@ -760,6 +760,34 @@ final class AppState {
         }
     }
 
+    func saveAssistantSuggestion(for row: ReportTableRow, result: AuditAssistantResult) async {
+        guard let report = selectedReport else {
+            return
+        }
+        let record = AuditAssistantSuggestionRecord(
+            reportID: report.id,
+            evidenceID: row.evidenceID ?? row.id,
+            result: result
+        )
+        do {
+            try await database.saveAssistantSuggestion(record)
+        } catch {
+            showNotice(title: t("notice.assistantSuggestionSaveFailed"), message: error.localizedDescription, tone: .error)
+        }
+    }
+
+    func latestAssistantSuggestion(for row: ReportTableRow) async -> AuditAssistantSuggestionRecord? {
+        guard let report = selectedReport else {
+            return nil
+        }
+        do {
+            return try await database.latestAssistantSuggestion(reportID: report.id, evidenceID: row.evidenceID ?? row.id)
+        } catch {
+            showNotice(title: t("notice.assistantSuggestionLoadFailed"), message: error.localizedDescription, tone: .error)
+            return nil
+        }
+    }
+
     func evidenceCollection(for scope: EvidenceCollectionScope) -> [EvidenceCollectionItem] {
         let reviewLookup = evidenceReviewLookup
         return reports.flatMap { report in
@@ -1048,6 +1076,10 @@ final class AppState {
 
     func exportSelectedReportAsEvidenceBundle() {
         exportSelectedReport(format: .bundle)
+    }
+
+    func exportSelectedReportUsingDefaultFormat() {
+        exportSelectedReport(format: appSettings.defaultExportFormat)
     }
 
     func exportSelectedReport(format: ExportRecord.Format) {
@@ -1568,8 +1600,12 @@ final class AppState {
         let section = report.preferredEvidenceSection
         selectedReportSection = section?.kind
         selectedReportRowID = section?.table?.rows.first.map { $0.evidenceID ?? $0.id }
-        selectedMainSidebar = .reports
-        NSApp.activate(ignoringOtherApps: true)
+        if appSettings.preferInAppReports {
+            selectedMainSidebar = .reports
+            NSApp.activate(ignoringOtherApps: true)
+        } else {
+            NSWorkspace.shared.open(report.sourceURL)
+        }
     }
 
     private func syncReportSelection() {

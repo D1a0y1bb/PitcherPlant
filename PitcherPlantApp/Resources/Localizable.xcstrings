@@ -337,166 +337,6 @@
         }
       }
     },
-    "audit.validation.inputDirectoryInvalid": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "The audit directory does not exist or is not a folder: %@"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "审计目录不存在或不是目录：%@"
-          }
-        }
-      }
-    },
-    "audit.validation.inputDirectoryRequired": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Choose an audit directory."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "请选择审计目录。"
-          }
-        }
-      }
-    },
-    "audit.validation.numberRange": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%@ must be within %@."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%@ 必须在 %@ 范围内。"
-          }
-        }
-      }
-    },
-    "audit.validation.outputDirectoryFile": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "The report directory path points to a file, not a folder: %@"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "报告目录当前是文件，不是目录：%@"
-          }
-        }
-      }
-    },
-    "audit.validation.outputDirectoryCannotCreate": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "The report directory could not be created: %@ (%@)"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "报告目录无法创建：%@（%@）"
-          }
-        }
-      }
-    },
-    "audit.validation.outputDirectoryNotWritable": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "The report directory is not writable: %@"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "报告目录不可写：%@"
-          }
-        }
-      }
-    },
-    "audit.validation.outputDirectoryRequired": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Choose a report directory."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "请选择报告目录。"
-          }
-        }
-      }
-    },
-    "audit.validation.outputDirectoryWriteTestFailed": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "The report directory write test failed: %@ (%@)"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "报告目录写入测试失败：%@（%@）"
-          }
-        }
-      }
-    },
-    "audit.validation.reportNameTemplateInvalid": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "The report file name template is invalid: %@. Use a file name only; do not include paths, .., /, or \\."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "报告文件名模板无效：%@。请只使用文件名，不要包含路径、..、/ 或 \\。"
-          }
-        }
-      }
-    },
-    "audit.validation.outputParentMissing": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "The parent folder for the report directory does not exist: %@"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "报告目录的上级目录不存在：%@"
-          }
-        }
-      }
-    },
     "audit.outputDirectory": {
       "localizations": {
         "en": {
@@ -817,6 +657,166 @@
         }
       }
     },
+    "audit.validation.inputDirectoryInvalid": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The audit directory does not exist or is not a folder: %@"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "审计目录不存在或不是目录：%@"
+          }
+        }
+      }
+    },
+    "audit.validation.inputDirectoryRequired": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choose an audit directory."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "请选择审计目录。"
+          }
+        }
+      }
+    },
+    "audit.validation.numberRange": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ must be within %@."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ 必须在 %@ 范围内。"
+          }
+        }
+      }
+    },
+    "audit.validation.outputDirectoryCannotCreate": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The report directory could not be created: %@ (%@)"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "报告目录无法创建：%@（%@）"
+          }
+        }
+      }
+    },
+    "audit.validation.outputDirectoryFile": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The report directory path points to a file, not a folder: %@"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "报告目录当前是文件，不是目录：%@"
+          }
+        }
+      }
+    },
+    "audit.validation.outputDirectoryNotWritable": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The report directory is not writable: %@"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "报告目录不可写：%@"
+          }
+        }
+      }
+    },
+    "audit.validation.outputDirectoryRequired": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choose a report directory."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "请选择报告目录。"
+          }
+        }
+      }
+    },
+    "audit.validation.outputDirectoryWriteTestFailed": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The report directory write test failed: %@ (%@)"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "报告目录写入测试失败：%@（%@）"
+          }
+        }
+      }
+    },
+    "audit.validation.outputParentMissing": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The parent folder for the report directory does not exist: %@"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "报告目录的上级目录不存在：%@"
+          }
+        }
+      }
+    },
+    "audit.validation.reportNameTemplateInvalid": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The report file name template is invalid: %@. Use a file name only; do not include paths, .., /, or \\."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "报告文件名模板无效：%@。请只使用文件名，不要包含路径、..、/ 或 \\。"
+          }
+        }
+      }
+    },
     "audit.visionOCR": {
       "localizations": {
         "en": {
@@ -849,18 +849,66 @@
         }
       }
     },
-    "auditAssistant.mode.disabled": {
+    "auditAssistant.data.evidenceDetail": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Off"
+            "value": "Evidence Detail"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "关闭"
+            "value": "证据详情"
+          }
+        }
+      }
+    },
+    "auditAssistant.data.fullContext": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Full Context"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "完整上下文"
+          }
+        }
+      }
+    },
+    "auditAssistant.data.summaryOnly": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Summary Only"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "仅摘要"
+          }
+        }
+      }
+    },
+    "auditAssistant.mode.disabled": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Disabled"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "不启用"
           }
         }
       }
@@ -870,29 +918,205 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "External API"
+            "value": "API Key"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "外部 API"
+            "value": "API Key"
           }
         }
       }
     },
-    "auditAssistant.mode.localCommand": {
+    "auditAssistant.protocol.anthropicMessages": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Local Command"
+            "value": "Anthropic Messages"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "本地命令"
+            "value": "Anthropic Messages"
+          }
+        }
+      }
+    },
+    "auditAssistant.protocol.geminiGenerateContent": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gemini Generate Content"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gemini Generate Content"
+          }
+        }
+      }
+    },
+    "auditAssistant.protocol.miniMaxChatCompletion": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "MiniMax Chat Completion"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "MiniMax Chat Completion"
+          }
+        }
+      }
+    },
+    "auditAssistant.protocol.openAIChatCompletions": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chat Completions"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chat Completions"
+          }
+        }
+      }
+    },
+    "auditAssistant.protocol.openAIResponses": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Responses"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Responses"
+          }
+        }
+      }
+    },
+    "auditAssistant.provider.anthropic": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Anthropic"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Anthropic"
+          }
+        }
+      }
+    },
+    "auditAssistant.provider.customOpenAICompatible": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "OpenAI-Compatible Gateway"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "OpenAI 兼容网关"
+          }
+        }
+      }
+    },
+    "auditAssistant.provider.deepSeek": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "DeepSeek"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "DeepSeek"
+          }
+        }
+      }
+    },
+    "auditAssistant.provider.gemini": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gemini"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gemini"
+          }
+        }
+      }
+    },
+    "auditAssistant.provider.kimi": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kimi"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kimi"
+          }
+        }
+      }
+    },
+    "auditAssistant.provider.miniMax": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "MiniMax"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "MiniMax"
+          }
+        }
+      }
+    },
+    "auditAssistant.provider.openAI": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "OpenAI"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "OpenAI"
           }
         }
       }
@@ -1270,13 +1494,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Dark"
+            "value": "Dark Mode"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "深色"
+            "value": "暗色模式"
           }
         }
       }
@@ -1446,13 +1670,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Light"
+            "value": "Light Mode"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "浅色"
+            "value": "浅色模式"
           }
         }
       }
@@ -2609,38 +2833,6 @@
         }
       }
     },
-    "fingerprints.matchCount": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%d matches"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%d 条命中"
-          }
-        }
-      }
-    },
-    "fingerprints.searchPrompt": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Search file, author, or SimHash"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "搜索文件、作者、SimHash"
-          }
-        }
-      }
-    },
     "fingerprints.loadMore": {
       "localizations": {
         "en": {
@@ -2669,6 +2861,38 @@
           "stringUnit": {
             "state": "translated",
             "value": "正在加载更多指纹"
+          }
+        }
+      }
+    },
+    "fingerprints.matchCount": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%d matches"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%d 条命中"
+          }
+        }
+      }
+    },
+    "fingerprints.searchPrompt": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Search file, author, or SimHash"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "搜索文件、作者、SimHash"
           }
         }
       }
@@ -2909,6 +3133,38 @@
           "stringUnit": {
             "state": "translated",
             "value": "标记"
+          }
+        }
+      }
+    },
+    "notice.assistantSuggestionLoadFailed": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Assistant Suggestion Load Failed"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "读取助手建议失败"
+          }
+        }
+      }
+    },
+    "notice.assistantSuggestionSaveFailed": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Assistant Suggestion Save Failed"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "保存助手建议失败"
           }
         }
       }
@@ -3489,6 +3745,70 @@
         }
       }
     },
+    "reports.applyAssistantNote": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Apply Note"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "应用备注"
+          }
+        }
+      }
+    },
+    "reports.applyAssistantSeverity": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Apply Suggestion"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "应用建议"
+          }
+        }
+      }
+    },
+    "reports.assistantCheckpoints": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Review Checklist"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "核查建议"
+          }
+        }
+      }
+    },
+    "reports.assistantDecisionSuggestion": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Decision: %@"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "结论建议：%@"
+          }
+        }
+      }
+    },
     "reports.assistantExplanation": {
       "localizations": {
         "en": {
@@ -3501,6 +3821,54 @@
           "stringUnit": {
             "state": "translated",
             "value": "审计助手说明"
+          }
+        }
+      }
+    },
+    "reports.assistantNoteDraft": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Note Draft"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "备注草稿"
+          }
+        }
+      }
+    },
+    "reports.assistantSeveritySuggestion": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Severity: %@"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "严重级别：%@"
+          }
+        }
+      }
+    },
+    "reports.assistantTriggerReasons": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Trigger Reasons"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "触发原因"
           }
         }
       }
@@ -3613,6 +3981,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "代码证据查看器"
+          }
+        }
+      }
+    },
+    "reports.copyAssistantResult": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copy Suggestion"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "复制建议"
           }
         }
       }
@@ -4385,70 +4769,6 @@
         }
       }
     },
-    "reports.nextImagePair": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Next Image Pair"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "下一组图片对比"
-          }
-        }
-      }
-    },
-    "reports.nextSharedToken": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Next Shared Token"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "下一个共享 token"
-          }
-        }
-      }
-    },
-    "reports.previousImagePair": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Previous Image Pair"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "上一组图片对比"
-          }
-        }
-      }
-    },
-    "reports.previousSharedToken": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Previous Shared Token"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "上一个共享 token"
-          }
-        }
-      }
-    },
     "reports.lineDiff": {
       "localizations": {
         "en": {
@@ -4461,6 +4781,70 @@
           "stringUnit": {
             "state": "translated",
             "value": "逐行 diff"
+          }
+        }
+      }
+    },
+    "reports.loadMoreReports": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Load More Reports"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "加载更多报告"
+          }
+        }
+      }
+    },
+    "reports.loadMoreRows": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Load More Evidence"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "加载更多证据"
+          }
+        }
+      }
+    },
+    "reports.loadingMoreReports": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Loading more reports"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "正在加载更多报告"
+          }
+        }
+      }
+    },
+    "reports.loadingMoreRows": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Loading more evidence"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "正在加载更多证据"
           }
         }
       }
@@ -4493,6 +4877,38 @@
           "stringUnit": {
             "state": "translated",
             "value": "指标"
+          }
+        }
+      }
+    },
+    "reports.nextImagePair": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Next Image Pair"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "下一组图片对比"
+          }
+        }
+      }
+    },
+    "reports.nextSharedToken": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Next Shared Token"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "下一个共享 token"
           }
         }
       }
@@ -4705,18 +5121,34 @@
         }
       }
     },
-    "reports.zoomLevel": {
+    "reports.previousImagePair": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Zoom Level"
+            "value": "Previous Image Pair"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "缩放比例"
+            "value": "上一组图片对比"
+          }
+        }
+      }
+    },
+    "reports.previousSharedToken": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Previous Shared Token"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "上一个共享 token"
           }
         }
       }
@@ -4829,70 +5261,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "搜索当前章节证据"
-          }
-        }
-      }
-    },
-    "reports.loadMoreReports": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Load More Reports"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "加载更多报告"
-          }
-        }
-      }
-    },
-    "reports.loadingMoreReports": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Loading more reports"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "正在加载更多报告"
-          }
-        }
-      }
-    },
-    "reports.loadMoreRows": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Load More Evidence"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "加载更多证据"
-          }
-        }
-      }
-    },
-    "reports.loadingMoreRows": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Loading more evidence"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "正在加载更多证据"
           }
         }
       }
@@ -5133,6 +5501,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "报告中心"
+          }
+        }
+      }
+    },
+    "reports.zoomLevel": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zoom Level"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "缩放比例"
           }
         }
       }
@@ -5649,130 +6033,242 @@
         }
       }
     },
-    "settings.auditAssistantAPIEndpoint": {
+    "settings.auditAssistantAPIKey": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "API Endpoint"
+            "value": "API Key"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "API Endpoint"
+            "value": "API Key"
           }
         }
       }
     },
-    "settings.auditAssistantAPISubtitle": {
+    "settings.auditAssistantAPIKeyDescription": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Sends the evidence payload as a POST JSON request"
+            "value": "Saved to macOS Keychain, not UserDefaults or the database"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "以 POST JSON 请求发送证据 payload"
+            "value": "保存到 macOS Keychain，不写入 UserDefaults 或数据库"
           }
         }
       }
     },
-    "settings.auditAssistantDisabledSubtitle": {
+    "settings.auditAssistantBaseURL": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Configuration is preserved and takes effect after enabling a mode"
+            "value": "Base URL"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "配置会保留，启用模式后生效"
+            "value": "Base URL"
           }
         }
       }
     },
-    "settings.auditAssistantEndpointCommand": {
+    "settings.auditAssistantBaseURLDescription": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Endpoint / Command"
+            "value": "For example https://api.example.com/v1, without the endpoint path"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "Endpoint / Command"
+            "value": "例如 https://api.example.com/v1，不包含具体端点路径"
           }
         }
       }
     },
-    "settings.auditAssistantKeychain": {
+    "settings.auditAssistantConnection": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Keychain Reference"
+            "value": "Connection Test"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "Keychain 引用"
+            "value": "连接测试"
           }
         }
       }
     },
-    "settings.auditAssistantKeychainDescription": {
+    "settings.auditAssistantConnectionDescription": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "External API credential reference passed as the X-PitcherPlant-Credential-Ref request header"
+            "value": "Save the key, then test the current provider, protocol, and model"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "外部 API 凭据引用，将作为 X-PitcherPlant-Credential-Ref 请求头传递"
+            "value": "保存密钥后可测试当前提供方、协议和模型"
           }
         }
       }
     },
-    "settings.auditAssistantLocalCommand": {
+    "settings.auditAssistantDataSharing": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Local Command"
+            "value": "Shared Data"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "本地命令"
+            "value": "外发数据"
           }
         }
       }
     },
-    "settings.auditAssistantLocalSubtitle": {
+    "settings.auditAssistantDataSharingDescription": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Runs through zsh -lc with the evidence payload written to standard input"
+            "value": "Controls how much evidence is sent to external models"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "通过 zsh -lc 执行，证据 payload 会写入标准输入"
+            "value": "控制发送给外部模型的证据范围"
+          }
+        }
+      }
+    },
+    "settings.auditAssistantDeleteKey": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Delete Key"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "删除密钥"
+          }
+        }
+      }
+    },
+    "settings.auditAssistantKeyDeleted": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "API key deleted from Keychain"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "API Key 已从 Keychain 删除"
+          }
+        }
+      }
+    },
+    "settings.auditAssistantKeyEmpty": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Enter an API key before saving."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "请输入 API Key 后再保存。"
+          }
+        }
+      }
+    },
+    "settings.auditAssistantKeySavedPlaceholder": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Authorize to view"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "点击授权后查看"
+          }
+        }
+      }
+    },
+    "settings.auditAssistantKeySaved": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "API key saved to Keychain"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "API Key 已保存到 Keychain"
+          }
+        }
+      }
+    },
+    "settings.auditAssistantMaxTokens": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Max Output"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "最大输出"
+          }
+        }
+      }
+    },
+    "settings.auditAssistantMaxTokensDescription": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Limit assistant response tokens"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "限制助手返回的 token 数"
           }
         }
       }
@@ -5798,13 +6294,205 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Choose Off, local command, or external API"
+            "value": "Choose Disabled or API Key mode"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "选择关闭、本地命令或外部 API"
+            "value": "选择不启用或 API Key 模式"
+          }
+        }
+      }
+    },
+    "settings.auditAssistantModel": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Model"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "模型"
+          }
+        }
+      }
+    },
+    "settings.auditAssistantModelDescription": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Model name sent to the external API"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "发送给外部 API 的 model 名称"
+          }
+        }
+      }
+    },
+    "settings.auditAssistantProtocol": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "API Protocol"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "接口协议"
+          }
+        }
+      }
+    },
+    "settings.auditAssistantProtocolDescription": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choose the API request and response parsing format"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "选择 API 请求和响应解析方式"
+          }
+        }
+      }
+    },
+    "settings.auditAssistantProvider": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Provider"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "模型提供方"
+          }
+        }
+      }
+    },
+    "settings.auditAssistantProviderDescription": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choose the vendor or compatible gateway for the API key"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "选择 API Key 对应的厂商或兼容网关"
+          }
+        }
+      }
+    },
+    "settings.auditAssistantSaveKey": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Save Key"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "保存密钥"
+          }
+        }
+      }
+    },
+    "settings.auditAssistantTemperature": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Temperature"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "随机性"
+          }
+        }
+      }
+    },
+    "settings.auditAssistantTemperatureDescription": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "0 is steadier; higher values are more varied"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "0 更稳定，数值越高越发散"
+          }
+        }
+      }
+    },
+    "settings.auditAssistantTest": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Test"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "测试连接"
+          }
+        }
+      }
+    },
+    "settings.auditAssistantTestSucceeded": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Connected: %@"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "连接成功：%@"
+          }
+        }
+      }
+    },
+    "settings.auditAssistantTesting": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Testing..."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "正在测试..."
           }
         }
       }
@@ -5830,13 +6518,29 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Maximum wait time for local commands and external APIs"
+            "value": "Maximum wait time for external APIs"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "本地命令和外部 API 的最大等待秒数"
+            "value": "外部 API 的最大等待秒数"
+          }
+        }
+      }
+    },
+    "settings.auditAssistantTokensHint": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "tokens"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "token"
           }
         }
       }
@@ -5873,6 +6577,22 @@
         }
       }
     },
+    "settings.betaBadge": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Beta"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Beta"
+          }
+        }
+      }
+    },
     "settings.calibration": {
       "localizations": {
         "en": {
@@ -5905,34 +6625,18 @@
         }
       }
     },
-    "settings.calibrationEvaluation": {
+    "settings.calibrationPresetApplied": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Calibration Evaluation"
+            "value": "Applied preset: %@"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "校准评估"
-          }
-        }
-      }
-    },
-    "settings.calibrationMissingManifest": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Calibration manifest not found: Resources/Calibration/manifest.json"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "未找到校准清单：Resources/Calibration/manifest.json"
+            "value": "已应用预设：%@"
           }
         }
       }
@@ -5953,22 +6657,6 @@
         }
       }
     },
-    "settings.calibrationRowAccessibility": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%@, samples %d, Precision %@, Recall %@, F1 %@"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%@，样本 %d，Precision %@，Recall %@，F1 %@"
-          }
-        }
-      }
-    },
     "settings.calibrationStatus": {
       "localizations": {
         "en": {
@@ -5981,22 +6669,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "校准状态"
-          }
-        }
-      }
-    },
-    "settings.calibrationSummary": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Samples %d · Precision %.2f · Recall %.2f · F1 %.2f"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "样本 %d · Precision %.2f · Recall %.2f · F1 %.2f"
           }
         }
       }
@@ -6029,6 +6701,38 @@
           "stringUnit": {
             "state": "translated",
             "value": "选择"
+          }
+        }
+      }
+    },
+    "settings.hideText": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hide Text"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "隐藏内容"
+          }
+        }
+      }
+    },
+    "settings.showText": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Show Text"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "显示内容"
           }
         }
       }
@@ -6289,6 +6993,54 @@
         }
       }
     },
+    "settings.helpCenter": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Help Center"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "帮助中心"
+          }
+        }
+      }
+    },
+    "settings.helpCenterBody": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "PitcherPlant is a local-first macOS WriteUP audit workstation. A typical flow is choosing an audit directory, importing submission packages, running audits, reviewing evidence in Reports, and exporting results. Reports, evidence, fingerprints, and whitelist data are stored in the local workspace database."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "PitcherPlant 是本地优先的 macOS WriteUP 审计工作台。常用流程是选择审计目录，导入提交包，运行审计，在报告中心复核证据并导出结果。报告、证据、指纹和白名单数据保存在本机工作区数据库中。"
+          }
+        }
+      }
+    },
+    "settings.helpCenterDescription": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "View PitcherPlant usage guidance"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "查看 PitcherPlant 的使用说明"
+          }
+        }
+      }
+    },
     "settings.imageThresholdDescription": {
       "localizations": {
         "en": {
@@ -6301,6 +7053,54 @@
           "stringUnit": {
             "state": "translated",
             "value": "图片复用哈希距离阈值"
+          }
+        }
+      }
+    },
+    "settings.infoApp": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "App"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "应用"
+          }
+        }
+      }
+    },
+    "settings.infoBundle": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bundle ID"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "标识符"
+          }
+        }
+      }
+    },
+    "settings.infoVersion": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Version"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "版本"
           }
         }
       }
@@ -6433,6 +7233,54 @@
         }
       }
     },
+    "settings.privacyPolicy": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Privacy Policy"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "隐私政策"
+          }
+        }
+      }
+    },
+    "settings.privacyPolicyBody": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "PitcherPlant processes audit data locally by default and stores databases, reports, and configuration in the local workspace. Unless you manually check for updates, submit an issue, or open an external link, the app does not upload your audit content."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "PitcherPlant 默认在本机处理审计数据，并把数据库、报告和配置保存到本机工作区。除非你主动打开更新检查、提交错误报告或访问外部链接，应用不会主动上传你的审计内容。"
+          }
+        }
+      }
+    },
+    "settings.privacyPolicyDescription": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "View local data and privacy notes"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "查看本地数据和隐私说明"
+          }
+        }
+      }
+    },
     "settings.recordCounts": {
       "localizations": {
         "en": {
@@ -6481,6 +7329,214 @@
         }
       }
     },
+    "settings.reportIssue": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Report Issue"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "报告错误"
+          }
+        }
+      }
+    },
+    "settings.reportIssueDescription": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Submit a problem you ran into while using PitcherPlant"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "提交你在使用 PitcherPlant 时遇到的问题"
+          }
+        }
+      }
+    },
+    "settings.reportIssueIncludeScreenshot": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Include screenshot in report"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "在报告中包含屏幕截图"
+          }
+        }
+      }
+    },
+    "settings.reportIssuePlaceholder": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Describe the issue you encountered"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "请描述你遇到的问题"
+          }
+        }
+      }
+    },
+    "settings.reportIssuePrompt": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "What happened?"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "发生了什么？"
+          }
+        }
+      }
+    },
+    "settings.reportIssueReviewNote": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The report includes the app version and macOS version to help with review."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "提交内容会带上应用版本和 macOS 版本，方便定位问题。"
+          }
+        }
+      }
+    },
+    "settings.reportIssueScreenshotCapturing": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Capturing the current app window..."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "正在截取当前 App 窗口…"
+          }
+        }
+      }
+    },
+    "settings.reportIssueScreenshotDenied": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Screen Recording permission was not granted, so the app window could not be captured."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "未获得屏幕录制权限，无法自动截取当前 App 窗口。"
+          }
+        }
+      }
+    },
+    "settings.reportIssueScreenshotFailed": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Screenshot capture failed. Try again later."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "截图失败，请稍后重试。"
+          }
+        }
+      }
+    },
+    "settings.reportIssueScreenshotReady": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The current app window was captured. Upload this screenshot manually after the GitHub page opens; the report body includes the image file path."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已截取当前 App 窗口。GitHub 页面打开后，请手动上传这张截图；提交内容会写入图片文件位置。"
+          }
+        }
+      }
+    },
+    "settings.reportIssueScreenshotUnavailable": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No capturable app window was found."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "没有找到可截取的 App 窗口。"
+          }
+        }
+      }
+    },
+    "settings.reportIssueSubmit": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Submit"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "提交"
+          }
+        }
+      }
+    },
+    "settings.reportIssueTitle": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Report App Issue"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "报告应用问题"
+          }
+        }
+      }
+    },
     "settings.reports": {
       "localizations": {
         "en": {
@@ -6497,22 +7553,6 @@
         }
       }
     },
-    "settings.runCalibration": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Run Calibration"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "运行校准"
-          }
-        }
-      }
-    },
     "settings.simhashThresholdDescription": {
       "localizations": {
         "en": {
@@ -6525,6 +7565,54 @@
           "stringUnit": {
             "state": "translated",
             "value": "跨批次 SimHash 允许位差"
+          }
+        }
+      }
+    },
+    "settings.termsOfUse": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Terms of Use"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "使用条款"
+          }
+        }
+      }
+    },
+    "settings.termsOfUseBody": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "PitcherPlant is designed to assist security competition WriteUP review. App output is decision support for human reviewers, and final decisions should still consider competition rules, context, and manual verification. Do not use this app to process data you are not authorized to review."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "PitcherPlant 用于辅助安全竞赛 WriteUP 审查。应用输出只作为人工复核依据，最终判断仍应结合比赛规则、上下文和人工确认。请不要用本应用处理你无权审查的数据。"
+          }
+        }
+      }
+    },
+    "settings.termsOfUseDescription": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "View app usage terms"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "查看应用使用规则"
           }
         }
       }
@@ -6566,13 +7654,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Follow system, Light, or Dark appearance"
+            "value": "Follow system, Light Mode, or Dark Mode"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "跟随系统、浅色、深色三种外观模式"
+            "value": "跟随系统、浅色模式、暗色模式三种外观模式"
           }
         }
       }
@@ -8737,22 +9825,6 @@
         }
       }
     },
-    "workspace.map.modePanelTitle": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Map Modes"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "地图模式"
-          }
-        }
-      }
-    },
     "workspace.map.depth.2d": {
       "localizations": {
         "en": {
@@ -8801,6 +9873,22 @@
         }
       }
     },
+    "workspace.map.modePanelTitle": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Map Modes"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "地图模式"
+          }
+        }
+      }
+    },
     "workspace.map.providerLine": {
       "localizations": {
         "en": {
@@ -8817,22 +9905,6 @@
         }
       }
     },
-    "workspace.map.style.explore": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Explore"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "探索"
-          }
-        }
-      }
-    },
     "workspace.map.style.driving": {
       "localizations": {
         "en": {
@@ -8845,6 +9917,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "驾车"
+          }
+        }
+      }
+    },
+    "workspace.map.style.explore": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Explore"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "探索"
           }
         }
       }
@@ -9089,418 +10177,34 @@
         }
       }
     },
-    "settings.betaBadge": {
+    "settings.exportDefaultFormat": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Beta"
+            "value": "Export Default (%@)"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "Beta"
+            "value": "按默认格式导出（%@）"
           }
         }
       }
     },
-    "settings.helpCenter": {
+    "reports.assistantDisabled": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Help Center"
+            "value": "Audit Assistant is disabled. Switch to API Key mode in Settings to use it."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "帮助中心"
-          }
-        }
-      }
-    },
-    "settings.helpCenterBody": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "PitcherPlant is a local-first macOS WriteUP audit workstation. A typical flow is choosing an audit directory, importing submission packages, running audits, reviewing evidence in Reports, and exporting results. Reports, evidence, fingerprints, and whitelist data are stored in the local workspace database."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "PitcherPlant 是本地优先的 macOS WriteUP 审计工作台。常用流程是选择审计目录，导入提交包，运行审计，在报告中心复核证据并导出结果。报告、证据、指纹和白名单数据保存在本机工作区数据库中。"
-          }
-        }
-      }
-    },
-    "settings.helpCenterDescription": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "View PitcherPlant usage guidance"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "查看 PitcherPlant 的使用说明"
-          }
-        }
-      }
-    },
-    "settings.infoApp": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "App"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "应用"
-          }
-        }
-      }
-    },
-    "settings.infoBundle": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Bundle ID"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "标识符"
-          }
-        }
-      }
-    },
-    "settings.infoVersion": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Version"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "版本"
-          }
-        }
-      }
-    },
-    "settings.privacyPolicy": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Privacy Policy"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "隐私政策"
-          }
-        }
-      }
-    },
-    "settings.privacyPolicyBody": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "PitcherPlant processes audit data locally by default and stores databases, reports, and configuration in the local workspace. Unless you manually check for updates, submit an issue, or open an external link, the app does not upload your audit content."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "PitcherPlant 默认在本机处理审计数据，并把数据库、报告和配置保存到本机工作区。除非你主动打开更新检查、提交错误报告或访问外部链接，应用不会主动上传你的审计内容。"
-          }
-        }
-      }
-    },
-    "settings.privacyPolicyDescription": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "View local data and privacy notes"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "查看本地数据和隐私说明"
-          }
-        }
-      }
-    },
-    "settings.reportIssue": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Report Issue"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "报告错误"
-          }
-        }
-      }
-    },
-    "settings.reportIssueDescription": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Submit a problem you ran into while using PitcherPlant"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "提交你在使用 PitcherPlant 时遇到的问题"
-          }
-        }
-      }
-    },
-    "settings.reportIssueIncludeScreenshot": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Include screenshot in report"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "在报告中包含屏幕截图"
-          }
-        }
-      }
-    },
-    "settings.reportIssuePlaceholder": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Describe the issue you encountered"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "请描述你遇到的问题"
-          }
-        }
-      }
-    },
-    "settings.reportIssuePrompt": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "What happened?"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "发生了什么？"
-          }
-        }
-      }
-    },
-    "settings.reportIssueReviewNote": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "The report includes the app version and macOS version to help with review."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "提交内容会带上应用版本和 macOS 版本，方便定位问题。"
-          }
-        }
-      }
-    },
-    "settings.reportIssueScreenshotCapturing": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Capturing the current app window..."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "正在截取当前 App 窗口…"
-          }
-        }
-      }
-    },
-    "settings.reportIssueScreenshotDenied": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Screen Recording permission was not granted, so the app window could not be captured."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "未获得屏幕录制权限，无法自动截取当前 App 窗口。"
-          }
-        }
-      }
-    },
-    "settings.reportIssueScreenshotFailed": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Screenshot capture failed. Try again later."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "截图失败，请稍后重试。"
-          }
-        }
-      }
-    },
-    "settings.reportIssueScreenshotReady": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "The current app window was captured. Upload this screenshot manually after the GitHub page opens; the report body includes the image file path."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "已截取当前 App 窗口。GitHub 页面打开后，请手动上传这张截图；提交内容会写入图片文件位置。"
-          }
-        }
-      }
-    },
-    "settings.reportIssueScreenshotUnavailable": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "No capturable app window was found."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "没有找到可截取的 App 窗口。"
-          }
-        }
-      }
-    },
-    "settings.reportIssueSubmit": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Submit"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "提交"
-          }
-        }
-      }
-    },
-    "settings.reportIssueTitle": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Report App Issue"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "报告应用问题"
-          }
-        }
-      }
-    },
-    "settings.termsOfUse": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Terms of Use"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "使用条款"
-          }
-        }
-      }
-    },
-    "settings.termsOfUseBody": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "PitcherPlant is designed to assist security competition WriteUP review. App output is decision support for human reviewers, and final decisions should still consider competition rules, context, and manual verification. Do not use this app to process data you are not authorized to review."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "PitcherPlant 用于辅助安全竞赛 WriteUP 审查。应用输出只作为人工复核依据，最终判断仍应结合比赛规则、上下文和人工确认。请不要用本应用处理你无权审查的数据。"
-          }
-        }
-      }
-    },
-    "settings.termsOfUseDescription": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "View app usage terms"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "查看应用使用规则"
+            "value": "审计助手未启用。可在设置中切换到 API Key 模式。"
           }
         }
       }

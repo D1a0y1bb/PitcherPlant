@@ -129,6 +129,8 @@ enum LocalizationStrings {
         "notice.exportRecordFailed": "导出记录写入失败",
         "notice.exportSucceeded": "导出完成",
         "notice.reviewSaveFailed": "保存复核失败",
+        "notice.assistantSuggestionSaveFailed": "保存助手建议失败",
+        "notice.assistantSuggestionLoadFailed": "读取助手建议失败",
         "notice.importSucceeded": "导入完成",
         "notice.importSucceededWithIssues": "导入完成，有问题需要处理",
         "notice.importFailed": "导入失败",
@@ -345,8 +347,8 @@ enum LocalizationStrings {
         "common.enabled": "开启",
         "common.disabled": "关闭",
         "common.followSystem": "跟随系统",
-        "common.light": "浅色",
-        "common.dark": "深色",
+        "common.light": "浅色模式",
+        "common.dark": "暗色模式",
         "settings.title": "设置",
         "settings.application": "应用",
         "settings.general": "通用",
@@ -360,7 +362,7 @@ enum LocalizationStrings {
         "settings.language": "语言",
         "settings.languageDescription": "跟随系统或手动指定界面语言",
         "settings.theme": "外观模式",
-        "settings.themeDescription": "跟随系统、浅色、深色三种外观模式",
+        "settings.themeDescription": "跟随系统、浅色模式、暗色模式三种外观模式",
         "settings.inspectorDefault": "业务页面默认显示详情栏",
         "settings.inspectorDefaultDescription": "用于审计、历史、报告和证据页面",
         "settings.compactRows": "紧凑列表密度",
@@ -375,37 +377,67 @@ enum LocalizationStrings {
         "settings.whitelistModeDescription": "白名单命中后标记或隐藏对应结果",
         "settings.calibration": "校准",
         "settings.calibrationPreset": "阈值预设",
-        "settings.calibrationEvaluation": "校准评估",
         "settings.applyPreset": "应用预设",
-        "settings.runCalibration": "运行校准",
         "settings.calibrationStatus": "校准状态",
-        "settings.calibrationSummary": "样本 %d · Precision %.2f · Recall %.2f · F1 %.2f",
         "settings.calibrationDescription": "基于校准 fixture 展示 Precision、Recall 和 F1",
-        "settings.calibrationMissingManifest": "未找到校准清单：Resources/Calibration/manifest.json",
+        "settings.calibrationPresetApplied": "已应用预设：%@",
         "settings.calibrationThreshold": "阈值",
-        "settings.calibrationRowAccessibility": "%@，样本 %d，Precision %@，Recall %@，F1 %@",
         "settings.auditAssistant": "审计助手",
         "settings.auditAssistantMode": "助手模式",
-        "settings.auditAssistantModeDescription": "选择关闭、本地命令或外部 API",
+        "settings.auditAssistantModeDescription": "选择不启用或 API Key 模式",
+        "settings.auditAssistantProvider": "模型提供方",
+        "settings.auditAssistantProviderDescription": "选择 API Key 对应的厂商或兼容网关",
+        "settings.auditAssistantProtocol": "接口协议",
+        "settings.auditAssistantProtocolDescription": "选择 API 请求和响应解析方式",
+        "settings.auditAssistantBaseURL": "Base URL",
+        "settings.auditAssistantBaseURLDescription": "例如 https://api.example.com/v1，不包含具体端点路径",
+        "settings.auditAssistantModel": "模型",
+        "settings.auditAssistantModelDescription": "发送给外部 API 的 model 名称",
         "settings.auditAssistantTimeout": "超时时间",
-        "settings.auditAssistantTimeoutDescription": "本地命令和外部 API 的最大等待秒数",
-        "settings.auditAssistantKeychain": "Keychain 引用",
-        "settings.auditAssistantKeychainDescription": "外部 API 凭据引用，将作为 X-PitcherPlant-Credential-Ref 请求头传递",
-        "settings.auditAssistantEndpointCommand": "Endpoint / Command",
-        "settings.auditAssistantLocalCommand": "本地命令",
-        "settings.auditAssistantAPIEndpoint": "API Endpoint",
-        "settings.auditAssistantDisabledSubtitle": "配置会保留，启用模式后生效",
-        "settings.auditAssistantLocalSubtitle": "通过 zsh -lc 执行，证据 payload 会写入标准输入",
-        "settings.auditAssistantAPISubtitle": "以 POST JSON 请求发送证据 payload",
+        "settings.auditAssistantTimeoutDescription": "外部 API 的最大等待秒数",
+        "settings.auditAssistantMaxTokens": "最大输出",
+        "settings.auditAssistantMaxTokensDescription": "限制助手返回的 token 数",
+        "settings.auditAssistantTokensHint": "token",
+        "settings.auditAssistantTemperature": "随机性",
+        "settings.auditAssistantTemperatureDescription": "0 更稳定，数值越高越发散",
+        "settings.auditAssistantDataSharing": "外发数据",
+        "settings.auditAssistantDataSharingDescription": "控制发送给外部模型的证据范围",
+        "settings.auditAssistantAPIKey": "API Key",
+        "settings.auditAssistantAPIKeyDescription": "保存到 macOS Keychain，不写入 UserDefaults 或数据库",
+        "settings.auditAssistantConnection": "连接测试",
+        "settings.auditAssistantConnectionDescription": "保存密钥后可测试当前提供方、协议和模型",
+        "settings.auditAssistantSaveKey": "保存密钥",
+        "settings.auditAssistantDeleteKey": "删除密钥",
+        "settings.auditAssistantTest": "测试连接",
+        "settings.auditAssistantTesting": "正在测试...",
+        "settings.auditAssistantKeySaved": "API Key 已保存到 Keychain",
+        "settings.auditAssistantKeyDeleted": "API Key 已从 Keychain 删除",
+        "settings.auditAssistantKeyEmpty": "请输入 API Key 后再保存。",
+        "settings.auditAssistantKeySavedPlaceholder": "点击授权后查看",
+        "settings.auditAssistantTestSucceeded": "连接成功：%@",
         "calibration.preset.conservative": "保守",
         "calibration.preset.conservative.subtitle": "提高阈值，优先降低误报",
         "calibration.preset.balanced": "均衡",
         "calibration.preset.balanced.subtitle": "使用当前默认阈值",
         "calibration.preset.aggressive": "激进",
         "calibration.preset.aggressive.subtitle": "降低文本阈值，提高可疑召回",
-        "auditAssistant.mode.disabled": "关闭",
-        "auditAssistant.mode.localCommand": "本地命令",
-        "auditAssistant.mode.externalAPI": "外部 API",
+        "auditAssistant.mode.disabled": "不启用",
+        "auditAssistant.mode.externalAPI": "API Key",
+        "auditAssistant.provider.customOpenAICompatible": "OpenAI 兼容网关",
+        "auditAssistant.provider.openAI": "OpenAI",
+        "auditAssistant.provider.anthropic": "Anthropic",
+        "auditAssistant.provider.gemini": "Gemini",
+        "auditAssistant.provider.deepSeek": "DeepSeek",
+        "auditAssistant.provider.kimi": "Kimi",
+        "auditAssistant.provider.miniMax": "MiniMax",
+        "auditAssistant.protocol.openAIChatCompletions": "Chat Completions",
+        "auditAssistant.protocol.openAIResponses": "Responses",
+        "auditAssistant.protocol.anthropicMessages": "Anthropic Messages",
+        "auditAssistant.protocol.geminiGenerateContent": "Gemini Generate Content",
+        "auditAssistant.protocol.miniMaxChatCompletion": "MiniMax Chat Completion",
+        "auditAssistant.data.summaryOnly": "仅摘要",
+        "auditAssistant.data.evidenceDetail": "证据详情",
+        "auditAssistant.data.fullContext": "完整上下文",
         "settings.preferInAppReports": "默认打开 App 内报告中心",
         "settings.preferInAppReportsDescription": "优先在 App 内查看审计结果",
         "settings.defaultExportFormat": "默认导出格式",
@@ -447,9 +479,12 @@ enum LocalizationStrings {
         "settings.exportHTML": "导出 HTML",
         "settings.exportPDF": "导出 PDF",
         "settings.exportReport": "导出报告",
+        "settings.exportDefaultFormat": "按默认格式导出（%@）",
         "settings.exportBundle": "证据包 ZIP",
         "settings.openFinder": "打开 Finder",
         "settings.choose": "选择",
+        "settings.showText": "显示内容",
+        "settings.hideText": "隐藏内容",
         "settings.currentPrefix": "当前：",
         "settings.dataActions": "数据操作",
         "reports.title": "报告中心",
@@ -492,6 +527,7 @@ enum LocalizationStrings {
         "reports.textViewer": "文本证据查看器",
         "reports.codeViewer": "代码证据查看器",
         "reports.assistantExplanation": "审计助手说明",
+        "reports.assistantDisabled": "审计助手未启用。可在设置中切换到 API Key 模式。",
         "reports.attachments": "附件",
         "reports.reportProperties": "报告属性",
         "reports.metrics": "指标",
@@ -544,6 +580,14 @@ enum LocalizationStrings {
         "reports.generateExplanation": "生成审计解释",
         "reports.regenerateExplanation": "重新生成解释",
         "reports.generatingExplanation": "正在生成解释...",
+        "reports.copyAssistantResult": "复制建议",
+        "reports.applyAssistantNote": "应用备注",
+        "reports.applyAssistantSeverity": "应用建议",
+        "reports.assistantTriggerReasons": "触发原因",
+        "reports.assistantCheckpoints": "核查建议",
+        "reports.assistantDecisionSuggestion": "结论建议：%@",
+        "reports.assistantSeveritySuggestion": "严重级别：%@",
+        "reports.assistantNoteDraft": "备注草稿",
         "reports.imageComparison": "图片 A/B 对比",
         "reports.previousImagePair": "上一组图片对比",
         "reports.nextImagePair": "下一组图片对比",
@@ -723,6 +767,8 @@ enum LocalizationStrings {
         "notice.exportRecordFailed": "Export Record Failed",
         "notice.exportSucceeded": "Export Complete",
         "notice.reviewSaveFailed": "Review Save Failed",
+        "notice.assistantSuggestionSaveFailed": "Assistant Suggestion Save Failed",
+        "notice.assistantSuggestionLoadFailed": "Assistant Suggestion Load Failed",
         "notice.importSucceeded": "Import Complete",
         "notice.importSucceededWithIssues": "Import Complete With Issues",
         "notice.importFailed": "Import Failed",
@@ -939,8 +985,8 @@ enum LocalizationStrings {
         "common.enabled": "On",
         "common.disabled": "Off",
         "common.followSystem": "Follow System",
-        "common.light": "Light",
-        "common.dark": "Dark",
+        "common.light": "Light Mode",
+        "common.dark": "Dark Mode",
         "settings.title": "Settings",
         "settings.application": "App",
         "settings.general": "General",
@@ -954,7 +1000,7 @@ enum LocalizationStrings {
         "settings.language": "Language",
         "settings.languageDescription": "Follow the system language or choose one manually",
         "settings.theme": "Appearance",
-        "settings.themeDescription": "Follow system, Light, or Dark appearance",
+        "settings.themeDescription": "Follow system, Light Mode, or Dark Mode",
         "settings.inspectorDefault": "Show Details on Work Pages",
         "settings.inspectorDefaultDescription": "Used for audits, history, reports, and evidence pages",
         "settings.compactRows": "Compact Rows",
@@ -969,37 +1015,67 @@ enum LocalizationStrings {
         "settings.whitelistModeDescription": "Mark or hide results that match whitelist rules",
         "settings.calibration": "Calibration",
         "settings.calibrationPreset": "Threshold Preset",
-        "settings.calibrationEvaluation": "Calibration Evaluation",
         "settings.applyPreset": "Apply Preset",
-        "settings.runCalibration": "Run Calibration",
         "settings.calibrationStatus": "Calibration Status",
-        "settings.calibrationSummary": "Samples %d · Precision %.2f · Recall %.2f · F1 %.2f",
         "settings.calibrationDescription": "Show Precision, Recall, and F1 from calibration fixtures",
-        "settings.calibrationMissingManifest": "Calibration manifest not found: Resources/Calibration/manifest.json",
+        "settings.calibrationPresetApplied": "Applied preset: %@",
         "settings.calibrationThreshold": "Threshold",
-        "settings.calibrationRowAccessibility": "%@, samples %d, Precision %@, Recall %@, F1 %@",
         "settings.auditAssistant": "Audit Assistant",
         "settings.auditAssistantMode": "Assistant Mode",
-        "settings.auditAssistantModeDescription": "Choose Off, local command, or external API",
+        "settings.auditAssistantModeDescription": "Choose Disabled or API Key mode",
+        "settings.auditAssistantProvider": "Provider",
+        "settings.auditAssistantProviderDescription": "Choose the vendor or compatible gateway for the API key",
+        "settings.auditAssistantProtocol": "API Protocol",
+        "settings.auditAssistantProtocolDescription": "Choose the API request and response parsing format",
+        "settings.auditAssistantBaseURL": "Base URL",
+        "settings.auditAssistantBaseURLDescription": "For example https://api.example.com/v1, without the endpoint path",
+        "settings.auditAssistantModel": "Model",
+        "settings.auditAssistantModelDescription": "Model name sent to the external API",
         "settings.auditAssistantTimeout": "Timeout",
-        "settings.auditAssistantTimeoutDescription": "Maximum wait time for local commands and external APIs",
-        "settings.auditAssistantKeychain": "Keychain Reference",
-        "settings.auditAssistantKeychainDescription": "External API credential reference passed as the X-PitcherPlant-Credential-Ref request header",
-        "settings.auditAssistantEndpointCommand": "Endpoint / Command",
-        "settings.auditAssistantLocalCommand": "Local Command",
-        "settings.auditAssistantAPIEndpoint": "API Endpoint",
-        "settings.auditAssistantDisabledSubtitle": "Configuration is preserved and takes effect after enabling a mode",
-        "settings.auditAssistantLocalSubtitle": "Runs through zsh -lc with the evidence payload written to standard input",
-        "settings.auditAssistantAPISubtitle": "Sends the evidence payload as a POST JSON request",
+        "settings.auditAssistantTimeoutDescription": "Maximum wait time for external APIs",
+        "settings.auditAssistantMaxTokens": "Max Output",
+        "settings.auditAssistantMaxTokensDescription": "Limit assistant response tokens",
+        "settings.auditAssistantTokensHint": "tokens",
+        "settings.auditAssistantTemperature": "Temperature",
+        "settings.auditAssistantTemperatureDescription": "0 is steadier; higher values are more varied",
+        "settings.auditAssistantDataSharing": "Shared Data",
+        "settings.auditAssistantDataSharingDescription": "Controls how much evidence is sent to external models",
+        "settings.auditAssistantAPIKey": "API Key",
+        "settings.auditAssistantAPIKeyDescription": "Saved to macOS Keychain, not UserDefaults or the database",
+        "settings.auditAssistantConnection": "Connection Test",
+        "settings.auditAssistantConnectionDescription": "Save the key, then test the current provider, protocol, and model",
+        "settings.auditAssistantSaveKey": "Save Key",
+        "settings.auditAssistantDeleteKey": "Delete Key",
+        "settings.auditAssistantTest": "Test",
+        "settings.auditAssistantTesting": "Testing...",
+        "settings.auditAssistantKeySaved": "API key saved to Keychain",
+        "settings.auditAssistantKeyDeleted": "API key deleted from Keychain",
+        "settings.auditAssistantKeyEmpty": "Enter an API key before saving.",
+        "settings.auditAssistantKeySavedPlaceholder": "Authorize to view",
+        "settings.auditAssistantTestSucceeded": "Connected: %@",
         "calibration.preset.conservative": "Conservative",
         "calibration.preset.conservative.subtitle": "Raise thresholds to reduce false positives",
         "calibration.preset.balanced": "Balanced",
         "calibration.preset.balanced.subtitle": "Use the current default thresholds",
         "calibration.preset.aggressive": "Aggressive",
         "calibration.preset.aggressive.subtitle": "Lower text thresholds to improve suspicious recall",
-        "auditAssistant.mode.disabled": "Off",
-        "auditAssistant.mode.localCommand": "Local Command",
-        "auditAssistant.mode.externalAPI": "External API",
+        "auditAssistant.mode.disabled": "Disabled",
+        "auditAssistant.mode.externalAPI": "API Key",
+        "auditAssistant.provider.customOpenAICompatible": "OpenAI-Compatible Gateway",
+        "auditAssistant.provider.openAI": "OpenAI",
+        "auditAssistant.provider.anthropic": "Anthropic",
+        "auditAssistant.provider.gemini": "Gemini",
+        "auditAssistant.provider.deepSeek": "DeepSeek",
+        "auditAssistant.provider.kimi": "Kimi",
+        "auditAssistant.provider.miniMax": "MiniMax",
+        "auditAssistant.protocol.openAIChatCompletions": "Chat Completions",
+        "auditAssistant.protocol.openAIResponses": "Responses",
+        "auditAssistant.protocol.anthropicMessages": "Anthropic Messages",
+        "auditAssistant.protocol.geminiGenerateContent": "Gemini Generate Content",
+        "auditAssistant.protocol.miniMaxChatCompletion": "MiniMax Chat Completion",
+        "auditAssistant.data.summaryOnly": "Summary Only",
+        "auditAssistant.data.evidenceDetail": "Evidence Detail",
+        "auditAssistant.data.fullContext": "Full Context",
         "settings.preferInAppReports": "Open Reports In App",
         "settings.preferInAppReportsDescription": "Prefer the in-app report center for audit results",
         "settings.defaultExportFormat": "Default Export Format",
@@ -1041,9 +1117,12 @@ enum LocalizationStrings {
         "settings.exportHTML": "Export HTML",
         "settings.exportPDF": "Export PDF",
         "settings.exportReport": "Export Report",
+        "settings.exportDefaultFormat": "Export Default (%@)",
         "settings.exportBundle": "Evidence Bundle ZIP",
         "settings.openFinder": "Open Finder",
         "settings.choose": "Choose",
+        "settings.showText": "Show Text",
+        "settings.hideText": "Hide Text",
         "settings.currentPrefix": "Current: ",
         "settings.dataActions": "Data Actions",
         "reports.title": "Reports",
@@ -1086,6 +1165,7 @@ enum LocalizationStrings {
         "reports.textViewer": "Text Evidence Viewer",
         "reports.codeViewer": "Code Evidence Viewer",
         "reports.assistantExplanation": "Assistant Explanation",
+        "reports.assistantDisabled": "Audit Assistant is disabled. Switch to API Key mode in Settings to use it.",
         "reports.attachments": "Attachments",
         "reports.reportProperties": "Report Properties",
         "reports.metrics": "Metrics",
@@ -1138,6 +1218,14 @@ enum LocalizationStrings {
         "reports.generateExplanation": "Generate Audit Explanation",
         "reports.regenerateExplanation": "Regenerate Explanation",
         "reports.generatingExplanation": "Generating explanation...",
+        "reports.copyAssistantResult": "Copy Suggestion",
+        "reports.applyAssistantNote": "Apply Note",
+        "reports.applyAssistantSeverity": "Apply Suggestion",
+        "reports.assistantTriggerReasons": "Trigger Reasons",
+        "reports.assistantCheckpoints": "Review Checklist",
+        "reports.assistantDecisionSuggestion": "Decision: %@",
+        "reports.assistantSeveritySuggestion": "Severity: %@",
+        "reports.assistantNoteDraft": "Note Draft",
         "reports.imageComparison": "Image A/B Comparison",
         "reports.previousImagePair": "Previous Image Pair",
         "reports.nextImagePair": "Next Image Pair",
@@ -1258,6 +1346,23 @@ extension AppState {
         t(stage.localizationKey)
     }
 
+    func title(for format: ExportRecord.Format) -> String {
+        switch format {
+        case .html:
+            return "HTML"
+        case .pdf:
+            return "PDF"
+        case .csv:
+            return "CSV"
+        case .json:
+            return "JSON"
+        case .markdown:
+            return "Markdown"
+        case .bundle:
+            return t("settings.exportBundle")
+        }
+    }
+
     func title(for mode: AuditConfiguration.WhitelistMode) -> String {
         t(mode.localizationKey)
     }
@@ -1281,8 +1386,37 @@ extension AppState {
     func title(for mode: AuditAssistantConfiguration.Mode) -> String {
         switch mode {
         case .disabled: return t("auditAssistant.mode.disabled")
-        case .localCommand: return t("auditAssistant.mode.localCommand")
         case .externalAPI: return t("auditAssistant.mode.externalAPI")
+        }
+    }
+
+    func title(for provider: AuditAssistantConfiguration.Provider) -> String {
+        switch provider {
+        case .customOpenAICompatible: return t("auditAssistant.provider.customOpenAICompatible")
+        case .openAI: return t("auditAssistant.provider.openAI")
+        case .anthropic: return t("auditAssistant.provider.anthropic")
+        case .gemini: return t("auditAssistant.provider.gemini")
+        case .deepSeek: return t("auditAssistant.provider.deepSeek")
+        case .kimi: return t("auditAssistant.provider.kimi")
+        case .miniMax: return t("auditAssistant.provider.miniMax")
+        }
+    }
+
+    func title(for apiProtocol: AuditAssistantConfiguration.APIProtocol) -> String {
+        switch apiProtocol {
+        case .openAIChatCompletions: return t("auditAssistant.protocol.openAIChatCompletions")
+        case .openAIResponses: return t("auditAssistant.protocol.openAIResponses")
+        case .anthropicMessages: return t("auditAssistant.protocol.anthropicMessages")
+        case .geminiGenerateContent: return t("auditAssistant.protocol.geminiGenerateContent")
+        case .miniMaxChatCompletion: return t("auditAssistant.protocol.miniMaxChatCompletion")
+        }
+    }
+
+    func title(for level: AuditAssistantConfiguration.DataSharingLevel) -> String {
+        switch level {
+        case .summaryOnly: return t("auditAssistant.data.summaryOnly")
+        case .evidenceDetail: return t("auditAssistant.data.evidenceDetail")
+        case .fullContext: return t("auditAssistant.data.fullContext")
         }
     }
 

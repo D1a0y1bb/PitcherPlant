@@ -352,6 +352,10 @@ actor DatabaseStore {
             try createLibrarySearchIndexes(db)
         }
 
+        migrator.registerMigration("add-assistant-suggestions-v1") { db in
+            try createAssistantSuggestionsTable(db)
+        }
+
         try migrator.migrate(dbQueue)
     }
 
@@ -689,6 +693,54 @@ actor DatabaseStore {
             try db.execute(sql: "DELETE FROM audit_reports_fts WHERE record_id = ?", arguments: [reportID.uuidString])
             try db.execute(sql: "DELETE FROM report_table_rows_fts WHERE report_id = ?", arguments: [reportID.uuidString])
             try db.execute(sql: "DELETE FROM evidence_reviews WHERE report_id = ?", arguments: [reportID.uuidString])
+            try db.execute(sql: "DELETE FROM assistant_suggestions WHERE report_id = ?", arguments: [reportID.uuidString])
+        }
+    }
+
+    func saveAssistantSuggestion(_ record: AuditAssistantSuggestionRecord) throws {
+        let payload = try JSONEncoder.pitcherPlant.encodeToString(record)
+        try dbQueue.write { db in
+            try db.execute(
+                sql: """
+                INSERT INTO assistant_suggestions (id, report_id, evidence_id, provider, model, request_hash, created_at, payload)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(id) DO UPDATE SET
+                    provider = excluded.provider,
+                    model = excluded.model,
+                    request_hash = excluded.request_hash,
+                    created_at = excluded.created_at,
+                    payload = excluded.payload
+                """,
+                arguments: [
+                    record.id.uuidString,
+                    record.reportID.uuidString,
+                    record.evidenceID.uuidString,
+                    record.provider.rawValue,
+                    record.model,
+                    record.requestHash,
+                    record.createdAt,
+                    payload
+                ]
+            )
+        }
+    }
+
+    func latestAssistantSuggestion(reportID: UUID, evidenceID: UUID) throws -> AuditAssistantSuggestionRecord? {
+        try dbQueue.read { db in
+            guard let row = try Row.fetchOne(
+                db,
+                sql: """
+                SELECT payload
+                FROM assistant_suggestions
+                WHERE report_id = ? AND evidence_id = ?
+                ORDER BY created_at DESC
+                LIMIT 1
+                """,
+                arguments: [reportID.uuidString, evidenceID.uuidString]
+            ) else {
+                return nil
+            }
+            return try JSONDecoder.pitcherPlant.decodeString(AuditAssistantSuggestionRecord.self, from: row["payload"])
         }
     }
 
@@ -1521,6 +1573,7 @@ private func createOperationalTables(_ db: Database) throws {
         table.column("updated_at", .datetime).notNull().indexed()
         table.column("payload", .text).notNull()
     }
+    try createAssistantSuggestionsTable(db)
     try db.create(table: "submission_batches", ifNotExists: true) { table in
         table.column("id", .text).primaryKey()
         table.column("payload", .text).notNull()
@@ -1669,6 +1722,19 @@ private func normalizeFingerprintIdentities(_ db: Database) throws {
                 entry.rowID
             ]
         )
+    }
+}
+
+private func createAssistantSuggestionsTable(_ db: Database) throws {
+    try db.create(table: "assistant_suggestions", ifNotExists: true) { table in
+        table.column("id", .text).primaryKey()
+        table.column("report_id", .text).notNull().indexed()
+        table.column("evidence_id", .text).notNull().indexed()
+        table.column("provider", .text).notNull().indexed()
+        table.column("model", .text).notNull()
+        table.column("request_hash", .text).notNull().indexed()
+        table.column("created_at", .datetime).notNull().indexed()
+        table.column("payload", .text).notNull()
     }
 }
 
