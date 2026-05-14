@@ -139,7 +139,7 @@ func calibrationManifestLocatorFindsFlatXcodeBundleResource() throws {
 }
 
 @Test
-func projectLocatorUsesSavedWorkspaceAndCreatesDefaultDirectories() throws {
+func projectLocatorUsesSavedWorkspaceWithoutCreatingAuditDirectories() throws {
     let suiteName = "pitcherplant.locator.tests.\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))
     defer { clearTestDefaults(suiteName, defaults: defaults) }
@@ -152,8 +152,8 @@ func projectLocatorUsesSavedWorkspaceAndCreatesDefaultDirectories() throws {
     let resolved = ProjectLocator(defaults: defaults).workspaceRoot()
 
     #expect(resolved.path == root.path)
-    #expect(FileManager.default.fileExists(atPath: AuditConfiguration.defaultInputDirectory(for: root).path))
-    #expect(FileManager.default.fileExists(atPath: AuditConfiguration.defaultOutputDirectory(for: root).path))
+    #expect(FileManager.default.fileExists(atPath: AuditConfiguration.defaultInputDirectory(for: root).path) == false)
+    #expect(FileManager.default.fileExists(atPath: AuditConfiguration.defaultOutputDirectory(for: root).path) == false)
 }
 
 @Test

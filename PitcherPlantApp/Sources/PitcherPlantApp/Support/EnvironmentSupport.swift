@@ -96,14 +96,7 @@ struct ProjectLocator {
     }
 
     private func prepareUserWorkspace(_ url: URL, fileManager: FileManager) {
-        let directories = [
-            url,
-            AuditConfiguration.defaultInputDirectory(for: url),
-            AuditConfiguration.defaultOutputDirectory(for: url)
-        ]
-        for directory in directories {
-            try? fileManager.createDirectory(at: directory, withIntermediateDirectories: true)
-        }
+        try? fileManager.createDirectory(at: url, withIntermediateDirectories: true)
     }
 
     private func saveWorkspaceRoot(_ url: URL) {
