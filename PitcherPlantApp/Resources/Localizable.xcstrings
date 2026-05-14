@@ -3750,13 +3750,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Apply Note"
+            "value": "Apply Note Draft"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "应用备注"
+            "value": "应用备注草稿"
           }
         }
       }
@@ -3766,13 +3766,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Apply Suggestion"
+            "value": "Apply Decision and Severity"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "应用建议"
+            "value": "应用结论和级别"
           }
         }
       }
@@ -3990,13 +3990,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Copy Suggestion"
+            "value": "Copy Assistant Result"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "复制建议"
+            "value": "复制助手结果"
           }
         }
       }
@@ -6150,13 +6150,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Controls how much evidence is sent to external models"
+            "value": "Controls how much evidence is sent to external models when API Key mode is enabled"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "控制发送给外部模型的证据范围"
+            "value": "控制发送给外部模型的证据范围；仅在 API Key 模式启用时外发"
           }
         }
       }
@@ -7254,13 +7254,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "PitcherPlant processes audit data locally by default and stores databases, reports, and configuration in the local workspace. Unless you manually check for updates, submit an issue, or open an external link, the app does not upload your audit content."
+            "value": "PitcherPlant processes audit data locally by default and stores databases, reports, and configuration in the local workspace. Unless you manually check for updates, submit an issue, open an external link, or request Audit Assistant analysis in API Key mode, the app does not upload your audit content. When you use the Audit Assistant external API, the app may send evidence summaries, evidence details, or full context to the external models provider you configure according to the Shared Data setting; API keys are stored only in macOS Keychain."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "PitcherPlant 默认在本机处理审计数据，并把数据库、报告和配置保存到本机工作区。除非你主动打开更新检查、提交错误报告或访问外部链接，应用不会主动上传你的审计内容。"
+            "value": "PitcherPlant 默认在本机处理审计数据，并把数据库、报告和配置保存到本机工作区。除非你主动打开更新检查、提交错误报告、访问外部链接，或在 API Key 模式下请求审计助手分析，应用不会主动上传你的审计内容。使用审计助手外部 API 时，应用可能会按“外发数据”设置，把证据摘要、证据详情或完整上下文发送给你配置的外部模型提供方；API Key 只保存到 macOS Keychain。"
           }
         }
       }
@@ -8572,7 +8572,7 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "隐藏 Inspector"
+            "value": "隐藏检查器"
           }
         }
       }
@@ -8924,7 +8924,7 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "显示 Inspector"
+            "value": "显示检查器"
           }
         }
       }
@@ -10205,6 +10205,374 @@
           "stringUnit": {
             "state": "translated",
             "value": "审计助手未启用。可在设置中切换到 API Key 模式。"
+          }
+        }
+      }
+    },
+    "reports.assistantLocalSummary": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ matched %@. System risk: %@. Current review status: %@."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ 命中%@，系统风险等级为%@，当前复核状态为%@。"
+          }
+        }
+      }
+    },
+    "reports.assistantLocalCheckpoint.context": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Check the context in the detail panel"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "核对详情面板中的上下文"
+          }
+        }
+      }
+    },
+    "reports.assistantLocalCheckpoint.attachments": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Review code snippets and attachment sources"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "检查代码片段和附件来源"
+          }
+        }
+      }
+    },
+    "reports.assistantLocalCheckpoint.whitelist": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Confirm whether a whitelist or manual review already exists"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "确认是否已有白名单或人工复核记录"
+          }
+        }
+      }
+    },
+    "reports.assistantLocalNoteDraft": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ Continue manual review of the original evidence."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ 建议继续人工复核原始证据。"
+          }
+        }
+      }
+    },
+    "reports.assistantConnectionTestTitle": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Audit Assistant Connection Test"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "审计助手连接测试"
+          }
+        }
+      }
+    },
+    "reports.assistantConnectionTestBody": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Return a short connection test result."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "请返回一段简短的连接测试结果。"
+          }
+        }
+      }
+    },
+    "reports.assistantConnectionTestBadge": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Connection Test"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "连接测试"
+          }
+        }
+      }
+    },
+    "assistant.error.disabled": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Audit Assistant is disabled."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "审计助手已关闭。"
+          }
+        }
+      }
+    },
+    "assistant.error.invalidEndpoint": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The API URL is invalid."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "API 地址格式无效。"
+          }
+        }
+      }
+    },
+    "assistant.error.missingModel": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Missing model name."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "缺少模型名称。"
+          }
+        }
+      }
+    },
+    "assistant.error.missingCredential": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Missing Audit Assistant API key."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "缺少审计助手 API Key。"
+          }
+        }
+      }
+    },
+    "assistant.error.emptyResponse": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Audit Assistant returned no content."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "审计助手没有返回内容。"
+          }
+        }
+      }
+    },
+    "assistant.error.timeout": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Audit Assistant timed out."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "审计助手执行超时。"
+          }
+        }
+      }
+    },
+    "assistant.error.httpStatus": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "External API returned HTTP %d: %@"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "外部 API 返回 HTTP %d：%@"
+          }
+        }
+      }
+    },
+    "assistant.error.unsupportedProviderProtocol": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ does not support the %@ API protocol."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ 不支持 %@ 接口协议。"
+          }
+        }
+      }
+    },
+    "assistant.error.unsupportedResponse": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Could not parse external API response: %@"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "无法解析外部 API 响应：%@"
+          }
+        }
+      }
+    },
+    "assistant.error.responseTooLarge": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "External API response is too large."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "外部 API 响应过大。"
+          }
+        }
+      }
+    },
+    "assistant.error.noDisplayContent": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Audit Assistant returned no displayable content."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "审计助手没有返回可显示内容。"
+          }
+        }
+      }
+    },
+    "assistant.error.missingHTTPResponse": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Missing HTTP response."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "缺少 HTTP 响应。"
+          }
+        }
+      }
+    },
+    "assistant.keychain.missingCredential": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Missing Audit Assistant API key."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "缺少审计助手 API Key。"
+          }
+        }
+      }
+    },
+    "assistant.keychain.encodingFailed": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "API key encoding failed."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "API Key 编码失败。"
+          }
+        }
+      }
+    },
+    "assistant.keychain.failure": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Keychain operation failed: %d."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Keychain 操作失败：%d。"
           }
         }
       }

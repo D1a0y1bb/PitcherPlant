@@ -15,6 +15,26 @@ func localizableCatalogTracksRuntimeLocalizationKeys() throws {
     #expect(runtimeKeys == Set(catalog.strings.keys))
 }
 
+@Test
+func auditAssistantLocalizedCopyDescribesExternalDataAndNativeLabels() throws {
+    let root = try repositoryRoot()
+    let catalogURL = root.appendingPathComponent("Resources/Localizable.xcstrings")
+    let catalogData = try Data(contentsOf: catalogURL)
+    let catalog = try JSONDecoder().decode(StringCatalog.self, from: catalogData)
+
+    #expect(try catalog.localizedValue("reports.applyAssistantSeverity", language: "en") == "Apply Decision and Severity")
+    #expect(try catalog.localizedValue("reports.applyAssistantSeverity", language: "zh-Hans") == "应用结论和级别")
+    #expect(try catalog.localizedValue("toolbar.showInspector", language: "zh-Hans") == "显示检查器")
+    #expect(try catalog.localizedValue("toolbar.hideInspector", language: "zh-Hans") == "隐藏检查器")
+
+    let englishPrivacy = try catalog.localizedValue("settings.privacyPolicyBody", language: "en")
+    let chinesePrivacy = try catalog.localizedValue("settings.privacyPolicyBody", language: "zh-Hans")
+    #expect(englishPrivacy.contains("Audit Assistant"))
+    #expect(englishPrivacy.contains("external models"))
+    #expect(chinesePrivacy.contains("审计助手"))
+    #expect(chinesePrivacy.contains("外部模型"))
+}
+
 private func repositoryRoot() throws -> URL {
     var candidate = URL(fileURLWithPath: #filePath)
     for _ in 0..<8 {
@@ -56,6 +76,26 @@ private func parsedKeys(in dictionaryBody: String) -> Set<String> {
 
 private struct StringCatalog: Decodable {
     let strings: [String: StringCatalogEntry]
+
+    func localizedValue(_ key: String, language: String) throws -> String {
+        guard let entry = strings[key],
+              let localization = entry.localizations[language],
+              let value = localization.stringUnit?.value
+        else {
+            throw CocoaError(.coderReadCorrupt)
+        }
+        return value
+    }
 }
 
-private struct StringCatalogEntry: Decodable {}
+private struct StringCatalogEntry: Decodable {
+    let localizations: [String: StringCatalogLocalization]
+}
+
+private struct StringCatalogLocalization: Decodable {
+    let stringUnit: StringCatalogStringUnit?
+}
+
+private struct StringCatalogStringUnit: Decodable {
+    let value: String
+}

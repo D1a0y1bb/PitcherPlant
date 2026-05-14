@@ -760,12 +760,9 @@ final class AppState {
         }
     }
 
-    func saveAssistantSuggestion(for row: ReportTableRow, result: AuditAssistantResult) async {
-        guard let report = selectedReport else {
-            return
-        }
+    func saveAssistantSuggestion(reportID: UUID, for row: ReportTableRow, result: AuditAssistantResult) async {
         let record = AuditAssistantSuggestionRecord(
-            reportID: report.id,
+            reportID: reportID,
             evidenceID: row.evidenceID ?? row.id,
             result: result
         )
@@ -776,12 +773,9 @@ final class AppState {
         }
     }
 
-    func latestAssistantSuggestion(for row: ReportTableRow) async -> AuditAssistantSuggestionRecord? {
-        guard let report = selectedReport else {
-            return nil
-        }
+    func latestAssistantSuggestion(reportID: UUID, for row: ReportTableRow) async -> AuditAssistantSuggestionRecord? {
         do {
-            return try await database.latestAssistantSuggestion(reportID: report.id, evidenceID: row.evidenceID ?? row.id)
+            return try await database.latestAssistantSuggestion(reportID: reportID, evidenceID: row.evidenceID ?? row.id)
         } catch {
             showNotice(title: t("notice.assistantSuggestionLoadFailed"), message: error.localizedDescription, tone: .error)
             return nil

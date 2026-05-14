@@ -241,7 +241,7 @@ struct ReportEvidenceInspector: View {
 
     var body: some View {
         Group {
-            if let row = appState.selectedReportRow {
+            if let row = appState.selectedReportRow, let reportID = appState.selectedReport?.id {
                 ReportInspectorScrollView {
                     VStack(alignment: .leading, spacing: 18) {
                         VStack(alignment: .leading, spacing: 12) {
@@ -279,7 +279,7 @@ struct ReportEvidenceInspector: View {
                                 .textSelection(.enabled)
                         }
 
-                        EvidenceSemanticDetailView(row: row)
+                        EvidenceSemanticDetailView(reportID: reportID, row: row)
 
                         if !row.attachments.isEmpty {
                             InspectorSection(title: appState.t("reports.attachments")) {
@@ -623,12 +623,13 @@ private struct EvidenceReviewSnapshot: Hashable {
 }
 
 struct EvidenceSemanticDetailView: View {
+    let reportID: UUID
     let row: ReportTableRow
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             semanticContent
-            AssistantEvidenceExplanationView(row: row)
+            AssistantEvidenceExplanationView(reportID: reportID, row: row)
         }
     }
 
@@ -810,6 +811,7 @@ private func evidenceContextCards(
 
 struct AssistantEvidenceExplanationView: View {
     @Environment(AppState.self) private var appState
+    let reportID: UUID
     let row: ReportTableRow
     @State private var phase: AssistantPhase = .idle
     @State private var cachedResult: AuditAssistantResult?
@@ -879,28 +881,25 @@ struct AssistantEvidenceExplanationView: View {
                 }
             }
         }
-        .onChange(of: row.id) { _, _ in
+        .task(id: cacheKey) {
             assistantTask?.cancel()
             phase = .idle
             cachedResult = nil
-            Task {
-                if let latest = await appState.latestAssistantSuggestion(for: row) {
-                    cachedResult = latest.result
-                    phase = .loaded(latest.result)
-                }
-            }
-        }
-        .onAppear {
-            Task {
-                if cachedResult == nil, let latest = await appState.latestAssistantSuggestion(for: row) {
-                    cachedResult = latest.result
-                    phase = .loaded(latest.result)
-                }
+            let requestKey = cacheKey
+            if let latest = await appState.latestAssistantSuggestion(reportID: reportID, for: row),
+               Task.isCancelled == false,
+               requestKey == cacheKey {
+                cachedResult = latest.result
+                phase = .loaded(latest.result)
             }
         }
         .onDisappear {
             assistantTask?.cancel()
         }
+    }
+
+    private var cacheKey: String {
+        "\(reportID.uuidString):\(row.id.uuidString):\((row.evidenceID ?? row.id).uuidString)"
     }
 
     private var buttonTitle: String {
@@ -920,7 +919,8 @@ struct AssistantEvidenceExplanationView: View {
             return cachedResult ?? AuditAssistantService().localExplanation(
                 for: row,
                 review: appState.review(for: row),
-                configuration: appState.appSettings.auditAssistant ?? AuditAssistantConfiguration()
+                configuration: appState.appSettings.auditAssistant ?? AuditAssistantConfiguration(),
+                language: appState.appSettings.language
             )
         case .loading:
             return cachedResult ?? AuditAssistantResult(
@@ -942,19 +942,22 @@ struct AssistantEvidenceExplanationView: View {
     private func runAssistant() {
         assistantTask?.cancel()
         phase = .loading
+        let requestReportID = reportID
+        let requestRow = row
+        let requestKey = cacheKey
         assistantTask = Task {
             do {
                 let result = try await AuditAssistantService().suggestion(
-                    for: row,
-                    review: appState.review(for: row),
+                    for: requestRow,
+                    review: appState.review(for: requestRow),
                     configuration: appState.appSettings.auditAssistant ?? AuditAssistantConfiguration()
                 )
-                guard Task.isCancelled == false else {
+                guard Task.isCancelled == false, requestKey == cacheKey else {
                     return
                 }
                 cachedResult = result
                 phase = .loaded(result)
-                await appState.saveAssistantSuggestion(for: row, result: result)
+                await appState.saveAssistantSuggestion(reportID: requestReportID, for: requestRow, result: result)
             } catch is CancellationError {
                 phase = .idle
             } catch {
@@ -965,7 +968,7 @@ struct AssistantEvidenceExplanationView: View {
 
     private func copyResult() {
         NSPasteboard.general.clearContents()
-        NSPasteboard.general.setString(displayedResult.displayText, forType: .string)
+        NSPasteboard.general.setString(displayedResult.displayText(language: appState.appSettings.language), forType: .string)
     }
 
     private func applyAssistantNote() {

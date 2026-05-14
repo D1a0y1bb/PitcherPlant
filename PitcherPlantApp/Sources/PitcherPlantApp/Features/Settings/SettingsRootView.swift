@@ -566,13 +566,7 @@ struct SettingsRootView: View {
             set: { provider in
                 appState.updateSettings { settings in
                     var configuration = settings.auditAssistant ?? AuditAssistantConfiguration()
-                    configuration.provider = provider
-                    if provider.supportedProtocols.contains(configuration.apiProtocol) == false {
-                        configuration.apiProtocol = provider.defaultProtocol
-                    }
-                    configuration.baseURL = provider.defaultBaseURL
-                    configuration.model = provider.defaultModel
-                    configuration.credentialID = provider.defaultCredentialID
+                    configuration.apply(provider: provider)
                     settings.auditAssistant = configuration
                 }
                 auditAssistantCredentialDraft = ""
@@ -816,7 +810,11 @@ struct SettingsRootView: View {
         Task { @MainActor in
             do {
                 let configuration = appState.appSettings.auditAssistant ?? AuditAssistantConfiguration()
-                let result = try await AuditAssistantService().testConnection(configuration: configuration, credentialOverride: credential)
+                let result = try await AuditAssistantService().testConnection(
+                    configuration: configuration,
+                    credentialOverride: credential,
+                    language: appState.appSettings.language
+                )
                 let message = appState.tf("settings.auditAssistantTestSucceeded", result.model)
                 auditAssistantConnectionMessage = message
                 presentSettingsNotice(message)

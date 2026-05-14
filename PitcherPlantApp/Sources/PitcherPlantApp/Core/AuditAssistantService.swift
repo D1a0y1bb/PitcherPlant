@@ -101,7 +101,7 @@ struct AuditAssistantConfiguration: Codable, Hashable, Sendable {
         var defaultBaseURL: String {
             switch self {
             case .customOpenAICompatible:
-                return "https://api.masterjie.eu.cc/v1"
+                return ""
             case .openAI:
                 return "https://api.openai.com/v1"
             case .anthropic:
@@ -232,6 +232,19 @@ struct AuditAssistantConfiguration: Codable, Hashable, Sendable {
         let trimmed = model.trimmingCharacters(in: .whitespacesAndNewlines)
         return trimmed.isEmpty ? provider.defaultModel : trimmed
     }
+
+    mutating func apply(provider nextProvider: Provider) {
+        guard provider != nextProvider else {
+            return
+        }
+        provider = nextProvider
+        if nextProvider.supportedProtocols.contains(apiProtocol) == false {
+            apiProtocol = nextProvider.defaultProtocol
+        }
+        baseURL = nextProvider.defaultBaseURL
+        model = nextProvider.defaultModel
+        credentialID = nextProvider.defaultCredentialID
+    }
 }
 
 struct AuditAssistantRequestContext: Codable, Hashable, Sendable {
@@ -306,15 +319,19 @@ struct AuditAssistantResult: Codable, Identifiable, Hashable, Sendable {
     var createdAt: Date = .now
 
     var displayText: String {
+        displayText(language: .system)
+    }
+
+    func displayText(language: AppLanguage) -> String {
         var parts = [summary]
         if triggerReasons.isEmpty == false {
-            parts.append("触发原因：\(triggerReasons.joined(separator: "；"))")
+            parts.append("\(AuditAssistantLocalization.text("reports.assistantTriggerReasons", language: language)): \(triggerReasons.joined(separator: AuditAssistantLocalization.listSeparator(language: language)))")
         }
         if checkpoints.isEmpty == false {
-            parts.append("建议核查：\(checkpoints.joined(separator: "；"))")
+            parts.append("\(AuditAssistantLocalization.text("reports.assistantCheckpoints", language: language)): \(checkpoints.joined(separator: AuditAssistantLocalization.listSeparator(language: language)))")
         }
         if noteDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false {
-            parts.append("备注草稿：\(noteDraft)")
+            parts.append("\(AuditAssistantLocalization.text("reports.assistantNoteDraft", language: language)): \(noteDraft)")
         }
         return parts.joined(separator: "\n")
     }
@@ -322,20 +339,35 @@ struct AuditAssistantResult: Codable, Identifiable, Hashable, Sendable {
     static func localFallback(
         for row: ReportTableRow,
         review: EvidenceReview?,
-        configuration: AuditAssistantConfiguration = AuditAssistantConfiguration()
+        configuration: AuditAssistantConfiguration = AuditAssistantConfiguration(),
+        language: AppLanguage = .system
     ) -> AuditAssistantResult {
-        let risk = row.riskAssessment?.level.title ?? "未评级"
-        let reviewTitle = review?.decision.title ?? "待复核"
+        let risk = row.riskAssessment.map { AuditAssistantLocalization.riskTitle($0.level, language: language) }
+            ?? AuditAssistantLocalization.text("risk.none", language: language)
+        let reviewTitle = review.map { AuditAssistantLocalization.decisionTitle($0.decision, language: language) }
+            ?? AuditAssistantLocalization.text("review.status.pending", language: language)
         let reasons = row.riskAssessment?.reasons ?? row.badges.map(\.title)
-        let files = row.columns.prefix(2).joined(separator: " 与 ")
-        let summary = "\(files) 命中\(reasons.joined(separator: "、"))，系统风险等级为\(risk)，当前复核状态为\(reviewTitle)。"
+        let files = row.columns.prefix(2).joined(separator: AuditAssistantLocalization.fileSeparator(language: language))
+        let reasonText = reasons.joined(separator: AuditAssistantLocalization.reasonSeparator(language: language))
+        let summary = AuditAssistantLocalization.format(
+            "reports.assistantLocalSummary",
+            language: language,
+            files,
+            reasonText,
+            risk,
+            reviewTitle
+        )
         return AuditAssistantResult(
             summary: summary,
             triggerReasons: reasons,
-            checkpoints: ["核对详情面板中的上下文", "检查代码片段和附件来源", "确认是否已有白名单或人工复核记录"],
+            checkpoints: [
+                AuditAssistantLocalization.text("reports.assistantLocalCheckpoint.context", language: language),
+                AuditAssistantLocalization.text("reports.assistantLocalCheckpoint.attachments", language: language),
+                AuditAssistantLocalization.text("reports.assistantLocalCheckpoint.whitelist", language: language),
+            ],
             suggestedDecision: review?.decision,
             suggestedSeverity: review?.severity ?? row.riskAssessment?.level,
-            noteDraft: "\(summary) 建议继续人工复核原始证据。",
+            noteDraft: AuditAssistantLocalization.format("reports.assistantLocalNoteDraft", language: language, summary),
             provider: configuration.provider,
             model: configuration.effectiveModel,
             requestHash: AuditAssistantService.context(for: row, review: review, configuration: configuration).requestHash
@@ -381,11 +413,11 @@ struct AuditAssistantCredentialStore {
         var errorDescription: String? {
             switch self {
             case .missingCredential:
-                return "缺少审计助手 API Key。"
+                return AuditAssistantLocalization.text("assistant.keychain.missingCredential", language: .system)
             case .encodingFailed:
-                return "API Key 编码失败。"
+                return AuditAssistantLocalization.text("assistant.keychain.encodingFailed", language: .system)
             case .keychainFailure(let status):
-                return "Keychain 操作失败：\(status)。"
+                return AuditAssistantLocalization.format("assistant.keychain.failure", language: .system, status)
             }
         }
     }
@@ -398,14 +430,18 @@ struct AuditAssistantCredentialStore {
 
     func save(_ apiKey: String, id: String) throws {
         let trimmed = apiKey.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedID = normalizedCredentialID(id)
         guard let data = trimmed.data(using: .utf8), trimmed.isEmpty == false else {
             throw CredentialError.encodingFailed
         }
-        try delete(id: id, ignoreMissing: true)
+        guard trimmedID.isEmpty == false else {
+            throw CredentialError.missingCredential
+        }
+        try delete(id: trimmedID, ignoreMissing: true)
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
-            kSecAttrAccount as String: id,
+            kSecAttrAccount as String: trimmedID,
             kSecValueData as String: data,
             kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
         ]
@@ -416,11 +452,15 @@ struct AuditAssistantCredentialStore {
     }
 
     func read(id: String, allowAuthenticationUI: Bool = false) throws -> String {
+        let trimmedID = normalizedCredentialID(id)
+        guard trimmedID.isEmpty == false else {
+            throw CredentialError.missingCredential
+        }
         let context = authenticationContext(allowAuthenticationUI: allowAuthenticationUI)
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
-            kSecAttrAccount as String: id,
+            kSecAttrAccount as String: trimmedID,
             kSecReturnData as String: true,
             kSecMatchLimit as String: kSecMatchLimitOne,
             kSecUseAuthenticationContext as String: context
@@ -440,11 +480,15 @@ struct AuditAssistantCredentialStore {
     }
 
     func exists(id: String) throws -> Bool {
+        let trimmedID = normalizedCredentialID(id)
+        guard trimmedID.isEmpty == false else {
+            return false
+        }
         let context = authenticationContext(allowAuthenticationUI: false)
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
-            kSecAttrAccount as String: id,
+            kSecAttrAccount as String: trimmedID,
             kSecReturnAttributes as String: true,
             kSecMatchLimit as String: kSecMatchLimitOne,
             kSecUseAuthenticationContext as String: context
@@ -489,14 +533,85 @@ struct AuditAssistantCredentialStore {
     }
 
     private func delete(id: String, ignoreMissing: Bool) throws {
+        let trimmedID = normalizedCredentialID(id)
+        guard trimmedID.isEmpty == false else {
+            if ignoreMissing {
+                return
+            }
+            throw CredentialError.missingCredential
+        }
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
-            kSecAttrAccount as String: id
+            kSecAttrAccount as String: trimmedID
         ]
         let status = SecItemDelete(query as CFDictionary)
         guard status == errSecSuccess || (ignoreMissing && status == errSecItemNotFound) else {
             throw CredentialError.keychainFailure(status)
+        }
+    }
+
+    private func normalizedCredentialID(_ id: String) -> String {
+        id.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+}
+
+private enum AuditAssistantLocalization {
+    static func text(_ key: String, language: AppLanguage) -> String {
+        LocalizationStrings.text(key, language: language)
+    }
+
+    static func format(_ key: String, language: AppLanguage, _ arguments: CVarArg...) -> String {
+        String(
+            format: text(key, language: language),
+            locale: LocalizationStrings.locale(for: language),
+            arguments: arguments
+        )
+    }
+
+    static func listSeparator(language: AppLanguage) -> String {
+        switch LocalizationStrings.resolvedLanguage(language) {
+        case .zhHans:
+            return "；"
+        case .english, .system:
+            return "; "
+        }
+    }
+
+    static func reasonSeparator(language: AppLanguage) -> String {
+        switch LocalizationStrings.resolvedLanguage(language) {
+        case .zhHans:
+            return "、"
+        case .english, .system:
+            return ", "
+        }
+    }
+
+    static func fileSeparator(language: AppLanguage) -> String {
+        switch LocalizationStrings.resolvedLanguage(language) {
+        case .zhHans:
+            return " 与 "
+        case .english, .system:
+            return " and "
+        }
+    }
+
+    static func riskTitle(_ level: RiskLevel, language: AppLanguage) -> String {
+        switch level {
+        case .none: return text("risk.none", language: language)
+        case .low: return text("risk.low", language: language)
+        case .medium: return text("risk.medium", language: language)
+        case .high: return text("risk.high", language: language)
+        }
+    }
+
+    static func decisionTitle(_ decision: EvidenceDecision, language: AppLanguage) -> String {
+        switch decision {
+        case .pending: return text("review.status.pending", language: language)
+        case .confirmed: return text("review.status.confirmed", language: language)
+        case .falsePositive: return text("review.status.falsePositive", language: language)
+        case .ignored: return text("review.status.ignored", language: language)
+        case .whitelisted: return text("review.status.whitelisted", language: language)
         }
     }
 }
@@ -517,25 +632,25 @@ struct AuditAssistantService {
         var errorDescription: String? {
             switch self {
             case .disabled:
-                return "审计助手已关闭。"
+                return AuditAssistantLocalization.text("assistant.error.disabled", language: .system)
             case .invalidEndpoint:
-                return "API 地址格式无效。"
+                return AuditAssistantLocalization.text("assistant.error.invalidEndpoint", language: .system)
             case .missingModel:
-                return "缺少模型名称。"
+                return AuditAssistantLocalization.text("assistant.error.missingModel", language: .system)
             case .missingCredential:
-                return "缺少审计助手 API Key。"
+                return AuditAssistantLocalization.text("assistant.error.missingCredential", language: .system)
             case .emptyResponse:
-                return "审计助手没有返回内容。"
+                return AuditAssistantLocalization.text("assistant.error.emptyResponse", language: .system)
             case .timeout:
-                return "审计助手执行超时。"
+                return AuditAssistantLocalization.text("assistant.error.timeout", language: .system)
             case .httpStatus(let status, let message):
-                return "外部 API 返回 HTTP \(status)：\(message)"
+                return AuditAssistantLocalization.format("assistant.error.httpStatus", language: .system, status, message)
             case .unsupportedProviderProtocol(let provider, let apiProtocol):
-                return "\(provider) 不支持 \(apiProtocol) 接口协议。"
+                return AuditAssistantLocalization.format("assistant.error.unsupportedProviderProtocol", language: .system, provider, apiProtocol)
             case .unsupportedResponse(let message):
-                return "无法解析外部 API 响应：\(message)"
+                return AuditAssistantLocalization.format("assistant.error.unsupportedResponse", language: .system, message)
             case .responseTooLarge:
-                return "外部 API 响应过大。"
+                return AuditAssistantLocalization.text("assistant.error.responseTooLarge", language: .system)
             }
         }
     }
@@ -552,8 +667,13 @@ struct AuditAssistantService {
         self.urlSession = urlSession
     }
 
-    func explanation(for row: ReportTableRow, review: EvidenceReview?, configuration: AuditAssistantConfiguration) async throws -> String {
-        try await suggestion(for: row, review: review, configuration: configuration).displayText
+    func explanation(
+        for row: ReportTableRow,
+        review: EvidenceReview?,
+        configuration: AuditAssistantConfiguration,
+        language: AppLanguage = .system
+    ) async throws -> String {
+        try await suggestion(for: row, review: review, configuration: configuration).displayText(language: language)
     }
 
     func suggestion(for row: ReportTableRow, review: EvidenceReview?, configuration: AuditAssistantConfiguration) async throws -> AuditAssistantResult {
@@ -572,9 +692,10 @@ struct AuditAssistantService {
     func localExplanation(
         for row: ReportTableRow,
         review: EvidenceReview?,
-        configuration: AuditAssistantConfiguration
+        configuration: AuditAssistantConfiguration,
+        language: AppLanguage = .system
     ) -> AuditAssistantResult {
-        .localFallback(for: row, review: review, configuration: configuration)
+        .localFallback(for: row, review: review, configuration: configuration, language: language)
     }
 
     static func context(
@@ -653,16 +774,20 @@ struct AuditAssistantService {
         ]
     }
 
-    func testConnection(configuration: AuditAssistantConfiguration, credentialOverride: String? = nil) async throws -> AuditAssistantResult {
+    func testConnection(
+        configuration: AuditAssistantConfiguration,
+        credentialOverride: String? = nil,
+        language: AppLanguage = .system
+    ) async throws -> AuditAssistantResult {
         var testConfiguration = configuration
         testConfiguration.mode = .externalAPI
         let row = ReportTableRow(
             columns: ["connection-test.md"],
-            detailTitle: "审计助手连接测试",
-            detailBody: "请返回一段简短的连接测试结果。",
-            badges: [ReportBadge(title: "连接测试", tone: .accent)],
+            detailTitle: AuditAssistantLocalization.text("reports.assistantConnectionTestTitle", language: language),
+            detailBody: AuditAssistantLocalization.text("reports.assistantConnectionTestBody", language: language),
+            badges: [ReportBadge(title: AuditAssistantLocalization.text("reports.assistantConnectionTestBadge", language: language), tone: .accent)],
             evidenceType: .metadata,
-            riskAssessment: RiskAssessment(score: 0.1, reasons: ["连接测试"])
+            riskAssessment: RiskAssessment(score: 0.1, reasons: [AuditAssistantLocalization.text("reports.assistantConnectionTestBadge", language: language)])
         )
         return try await externalAPIExplanation(for: row, review: nil, configuration: testConfiguration, credentialOverride: credentialOverride)
     }
@@ -686,7 +811,9 @@ struct AuditAssistantService {
             throw AssistantError.responseTooLarge
         }
         guard let httpResponse = response as? HTTPURLResponse else {
-            throw AssistantError.unsupportedResponse("缺少 HTTP 响应。")
+            throw AssistantError.unsupportedResponse(
+                AuditAssistantLocalization.text("assistant.error.missingHTTPResponse", language: .system)
+            )
         }
         let requestID = Self.requestID(from: httpResponse)
         let text = String(data: data, encoding: .utf8)?
@@ -760,7 +887,7 @@ struct AuditAssistantService {
             )
         }
         return AuditAssistantResult(
-            summary: trimmed.isEmpty ? "审计助手没有返回可显示内容。" : trimmed,
+            summary: trimmed.isEmpty ? AuditAssistantLocalization.text("assistant.error.noDisplayContent", language: .system) : trimmed,
             provider: provider,
             model: model,
             requestID: requestID,

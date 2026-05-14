@@ -189,6 +189,28 @@ func providerRequestRejectsUnsupportedProtocolPairings() throws {
 }
 
 @Test
+func customOpenAICompatibleProviderRequiresExplicitBaseURL() throws {
+    #expect(AuditAssistantConfiguration.Provider.customOpenAICompatible.defaultBaseURL.isEmpty)
+
+    let context = AuditAssistantService.context(for: assistantFixtureRow(), review: nil, configuration: AuditAssistantConfiguration())
+    let configuration = AuditAssistantConfiguration(
+        mode: .externalAPI,
+        provider: .customOpenAICompatible,
+        apiProtocol: .openAIChatCompletions,
+        model: "gpt-5.4-mini"
+    )
+
+    do {
+        _ = try AuditAssistantProviderAdapter.request(
+            configuration: configuration,
+            context: context,
+            credential: "test-key"
+        )
+        Issue.record("Custom OpenAI-compatible providers should require an explicit base URL")
+    } catch AuditAssistantService.AssistantError.invalidEndpoint {}
+}
+
+@Test
 func disabledAssistantDoesNotGenerateSuggestions() async throws {
     do {
         _ = try await AuditAssistantService().suggestion(
@@ -289,7 +311,7 @@ func externalAssistantAPIReportsHTTPStatusErrors() async throws {
         model: "gpt-test",
         credentialID: "test-key"
     )
-    let credentialStore = AuditAssistantCredentialStore()
+    let credentialStore = AuditAssistantCredentialStore(service: "com.pitcherplant.desktop.audit-assistant.tests.\(UUID().uuidString)")
     try credentialStore.save("test-key", id: "test-key")
     defer { try? credentialStore.delete(id: "test-key") }
 
@@ -322,7 +344,7 @@ func appSettingsDoNotPersistAPIKey() throws {
         mode: .externalAPI,
         provider: .customOpenAICompatible,
         apiProtocol: .openAIChatCompletions,
-        baseURL: "https://api.masterjie.eu.cc/v1",
+        baseURL: "https://gateway.example.com/v1",
         model: "gpt-5.4-mini",
         credentialID: "unit-test-key"
     )
@@ -362,6 +384,29 @@ func assistantSettingsExposeOnlyDisabledAndAPIKeyModes() throws {
     #expect(AuditAssistantConfiguration.Provider.miniMax.supportedProtocols == [.miniMaxChatCompletion])
     #expect(AuditAssistantConfiguration.Provider.customOpenAICompatible.defaultModel == "gpt-5.4-mini")
     #expect(AuditAssistantConfiguration.Provider.openAI.defaultModel == "gpt-5.2")
+}
+
+@Test
+func assistantConfigurationProviderSwitchKeepsCustomGatewayExplicit() throws {
+    var configuration = AuditAssistantConfiguration(
+        mode: .externalAPI,
+        provider: .openAI,
+        apiProtocol: .openAIResponses,
+        baseURL: "https://api.openai.com/v1",
+        model: "gpt-5.2"
+    )
+
+    configuration.apply(provider: .customOpenAICompatible)
+
+    #expect(configuration.provider == .customOpenAICompatible)
+    #expect(configuration.apiProtocol == .openAIResponses)
+    #expect(configuration.baseURL.isEmpty)
+    #expect(configuration.baseURL.contains("masterjie") == false)
+
+    configuration.baseURL = "https://gateway.example.com/v1"
+    configuration.apply(provider: .customOpenAICompatible)
+
+    #expect(configuration.baseURL == "https://gateway.example.com/v1")
 }
 
 @Test
@@ -414,6 +459,23 @@ func keychainCredentialStoreRoundTripsAssistantKey() throws {
         _ = try store.read(id: id)
         Issue.record("删除后不应再读取到 Keychain 凭据")
     } catch AuditAssistantCredentialStore.CredentialError.missingCredential {}
+}
+
+@Test
+func keychainCredentialStoreNormalizesCredentialIDs() throws {
+    let store = AuditAssistantCredentialStore(service: "com.pitcherplant.desktop.audit-assistant.tests.\(UUID().uuidString)")
+    let id = "pitcherplant.tests.normalized.\(UUID().uuidString)"
+    defer { try? store.delete(id: id) }
+
+    try store.save("unit-test-secret", id: "  \(id)  \n")
+
+    #expect(try store.exists(id: id))
+    #expect(try store.exists(id: "\n\(id) "))
+    #expect(try store.read(id: id) == "unit-test-secret")
+    #expect(try store.read(id: " \(id)\n") == "unit-test-secret")
+
+    try store.delete(id: " \(id)\n")
+    #expect(try store.exists(id: id) == false)
 }
 
 @Test
