@@ -514,7 +514,7 @@ struct AuditAssistantCredentialStore {
             return false
         }
         guard try exists(id: targetID) == false else {
-            try deleteIfPresent(id: Self.legacyDefaultCredentialID)
+            try? deleteIfPresent(id: Self.legacyDefaultCredentialID)
             return false
         }
         let value = try read(id: Self.legacyDefaultCredentialID, allowAuthenticationUI: false)
