@@ -778,7 +778,7 @@ struct SettingsRootView: View {
     private func deleteAuditAssistantCredential() {
         do {
             let configuration = appState.appSettings.auditAssistant ?? AuditAssistantConfiguration()
-            try AuditAssistantCredentialStore().deleteIfPresent(id: configuration.credentialID)
+            try AuditAssistantCredentialStore().deleteCredentialAndLegacyIfPresent(id: configuration.credentialID)
             auditAssistantCredentialDraft = ""
             hasSavedAuditAssistantCredential = false
             auditAssistantCredentialRevealed = false

@@ -515,6 +515,7 @@ struct AuditAssistantCredentialStore {
         }
         let value = try read(id: Self.legacyDefaultCredentialID, allowAuthenticationUI: false)
         try save(value, id: targetID)
+        try deleteIfPresent(id: Self.legacyDefaultCredentialID)
         return true
     }
 
@@ -524,6 +525,13 @@ struct AuditAssistantCredentialStore {
 
     func deleteIfPresent(id: String) throws {
         try delete(id: id, ignoreMissing: true)
+    }
+
+    func deleteCredentialAndLegacyIfPresent(id: String) throws {
+        try deleteIfPresent(id: id)
+        if normalizedCredentialID(id) != Self.legacyDefaultCredentialID {
+            try deleteIfPresent(id: Self.legacyDefaultCredentialID)
+        }
     }
 
     private func authenticationContext(allowAuthenticationUI: Bool) -> LAContext {
