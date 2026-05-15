@@ -506,11 +506,15 @@ struct AuditAssistantCredentialStore {
 
     @discardableResult
     func migrateLegacyDefaultCredentialIfNeeded(to id: String) throws -> Bool {
-        let targetID = id.trimmingCharacters(in: .whitespacesAndNewlines)
+        let targetID = normalizedCredentialID(id)
         guard targetID.isEmpty == false, targetID != Self.legacyDefaultCredentialID else {
             return false
         }
-        guard try exists(id: targetID) == false, try exists(id: Self.legacyDefaultCredentialID) else {
+        guard try exists(id: Self.legacyDefaultCredentialID) else {
+            return false
+        }
+        guard try exists(id: targetID) == false else {
+            try deleteIfPresent(id: Self.legacyDefaultCredentialID)
             return false
         }
         let value = try read(id: Self.legacyDefaultCredentialID, allowAuthenticationUI: false)
