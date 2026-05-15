@@ -491,7 +491,27 @@ func keychainCredentialStoreMigratesLegacyDefaultKey() throws {
     try store.save("legacy-unit-test-secret", id: legacyID)
     #expect(try store.migrateLegacyDefaultCredentialIfNeeded(to: targetID))
     #expect(try store.read(id: targetID) == "legacy-unit-test-secret")
-    #expect(try store.read(id: legacyID) == "legacy-unit-test-secret")
+    #expect(try store.exists(id: legacyID) == false)
+    #expect(try store.migrateLegacyDefaultCredentialIfNeeded(to: targetID) == false)
+}
+
+@Test
+func keychainCredentialDeleteRemovesLegacyDefaultKey() throws {
+    let store = AuditAssistantCredentialStore(service: "com.pitcherplant.desktop.audit-assistant.tests.\(UUID().uuidString)")
+    let legacyID = AuditAssistantCredentialStore.legacyDefaultCredentialID
+    let targetID = "pitcherplant.tests.deleted.\(UUID().uuidString)"
+    defer {
+        try? store.delete(id: targetID)
+        try? store.delete(id: legacyID)
+    }
+
+    try store.save("target-unit-test-secret", id: targetID)
+    try store.save("legacy-unit-test-secret", id: legacyID)
+
+    try store.deleteCredentialAndLegacyIfPresent(id: targetID)
+
+    #expect(try store.exists(id: targetID) == false)
+    #expect(try store.exists(id: legacyID) == false)
     #expect(try store.migrateLegacyDefaultCredentialIfNeeded(to: targetID) == false)
 }
 
