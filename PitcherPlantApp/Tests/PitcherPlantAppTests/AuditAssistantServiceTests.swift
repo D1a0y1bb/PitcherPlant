@@ -515,6 +515,25 @@ func keychainCredentialDeleteRemovesLegacyDefaultKey() throws {
     #expect(try store.migrateLegacyDefaultCredentialIfNeeded(to: targetID) == false)
 }
 
+@Test
+func keychainCredentialMigrationRemovesStaleLegacyWhenTargetExists() throws {
+    let store = AuditAssistantCredentialStore(service: "com.pitcherplant.desktop.audit-assistant.tests.\(UUID().uuidString)")
+    let legacyID = AuditAssistantCredentialStore.legacyDefaultCredentialID
+    let targetID = "pitcherplant.tests.existing.\(UUID().uuidString)"
+    defer {
+        try? store.delete(id: targetID)
+        try? store.delete(id: legacyID)
+    }
+
+    try store.save("target-unit-test-secret", id: targetID)
+    try store.save("legacy-unit-test-secret", id: legacyID)
+
+    #expect(try store.migrateLegacyDefaultCredentialIfNeeded(to: targetID) == false)
+
+    #expect(try store.read(id: targetID) == "target-unit-test-secret")
+    #expect(try store.exists(id: legacyID) == false)
+}
+
 private func assistantFixtureRow() -> ReportTableRow {
     let evidenceID = UUID()
     return ReportTableRow(
