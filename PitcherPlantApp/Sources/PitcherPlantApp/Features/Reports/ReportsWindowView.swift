@@ -157,7 +157,7 @@ struct ReportsInlineView: View {
     }
 
     var body: some View {
-        VStack(spacing: 14) {
+        AppPageShell(spacing: 14) {
             AppToolbarBand {
                 ReportsCenterSelectorBar(
                     reports: filteredReports,
@@ -167,17 +167,12 @@ struct ReportsInlineView: View {
             }
             ReportSectionsAndEvidenceView(showsReportHeader: false)
         }
-        .padding(.horizontal, AppLayout.pagePadding)
-        .padding(.top, AppLayout.titlebarScrollContentTopPadding)
-        .padding(.bottom, AppLayout.pagePadding)
         .onAppear {
             refreshReportLibrary(immediate: true)
             syncVisibleReportSelection()
         }
         .onChange(of: reportQuery) { _, _ in refreshReportLibrary() }
         .onChange(of: appState.reportLibraryReports.map(\.id)) { _, _ in syncVisibleReportSelection() }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .ignoresSafeArea(.container, edges: .top)
     }
 
     private func refreshReportLibrary(immediate: Bool = false) {

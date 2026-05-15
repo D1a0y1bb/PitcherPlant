@@ -427,7 +427,7 @@ struct EvidenceCollectionView: View {
     var body: some View {
         let visibleItemIDs = visibleItems.map(\.id)
 
-        VStack(alignment: .leading, spacing: 24) {
+        AppPageShell(spacing: 24) {
             NativePageHeader(
                 title: appState.title(for: scope),
                 subtitle: "\(visibleItems.count) \(appState.t("reports.rows"))",
@@ -472,9 +472,6 @@ struct EvidenceCollectionView: View {
                 }
             }
         }
-        .padding(.horizontal, AppLayout.pagePadding)
-        .padding(.vertical, 22)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .onAppear {
             refreshItems()
             syncSelection()

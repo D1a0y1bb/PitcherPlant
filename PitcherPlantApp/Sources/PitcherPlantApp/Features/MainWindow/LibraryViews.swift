@@ -15,7 +15,7 @@ struct JobHistoryView: View {
     }
 
     var body: some View {
-        VStack(spacing: 14) {
+        AppPageShell(spacing: 14) {
             SearchHeader(title: appState.t("sidebar.history"), count: filteredJobs.count, query: $query, prompt: appState.t("history.searchPrompt"))
 
             AppTablePanel {
@@ -69,8 +69,6 @@ struct JobHistoryView: View {
                 .environment(\.defaultMinListRowHeight, settingsListRowHeight(compact: appState.appSettings.compactRows))
             }
         }
-        .padding(AppLayout.pagePadding)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
 }
 
@@ -90,7 +88,7 @@ struct FingerprintLibraryView: View {
     }
 
     var body: some View {
-        VStack(spacing: 14) {
+        AppPageShell(spacing: 14) {
             SearchHeader(title: appState.t("sidebar.fingerprints"), count: appState.fingerprintLibraryTotalCount, query: $query, prompt: appState.t("fingerprints.searchPrompt"))
 
             FingerprintActionsView(
@@ -147,8 +145,6 @@ struct FingerprintLibraryView: View {
                 .frame(maxHeight: .infinity, alignment: .topLeading)
             }
         }
-        .padding(AppLayout.pagePadding)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .onAppear {
             refreshFingerprintLibrary(immediate: true)
             refreshCleanupMatchCount(immediate: true)
@@ -421,7 +417,7 @@ struct WhitelistLibraryView: View {
     }
 
     var body: some View {
-        VStack(spacing: 14) {
+        AppPageShell(spacing: 14) {
             SearchHeader(title: appState.t("sidebar.whitelist"), count: filteredRules.count + filteredSuggestions.count, query: $query, prompt: appState.t("whitelist.searchPrompt"))
 
             WhitelistRuleEditor(newPattern: $newPattern, newType: $newType)
@@ -440,8 +436,6 @@ struct WhitelistLibraryView: View {
 
             WhitelistRulesSection(rules: filteredRules)
         }
-        .padding(AppLayout.pagePadding)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .task {
             if suggestions.isEmpty {
                 await refreshSuggestions()
