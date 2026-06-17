@@ -7,7 +7,7 @@ settings:
   base:
     SWIFT_VERSION: "6.2"
     MACOSX_DEPLOYMENT_TARGET: "26.0"
-    CURRENT_PROJECT_VERSION: 28
+    CURRENT_PROJECT_VERSION: 35
     MARKETING_VERSION: 0.2.2-beta
     CODE_SIGN_STYLE: Automatic
 packages:
@@ -47,7 +47,7 @@ targets:
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         ENABLE_HARDENED_RUNTIME: YES
         ENABLE_DEBUG_DYLIB: NO
-        PP_RELEASE_TAG: ""
+        PP_RELEASE_TAG: v0.2.2-beta
         PP_UPDATE_CHECK_URL: https://github.com/D1a0y1bb/PitcherPlant/releases/download/appcast-beta/appcast.xml
     scheme:
       gatherCoverageData: false
