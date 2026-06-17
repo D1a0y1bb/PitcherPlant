@@ -15,6 +15,13 @@ APP_BINARY="$APP_BUNDLE/Contents/MacOS/$APP_NAME"
 
 export PITCHERPLANT_WORKSPACE_ROOT="${PITCHERPLANT_WORKSPACE_ROOT:-$REPO_ROOT}"
 
+if [[ -z "${DEVELOPER_DIR:-}" ]]; then
+  ACTIVE_DEVELOPER_DIR="$(xcode-select -p 2>/dev/null || true)"
+  if [[ "$ACTIVE_DEVELOPER_DIR" == "/Library/Developer/CommandLineTools" && -d "/Applications/Xcode-beta.app/Contents/Developer" ]]; then
+    export DEVELOPER_DIR="/Applications/Xcode-beta.app/Contents/Developer"
+  fi
+fi
+
 pkill -x "$APP_NAME" >/dev/null 2>&1 || true
 
 xcodebuild \
