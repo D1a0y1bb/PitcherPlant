@@ -17,8 +17,15 @@ export PITCHERPLANT_WORKSPACE_ROOT="${PITCHERPLANT_WORKSPACE_ROOT:-$REPO_ROOT}"
 
 if [[ -z "${DEVELOPER_DIR:-}" ]]; then
   ACTIVE_DEVELOPER_DIR="$(xcode-select -p 2>/dev/null || true)"
-  if [[ "$ACTIVE_DEVELOPER_DIR" == "/Library/Developer/CommandLineTools" && -d "/Applications/Xcode-beta.app/Contents/Developer" ]]; then
-    export DEVELOPER_DIR="/Applications/Xcode-beta.app/Contents/Developer"
+  if [[ "$ACTIVE_DEVELOPER_DIR" == "/Library/Developer/CommandLineTools" ]]; then
+    if [[ -d "/Applications/Xcode-beta.app/Contents/Developer" ]]; then
+      export DEVELOPER_DIR="/Applications/Xcode-beta.app/Contents/Developer"
+    elif [[ -d "/Applications/Xcode.app/Contents/Developer" ]]; then
+      export DEVELOPER_DIR="/Applications/Xcode.app/Contents/Developer"
+    else
+      echo "No full Xcode installation found. Install Xcode or set DEVELOPER_DIR explicitly." >&2
+      exit 1
+    fi
   fi
 fi
 
