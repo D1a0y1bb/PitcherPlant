@@ -178,24 +178,32 @@ struct SettingsTextRow: View {
 struct SettingsPathPickerRow: View {
     @Environment(AppState.self) private var appState
     let title: String
+    var subtitle = ""
+    var icon: SettingsRowIconStyle = .generic
     @Binding var text: String
     var canCreateDirectories = false
 
     var body: some View {
-        AppControlRow(title: title) {
-            HStack(spacing: 8) {
+        SettingsControlRow(title: title, subtitle: subtitle, icon: icon) {
+            SettingsFieldChrome {
                 TextField(title, text: $text)
-                    .textFieldStyle(.roundedBorder)
+                    .textFieldStyle(.plain)
                     .font(AppTypography.smallCode)
+                    .multilineTextAlignment(.trailing)
                     .lineLimit(1)
                     .truncationMode(.middle)
+                    .frame(maxWidth: .infinity)
                     .accessibilityLabel(Text(title))
 
                 Button {
                     chooseDirectory()
                 } label: {
                     Image(systemName: "folder")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundStyle(.secondary)
+                        .frame(width: 24, height: 24)
                 }
+                .buttonStyle(.plain)
                 .help(appState.t("settings.choose"))
                 .accessibilityLabel(Text(appState.t("settings.choose")))
             }

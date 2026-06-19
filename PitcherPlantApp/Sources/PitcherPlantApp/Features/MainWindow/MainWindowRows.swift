@@ -5,62 +5,117 @@ struct PresetTableRow: View {
     let preset: AuditConfigurationPreset
 
     var body: some View {
-        HStack(spacing: 12) {
-            VStack(alignment: .leading, spacing: 2) {
-                Text(preset.name)
-                    .font(AppTypography.rowPrimary)
-                    .fontWeight(.medium)
-                Text(URL(fileURLWithPath: preset.configuration.directoryPath).lastPathComponent)
-                    .font(AppTypography.rowSecondary)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
+        SettingsRowContainer {
+            HStack(alignment: .center, spacing: 16) {
+                SettingsRowIcon(style: .calibrationPreset)
+
+                presetText
+                    .frame(maxWidth: .infinity, alignment: .leading)
+
+                HStack(spacing: 8) {
+                    Button(appState.t("audit.applyPreset")) {
+                        appState.applyPreset(preset)
+                    }
+                    .accessibilityLabel(Text(appState.tf("audit.applyPreset.accessibility", preset.name)))
+
+                    Button(appState.t("audit.runPreset")) {
+                        appState.beginAudit(using: preset)
+                    }
+                    .disabled(appState.isRunningAudit)
+                    .accessibilityLabel(Text(appState.tf("audit.runPreset.accessibility", preset.name)))
+
+                    Button(role: .destructive) {
+                        appState.deletePreset(preset)
+                    } label: {
+                        Label(appState.t("audit.deletePreset"), systemImage: "trash")
+                            .labelStyle(.iconOnly)
+                    }
+                    .help(appState.t("audit.deletePreset"))
+                    .accessibilityLabel(Text(appState.tf("audit.deletePreset.accessibility", preset.name)))
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
             }
-            Spacer()
-            Button(appState.t("audit.applyPreset")) { appState.applyPreset(preset) }
-                .accessibilityLabel(Text(appState.tf("audit.applyPreset.accessibility", preset.name)))
-            Button(appState.t("audit.runPreset")) {
-                appState.beginAudit(using: preset)
-            }
-                .disabled(appState.isRunningAudit)
-                .accessibilityLabel(Text(appState.tf("audit.runPreset.accessibility", preset.name)))
-            Button(role: .destructive) {
-                appState.deletePreset(preset)
-            } label: {
-                Label(appState.t("audit.deletePreset"), systemImage: "trash")
-                    .labelStyle(.iconOnly)
-            }
-            .buttonStyle(.borderless)
-            .help(appState.t("audit.deletePreset"))
-            .accessibilityLabel(Text(appState.tf("audit.deletePreset.accessibility", preset.name)))
         }
-        .padding(.horizontal, AppLayout.rowHorizontalPadding)
-        .padding(.vertical, 7)
+    }
+
+    private var presetText: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(preset.name)
+                .font(AppTypography.rowPrimary)
+                .fontWeight(.medium)
+                .lineLimit(1)
+            Text(URL(fileURLWithPath: preset.configuration.directoryPath).lastPathComponent)
+                .font(AppTypography.rowSecondary)
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+        }
     }
 }
 
 struct JobTableRow: View {
+    @Environment(AppState.self) private var appState
     let job: AuditJob
+    var isSelected = false
 
     var body: some View {
-        HStack(spacing: 12) {
-            StatusDot(status: job.status)
+        SettingsRowContainer {
+            HStack(alignment: .center, spacing: 16) {
+                SettingsRowIcon(style: SettingsRowIconStyle(systemImage: job.status.systemImage, color: .orange))
+
+                jobText
+                    .frame(maxWidth: .infinity, alignment: .leading)
+
+                jobMetadata
+            }
+        }
+        .background {
+            if isSelected {
+                Rectangle()
+                    .fill(Color.accentColor.opacity(0.12))
+            }
+        }
+        .accessibilityElement(children: .combine)
+    }
+
+    private var jobText: some View {
+        VStack(alignment: .leading, spacing: 2) {
             Text(URL(fileURLWithPath: job.configuration.directoryPath).lastPathComponent)
                 .font(AppTypography.rowPrimary)
                 .fontWeight(.medium)
                 .lineLimit(1)
-                .frame(maxWidth: .infinity, alignment: .leading)
-            StatusBadge(status: job.status)
-                .frame(width: 74, alignment: .trailing)
-            Text("\(job.progress)%")
+                .truncationMode(.middle)
+            Text(job.latestMessage.isEmpty ? appState.title(for: job.stage) : job.latestMessage)
+                .font(AppTypography.rowSecondary)
                 .foregroundStyle(.secondary)
-                .frame(width: 54, alignment: .trailing)
-            Text(job.updatedAt.formatted(date: .abbreviated, time: .shortened))
-                .foregroundStyle(.secondary)
-                .frame(width: 128, alignment: .trailing)
+                .lineLimit(1)
+                .truncationMode(.tail)
         }
-        .font(AppTypography.rowSecondary)
-        .padding(.horizontal, AppLayout.rowHorizontalPadding)
-        .padding(.vertical, 7)
+    }
+
+    private var jobMetadata: some View {
+        VStack(alignment: .trailing, spacing: 3) {
+            HStack(spacing: 8) {
+                StatusBadge(status: job.status)
+
+                Text("\(job.progress)%")
+                    .font(AppTypography.rowSecondary)
+                    .foregroundStyle(.secondary)
+                    .monospacedDigit()
+
+                if job.failureCount > 0 {
+                    Text(appState.tf("job.failureCountShort", job.failureCount))
+                        .font(AppTypography.rowSecondary)
+                        .foregroundStyle(.red)
+                        .monospacedDigit()
+                }
+            }
+
+            Text(job.updatedAt.formatted(date: .abbreviated, time: .shortened))
+                .font(AppTypography.metadata)
+                .foregroundStyle(.secondary)
+        }
+        .frame(width: 220, alignment: .trailing)
     }
 }
 
@@ -69,22 +124,61 @@ struct AuditReportListRow: View {
     let report: AuditReport
 
     var body: some View {
-        HStack(spacing: 12) {
-            Text(report.title)
-                .font(AppTypography.rowPrimary)
-                .fontWeight(.medium)
-                .lineLimit(1)
+        SettingsRowContainer {
+            HStack(alignment: .center, spacing: 16) {
+                SettingsRowIcon(style: .reportLibrary)
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(report.title)
+                        .font(AppTypography.rowPrimary)
+                        .fontWeight(.medium)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                    Text(report.scanDirectoryPath)
+                        .font(AppTypography.rowSecondary)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                }
                 .frame(maxWidth: .infinity, alignment: .leading)
-            Text("\(report.sections.count)")
-                .foregroundStyle(.secondary)
-                .frame(width: 54, alignment: .trailing)
-            Text(report.createdAt.formatted(date: .abbreviated, time: .shortened))
-                .foregroundStyle(.secondary)
-                .frame(width: 128, alignment: .trailing)
+
+                VStack(alignment: .trailing, spacing: 3) {
+                    Text(appState.tf("reports.sectionCount", report.sections.count))
+                        .font(AppTypography.rowSecondary)
+                        .foregroundStyle(.secondary)
+                    Text(report.createdAt.formatted(date: .abbreviated, time: .shortened))
+                        .font(AppTypography.metadata)
+                        .foregroundStyle(.secondary)
+                }
+                .frame(width: 160, alignment: .trailing)
+            }
         }
-        .font(AppTypography.rowSecondary)
-        .padding(.horizontal, AppLayout.rowHorizontalPadding)
-        .padding(.vertical, appState.appSettings.compactRows ? 5 : 9)
+        .accessibilityElement(children: .combine)
+    }
+}
+
+struct SettingsInlineEmptyRow: View {
+    let title: String
+    let subtitle: String
+    let systemImage: String
+
+    var body: some View {
+        SettingsRowContainer {
+            HStack(alignment: .center, spacing: 16) {
+                SettingsRowIcon(style: SettingsRowIconStyle(systemImage: systemImage, color: .gray))
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title)
+                        .font(AppTypography.rowPrimary)
+                    Text(subtitle)
+                        .font(AppTypography.supporting)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(2)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+        }
+        .accessibilityElement(children: .combine)
     }
 }
 

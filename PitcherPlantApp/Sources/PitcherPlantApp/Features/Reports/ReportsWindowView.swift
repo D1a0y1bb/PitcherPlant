@@ -157,14 +157,13 @@ struct ReportsInlineView: View {
     }
 
     var body: some View {
-        AppPageShell(spacing: 14) {
-            AppToolbarBand {
-                ReportsCenterSelectorBar(
-                    reports: filteredReports,
-                    totalCount: appState.reportLibraryTotalCount,
-                    reportQuery: $reportQuery
-                )
-            }
+        AppPageShell(spacing: SettingsLayout.sectionSpacing) {
+            ReportsCenterSelectorBar(
+                reports: filteredReports,
+                totalCount: appState.reportLibraryTotalCount,
+                reportQuery: $reportQuery
+            )
+            .frame(maxWidth: SettingsLayout.pageMaxWidth, alignment: .leading)
             ReportSectionsAndEvidenceView(showsReportHeader: false)
         }
         .onAppear {
@@ -209,52 +208,49 @@ private struct ReportsCenterSelectorBar: View {
     @State private var isLoadingMoreReports = false
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            ViewThatFits(in: .horizontal) {
-                HStack(alignment: .center, spacing: 12) {
-                    titleBlock
-                    Spacer()
+        SettingsGroup(title: appState.t("reports.title")) {
+            SettingsControlRow(
+                title: appState.t("reports.selectReport"),
+                subtitle: selectedReportTitle,
+                icon: .reportLibrary
+            ) {
+                HStack(spacing: 8) {
+                    SettingsStatusText(selectedReportTitle)
+                        .frame(maxWidth: .infinity, alignment: .trailing)
                     reportMenu
+                }
+            }
+
+            SettingsDivider()
+
+            SettingsControlRow(
+                title: appState.t("common.search"),
+                subtitle: countText,
+                icon: .search
+            ) {
+                TextField(appState.t("reports.searchPrompt"), text: $reportQuery)
+                    .textFieldStyle(.roundedBorder)
+                    .lineLimit(1)
+                    .accessibilityLabel(Text(appState.t("reports.searchPrompt")))
+            }
+
+            SettingsDivider()
+
+            SettingsControlRow(
+                title: appState.t("settings.exportReport"),
+                subtitle: countText,
+                icon: .exportFormat
+            ) {
+                HStack(spacing: 8) {
+                    Text(countText)
+                        .font(AppTypography.metadata)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                        .frame(maxWidth: .infinity, alignment: .trailing)
                     exportMenu
-                }
-
-                VStack(alignment: .leading, spacing: 10) {
-                    titleBlock
-                    HStack(spacing: 10) {
-                        reportMenu
-                        exportMenu
-                    }
+                    loadMoreButton
                 }
             }
-
-            HStack(spacing: 12) {
-                Text(countText)
-                    .font(AppTypography.metadata)
-                    .foregroundStyle(.secondary)
-
-                if totalCount > reports.count {
-                    Button {
-                        loadMoreReports()
-                    } label: {
-                        if isLoadingMoreReports {
-                            ProgressView()
-                                .controlSize(.small)
-                            Text(appState.t("reports.loadingMoreReports"))
-                        } else {
-                            Label(appState.t("reports.loadMoreReports"), systemImage: "arrow.down.circle")
-                        }
-                    }
-                    .buttonStyle(.bordered)
-                    .controlSize(.small)
-                    .disabled(isLoadingMoreReports)
-                    .help(appState.t("reports.loadMoreReports"))
-                    .accessibilityLabel(appState.t("reports.loadMoreReports"))
-                }
-            }
-
-            TextField(appState.t("reports.searchPrompt"), text: $reportQuery)
-                .textFieldStyle(.roundedBorder)
-                .frame(minWidth: 220, idealWidth: 320, maxWidth: 460)
         }
     }
 
@@ -263,23 +259,8 @@ private struct ReportsCenterSelectorBar: View {
         return reportQuery.isEmpty ? "\(count) \(appState.t("common.countSuffix"))" : "\(count) \(appState.t("reports.matchedReports"))"
     }
 
-    private var titleBlock: some View {
-        VStack(alignment: .leading, spacing: 3) {
-            Text(appState.t("reports.title"))
-                .font(AppTypography.sectionTitle)
-                .lineLimit(1)
-            if let report = appState.selectedReport {
-                Text(report.title)
-                    .font(AppTypography.metadata)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-                    .truncationMode(.middle)
-            } else {
-                Text(appState.t("reports.noReport"))
-                    .font(AppTypography.metadata)
-                    .foregroundStyle(.secondary)
-            }
-        }
+    private var selectedReportTitle: String {
+        appState.selectedReport?.title ?? appState.t("reports.noReport")
     }
 
     private var reportMenu: some View {
@@ -298,6 +279,7 @@ private struct ReportsCenterSelectorBar: View {
         } label: {
             Label(appState.t("reports.selectReport"), systemImage: "doc.on.doc")
         }
+        .controlSize(.small)
     }
 
     private var exportMenu: some View {
@@ -319,6 +301,29 @@ private struct ReportsCenterSelectorBar: View {
             Label(appState.t("settings.exportReport"), systemImage: "square.and.arrow.up")
         }
         .disabled(appState.selectedReport == nil)
+        .controlSize(.small)
+    }
+
+    @ViewBuilder
+    private var loadMoreButton: some View {
+        if totalCount > reports.count {
+            Button {
+                loadMoreReports()
+            } label: {
+                if isLoadingMoreReports {
+                    ProgressView()
+                        .controlSize(.small)
+                    Text(appState.t("reports.loadingMoreReports"))
+                } else {
+                    Label(appState.t("reports.loadMoreReports"), systemImage: "arrow.down.circle")
+                }
+            }
+            .buttonStyle(.bordered)
+            .controlSize(.small)
+            .disabled(isLoadingMoreReports)
+            .help(appState.t("reports.loadMoreReports"))
+            .accessibilityLabel(appState.t("reports.loadMoreReports"))
+        }
     }
 
     private func loadMoreReports() {

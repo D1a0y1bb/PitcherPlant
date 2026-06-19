@@ -903,125 +903,200 @@ struct NewAuditView: View {
 
     var body: some View {
         NativePage {
-            NativePageHeader(
-                title: appState.t("audit.title"),
-                subtitle: appState.t("audit.subtitle"),
-                actions: {
-                    Button(role: appState.isRunningAudit ? .destructive : nil) {
-                        handleAuditAction()
-                    } label: {
-                        Label(
-                            appState.isRunningAudit ? appState.t("command.cancelAudit") : appState.t("command.startAudit"),
-                            systemImage: appState.isRunningAudit ? "stop.fill" : "play.fill"
-                        )
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .tint(appState.isRunningAudit ? Color.red : Color.accentColor)
+            pageContent
+        }
+    }
+
+    private var pageContent: some View {
+        VStack(alignment: .leading, spacing: SettingsLayout.sectionSpacing) {
+            header
+            validationBanner
+            pathSettings
+            batchImportSettings
+            parameterSettings
+            presetSettings
+        }
+        .frame(maxWidth: SettingsLayout.pageMaxWidth, alignment: .leading)
+    }
+
+    private var header: some View {
+        NativePageHeader(
+            title: appState.t("audit.title"),
+            subtitle: appState.t("audit.subtitle"),
+            actions: {
+                Button(role: appState.isRunningAudit ? .destructive : nil) {
+                    handleAuditAction()
+                } label: {
+                    Label(
+                        appState.isRunningAudit ? appState.t("command.cancelAudit") : appState.t("command.startAudit"),
+                        systemImage: appState.isRunningAudit ? "stop.fill" : "play.fill"
+                    )
                 }
+                .buttonStyle(.borderedProminent)
+                .tint(appState.isRunningAudit ? Color.red : Color.accentColor)
+            }
+        )
+    }
+
+    private var pathSettings: some View {
+        SettingsGroup(title: appState.t("audit.paths")) {
+            SettingsPathPickerRow(
+                title: appState.t("audit.directory"),
+                subtitle: appState.t("settings.auditDirectoryDescription"),
+                icon: .inputFolder,
+                text: draftBinding(\.directoryPath)
             )
 
-            validationBanner
+            SettingsDivider()
 
-            NativeSection(title: appState.t("audit.paths"), subtitle: appState.t("audit.paths.subtitle")) {
-                VStack(spacing: 0) {
-                    SettingsPathPickerRow(
-                        title: appState.t("audit.directory"),
-                        text: draftBinding(\.directoryPath)
-                    )
-                    SettingsPathPickerRow(
-                        title: appState.t("audit.outputDirectory"),
-                        text: draftBinding(\.outputDirectoryPath),
-                        canCreateDirectories: true
-                    )
+            SettingsPathPickerRow(
+                title: appState.t("audit.outputDirectory"),
+                subtitle: appState.t("settings.reportDirectoryDescription"),
+                icon: .outputFolder,
+                text: draftBinding(\.outputDirectoryPath),
+                canCreateDirectories: true
+            )
+        }
+    }
+
+    private var batchImportSettings: some View {
+        SettingsGroup(title: appState.t("audit.batchImport")) {
+            SettingsControlRow(
+                title: appState.t("audit.submissionPackage"),
+                subtitle: appState.t("audit.batchImport.description"),
+                icon: .submissionImport
+            ) {
+                Button {
+                    appState.importSubmissionPackageWithPanel()
+                } label: {
+                    Label(appState.t("audit.importSubmissions"), systemImage: "tray.and.arrow.down")
                 }
+                .disabled(!appState.canImportSubmissionPackage)
             }
+        }
+    }
 
-            NativeSection(title: appState.t("audit.batchImport"), subtitle: appState.t("audit.batchImport.subtitle")) {
-                AppControlRow(title: appState.t("audit.batchImport"), subtitle: appState.t("audit.batchImport.description"), trailingWidth: 190) {
-                    Button {
-                        appState.importSubmissionPackageWithPanel()
-                    } label: {
-                        Label(appState.t("audit.importSubmissions"), systemImage: "tray.and.arrow.down")
-                    }
-                    .disabled(!appState.canImportSubmissionPackage)
-                }
+    private var parameterSettings: some View {
+        SettingsGroup(title: appState.t("audit.parameters")) {
+            SettingsNumberFieldRow(
+                title: appState.t("audit.textThreshold"),
+                subtitle: appState.t("settings.textThresholdDescription"),
+                icon: .textThreshold,
+                value: draftBinding(\.textThreshold),
+                range: 0...1,
+                step: 0.05,
+                hint: "0.00-1.00"
+            )
+
+            SettingsDivider()
+
+            SettingsNumberFieldRow(
+                title: appState.t("audit.dedupThreshold"),
+                subtitle: appState.t("settings.dedupThresholdDescription"),
+                icon: .duplicateThreshold,
+                value: draftBinding(\.dedupThreshold),
+                range: 0...1,
+                step: 0.05,
+                hint: "0.00-1.00"
+            )
+
+            SettingsDivider()
+
+            SettingsIntegerFieldRow(
+                title: appState.t("audit.imageThreshold"),
+                subtitle: appState.t("settings.imageThresholdDescription"),
+                icon: .imageThreshold,
+                value: draftBinding(\.imageThreshold),
+                range: 0...64,
+                step: 1,
+                hint: "0-64"
+            )
+
+            SettingsDivider()
+
+            SettingsIntegerFieldRow(
+                title: appState.t("audit.simhashThreshold"),
+                subtitle: appState.t("settings.simhashThresholdDescription"),
+                icon: .simhashThreshold,
+                value: draftBinding(\.simhashThreshold),
+                range: 0...64,
+                step: 1,
+                hint: "0-64"
+            )
+
+            SettingsDivider()
+
+            SettingsToggleRow(
+                title: appState.t("audit.visionOCR"),
+                subtitle: appState.t("settings.visionOCRDescription"),
+                icon: .vision,
+                isOn: Binding(
+                    get: { appState.draftConfiguration.useVisionOCR },
+                    set: { newValue in appState.updateDraft { $0.useVisionOCR = newValue } }
+                )
+            )
+
+            SettingsDivider()
+
+            SettingsPickerRow(
+                title: appState.t("audit.whitelistMode"),
+                subtitle: appState.t("settings.whitelistModeDescription"),
+                icon: .whitelist
+            ) {
+                SettingsMenuPicker(
+                    selection: Binding(
+                        get: { appState.draftConfiguration.whitelistMode },
+                        set: { newValue in appState.updateDraft { $0.whitelistMode = newValue } }
+                    ),
+                    options: AuditConfiguration.WhitelistMode.allCases,
+                    width: SettingsLayout.menuWidth,
+                    title: { appState.title(for: $0) }
+                )
             }
+        }
+    }
 
-            NativeSection(title: appState.t("audit.parameters"), subtitle: appState.t("audit.parameters.subtitle")) {
-                VStack(spacing: 0) {
-                    SettingsNumberRow(
-                        title: appState.t("audit.textThreshold"),
-                        value: draftBinding(\.textThreshold),
-                        range: 0...1,
-                        step: 0.05,
-                        hint: "0.00-1.00"
-                    )
-                    SettingsNumberRow(
-                        title: appState.t("audit.dedupThreshold"),
-                        value: draftBinding(\.dedupThreshold),
-                        range: 0...1,
-                        step: 0.05,
-                        hint: "0.00-1.00"
-                    )
-                    SettingsIntegerRow(
-                        title: appState.t("audit.imageThreshold"),
-                        value: draftBinding(\.imageThreshold),
-                        range: 0...64,
-                        step: 1,
-                        hint: "0-64"
-                    )
-                    SettingsIntegerRow(
-                        title: appState.t("audit.simhashThreshold"),
-                        value: draftBinding(\.simhashThreshold),
-                        range: 0...64,
-                        step: 1,
-                        hint: "0-64"
-                    )
-                    AppControlRow(title: appState.t("audit.visionOCR"), trailingWidth: 80) {
-                        Toggle("", isOn: Binding(
-                            get: { appState.draftConfiguration.useVisionOCR },
-                            set: { newValue in appState.updateDraft { $0.useVisionOCR = newValue } }
-                        ))
-                        .labelsHidden()
-                        .accessibilityLabel(Text(appState.t("audit.visionOCR")))
-                    }
-                    AppControlRow(title: appState.t("audit.whitelistMode"), trailingWidth: 180) {
-                        Picker("", selection: Binding(
-                            get: { appState.draftConfiguration.whitelistMode },
-                            set: { newValue in appState.updateDraft { $0.whitelistMode = newValue } }
-                        )) {
-                            ForEach(AuditConfiguration.WhitelistMode.allCases, id: \.self) { mode in
-                                Text(appState.title(for: mode)).tag(mode)
-                            }
-                        }
-                        .pickerStyle(.segmented)
-                        .frame(width: 160)
-                        .accessibilityLabel(Text(appState.t("audit.whitelistMode")))
-                    }
-                }
-            }
-
-            NativeSection(title: appState.t("audit.preset"), subtitle: appState.t("audit.preset.subtitle")) {
-                VStack(spacing: 0) {
-                    HStack(spacing: 12) {
+    private var presetSettings: some View {
+        SettingsGroup(title: appState.t("audit.preset")) {
+            SettingsControlRow(
+                title: appState.t("audit.presetName"),
+                subtitle: appState.t("audit.preset.subtitle"),
+                icon: .calibrationPreset
+            ) {
+                HStack(spacing: 8) {
+                    SettingsFieldChrome {
                         TextField(appState.t("audit.presetName"), text: $presetName)
-                            .textFieldStyle(.roundedBorder)
-                        Button(appState.t("audit.saveCurrent")) {
-                            let name = presetName
-                            presetName = ""
-                            appState.saveCurrentConfigurationPreset(named: name)
-                        }
-                        .disabled(presetName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                            .textFieldStyle(.plain)
+                            .font(AppTypography.smallCode)
+                            .multilineTextAlignment(.trailing)
+                            .lineLimit(1)
+                            .accessibilityLabel(Text(appState.t("audit.presetName")))
                     }
-                    .padding(.horizontal, AppLayout.rowHorizontalPadding)
-                    .padding(.vertical, AppLayout.rowVerticalPadding)
+                    .frame(maxWidth: .infinity)
 
-                    if appState.configurationPresets.isEmpty {
-                        EmptyInlineRow(title: appState.t("audit.emptyPreset"), subtitle: appState.t("audit.preset.subtitle"), systemImage: "slider.horizontal.3")
-                    } else {
-                        ForEach(appState.configurationPresets) { preset in
-                            PresetTableRow(preset: preset)
-                        }
+                    Button(appState.t("audit.saveCurrent")) {
+                        let name = presetName
+                        presetName = ""
+                        appState.saveCurrentConfigurationPreset(named: name)
+                    }
+                    .disabled(presetName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                }
+            }
+
+            SettingsDivider()
+
+            if appState.configurationPresets.isEmpty {
+                SettingsInlineEmptyRow(
+                    title: appState.t("audit.emptyPreset"),
+                    subtitle: appState.t("audit.preset.subtitle"),
+                    systemImage: "slider.horizontal.3"
+                )
+            } else {
+                ForEach(Array(appState.configurationPresets.enumerated()), id: \.element.id) { index, preset in
+                    PresetTableRow(preset: preset)
+
+                    if index < appState.configurationPresets.count - 1 {
+                        SettingsDivider()
                     }
                 }
             }
@@ -1139,32 +1214,5 @@ struct NewAuditView: View {
     private func normalizedPath(_ path: String) -> String {
         let trimmed = path.trimmingCharacters(in: .whitespacesAndNewlines)
         return (trimmed as NSString).expandingTildeInPath
-    }
-}
-
-private struct EmptyInlineRow: View {
-    let title: String
-    let subtitle: String
-    let systemImage: String
-
-    var body: some View {
-        HStack(alignment: .center, spacing: 12) {
-            Image(systemName: systemImage)
-                .foregroundStyle(.secondary)
-                .frame(width: 22)
-                .accessibilityHidden(true)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(title)
-                    .font(AppTypography.rowPrimary)
-                Text(subtitle)
-                    .font(AppTypography.supporting)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(2)
-            }
-            Spacer()
-        }
-        .padding(.horizontal, AppLayout.rowHorizontalPadding)
-        .padding(.vertical, 18)
-        .accessibilityElement(children: .combine)
     }
 }
