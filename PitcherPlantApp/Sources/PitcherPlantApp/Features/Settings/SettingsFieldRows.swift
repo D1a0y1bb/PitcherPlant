@@ -115,7 +115,7 @@ private struct SettingsPlainTextControl: View {
     }
 }
 
-private struct SettingsFieldChrome<Content: View>: View {
+struct SettingsFieldChrome<Content: View>: View {
     @ViewBuilder var content: Content
 
     var body: some View {

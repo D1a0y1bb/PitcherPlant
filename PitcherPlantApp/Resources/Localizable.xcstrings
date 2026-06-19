@@ -193,6 +193,22 @@
         }
       }
     },
+    "audit.submissionPackage": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Competition Package"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "竞赛提交包"
+          }
+        }
+      }
+    },
     "audit.dedupThreshold": {
       "localizations": {
         "en": {
@@ -2929,6 +2945,54 @@
         }
       }
     },
+    "history.empty": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No history tasks yet"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "暂无历史任务"
+          }
+        }
+      }
+    },
+    "history.emptyDescription": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Completed or running audit jobs will appear here."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "执行过的审计任务会显示在这里。"
+          }
+        }
+      }
+    },
+    "history.tasks": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Task List"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "任务列表"
+          }
+        }
+      }
+    },
     "job.copyDiagnostics": {
       "localizations": {
         "en": {
@@ -2973,6 +3037,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "失败"
+          }
+        }
+      }
+    },
+    "job.failureCountShort": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%d failed"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%d 失败"
           }
         }
       }
@@ -5453,6 +5533,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "条结构化记录"
+          }
+        }
+      }
+    },
+    "reports.sectionCount": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%d sections"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%d 个章节"
           }
         }
       }

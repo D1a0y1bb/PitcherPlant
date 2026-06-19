@@ -15,60 +15,44 @@ struct JobHistoryView: View {
     }
 
     var body: some View {
-        AppPageShell(spacing: 14) {
-            SearchHeader(title: appState.t("sidebar.history"), count: filteredJobs.count, query: $query, prompt: appState.t("history.searchPrompt"))
+        AppPageShell(spacing: SettingsLayout.sectionSpacing) {
+            VStack(alignment: .leading, spacing: SettingsLayout.sectionSpacing) {
+                SearchHeader(title: appState.t("sidebar.history"), count: filteredJobs.count, query: $query, prompt: appState.t("history.searchPrompt"))
+                historyGroup
+            }
+            .frame(maxWidth: SettingsLayout.pageMaxWidth, alignment: .leading)
+        }
+    }
 
-            AppTablePanel {
-                Table(filteredJobs, selection: Binding(
-                    get: { appState.selectedJobID },
-                    set: { selectedID in
-                        appState.selectedJobID = selectedID
-                        if selectedID != nil {
-                            appState.requestInspector()
-                        }
-                    }
-                )) {
-                    TableColumn(appState.t("audit.directory")) { job in
-                        Label(URL(fileURLWithPath: job.configuration.directoryPath).lastPathComponent, systemImage: job.status.systemImage)
-                            .lineLimit(1)
-                            .truncationMode(.middle)
-                    }
-                    TableColumn(appState.t("common.type")) { job in
-                        Text(appState.title(for: job.status))
-                            .foregroundStyle(.secondary)
-                    }
-                    .width(90)
-                    TableColumn(appState.t("job.stage")) { job in
-                        Text(appState.title(for: job.stage))
-                            .foregroundStyle(.secondary)
-                    }
-                    .width(min: 120, ideal: 150)
-                    TableColumn(appState.t("common.progress")) { job in
-                        Text("\(job.progress)%")
-                            .monospacedDigit()
-                            .foregroundStyle(.secondary)
-                    }
-                    .width(76)
-                    TableColumn(appState.t("job.failures")) { job in
-                        Text("\(job.failureCount)")
-                            .monospacedDigit()
-                            .foregroundStyle(job.failureCount > 0 ? .red : .secondary)
-                    }
-                    .width(56)
-                    TableColumn(appState.t("common.updatedAt")) { job in
-                        Text(job.updatedAt.formatted(date: .abbreviated, time: .shortened))
-                            .foregroundStyle(.secondary)
-                    }
-                    .width(min: 150, ideal: 180)
-                }
-                .frame(
-                    minHeight: 120,
-                    idealHeight: nativeTableIdealHeight(rowCount: filteredJobs.count, minHeight: 160, maxHeight: 360, rowHeight: settingsListRowHeight(compact: appState.appSettings.compactRows)),
-                    maxHeight: .infinity
+    private var historyGroup: some View {
+        SettingsGroup(title: appState.t("history.tasks")) {
+            if filteredJobs.isEmpty {
+                SettingsInlineEmptyRow(
+                    title: appState.t("history.empty"),
+                    subtitle: appState.t("history.emptyDescription"),
+                    systemImage: "clock.badge.questionmark"
                 )
-                .environment(\.defaultMinListRowHeight, settingsListRowHeight(compact: appState.appSettings.compactRows))
+            } else {
+                ForEach(Array(filteredJobs.enumerated()), id: \.element.id) { index, job in
+                    Button {
+                        selectJob(job)
+                    } label: {
+                        JobTableRow(job: job, isSelected: appState.selectedJobID == job.id)
+                    }
+                    .buttonStyle(.plain)
+                    .contentShape(Rectangle())
+
+                    if index < filteredJobs.count - 1 {
+                        SettingsDivider()
+                    }
+                }
             }
         }
+    }
+
+    private func selectJob(_ job: AuditJob) {
+        appState.selectedJobID = job.id
+        appState.requestInspector()
     }
 }
 
